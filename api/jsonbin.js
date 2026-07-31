@@ -1,0 +1,71 @@
+// Server-side proxy for JSONBin.io.
+//
+// This file runs on Vercel's servers, never in the browser — so the env
+// vars it reads are never shipped to visitors. The client (index.html)
+// calls /api/jsonbin instead of talking to JSONBin directly.
+//
+// Set these in Vercel: Project Settings -> Environment Variables
+//   JSONBIN_BIN_ID     e.g. 6a6b0f42f5f4af5e29d4be46
+//   JSONBIN_MASTER_KEY your JSONBin X-Master-Key
+//
+// After adding/changing env vars you must redeploy for them to take effect.
+
+export default async function handler(req, res) {
+  const { JSONBIN_BIN_ID, JSONBIN_MASTER_KEY } = process.env;
+
+  if (!JSONBIN_BIN_ID || !JSONBIN_MASTER_KEY) {
+    console.error("[api/jsonbin] missing JSONBIN_BIN_ID or JSONBIN_MASTER_KEY — check .env.local (dev) or Vercel env vars (prod), and restart the dev server after editing .env.local.");
+    return res.status(500).json({ error: "Server not configured: missing JSONBIN_BIN_ID or JSONBIN_MASTER_KEY env vars." });
+  }
+
+  const API_BASE = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
+
+  try {
+    if (req.method === "GET") {
+      const r = await fetch(`${API_BASE}/latest`, {
+        headers: { "X-Master-Key": JSONBIN_MASTER_KEY },
+      });
+      if (!r.ok) {
+        const text = await r.text().catch(() => "");
+        console.error(`[api/jsonbin] upstream GET failed: ${r.status} ${r.statusText} ${text}`);
+        return res.status(502).json({ error: "Upstream fetch failed" });
+      }
+      const data = await r.json();
+      return res.status(200).json({
+        entries: (data.record && data.record.entries) || [],
+        accounts: (data.record && data.record.accounts) || [],
+        logs: (data.record && data.record.logs) || [],
+      });
+    }
+
+    if (req.method === "PUT") {
+      let body = req.body;
+      // Vercel usually parses JSON bodies automatically, but guard in case
+      // it arrives as a raw string.
+      if (typeof body === "string") {
+        try { body = JSON.parse(body); } catch (e) { body = null; }
+      }
+      if (!body || typeof body !== "object") {
+        return res.status(400).json({ error: "Invalid body" });
+      }
+
+      const r = await fetch(API_BASE, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_MASTER_KEY },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const text = await r.text().catch(() => "");
+        console.error(`[api/jsonbin] upstream PUT failed: ${r.status} ${r.statusText} ${text}`);
+        return res.status(502).json({ error: "Upstream save failed" });
+      }
+      return res.status(200).json({ ok: true });
+    }
+
+    res.setHeader("Allow", "GET, PUT");
+    return res.status(405).json({ error: "Method not allowed" });
+  } catch (e) {
+    console.error("[api/jsonbin] unexpected error:", e);
+    return res.status(500).json({ error: "Proxy error" });
+  }
+}

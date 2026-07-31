@@ -1,0 +1,2518 @@
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+
+/* =========================================================================
+   SHARED CLOUD STORAGE — via /api/jsonbin (Vercel serverless proxy)
+   -------------------------------------------------------------------------
+   The actual JSONBin bin ID and master key live only in Vercel's server-side
+   environment variables (JSONBIN_BIN_ID, JSONBIN_MASTER_KEY) — see
+   api/jsonbin.js. This file never sees them, so nothing secret ships to
+   the browser. Set the env vars in your Vercel project settings, then
+   deploy; both of you read/write the same bin through this proxy.
+   ========================================================================= */
+// The shared access code is verified server-side by /api/login (env var
+// ACCESS_CODE) — it never ships to the browser. The one-time admin-bootstrap
+// code has been retired: an admin account already exists, so manage roles
+// from the Admin panel from here on.
+
+async function fetchRecord() {
+  const res = await fetch("/api/jsonbin");
+  if (!res.ok) throw new Error("fetch failed");
+  const data = await res.json();
+  return {
+    entries: data.entries || [],
+    accounts: data.accounts || [],
+    logs: data.logs || [],
+  };
+}
+
+async function saveRecord(record) {
+  const res = await fetch("/api/jsonbin", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(record),
+  });
+  if (!res.ok) throw new Error("save failed");
+  return true;
+}
+
+// Generates the personal numeric code a new account receives after signup.
+function generatePersonalCode() {
+  let code = "";
+  for (let i = 0; i < 10; i++) code += Math.floor(Math.random() * 10);
+  return code; // 10 digits
+}
+
+/* =========================================================================
+   SESSION PERSISTENCE — keeps the user signed in across visits
+   -------------------------------------------------------------------------
+   We only remember the personal code in localStorage. On the next visit we
+   look it up against the (freshly fetched) account list and log the person
+   in automatically, using the regular shared access code and whatever role
+   is stored on their account. "Sign out" clears the stored code so the
+   login screen shows up again on demand.
+   ========================================================================= */
+const SESSION_KEY = "twoTongues.personalCode";
+const THEME_KEY = "twoTongues.theme";
+
+function loadSavedTheme() {
+  try {
+    const t = localStorage.getItem(THEME_KEY);
+    return t === "light" ? "light" : "dark";
+  } catch (e) {
+    return "dark";
+  }
+}
+
+function savePersonalCode(code) {
+  try {
+    localStorage.setItem(SESSION_KEY, code);
+  } catch (e) {
+    // Storage might be unavailable (e.g. private browsing) — sign-in still
+    // works for this visit, it just won't be remembered next time.
+  }
+}
+
+function loadPersonalCode() {
+  try {
+    const code = localStorage.getItem(SESSION_KEY);
+    return code && code.trim() ? code.trim() : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function clearPersonalCode() {
+  try {
+    localStorage.removeItem(SESSION_KEY);
+  } catch (e) {}
+}
+
+/* =========================================================================
+   ICONS — small inline SVGs (no external icon package needed)
+   ========================================================================= */
+function Icon({ path, size = 16, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      {path}
+    </svg>
+  );
+}
+const SearchIcon = (p) => <Icon {...p} path={<><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></>} />;
+const PlusIcon = (p) => <Icon {...p} path={<><path d="M12 5v14"/><path d="M5 12h14"/></>} />;
+const BookIcon = (p) => <Icon {...p} path={<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4a1 1 0 0 0-1-1H6.5A2.5 2.5 0 0 0 4 5.5v14ZM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-3H6.5a2.5 2.5 0 0 0 0 5"/>} />;
+const XIcon = (p) => <Icon {...p} path={<><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>} />;
+const TrashIcon = (p) => <Icon {...p} path={<><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></>} />;
+const LoaderIcon = (p) => <Icon {...p} path={<path d="M21 12a9 9 0 1 1-6.219-8.56"/>} className="spin" />;
+const LoginIcon = (p) => <Icon {...p} path={<><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></>} />;
+const KeyIcon = (p) => <Icon {...p} path={<><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></>} />;
+const CopyIcon = (p) => <Icon {...p} path={<><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>} />;
+const CheckIcon = (p) => <Icon {...p} path={<path d="M20 6 9 17l-5-5"/>} />;
+const ChevronIcon = (p) => <Icon {...p} path={<path d="m9 18 6-6-6-6"/>} />;
+const EditIcon = (p) => <Icon {...p} path={<><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></>} />;
+const UsersIcon = (p) => <Icon {...p} path={<><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>} />;
+const EyeIcon = (p) => <Icon {...p} path={<><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></>} />;
+const EyeOffIcon = (p) => <Icon {...p} path={<><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></>} />;
+const SunIcon = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></>} />;
+const MoonIcon = (p) => <Icon {...p} path={<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/>} />;
+const MenuIcon = (p) => <Icon {...p} path={<><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></>} />;
+const UserIcon = (p) => <Icon {...p} path={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>} />;
+const LogoutIcon = (p) => <Icon {...p} path={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></>} />;
+const ZoomIcon = (p) => <Icon {...p} path={<><circle cx="11" cy="11" r="7"/><circle cx="11" cy="11" r="2.75"/><path d="m21 21-3.8-3.8"/></>} />;
+const GlobeIcon = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/></>} />;
+const QuizIcon = (p) => <Icon {...p} path={<><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8"/><path d="M8 13h5"/><path d="m8 17 2 2 4-4"/></>} />;
+const ExternalLinkIcon = (p) => <Icon {...p} path={<><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></>} />;
+
+// Builds the Cambridge Dictionary lookup URL for a given English word.
+function cambridgeUrl(word) {
+  const slug = (word || "").trim().toLowerCase().replace(/\s+/g, "-");
+  return `https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(slug)}`;
+}
+
+const EN_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const AR_LETTERS = "ابتثجحخدذرزسشصضطظعغفقكلمنهوي".split("");
+
+function firstLetterKey(word, section) {
+  if (!word) return "#";
+  const w = word.trim();
+  if (section === "en-ar") {
+    const c = w[0].toUpperCase();
+    return /[A-Z]/.test(c) ? c : "#";
+  } else {
+    const c = w[0];
+    return AR_LETTERS.includes(c) ? c : "#";
+  }
+}
+
+function uid() {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+/* =========================================================================
+   MCQ QUIZ — helpers
+   -------------------------------------------------------------------------
+   Turns "words studied in the last N minutes" into a shuffled set of
+   multiple-choice questions covering everything stored about each word:
+   its meaning (both directions), and its synonyms/antonyms when present.
+   ========================================================================= */
+
+// Returns the cutoff timestamp (ms) for a given range key, or null for "no
+// cutoff" (i.e. include every studied word, even ones without a timestamp).
+function quizRangeStart(key, customMinutes, sessionStart) {
+  const now = Date.now();
+  if (key === "all") return null;
+  if (key === "session") return sessionStart || now;
+  if (key === "today") {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+  if (key === "custom") {
+    const mins = Math.max(1, Math.min(10080, Number(customMinutes) || 0));
+    return now - mins * 60000;
+  }
+  const presetMinutes = { "10": 10, "30": 30, "60": 60, "180": 180, "1440": 1440 };
+  const mins = presetMinutes[key];
+  return mins ? now - mins * 60000 : null;
+}
+
+// Studied entries whose "marked as studied" timestamp falls within the
+// chosen range. Entries studied before this feature existed have no
+// timestamp — they only show up under "Any time".
+function selectQuizEntries(entries, studiedIds, studiedAt, rangeStart) {
+  return entries.filter((e) => {
+    if (!studiedIds.has(e.id)) return false;
+    if (rangeStart == null) return true;
+    const at = studiedAt[e.id];
+    return typeof at === "number" && at >= rangeStart;
+  });
+}
+
+function shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+// Picks up to `count` unique, non-empty values from `pool` that aren't in
+// `excludeValues` (case-insensitive) — used to build plausible wrong
+// answers for a multiple-choice question.
+function pickDistractors(pool, excludeValues, count) {
+  const excludeSet = new Set(excludeValues.filter(Boolean).map((v) => v.toLowerCase()));
+  const seen = new Set();
+  const unique = [];
+  for (const v of pool) {
+    if (!v) continue;
+    const key = v.toLowerCase();
+    if (excludeSet.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(v);
+  }
+  return shuffleArray(unique).slice(0, count);
+}
+
+// Builds every applicable MCQ question for one studied entry: what it
+// means, which word matches its meaning, and — if the entry has them — one
+// question for EACH synonym and EACH antonym it has (not just one picked at
+// random), so a word with several synonyms/antonyms gets asked about all
+// of them.
+function buildQuestionsForEntry(entry, allEntries) {
+  const sectionCfg = SECTIONS[entry.section] || SECTIONS["en-ar"];
+  const sameSection = allEntries.filter((e) => e.section === entry.section && e.id !== entry.id);
+  const otherPool = sameSection.length >= 3 ? sameSection : allEntries.filter((e) => e.id !== entry.id);
+  const questions = [];
+
+  // Word's own script/direction — stapled onto every question (regardless
+  // of type) so the results review can always show the word correctly,
+  // even for a "meaning_word" question whose prompt was the meaning.
+  const wordDir = sectionCfg.wordDir, wordFont = sectionCfg.wordFont;
+
+  const meaningDistractors = pickDistractors(otherPool.map((e) => e.meaning), [entry.meaning], 3);
+  if (meaningDistractors.length >= 1) {
+    questions.push({
+      id: uid(), entryId: entry.id, word: entry.word, wordDir, wordFont, type: "word_meaning",
+      promptText: entry.word, promptDir: sectionCfg.wordDir, promptFont: sectionCfg.wordFont,
+      options: shuffleArray([entry.meaning, ...meaningDistractors]), correct: entry.meaning,
+      optionDir: sectionCfg.meaningDir, optionFont: sectionCfg.meaningFont,
+    });
+  }
+
+  const wordDistractors = pickDistractors(otherPool.map((e) => e.word), [entry.word], 3);
+  if (wordDistractors.length >= 1) {
+    questions.push({
+      id: uid(), entryId: entry.id, word: entry.word, wordDir, wordFont, type: "meaning_word",
+      promptText: entry.meaning, promptDir: sectionCfg.meaningDir, promptFont: sectionCfg.meaningFont,
+      options: shuffleArray([entry.word, ...wordDistractors]), correct: entry.word,
+      optionDir: sectionCfg.wordDir, optionFont: sectionCfg.wordFont,
+    });
+  }
+
+  // Synonyms/antonyms are stored as { word, meaning } pairs. The quiz asks
+  // "which of these is a synonym/antonym of this word" — that's a
+  // same-language question (e.g. an English word's English synonym), so
+  // the word-language side is used here, never the Arabic meaning side.
+  // This also keeps every option in one question the same language as the
+  // distractor pool (other entries' `word`), so answers never mix scripts.
+  const synonymPairs = normalizePairs(entry.synonyms, sectionCfg).map((p) => p.word || p.meaning).filter(Boolean);
+  const antonymPairs = normalizePairs(entry.antonyms, sectionCfg).map((p) => p.word || p.meaning).filter(Boolean);
+
+  for (const correct of synonymPairs) {
+    const pool = [...antonymPairs, ...otherPool.map((e) => e.word)];
+    const distractors = pickDistractors(pool, [...synonymPairs, entry.word], 3);
+    if (distractors.length >= 1) {
+      questions.push({
+        id: uid(), entryId: entry.id, word: entry.word, wordDir, wordFont, type: "synonym",
+        promptText: entry.word, promptDir: sectionCfg.wordDir, promptFont: sectionCfg.wordFont,
+        options: shuffleArray([correct, ...distractors]), correct,
+        optionDir: sectionCfg.wordDir, optionFont: sectionCfg.wordFont,
+      });
+    }
+  }
+
+  for (const correct of antonymPairs) {
+    const pool = [...synonymPairs, ...otherPool.map((e) => e.word)];
+    const distractors = pickDistractors(pool, [...antonymPairs, entry.word], 3);
+    if (distractors.length >= 1) {
+      questions.push({
+        id: uid(), entryId: entry.id, word: entry.word, wordDir, wordFont, type: "antonym",
+        promptText: entry.word, promptDir: sectionCfg.wordDir, promptFont: sectionCfg.wordFont,
+        options: shuffleArray([correct, ...distractors]), correct,
+        optionDir: sectionCfg.wordDir, optionFont: sectionCfg.wordFont,
+      });
+    }
+  }
+
+  return questions;
+}
+
+// Builds the full shuffled question set for a quiz session. No cap on
+// count — every meaning/synonym/antonym question generated for the
+// studied words is included, so nothing gets left untested, just shuffled
+// into a random order.
+function buildQuiz(studiedEntries, allEntries) {
+  let all = [];
+  for (const entry of studiedEntries) all = all.concat(buildQuestionsForEntry(entry, allEntries));
+  return shuffleArray(all);
+}
+
+function quizQuestionLabel(type, isAr) {
+  switch (type) {
+    case "word_meaning": return tr(isAr, "What does this word mean?", "ما معنى هذه الكلمة؟");
+    case "meaning_word": return tr(isAr, "Which word matches this meaning?", "ما الكلمة التي تطابق هذا المعنى؟");
+    case "synonym": return tr(isAr, "Which of these is a synonym of this word?", "أيّ من هذه الكلمات مرادف لهذه الكلمة؟");
+    case "antonym": return tr(isAr, "Which of these is an antonym of this word?", "أيّ من هذه الكلمات ضد هذه الكلمة؟");
+    default: return "";
+  }
+}
+
+// Groups a question type into the three results-review sections the user
+// studies from afterwards: plain meaning, synonyms, antonyms.
+function quizResultCategory(type) {
+  if (type === "synonym") return "synonym";
+  if (type === "antonym") return "antonym";
+  return "meaning";
+}
+
+const QUIZ_RESULT_CATEGORIES = [
+  { key: "meaning", label: "Meaning", labelAr: "المعنى" },
+  { key: "synonym", label: "Synonyms", labelAr: "المرادفات" },
+  { key: "antonym", label: "Antonyms", labelAr: "المضادات" },
+];
+
+// mm:ss (or h:mm:ss for long sessions) from a millisecond duration.
+function formatQuizDuration(ms) {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
+
+/* =========================================================================
+   ADMIN ACTIVITY LOG
+   -------------------------------------------------------------------------
+   Every add/edit/delete of a word or account, and every sign in/out, gets
+   appended here and saved alongside entries/accounts in the same shared
+   record. Only rendered in the Admin panel (admins only). Capped so the
+   shared bin doesn't grow forever.
+   ========================================================================= */
+const MAX_LOG_ENTRIES = 500;
+function capLogs(list) {
+  return list.length > MAX_LOG_ENTRIES ? list.slice(list.length - MAX_LOG_ENTRIES) : list;
+}
+function makeLogEntry(action, message, actorName, actorCode) {
+  return { id: uid(), action, message, actorName: actorName || "", actorCode: actorCode || "", at: Date.now() };
+}
+
+// Classic edit-distance calculation — used to tolerate small typos in search.
+function levenshtein(a, b) {
+  a = a || ""; b = b || "";
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp = new Array(n + 1);
+  for (let j = 0; j <= n; j++) dp[j] = j;
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const temp = dp[j];
+      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = temp;
+    }
+  }
+  return dp[n];
+}
+
+// How many typos we tolerate scales with the query length — short queries
+// need to stay strict or everything would match.
+function typoBudget(len) {
+  if (len <= 3) return 0;
+  if (len <= 5) return 1;
+  if (len <= 9) return 2;
+  return 3;
+}
+
+// True if `needle` appears in `haystack` as a substring, OR is a close-enough
+// typo of any whitespace-separated word inside it.
+function fuzzyIncludes(haystack, needle) {
+  const h = (haystack || "").toLowerCase();
+  const n = (needle || "").trim().toLowerCase();
+  if (!n) return false;
+  if (h.includes(n)) return true;
+  const budget = typoBudget(n.length);
+  if (budget === 0) return false;
+  return h.split(/\s+/).some((tok) => Math.abs(tok.length - n.length) <= budget && levenshtein(tok, n) <= budget);
+}
+
+// Scores how well a single word matches the query, for ranking autocomplete
+// suggestions (lower is better; null means "not a match").
+function matchScore(word, needle) {
+  const w = (word || "").toLowerCase();
+  const n = (needle || "").trim().toLowerCase();
+  if (!n) return null;
+  if (w.startsWith(n)) return 0;
+  if (w.includes(n)) return 1;
+  const budget = typoBudget(n.length);
+  if (budget === 0) return null;
+  const dist = levenshtein(w, n);
+  return dist <= budget ? 2 + dist : null;
+}
+
+function detectDir(text) {
+  return /[\u0600-\u06FF]/.test(text) ? "rtl" : "ltr";
+}
+function detectFont(text) {
+  return /[\u0600-\u06FF]/.test(text) ? "'Cairo', sans-serif" : "'JetBrains Mono', 'Cairo', monospace";
+}
+
+// Tiny inline translation helper — used throughout the authenticated app so
+// that the Arabic → Arabic section's page (chrome, buttons, messages) reads
+// entirely in Arabic, just like the English → Arabic section reads entirely
+// in English.
+function tr(isAr, en, ar) {
+  return isAr ? ar : en;
+}
+
+/* =========================================================================
+   SYNONYM / ANTONYM PAIRS — each synonym/antonym is stored as a pair:
+   { id, word, meaning } — the synonym/antonym itself (same language as the
+   dictionary's word column) and the meaning of that word (same language as
+   the dictionary's meaning column) — shown as two boxes side by side,
+   using each section's own direction/font so the Arabic→Arabic section
+   reads fully right-to-left. normalizePairs() also upgrades entries saved
+   in older shapes (plain strings, or the old {en, ar} pairs).
+   ========================================================================= */
+function normalizePairs(list, cfg) {
+  if (!Array.isArray(list)) return [];
+  const wordIsLtr = !cfg || cfg.wordDir === "ltr";
+  return list
+    .map((item) => {
+      if (item && typeof item === "object") {
+        if ("word" in item || "meaning" in item) {
+          return { id: item.id || uid(), word: item.word || "", meaning: item.meaning || "" };
+        }
+        // legacy {en, ar} shape
+        if (wordIsLtr) return { id: item.id || uid(), word: item.en || "", meaning: item.ar || "" };
+        return { id: item.id || uid(), word: item.ar || item.en || "", meaning: item.ar ? "" : item.en || "" };
+      }
+      const str = String(item || "").trim();
+      if (!str) return null;
+      return { id: uid(), word: str, meaning: "" };
+    })
+    .filter(Boolean)
+    .filter((p) => p.word || p.meaning);
+}
+
+// Editable pair list — used in the add/edit word form for synonyms and
+// antonyms. Each row is two boxes facing each other, styled with the
+// section's own word/meaning direction and font, so the box order and
+// alignment naturally flip to right-to-left for an all-Arabic section.
+// Pressing Enter in either box (physical keyboard) never submits the
+// form — it adds a fresh empty row and moves focus into it, so typing
+// several synonyms/antonyms in a row feels continuous. The word is only
+// saved when the "Save word" button is used, as usual.
+function PairListEditor({ cfg, label, pairs, onChange, isAr }) {
+  const [focusId, setFocusId] = useState(null);
+  const wordRefs = useRef({});
+
+  useEffect(() => {
+    if (focusId && wordRefs.current[focusId]) {
+      wordRefs.current[focusId].focus();
+      setFocusId(null);
+    }
+  }, [focusId, pairs]);
+
+  function updateRow(id, field, value) {
+    onChange(pairs.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
+  }
+  function addRow(focusNew) {
+    const row = { id: uid(), word: "", meaning: "" };
+    onChange([...pairs, row]);
+    if (focusNew) setFocusId(row.id);
+  }
+  function removeRow(id) {
+    onChange(pairs.filter((p) => p.id !== id));
+  }
+  function handleEnter(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      addRow(true);
+    }
+  }
+  return (
+    <div>
+      <label style={labelStyle}>{label}</label>
+      {pairs.map((p) => (
+        <div key={p.id} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
+          <input
+            ref={(el) => (wordRefs.current[p.id] = el)}
+            value={p.word} onChange={(e) => updateRow(p.id, "word", e.target.value)}
+            onKeyDown={handleEnter}
+            placeholder={tr(isAr, "Word", "الكلمة")} dir={cfg.wordDir}
+            style={{ ...inputStyle, flex: 1, minWidth: 0, fontFamily: cfg.wordFont, fontSize: 14 }}
+          />
+          <input
+            value={p.meaning} onChange={(e) => updateRow(p.id, "meaning", e.target.value)}
+            onKeyDown={handleEnter}
+            placeholder={tr(isAr, "Meaning in Arabic", "المعنى بالعربي")} dir={cfg.meaningDir}
+            style={{ ...inputStyle, flex: 1, minWidth: 0, fontFamily: cfg.meaningFont, fontSize: 14 }}
+          />
+          <button
+            type="button" onClick={() => removeRow(p.id)}
+            aria-label={tr(isAr, "Remove", "حذف")}
+            style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 4, flexShrink: 0, display: "flex" }}
+          >
+            <XIcon size={15} />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button" onClick={() => addRow(true)}
+        style={{ display: "inline-flex", alignItems: "center", gap: 4, border: "none", background: "none", cursor: "pointer", color: "var(--accent-1)", fontSize: 13, fontWeight: 600, padding: "2px 0 12px" }}
+      >
+        <PlusIcon size={13} /> {tr(isAr, "Add", "إضافة")}
+      </button>
+    </div>
+  );
+}
+
+// Read-only pair display — used on the entry card and the zoom view.
+// Renders each synonym/antonym as two boxes side by side, in the
+// section's own word/meaning direction and font.
+function PairListDisplay({ cfg, pairs }) {
+  const clean = normalizePairs(pairs, cfg);
+  if (!clean.length) return null;
+  return (
+    <div dir={cfg.dir} style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 3 }}>
+      {clean.map((p) => (
+        <div key={p.id} style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
+          <span dir={cfg.wordDir} style={{ flex: 1, minWidth: 0, fontFamily: cfg.wordFont, padding: "3px 8px", background: "var(--input-bg)", borderRadius: 3, color: INK }}>
+            {p.word || "—"}
+          </span>
+          <span dir={cfg.meaningDir} style={{ flex: 1, minWidth: 0, fontFamily: cfg.meaningFont, padding: "3px 8px", background: "var(--input-bg)", borderRadius: 3, color: "var(--meaning)" }}>
+            {p.meaning || "—"}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// The hamburger/header menu is the same in both dictionary sections — it
+// follows the device's own system language, not whichever section (EN→AR /
+// AR→AR) happens to be open.
+function detectDeviceIsAr() {
+  try {
+    const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || ""];
+    return langs.some((l) => (l || "").toLowerCase().startsWith("ar"));
+  } catch (e) {
+    return false;
+  }
+}
+const deviceIsAr = detectDeviceIsAr();
+
+// Some validation errors are produced in DictionaryApp (shared logic, not
+// section-aware) as fixed English sentences. Map the known ones to Arabic
+// when the Admin panel is being viewed from the Arabic → Arabic section.
+function translateAdminError(msg, isAr) {
+  if (!isAr) return msg;
+  const retryMatch = /^Too many attempts — try again in (\d+)s\.$/.exec(msg || "");
+  if (retryMatch) return `محاولات كثيرة جدًا — حاول مرة أخرى بعد ${retryMatch[1]} ثانية.`;
+  if (msg === "Server not configured: missing ACCESS_CODE env var.") return "الخادم غير مُهيأ: متغير ACCESS_CODE مفقود.";
+  const map = {
+    "Enter a name.": "أدخل اسمًا.",
+    "An account with this name already exists.": "يوجد حساب بهذا الاسم بالفعل.",
+    "That name is already taken.": "هذا الاسم مستخدم بالفعل.",
+    "Enter the access code.": "أدخل رمز الوصول.",
+    "Still loading — please try again in a moment.": "جارٍ التحميل — يرجى المحاولة مرة أخرى بعد لحظة.",
+    "Enter your personal code.": "أدخل رمزك الشخصي.",
+    "That personal code doesn't match any account.": "هذا الرمز الشخصي لا يطابق أي حساب.",
+    "Couldn't verify the access code — check your connection and try again.": "تعذّر التحقق من رمز الوصول — تحقق من اتصالك وحاول مرة أخرى.",
+    "That access code doesn't match.": "رمز الوصول غير مطابق.",
+  };
+  return map[msg] || msg;
+}
+
+const SECTIONS = {
+  "en-ar": {
+    label: "English → Arabic", shortLabel: "EN → AR", dir: "ltr",
+    accent: "var(--accent-1)", accentSoft: "var(--accent-1-soft)",
+    wordPlaceholder: "Word in English", wordDir: "ltr", wordFont: "'JetBrains Mono', 'Cairo', monospace",
+    meaningPlaceholder: "المعنى بالعربية", meaningDir: "rtl", meaningFont: "'Cairo', sans-serif",
+    letters: EN_LETTERS,
+  },
+  "ar-ar": {
+    label: "Arabic → Arabic", shortLabel: "AR → AR", dir: "rtl",
+    accent: "var(--accent-2)", accentSoft: "var(--accent-2-soft)",
+    wordPlaceholder: "الكلمة", wordDir: "rtl", wordFont: "'Cairo', sans-serif",
+    meaningPlaceholder: "الشرح بالعربية", meaningDir: "rtl", meaningFont: "'Cairo', sans-serif",
+    letters: AR_LETTERS,
+  },
+};
+
+const INK = "var(--ink)", PAPER = "var(--paper)", CARD = "var(--card)", BRASS = "var(--accent-1)";
+
+const labelStyle = { display: "block", fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 12, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted-strong)", margin: "14px 0 6px" };
+const inputStyle = { width: "100%", boxSizing: "border-box", padding: "10px 12px", fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 15, color: INK, background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 3 };
+const errorStyle = { marginTop: 12, fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 13, color: "var(--danger)", background: "var(--danger-bg)", border: "1px solid var(--danger-border)", borderRadius: 3, padding: "8px 10px", animation: "staggerIn 0.3s ease both" };
+const primaryBtnStyle = { marginTop: 20, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 14px", fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 15, fontWeight: 700, letterSpacing: "0.01em", color: "#fff", background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))", backgroundSize: "160% 160%", border: "none", borderRadius: 8, cursor: "pointer", boxShadow: "0 10px 24px -12px rgba(var(--focus-rgb),0.6)" };
+const authCardStyle = { position: "relative", width: "100%", maxWidth: 400, background: CARD, border: "1px solid rgba(var(--border-rgb),0.15)", borderRadius: 18, padding: "34px 30px 30px", boxShadow: "0 2px 0 rgba(0,0,0,0.06), 0 24px 60px -20px rgba(var(--border-rgb),0.4)" };
+const authInputStyle = { ...inputStyle, borderRadius: 8, padding: "11px 13px" };
+const authBadgeWrapStyle = { position: "relative", width: 56, height: 56, borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))", boxShadow: "0 10px 24px -10px rgba(var(--focus-rgb),0.65)", flexShrink: 0 };
+
+function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin, onLogout, isAr }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    function onKeyDown(e) { if (e.key === "Escape") setOpen(false); }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  function itemClick(fn) {
+    setOpen(false);
+    fn();
+  }
+
+  const itemStyle = { display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 14px", fontSize: 13, fontWeight: 600, color: "var(--ink)", background: "none", border: "none", textAlign: "start", cursor: "pointer" };
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button onClick={() => setOpen((o) => !o)} title={tr(isAr, "Menu", "القائمة")} aria-label={tr(isAr, "Menu", "القائمة")} aria-expanded={open} className="lift-hover"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, border: "1px solid rgba(var(--border-rgb),0.25)", background: "none", color: "var(--icon-muted)", borderRadius: 3, cursor: "pointer" }}>
+        <MenuIcon size={16} />
+      </button>
+      {open && (
+        <div role="menu" style={{ position: "absolute", top: "calc(100% + 6px)", insetInlineEnd: 0, minWidth: 190, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 4, boxShadow: "0 12px 30px -12px rgba(0,0,0,0.35)", overflow: "hidden", zIndex: 40, animation: "scaleIn 0.18s cubic-bezier(0.22,1,0.36,1) both", transformOrigin: "top" }}>
+          <button role="menuitem" style={itemStyle} onClick={() => itemClick(onToggleTheme)}>
+            {theme === "dark" ? <SunIcon size={15} /> : <MoonIcon size={15} />}
+            {theme === "dark" ? tr(isAr, "Light Mode", "الوضع الفاتح") : tr(isAr, "Dark Mode", "الوضع الداكن")}
+          </button>
+          <button role="menuitem" style={{ ...itemStyle, borderTop: "1px solid rgba(var(--border-rgb),0.12)" }} onClick={() => itemClick(onOpenAccount)}>
+            <UserIcon size={15} /> {tr(isAr, "My Account", "حسابي")}
+          </button>
+          {isAdmin && (
+            <button role="menuitem" style={{ ...itemStyle, borderTop: "1px solid rgba(var(--border-rgb),0.12)" }} onClick={() => itemClick(onOpenAdmin)}>
+              <UsersIcon size={15} /> {tr(isAr, "Admin Panel", "لوحة التحكم")}
+            </button>
+          )}
+          <button role="menuitem" style={{ ...itemStyle, borderTop: "1px solid rgba(var(--border-rgb),0.12)", color: "var(--danger)" }} onClick={() => itemClick(onLogout)}>
+            <LogoutIcon size={15} /> {tr(isAr, "Sign Out", "تسجيل الخروج")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Small language switcher — shown on the login screen (floating, top corner
+// of the card) and reused as-is (inline) in the main app header, so the
+// button looks identical wherever it appears.
+function LanguageToggle({ isAr, onToggle, floating = true }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={tr(isAr, "Switch to Arabic", "التبديل إلى الإنجليزية")}
+      className="lift-hover"
+      style={{
+        ...(floating ? { position: "absolute", top: 14, insetInlineEnd: 14 } : {}),
+        display: "flex", alignItems: "center", gap: 6,
+        padding: "6px 10px", fontSize: 12, fontWeight: 600,
+        color: "var(--icon-muted)", background: "var(--input-bg)",
+        border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 20,
+        cursor: "pointer", fontFamily: "'JetBrains Mono', 'Cairo', monospace",
+      }}>
+      <GlobeIcon size={13} />
+      {isAr ? "English" : "العربية"}
+    </button>
+  );
+}
+
+function Shell({ children }) {
+  return (
+    <div style={{ position: "relative", minHeight: "100vh", background: PAPER, backgroundImage: "radial-gradient(circle at 1px 1px, rgba(var(--border-rgb),0.06) 1px, transparent 0)", backgroundSize: "18px 18px", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, overflow: "hidden" }}>
+      <div className="auth-orb" style={{ width: 320, height: 320, top: "-8%", insetInlineStart: "-6%", background: "radial-gradient(circle, var(--accent-1) 0%, transparent 70%)", animationDuration: "12s" }} />
+      <div className="auth-orb" style={{ width: 260, height: 260, bottom: "-8%", insetInlineEnd: "-4%", background: "radial-gradient(circle, var(--accent-2) 0%, transparent 70%)", animationDuration: "14s", animationDelay: "-4s" }} />
+      <div className="auth-orb" style={{ width: 180, height: 180, top: "38%", insetInlineEnd: "8%", background: "radial-gradient(circle, var(--focus-rgb, 25,167,206), transparent 70%)", opacity: 0.28, animationDuration: "9s", animationDelay: "-2s" }} />
+      <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const savedPersonalCode = loadPersonalCode();
+
+export default function DictionaryApp() {
+  // Fixed the moment this tab loaded — powers the quiz's "This session"
+  // time-range option ("studied since I opened the site this time").
+  const sessionStartRef = useRef(Date.now());
+  const [authStage, setAuthStage] = useState(savedPersonalCode ? "restoring" : "login"); // signup | codeShown | login | restoring | in
+  const [name, setName] = useState("");
+  const [codeInput, setCodeInput] = useState("");
+  const [personalCodeInput, setPersonalCodeInput] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [loggingIn, setLoggingIn] = useState(false);
+  const [signupError, setSignupError] = useState("");
+  const [signupSaving, setSignupSaving] = useState(false);
+  const [myCode, setMyCode] = useState("");
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // App-wide language toggle — starts out matching the device's system
+  // language, but the switch in the header (and on the login screen) lets
+  // the user flip it manually (Arabic <-> English) anywhere in the site.
+  const [appLang, setAppLang] = useState(deviceIsAr ? "ar" : "en");
+  const appIsAr = appLang === "ar";
+  const atr = (en, ar) => tr(appIsAr, en, ar);
+  function toggleAppLang() {
+    setAppLang((l) => (l === "ar" ? "en" : "ar"));
+  }
+
+  const [entries, setEntries] = useState([]);
+  const [entriesLoaded, setEntriesLoaded] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [accounts, setAccounts] = useState([]);
+  const [accountsLoaded, setAccountsLoaded] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [logsLoaded, setLogsLoaded] = useState(false);
+  const [accountCode, setAccountCode] = useState(""); // this browser's signed-in account's personal code
+  const [section, setSection] = useState("en-ar");
+  const [query, setQuery] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [showAccount, setShowAccount] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [toast, setToast] = useState("");
+  const [theme, setTheme] = useState(loadSavedTheme);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
+  }, [theme]);
+
+  function toggleTheme() {
+    setTheme((t) => (t === "dark" ? "light" : "dark"));
+  }
+
+  function showToast(message) {
+    setToast(message);
+    setTimeout(() => setToast(""), 3000);
+  }
+
+  const studiedIds = useMemo(() => {
+    const acct = accounts.find((a) => a.code === accountCode);
+    return new Set((acct && acct.studied) || []);
+  }, [accounts, accountCode]);
+
+  // When each currently-studied entry was marked as studied (ms since epoch),
+  // for the signed-in account — powers the MCQ quiz's "studied in the last…"
+  // time-range picker. Entries marked studied before this feature existed
+  // won't have a timestamp; the quiz treats those as "any time".
+  const studiedAt = useMemo(() => {
+    const acct = accounts.find((a) => a.code === accountCode);
+    return (acct && acct.studiedAt) || {};
+  }, [accounts, accountCode]);
+
+  // Load the shared record (entries + accounts) once on mount — accounts are
+  // needed for both signup (checking for name clashes) and login (checking
+  // the personal code), and entries are ready by the time the user gets in.
+  // If a personal code was remembered from a previous visit, try it against
+  // the freshly-loaded accounts and log straight in — otherwise fall back to
+  // the login screen.
+  // Whenever the auth stage settles to something other than "restoring" (auto
+  // login succeeded, the saved code was invalid, or loading failed), stamp
+  // the CURRENT (base) history entry with that final stage. Without this,
+  // the base entry stays frozen on the transient "restoring" snapshot from
+  // mount — so pressing "back" out of any modal later lands back on
+  // "restoring" and the app gets stuck there.
+  function syncBaseHistory(stage) {
+    window.history.replaceState({ authStage: stage, showAdd: false, showAccount: false, showAdmin: false, section: "en-ar" }, "");
+  }
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const rec = await fetchRecord();
+        setEntries(rec.entries);
+        setAccounts(rec.accounts);
+        setLogs(rec.logs);
+        if (savedPersonalCode) {
+          const account = rec.accounts.find((a) => a.code === savedPersonalCode);
+          if (account) {
+            setName(account.name);
+            setIsAdmin(account.role === "admin");
+            setAccountCode(account.code);
+            setAuthStage("in");
+            syncBaseHistory("in");
+          } else {
+            clearPersonalCode();
+            setAuthStage("login");
+            syncBaseHistory("login");
+          }
+        }
+      } catch (e) {
+        setLoadError("Couldn't load the shared dictionary. Check your connection and try refreshing.");
+        if (savedPersonalCode) {
+          setAuthStage("login");
+          syncBaseHistory("login");
+        }
+      } finally {
+        setEntriesLoaded(true);
+        setAccountsLoaded(true);
+        setLogsLoaded(true);
+      }
+    })();
+  }, []);
+
+  // ---------------------------------------------------------------------
+  // History integration: without this, the phone's/browser's back button has
+  // nothing to "undo" inside the app, so it just leaves the page entirely —
+  // which feels like the page closed. We push a history entry for every
+  // screen change, the add-word modal, and section switches (EN→AR / AR→AR),
+  // and a popstate listener restores the matching in-app state instead of
+  // letting the browser navigate away.
+  // ---------------------------------------------------------------------
+  const isPoppingRef = useRef(false);
+
+  useEffect(() => {
+    window.history.replaceState({ authStage, showAdd: false, showAccount: false, showAdmin: false, section: "en-ar" }, "");
+    function onPopState(e) {
+      const state = e.state || { authStage: savedPersonalCode ? "restoring" : "login", showAdd: false, showAccount: false, showAdmin: false, section: "en-ar" };
+      isPoppingRef.current = true;
+      let nextStage = state.authStage || "login";
+      // History entries created before Sign Out still carry authStage: "in"
+      // (pushState snapshots aren't retroactively updated on logout). Never
+      // trust a snapshot claiming an authenticated view unless there's still
+      // an actual signed-in session — otherwise Back after Sign Out silently
+      // re-enters the app.
+      if (nextStage === "in" && !loadPersonalCode()) {
+        nextStage = "login";
+      }
+      setAuthStage(nextStage);
+      setShowAdd(!!state.showAdd);
+      setShowAccount(!!state.showAccount);
+      setShowAdmin(!!state.showAdmin);
+      setSection(state.section || "en-ar");
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  // Merges overrides on top of the current in-app state so every push carries
+  // forward whichever stage/modal/section wasn't the thing that just changed.
+  function pushHistory(overrides) {
+    window.history.pushState({ authStage, showAdd, showAccount, showAdmin, section, ...overrides }, "");
+  }
+
+  function goToStage(stage) {
+    setAuthStage(stage);
+    pushHistory({ authStage: stage, showAdd: false, showAccount: false, showAdmin: false });
+  }
+
+  function openAddModal() {
+    setShowAdd(true);
+    pushHistory({ showAdd: true });
+  }
+
+  const closeAddModal = useCallback(() => {
+    if (window.history.state && window.history.state.showAdd) {
+      window.history.back(); // popstate listener will flip showAdd off
+    } else {
+      setShowAdd(false);
+    }
+  }, []);
+
+  function openAccountModal() {
+    setShowAccount(true);
+    pushHistory({ showAccount: true });
+  }
+
+  const closeAccountModal = useCallback(() => {
+    if (window.history.state && window.history.state.showAccount) {
+      window.history.back();
+    } else {
+      setShowAccount(false);
+    }
+  }, []);
+
+  function openAdminModal() {
+    setShowAdmin(true);
+    pushHistory({ showAdmin: true });
+  }
+
+  const closeAdminModal = useCallback(() => {
+    if (window.history.state && window.history.state.showAdmin) {
+      window.history.back();
+    } else {
+      setShowAdmin(false);
+    }
+  }, []);
+
+  function changeSection(nextSection) {
+    setSection(nextSection);
+    setQuery("");
+    pushHistory({ section: nextSection });
+  }
+
+  const persistEntries = useCallback(async (next, logEntry) => {
+    setEntries(next);
+    const nextLogs = logEntry ? capLogs([...logs, logEntry]) : logs;
+    if (logEntry) setLogs(nextLogs);
+    try {
+      await saveRecord({ entries: next, accounts, logs: nextLogs });
+      setSaveError("");
+    } catch (e) {
+      setSaveError("Couldn't save — check your connection and try again.");
+    }
+  }, [accounts, logs]);
+
+  const persistAccounts = useCallback(async (next, logEntry) => {
+    setAccounts(next);
+    const nextLogs = logEntry ? capLogs([...logs, logEntry]) : logs;
+    if (logEntry) setLogs(nextLogs);
+    try {
+      await saveRecord({ entries, accounts: next, logs: nextLogs });
+      setSaveError("");
+    } catch (e) {
+      setSaveError("Couldn't save — check your connection and try again.");
+    }
+  }, [entries, logs]);
+
+  // For events that don't touch entries/accounts (sign in/out) — still saved
+  // into the same shared record so it stays in sync with everything else.
+  const persistLogs = useCallback(async (next) => {
+    setLogs(next);
+    try {
+      await saveRecord({ entries, accounts, logs: next });
+    } catch (e) {
+      // Best-effort: a failed log write shouldn't block sign-in/out.
+    }
+  }, [entries, accounts]);
+
+  function logEvent(action, message, actorName, actorCode) {
+    persistLogs(capLogs([...logs, makeLogEntry(action, message, actorName, actorCode)]));
+  }
+
+  // Toggles whether the current signed-in account has marked a given entry
+  // as studied/seen. Stored per-account (account.studied: [entryId, ...]) so
+  // each user tracks their own progress against the shared word list. Also
+  // stamps (or clears) account.studiedAt[entryId] with when that happened,
+  // so the quiz can later ask "words I studied in the last N minutes".
+  async function handleToggleStudied(entryId) {
+    const acct = accounts.find((a) => a.code === accountCode);
+    const current = (acct && acct.studied) || [];
+    const currentAt = (acct && acct.studiedAt) || {};
+    const nowStudying = !current.includes(entryId);
+    const nextStudied = nowStudying
+      ? [...current, entryId]
+      : current.filter((id) => id !== entryId);
+    const nextStudiedAt = { ...currentAt };
+    if (nowStudying) nextStudiedAt[entryId] = Date.now();
+    else delete nextStudiedAt[entryId];
+    const nextAccounts = accounts.map((a) => (a.code === accountCode ? { ...a, studied: nextStudied, studiedAt: nextStudiedAt } : a));
+    await persistAccounts(nextAccounts);
+  }
+
+  async function handleSignup(e) {
+    e.preventDefault();
+    setSignupError("");
+    const trimmed = name.trim();
+    if (!trimmed) { setSignupError("Enter your name."); return; }
+
+    setSignupSaving(true);
+    try {
+      // Re-fetch the freshest account list right before checking/creating, so a
+      // name taken moments ago by someone else (on any device) is still caught.
+      const rec = await fetchRecord();
+      const clash = rec.accounts.some((a) => a.name.toLowerCase() === trimmed.toLowerCase());
+      if (clash) {
+        setSignupError("An account with this name already exists. Use another name, or sign in if it's yours.");
+        setAccounts(rec.accounts);
+        setEntries(rec.entries);
+        setLogs(rec.logs);
+        return;
+      }
+      const code = generatePersonalCode();
+      const nextAccounts = [...rec.accounts, { name: trimmed, code, role: "user", createdAt: Date.now() }];
+      const nextLogs = capLogs([...(rec.logs || []), makeLogEntry("account_add", `${trimmed} created an account (self sign-up)`, trimmed, code)]);
+      await saveRecord({ entries: rec.entries, accounts: nextAccounts, logs: nextLogs });
+      setEntries(rec.entries);
+      setAccounts(nextAccounts);
+      setLogs(nextLogs);
+      setMyCode(code);
+      goToStage("codeShown");
+    } catch (err) {
+      setSignupError("Couldn't create the account — check your connection and try again.");
+    } finally {
+      setSignupSaving(false);
+    }
+  }
+
+  async function handleCopyCode() {
+    try {
+      await navigator.clipboard.writeText(myCode);
+    } catch (err) {
+      // Fallback for browsers/contexts without clipboard API access.
+      const ta = document.createElement("textarea");
+      ta.value = myCode;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch (e2) {}
+      document.body.removeChild(ta);
+    }
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 1800);
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    setAuthError("");
+
+    const code = codeInput.trim();
+    if (!code) { setAuthError("Enter the access code."); return; }
+
+    if (!accountsLoaded) { setAuthError("Still loading — please try again in a moment."); return; }
+    const trimmedPersonal = personalCodeInput.trim();
+    if (!trimmedPersonal) { setAuthError("Enter your personal code."); return; }
+    const account = accounts.find((a) => a.code === trimmedPersonal);
+    if (!account) { setAuthError("That personal code doesn't match any account."); return; }
+
+    setLoggingIn(true);
+    let verified;
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      verified = await res.json();
+    } catch (err) {
+      setLoggingIn(false);
+      setAuthError("Couldn't verify the access code — check your connection and try again.");
+      return;
+    }
+    setLoggingIn(false);
+    if (!verified || !verified.ok) {
+      setAuthError((verified && verified.error) || "That access code doesn't match.");
+      return;
+    }
+
+    setName(account.name);
+    setIsAdmin(account.role === "admin");
+    setAccountCode(account.code);
+    savePersonalCode(account.code);
+
+    // The very first successful sign-in for an account gets its own log
+    // action ("first_sign_in") so admins can tell brand-new users apart
+    // from returning ones in the activity log. Admin accounts' own sign-ins
+    // aren't logged at all — only regular users' sign in/out show up here.
+    if (account.role !== "admin") {
+      const isFirstSignIn = !account.firstSignInAt;
+      const logEntry = makeLogEntry(
+        isFirstSignIn ? "first_sign_in" : "sign_in",
+        isFirstSignIn ? `${account.name} signed in for the first time` : `${account.name} signed in`,
+        account.name, account.code
+      );
+      if (isFirstSignIn) {
+        const nextAccounts = accounts.map((a) => (a.code === account.code ? { ...a, firstSignInAt: Date.now() } : a));
+        await persistAccounts(nextAccounts, logEntry);
+      } else {
+        await persistLogs(capLogs([...logs, logEntry]));
+      }
+    }
+    goToStage("in");
+  }
+
+  function handleLogout() {
+    if (accountCode && !isAdmin) {
+      logEvent("sign_out", `${name} signed out`, name, accountCode);
+    }
+    clearPersonalCode();
+    setName("");
+    setIsAdmin(false);
+    setAccountCode("");
+    setCodeInput("");
+    setPersonalCodeInput("");
+    setAuthError("");
+    setShowAdd(false);
+    setShowAccount(false);
+    setShowAdmin(false);
+    goToStage("login");
+  }
+
+  // Self-service: the signed-in person renaming themselves from "My account".
+  async function handleUpdateOwnName(newName) {
+    const trimmed = newName.trim();
+    if (!trimmed) return { error: "Enter your name." };
+    const clash = accounts.some((a) => a.code !== accountCode && a.name.toLowerCase() === trimmed.toLowerCase());
+    if (clash) return { error: "That name is already taken." };
+    const oldName = name;
+    const nextAccounts = accounts.map((a) => (a.code === accountCode ? { ...a, name: trimmed } : a));
+    const logEntry = makeLogEntry("account_edit", `${oldName} renamed their own account to "${trimmed}"`, trimmed, accountCode);
+    await persistAccounts(nextAccounts, logEntry);
+    setName(trimmed);
+    showToast("Account info updated.");
+    return { ok: true };
+  }
+
+  // Admin panel: create a new account with a freshly generated personal code.
+  async function handleAdminAddAccount(newName, role) {
+    const trimmed = newName.trim();
+    if (!trimmed) return { error: "Enter a name." };
+    const clash = accounts.some((a) => a.name.toLowerCase() === trimmed.toLowerCase());
+    if (clash) return { error: "An account with this name already exists." };
+    const code = generatePersonalCode();
+    const nextRole = role === "admin" ? "admin" : "user";
+    const nextAccounts = [...accounts, { name: trimmed, code, role: nextRole, createdAt: Date.now() }];
+    const logEntry = makeLogEntry("account_add", `${name} added account "${trimmed}" (${nextRole === "admin" ? "Admin" : "User"})`, name, accountCode);
+    await persistAccounts(nextAccounts, logEntry);
+    return { ok: true, code };
+  }
+
+  // Admin panel: edit another (or your own) account's name/role.
+  async function handleAdminEditAccount(targetCode, updates) {
+    const trimmedName = (updates.name || "").trim();
+    if (!trimmedName) return { error: "Enter a name." };
+    const clash = accounts.some((a) => a.code !== targetCode && a.name.toLowerCase() === trimmedName.toLowerCase());
+    if (clash) return { error: "That name is already taken." };
+    const nextRole = updates.role === "admin" ? "admin" : "user";
+    const target = accounts.find((a) => a.code === targetCode);
+    const nextAccounts = accounts.map((a) => (a.code === targetCode ? { ...a, name: trimmedName, role: nextRole } : a));
+    const logEntry = makeLogEntry(
+      "account_edit",
+      `${name} edited account "${(target && target.name) || targetCode}" → name: "${trimmedName}", role: ${nextRole === "admin" ? "Admin" : "User"}`,
+      name, accountCode
+    );
+    await persistAccounts(nextAccounts, logEntry);
+    if (targetCode === accountCode) {
+      // Editing your own account updates what's shown immediately, including
+      // losing admin-panel access right away if you demoted yourself.
+      setName(trimmedName);
+      setIsAdmin(nextRole === "admin");
+    }
+    return { ok: true };
+  }
+
+  // Admin panel: remove an account. If an admin removes their own account,
+  // sign them out immediately rather than leaving them in a stale session.
+  async function handleAdminDeleteAccount(targetCode) {
+    const target = accounts.find((a) => a.code === targetCode);
+    const nextAccounts = accounts.filter((a) => a.code !== targetCode);
+    const logEntry = makeLogEntry("account_delete", `${name} deleted account "${(target && target.name) || targetCode}"`, name, accountCode);
+    await persistAccounts(nextAccounts, logEntry);
+    if (targetCode === accountCode) {
+      handleLogout();
+    }
+  }
+
+  if (authStage === "signup") {
+    return (
+      <Shell>
+        <div className="auth-card" style={authCardStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+            <div className="auth-badge" style={authBadgeWrapStyle}>
+              <BookIcon size={24} color="#fff" />
+            </div>
+            <div>
+              <h1 style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 24, fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
+              <div style={{ width: 34, height: 3, borderRadius: 2, background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))", marginTop: 6, animation: "underlineGrow 0.6s ease 0.2s both" }} />
+            </div>
+          </div>
+          <p style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 22px" }}>
+            Create your account with just your name — you'll get a personal code to sign in with.
+          </p>
+          <form onSubmit={handleSignup}>
+            <div className="auth-field-1">
+              <label style={labelStyle} htmlFor="signup-name">Your name</label>
+              <input id="signup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Omar" style={authInputStyle} autoFocus autoCapitalize="off" autoCorrect="off" />
+            </div>
+            {signupError && <div style={errorStyle} role="alert" aria-live="assertive">{signupError}</div>}
+            <button type="submit" disabled={signupSaving} className="btn-shine" style={primaryBtnStyle}>
+              {signupSaving ? <LoaderIcon size={16} /> : <PlusIcon size={16} />} Create account
+            </button>
+          </form>
+          <p className="auth-field-2" style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 13, color: "var(--muted-strong)", textAlign: "center", marginTop: 18 }}>
+            Already have an account?{" "}
+            <a href="#" onClick={(e) => { e.preventDefault(); setAuthError(""); goToStage("login"); }} className="link-underline" style={{ color: BRASS, fontWeight: 600, textDecoration: "none" }}>
+              Sign in
+            </a>
+          </p>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (authStage === "codeShown") {
+    return (
+      <Shell>
+        <div className="auth-card" style={authCardStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+            <div className="auth-badge" style={{ ...authBadgeWrapStyle, animation: "floatY 4.5s ease-in-out infinite, pulseGlow 2.2s ease-in-out infinite" }}>
+              <KeyIcon size={24} color="#fff" />
+            </div>
+            <div>
+              <h1 style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 22, fontWeight: 600, color: INK, margin: 0 }}>Your personal code</h1>
+              <div style={{ width: 34, height: 3, borderRadius: 2, background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))", marginTop: 6, animation: "underlineGrow 0.6s ease 0.2s both" }} />
+            </div>
+          </div>
+          <p style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 18px" }}>
+            Save this code — you'll need it, along with the shared access code, every time you sign in.
+          </p>
+          <div
+            onClick={handleCopyCode}
+            title="Click to copy"
+            role="button"
+            tabIndex={0}
+            className="auth-field-1"
+            aria-label={`Your personal code is ${myCode.split("").join(" ")}. Activate to copy.`}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleCopyCode(); } }}
+            style={{ textAlign: "center", padding: "20px 10px", background: codeCopied ? "var(--success-bg)" : "var(--input-bg)", border: `1.5px dashed ${codeCopied ? "rgba(var(--success-border-rgb),0.5)" : "rgba(var(--border-rgb),0.3)"}`, borderRadius: 10, marginBottom: 8, cursor: "pointer", userSelect: "none", transition: "background 0.2s, border-color 0.2s, transform 0.2s" }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
+            <span style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 32, fontWeight: 600, letterSpacing: "0.08em", color: INK, animation: codeCopied ? "popIn 0.35s ease" : "none" }}>{myCode}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 12, color: codeCopied ? "var(--success)" : "var(--muted)", fontFamily: "'JetBrains Mono', 'Cairo', monospace", marginBottom: 18, minHeight: 16 }}>
+            {codeCopied ? (<><CheckIcon size={13} /> Copied</>) : (<><CopyIcon size={13} /> Click the code to copy</>)}
+          </div>
+          <button
+            onClick={() => { setCodeInput(""); setPersonalCodeInput(""); setAuthError(""); goToStage("login"); }}
+            className="btn-shine"
+            style={primaryBtnStyle}>
+            <LoginIcon size={16} />Continue to sign in
+          </button>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (authStage === "restoring") {
+    return (
+      <Shell>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--muted-strong)", animation: "fadeIn 0.4s ease" }}>
+          <LoaderIcon size={18} /><span>Signing you in…</span>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (authStage === "login") {
+    return (
+      <Shell>
+        <div className="auth-card" style={authCardStyle} dir={appIsAr ? "rtl" : "ltr"}>
+          <LanguageToggle isAr={appIsAr} onToggle={toggleAppLang} />
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+            <div className="auth-badge" style={authBadgeWrapStyle}>
+              <BookIcon size={24} color="#fff" />
+              <span style={{ position: "absolute", inset: -5, borderRadius: 19, border: "1.5px solid rgba(var(--focus-rgb),0.35)", animation: "pulseGlow 2.6s ease-in-out infinite" }} />
+            </div>
+            <div>
+              <h1 style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 24, fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
+              <div style={{ width: 34, height: 3, borderRadius: 2, background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))", marginTop: 6, animation: "underlineGrow 0.6s ease 0.2s both" }} />
+            </div>
+          </div>
+          <p style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 22px" }}>
+            {atr("Enter the shared access code and your personal code to open the dictionary.", "أدخل رمز الوصول المشترك ورمزك الشخصي لفتح القاموس.")}
+          </p>
+          <form onSubmit={handleLogin}>
+            <div className="auth-field-1">
+              <label style={labelStyle} htmlFor="login-personal-code"><KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Personal code", "الرمز الشخصي")}</label>
+              <input id="login-personal-code" value={personalCodeInput} onChange={(e) => setPersonalCodeInput(e.target.value)} placeholder={atr("The code you received", "الرمز الذي حصلت عليه")} style={authInputStyle} autoFocus autoCapitalize="off" autoCorrect="off" autoComplete="off" spellCheck={false} inputMode="numeric" />
+            </div>
+            <div className="auth-field-2">
+              <label style={labelStyle} htmlFor="login-access-code"><KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Access code", "رمز الوصول")}</label>
+              <input id="login-access-code" value={codeInput} onChange={(e) => setCodeInput(e.target.value)} placeholder={atr("Enter the shared code", "أدخل الرمز المشترك")} style={authInputStyle} autoCapitalize="off" autoCorrect="off" autoComplete="off" spellCheck={false} />
+            </div>
+            {authError && <div style={errorStyle} role="alert" aria-live="assertive">{translateAdminError(authError, appIsAr)}</div>}
+            <button type="submit" disabled={loggingIn} className="btn-shine auth-field-3" style={primaryBtnStyle}>
+              {loggingIn ? <LoaderIcon size={16} /> : <LoginIcon size={16} />} {atr("Enter", "دخول")}
+            </button>
+          </form>
+          <p className="auth-field-3" style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 13, color: "var(--muted-strong)", textAlign: "center", marginTop: 18 }}>
+            {atr("Don't have an account?", "ليس لديك حساب؟")}{" "}
+            <a href="#" onClick={(e) => { e.preventDefault(); setSignupError(""); goToStage("signup"); }} className="link-underline" style={{ color: BRASS, fontWeight: 600, textDecoration: "none" }}>
+              {atr("Create one", "أنشئ حسابًا")}
+            </a>
+          </p>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (authStage !== "in" || !accountCode) {
+    // Safety net: never render the authenticated app for a stage we didn't
+    // explicitly handle above, and never render it without a real signed-in
+    // account code — closes the same hole from any other direction.
+    return (
+      <Shell>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--muted-strong)" }}>
+          <LoaderIcon size={18} /><span>Signing you in…</span>
+        </div>
+      </Shell>
+    );
+  }
+
+  return (
+    <MainView
+      name={name} isAdmin={isAdmin} entries={entries} entriesLoaded={entriesLoaded} loadError={loadError}
+      section={section} onChangeSection={changeSection} query={query} setQuery={setQuery}
+      showAdd={showAdd} onOpenAdd={openAddModal} onCloseAdd={closeAddModal} persistEntries={persistEntries} saveError={saveError}
+      onLogout={handleLogout}
+      accounts={accounts} accountCode={accountCode} logs={logs}
+      studiedIds={studiedIds} studiedAt={studiedAt} onToggleStudied={handleToggleStudied}
+      showAccount={showAccount} onOpenAccount={openAccountModal} onCloseAccount={closeAccountModal} onUpdateOwnName={handleUpdateOwnName}
+      showAdmin={showAdmin} onOpenAdmin={openAdminModal} onCloseAdmin={closeAdminModal}
+      onAdminAddAccount={handleAdminAddAccount} onAdminEditAccount={handleAdminEditAccount} onAdminDeleteAccount={handleAdminDeleteAccount}
+      toast={toast}
+      theme={theme} onToggleTheme={toggleTheme}
+      appIsAr={appIsAr} onToggleAppLang={toggleAppLang}
+      sessionStart={sessionStartRef.current}
+    />
+  );
+}
+
+function MainView({
+  name, isAdmin, entries, entriesLoaded, loadError, section, onChangeSection, query, setQuery,
+  showAdd, onOpenAdd, onCloseAdd, persistEntries, saveError, onLogout,
+  accounts, accountCode, logs, studiedIds, studiedAt, onToggleStudied, showAccount, onOpenAccount, onCloseAccount, onUpdateOwnName,
+  showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount,
+  toast, theme, onToggleTheme,
+  appIsAr, onToggleAppLang,
+  sessionStart,
+}) {
+  const cfg = SECTIONS[section];
+  const isAr = section === "ar-ar";
+  const sectionEntries = useMemo(() => entries.filter((e) => e.section === section), [entries, section]);
+  const studiedCount = useMemo(() => sectionEntries.filter((e) => studiedIds.has(e.id)).length, [sectionEntries, studiedIds]);
+  const notStudiedCount = sectionEntries.length - studiedCount;
+  const studiedPct = sectionEntries.length ? (studiedCount / sectionEntries.length) * 100 : 0;
+  const notStudiedPct = 100 - studiedPct;
+  const accountNameByCode = useMemo(() => Object.fromEntries(accounts.map((a) => [a.code, a.name])), [accounts]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [studyFilter, setStudyFilter] = useState("all"); // "all" | "studied" | "not-studied"
+  const [editingEntry, setEditingEntry] = useState(null);
+  const [zoomEntry, setZoomEntry] = useState(null);
+  const [showQuiz, setShowQuiz] = useState(false);
+
+  const suggestions = useMemo(() => {
+    const q = query.trim();
+    if (!q) return [];
+    const seen = new Set();
+    const scored = [];
+    for (const e of sectionEntries) {
+      if (seen.has(e.word)) continue;
+      const score = matchScore(e.word, q);
+      if (score === null) continue;
+      seen.add(e.word);
+      scored.push({ entry: e, score });
+    }
+    scored.sort((a, b) => a.score - b.score || a.entry.word.localeCompare(b.entry.word, section === "ar-ar" ? "ar" : "en"));
+    return scored.slice(0, 6).map((s) => s.entry);
+  }, [query, sectionEntries, section]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim();
+    let base = q
+      ? sectionEntries.filter((e) => fuzzyIncludes(e.word, q) || fuzzyIncludes(e.meaning, q) || fuzzyIncludes(e.definition, q))
+      : sectionEntries;
+    if (studyFilter === "studied") base = base.filter((e) => studiedIds.has(e.id));
+    else if (studyFilter === "not-studied") base = base.filter((e) => !studiedIds.has(e.id));
+    return base;
+  }, [sectionEntries, query, studyFilter, studiedIds]);
+
+  useEffect(() => { setActiveIndex(-1); }, [query]);
+
+  function selectSuggestion(entry) {
+    setQuery(entry.word);
+    setShowSuggestions(false);
+    setActiveIndex(-1);
+  }
+
+  function handleSearchKeyDown(e) {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => (i + 1) % suggestions.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
+    } else if (e.key === "Enter") {
+      if (activeIndex >= 0 && activeIndex < suggestions.length) {
+        e.preventDefault();
+        selectSuggestion(suggestions[activeIndex]);
+      }
+    } else if (e.key === "Escape") {
+      setShowSuggestions(false);
+      setActiveIndex(-1);
+    }
+  }
+
+  const grouped = useMemo(() => {
+    const map = {};
+    for (const e of filtered) {
+      const key = firstLetterKey(e.word, section);
+      if (!map[key]) map[key] = [];
+      map[key].push(e);
+    }
+    for (const k in map) map[k].sort((a, b) => a.word.localeCompare(b.word, section === "ar-ar" ? "ar" : "en"));
+    return map;
+  }, [filtered, section]);
+
+  const availableLetters = useMemo(() => new Set(Object.keys(grouped)), [grouped]);
+  const letterRefs = useRef({});
+  function jumpTo(letter) { const el = letterRefs.current[letter]; if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }
+
+  async function handleAdd(newEntry) {
+    const next = [...entries, { ...newEntry, id: uid(), section, addedBy: accountCode, addedAt: Date.now() }];
+    const logEntry = makeLogEntry("word_add", `${name} added "${newEntry.word}" (${cfg.shortLabel})`, name, accountCode);
+    await persistEntries(next, logEntry);
+    onCloseAdd();
+  }
+  async function handleDelete(id) {
+    const target = entries.find((e) => e.id === id);
+    const next = entries.filter((e) => e.id !== id);
+    const logEntry = makeLogEntry("word_delete", `${name} deleted "${(target && target.word) || id}"`, name, accountCode);
+    await persistEntries(next, logEntry);
+  }
+  async function handleEdit(id, updates) {
+    const target = entries.find((e) => e.id === id);
+    const next = entries.map((e) =>
+      e.id === id ? { ...e, ...updates, editedBy: accountCode, editedAt: Date.now() } : e
+    );
+    const wordChanged = target && updates.word && updates.word !== target.word;
+    const logEntry = makeLogEntry(
+      "word_edit",
+      `${name} edited "${(target && target.word) || id}"${wordChanged ? ` → "${updates.word}"` : ""}`,
+      name, accountCode
+    );
+    await persistEntries(next, logEntry);
+    setEditingEntry(null);
+  }
+
+  return (
+    <div dir={cfg.dir} style={{ minHeight: "100vh", background: PAPER, fontFamily: "'JetBrains Mono', 'Cairo', monospace" }}>
+      <header style={{ borderBottom: "1px solid rgba(var(--border-rgb),0.15)", background: PAPER, position: "sticky", top: 0, zIndex: 20 }}>
+        <div style={{ maxWidth: 900, margin: "0 auto", padding: "18px 20px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+              <BookIcon size={20} color={BRASS} />
+              <h1 style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 21, fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ fontSize: 13, color: "var(--muted-strong)" }}><strong style={{ color: INK }}>{name}</strong></div>
+              <HeaderMenu theme={theme} onToggleTheme={onToggleTheme} isAdmin={isAdmin}
+                onOpenAccount={onOpenAccount} onOpenAdmin={onOpenAdmin} onLogout={onLogout} isAr={appIsAr} />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 4, marginTop: 16 }}>
+            {Object.entries(SECTIONS).map(([key, s]) => {
+              const active = key === section;
+              return (
+                <button key={key} onClick={() => onChangeSection(key)}
+                  style={{ padding: "9px 18px", fontSize: 14, fontWeight: 600, color: active ? s.accent : "var(--icon-muted)", background: active ? CARD : "transparent", border: "1px solid rgba(var(--border-rgb),0.15)", borderBottom: active ? `1px solid ${CARD}` : "1px solid rgba(var(--border-rgb),0.15)", borderRadius: "4px 4px 0 0", marginBottom: -1, cursor: "pointer" }}>
+                  {s.shortLabel}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </header>
+
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "18px 20px 0" }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ position: "relative", flex: "1 1 240px" }}>
+            <SearchIcon size={16} color="var(--icon-muted)" style={{ position: "absolute", insetInlineStart: 12, top: "50%", transform: "translateY(-50%)" }} />
+            <input
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setShowSuggestions(true); }}
+              onFocus={() => { if (query.trim()) setShowSuggestions(true); }}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 120)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder={tr(isAr, `Search ${cfg.shortLabel}…`, `بحث في ${cfg.shortLabel}…`)} dir={section === "ar-ar" ? "rtl" : "auto"}
+              role="combobox" aria-autocomplete="list" aria-expanded={showSuggestions && suggestions.length > 0}
+              aria-controls="search-suggestions" aria-activedescendant={activeIndex >= 0 ? `search-suggestion-${activeIndex}` : undefined}
+              autoComplete="off"
+              style={{ width: "100%", padding: "10px 12px", paddingInlineStart: 36, fontSize: 14, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 3, background: "var(--input-bg)", color: INK }} />
+            {showSuggestions && suggestions.length > 0 && (
+              <ul id="search-suggestions" role="listbox" dir={section === "ar-ar" ? "rtl" : "auto"}
+                style={{ listStyle: "none", margin: "4px 0 0", padding: 4, position: "absolute", top: "100%", insetInlineStart: 0, insetInlineEnd: 0, background: CARD, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 3, boxShadow: "0 10px 24px -10px rgba(0,0,0,0.3)", zIndex: 30, maxHeight: 260, overflowY: "auto" }}>
+                {suggestions.map((s, i) => (
+                  <li key={s.id} id={`search-suggestion-${i}`} role="option" aria-selected={i === activeIndex}
+                    onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
+                    onMouseEnter={() => setActiveIndex(i)}
+                    style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "7px 9px", borderRadius: 3, cursor: "pointer", background: i === activeIndex ? cfg.accentSoft : "transparent" }}>
+                    <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 14, fontWeight: 600, color: INK }}>{s.word}</span>
+                    <span dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: 13, color: "var(--meaning)" }}>{s.meaning}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setShowQuiz(true)} style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: cfg.accent, background: "none", border: `1px solid ${cfg.accent}`, borderRadius: 3, cursor: "pointer", whiteSpace: "nowrap" }}>
+              <QuizIcon size={16} /> {tr(isAr, "Quiz", "اختبار")}
+            </button>
+            <button onClick={onOpenAdd} style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: "#fff", background: cfg.accent, border: "none", borderRadius: 3, cursor: "pointer", whiteSpace: "nowrap" }}>
+              <PlusIcon size={16} /> {tr(isAr, "Add word", "إضافة كلمة")}
+            </button>
+          </div>
+        </div>
+        <div style={{ marginTop: 12, background: CARD, border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 10, padding: "12px 14px" }}>
+          <div dir={isAr ? "rtl" : "ltr"} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 700, color: INK }}>
+              <BookIcon size={14} color={cfg.accent} />
+              {tr(isAr, `${sectionEntries.length} words`, `${sectionEntries.length} الكلمات`)}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: cfg.accent, borderRadius: 20, padding: "5px 12px", whiteSpace: "nowrap" }}>
+                {tr(isAr, `${notStudiedCount} to learn`, `${notStudiedCount} تعلم`)}
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: "var(--success)", borderRadius: 20, padding: "5px 12px", whiteSpace: "nowrap" }}>
+                {tr(isAr, `${studiedCount} know`, `${studiedCount} أعرف`)}
+              </span>
+            </div>
+          </div>
+          {sectionEntries.length > 0 && (
+            <div dir={isAr ? "rtl" : "ltr"} style={{ marginTop: 10, height: 8, borderRadius: 20, overflow: "hidden", display: "flex", background: "rgba(var(--border-rgb),0.15)" }}>
+              <div style={{ width: `${notStudiedPct}%`, background: cfg.accent, transition: "width 0.3s" }} />
+              <div style={{ width: `${studiedPct}%`, background: "var(--success)", transition: "width 0.3s" }} />
+            </div>
+          )}
+          {(query.trim() || studyFilter !== "all") && (
+            <div style={{ marginTop: 8, fontSize: 12, color: "var(--muted)" }}>
+              {tr(isAr, `${filtered.length} of ${sectionEntries.length} word${sectionEntries.length === 1 ? "" : "s"} shown`, `عرض ${filtered.length} من ${sectionEntries.length} كلمة`)}
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+          {[
+            { key: "all", label: tr(isAr, "All", "الكل") },
+            { key: "studied", label: tr(isAr, "Studied", "تمت دراستها") },
+            { key: "not-studied", label: tr(isAr, "Not Studied", "لم تُدرس بعد") },
+          ].map((f) => {
+            const active = studyFilter === f.key;
+            return (
+              <button key={f.key} onClick={() => setStudyFilter(f.key)}
+                style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, color: active ? "#fff" : "var(--icon-muted)", background: active ? cfg.accent : "none", border: `1px solid ${active ? cfg.accent : "rgba(var(--border-rgb),0.25)"}`, borderRadius: 3, cursor: "pointer" }}>
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+        {loadError && <div style={{ ...errorStyle, marginTop: 10 }} role="alert" aria-live="assertive">{tr(isAr, loadError, "تعذر تحميل القاموس المشترك. تحقق من اتصالك وحاول تحديث الصفحة.")}</div>}
+        {saveError && <div style={{ ...errorStyle, marginTop: 10 }} role="alert" aria-live="assertive">{tr(isAr, saveError, "تعذر الحفظ — تحقق من اتصالك وحاول مرة أخرى.")}</div>}
+      </div>
+
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 20px 60px", display: "flex", gap: 18 }}>
+        <nav style={{ flex: "0 0 34px", display: "flex", flexDirection: "column", gap: 2, position: "sticky", top: 130, alignSelf: "flex-start", maxHeight: "calc(100vh - 160px)", overflowY: "auto" }}>
+          {cfg.letters.map((l) => {
+            const has = availableLetters.has(l);
+            return (
+              <button key={l} disabled={!has} onClick={() => jumpTo(l)}
+                style={{ fontFamily: section === "ar-ar" ? "'Cairo', sans-serif" : "'JetBrains Mono', 'Cairo', monospace", fontSize: 13, padding: "2px 0", border: "none", background: "none", color: has ? cfg.accent : "rgba(var(--border-rgb),0.2)", fontWeight: has ? 700 : 400, cursor: has ? "pointer" : "default", textAlign: "center" }}>
+                {l}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {!entriesLoaded ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--muted-strong)", padding: "30px 0" }}>
+              <LoaderIcon size={18} /><span>{tr(isAr, "Loading entries…", "جارٍ تحميل الكلمات…")}</span>
+            </div>
+          ) : filtered.length === 0 ? (
+            <EmptyState hasQuery={!!query.trim() || studyFilter !== "all"} onAdd={onOpenAdd} accent={cfg.accent} isAr={isAr} />
+          ) : (
+            cfg.letters.filter((l) => grouped[l]).map((letter) => (
+              <div key={letter} ref={(el) => (letterRefs.current[letter] = el)} style={{ marginBottom: 26 }}>
+                <div style={{ fontFamily: section === "ar-ar" ? "'Cairo', sans-serif" : "'JetBrains Mono', 'Cairo', monospace", fontSize: 15, fontWeight: 700, color: cfg.accent, borderBottom: `1px solid ${cfg.accentSoft}`, paddingBottom: 4, marginBottom: 10 }}>
+                  {letter}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {grouped[letter].map((e) => (
+                    <EntryCard key={e.id} entry={e} cfg={cfg} isAdmin={isAdmin} isAr={isAr}
+                      canEdit={isAdmin || e.addedBy === accountCode}
+                      onDelete={() => handleDelete(e.id)} onEdit={() => setEditingEntry(e)}
+                      onOpenZoom={() => setZoomEntry(e)}
+                      isStudied={studiedIds.has(e.id)} onToggleStudied={() => onToggleStudied(e.id)}
+                      addedByLabel={accountNameByCode[e.addedBy] || e.addedBy}
+                      editedByLabel={accountNameByCode[e.editedBy] || e.editedBy} />
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {showAdd && <AddModal cfg={cfg} onClose={onCloseAdd} onSubmit={handleAdd} />}
+      {editingEntry && (
+        <AddModal
+          cfg={cfg}
+          initialEntry={editingEntry}
+          onClose={() => setEditingEntry(null)}
+          onSubmit={(updates) => handleEdit(editingEntry.id, updates)}
+        />
+      )}
+      {zoomEntry && (
+        <WordZoomModal entry={zoomEntry} cfg={cfg} onClose={() => setZoomEntry(null)} />
+      )}
+      {showQuiz && (
+        <QuizModal
+          entries={sectionEntries}
+          sectionLabel={cfg.shortLabel}
+          studiedIds={studiedIds}
+          studiedAt={studiedAt}
+          sessionStart={sessionStart}
+          isAr={isAr}
+          onClose={() => setShowQuiz(false)}
+        />
+      )}
+      {showAccount && (
+        <AccountModal
+          account={accounts.find((a) => a.code === accountCode) || { name, code: accountCode, role: isAdmin ? "admin" : "user" }}
+          onClose={onCloseAccount}
+          onSave={onUpdateOwnName}
+          isAr={isAr}
+        />
+      )}
+      {showAdmin && (
+        <AdminModal
+          accounts={accounts}
+          myAccountCode={accountCode}
+          logs={logs}
+          onClose={onCloseAdmin}
+          onAdd={onAdminAddAccount}
+          onEdit={onAdminEditAccount}
+          onDelete={onAdminDeleteAccount}
+          isAr={isAr}
+        />
+      )}
+      {toast && (
+        <div role="status" aria-live="polite" style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "var(--success)", color: "#fff", padding: "10px 18px", borderRadius: 4, fontSize: 13, fontWeight: 600, boxShadow: "0 10px 24px -10px rgba(0,0,0,0.35)", zIndex: 60, display: "flex", alignItems: "center", gap: 7 }}>
+          <CheckIcon size={14} /> {tr(isAr, toast, toast === "Account info updated." ? "تم تحديث بيانات الحساب." : toast)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpenZoom, isStudied, onToggleStudied, addedByLabel, editedByLabel }) {
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [open, setOpen] = useState(false);
+  const hasDefinition = !!entry.definition;
+  const hasSynAnt = !!((entry.synonyms && entry.synonyms.length) || (entry.antonyms && entry.antonyms.length));
+  const isEnglishWord = cfg.wordDir === "ltr";
+  const isExpandable = isAdmin || hasDefinition || hasSynAnt || isEnglishWord;
+  return (
+    <div className="lift-hover" style={{ background: CARD, border: "1px solid rgba(var(--border-rgb),0.1)", borderInlineStart: `3px solid ${isStudied ? "var(--success)" : cfg.accent}`, borderRadius: 3, padding: "9px 14px", display: "flex", justifyContent: "space-between", gap: 12, animation: "fadeInUp 0.35s ease both" }}>
+      <div
+        style={{ flex: 1, minWidth: 0, cursor: isExpandable ? "pointer" : "default" }}
+        onClick={isExpandable ? () => setOpen((o) => !o) : undefined}
+        role={isExpandable ? "button" : undefined}
+        tabIndex={isExpandable ? 0 : undefined}
+        aria-expanded={isExpandable ? open : undefined}
+        onKeyDown={isExpandable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((o) => !o); } } : undefined}
+      >
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+          <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 15, fontWeight: 600, color: INK }}>{entry.word}</span>
+          {isExpandable && (
+            <ChevronIcon size={11} color={cfg.accent}
+              style={{ flexShrink: 0, transition: "transform 0.15s", transform: `${cfg.dir === "rtl" ? "scaleX(-1) " : ""}${open ? "rotate(90deg)" : ""}` }} />
+          )}
+          <span dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: 14, color: "var(--meaning)" }}>{entry.meaning}</span>
+        </div>
+        {isStudied && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: "var(--success)", background: "var(--success-bg)", borderRadius: 3, padding: "2px 6px", marginTop: 5 }}>
+            <CheckIcon size={9} /> {tr(isAr, "Studied", "تمت الدراسة")}
+          </span>
+        )}
+        {open && isExpandable && (
+          <>
+            {isEnglishWord && (
+              <a
+                href={cambridgeUrl(entry.word)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                title={tr(isAr, "Open in Cambridge Dictionary", "افتح في قاموس كامبريدج")}
+                style={{ display: "inline-flex", alignItems: "center", marginTop: 6, background: "#1D2A57", borderRadius: 3, padding: "4px 8px" }}
+                className="lift-hover">
+                <img src="https://dictionary.cambridge.org/external/images/freesearch/sbl.png?version=6.0.78" alt={tr(isAr, "Cambridge Dictionary", "قاموس كامبريدج")} style={{ height: 18, display: "block" }} />
+              </a>
+            )}
+            {hasDefinition && (
+              <p dir={detectDir(entry.definition)} style={{ fontFamily: detectFont(entry.definition), fontSize: 13, color: "var(--muted-strong)", margin: "6px 0 0", lineHeight: 1.6 }}>{entry.definition}</p>
+            )}
+            {!!(entry.synonyms && entry.synonyms.length) && (
+              <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 6 }}>
+                <strong style={{ color: "var(--success)" }}>{tr(isAr, "Synonyms", "مرادفات")}</strong>
+                <PairListDisplay cfg={cfg} pairs={entry.synonyms} />
+              </div>
+            )}
+            {!!(entry.antonyms && entry.antonyms.length) && (
+              <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 6 }}>
+                <strong style={{ color: "var(--danger)" }}>{tr(isAr, "Antonyms", "مضادات")}</strong>
+                <PairListDisplay cfg={cfg} pairs={entry.antonyms} />
+              </div>
+            )}
+            {isAdmin && (
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>
+                {tr(isAr, `added by ${addedByLabel}`, `أضافها ${addedByLabel}`)}
+                {entry.editedBy && <span> · {tr(isAr, `edited by ${editedByLabel}`, `عدّلها ${editedByLabel}`)}</span>}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 6, flexShrink: 0, alignSelf: "flex-start" }}>
+        <button
+          onClick={(e) => { e.stopPropagation(); onOpenZoom(); }}
+          title={tr(isAr, "Zoom", "تكبير")}
+          aria-label={tr(isAr, `Zoom in on ${entry.word}`, `تكبير ${entry.word}`)}
+          style={{ border: "none", background: "none", color: "var(--icon-muted)", padding: 4, cursor: "pointer", display: "flex", alignItems: "center" }}>
+          <ZoomIcon size={18} />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleStudied(); }}
+          title={isStudied ? tr(isAr, "Mark as not studied", "إلغاء وضع علامة الدراسة") : tr(isAr, "Mark as studied/seen", "وضع علامة كمدروسة")}
+          aria-label={isStudied ? tr(isAr, `Mark ${entry.word} as not studied`, `إلغاء علامة الدراسة عن ${entry.word}`) : tr(isAr, `Mark ${entry.word} as studied`, `وضع علامة الدراسة على ${entry.word}`)}
+          aria-pressed={isStudied}
+          style={{ border: "none", background: "none", color: isStudied ? "var(--success)" : "var(--icon-muted)", padding: 4, cursor: "pointer", display: "flex", alignItems: "center" }}>
+          {isStudied ? <EyeIcon size={22} /> : <EyeOffIcon size={22} />}
+        </button>
+        {canEdit && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            title={tr(isAr, "Edit", "تعديل")} aria-label={tr(isAr, `Edit ${entry.word}`, `تعديل ${entry.word}`)}
+            style={{ border: "none", background: "none", color: "var(--icon-muted)", padding: 4, cursor: "pointer", display: "flex", alignItems: "center" }}>
+            <EditIcon size={16} />
+          </button>
+        )}
+        {canEdit && (
+          <button onClick={() => (confirmDel ? onDelete() : setConfirmDel(true))} onBlur={() => setConfirmDel(false)}
+            title={confirmDel ? tr(isAr, "Click again to confirm", "اضغط مرة أخرى للتأكيد") : tr(isAr, "Delete", "حذف")}
+            aria-label={confirmDel ? tr(isAr, `Confirm delete ${entry.word}`, `تأكيد حذف ${entry.word}`) : tr(isAr, `Delete ${entry.word}`, `حذف ${entry.word}`)}
+            style={{ border: "none", background: confirmDel ? "var(--danger-border)" : "transparent", color: confirmDel ? "var(--danger)" : "var(--icon-muted)", borderRadius: 3, padding: 6, cursor: "pointer" }}>
+            <TrashIcon size={14} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Big, centered "zoom" view of a single word — just the word and its meaning
+// (plus definition, if any) in a large, readable font. Opened via the zoom
+// icon on each entry card.
+function WordZoomModal({ entry, cfg, onClose }) {
+  useEffect(() => {
+    function onKeyDown(e) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
+      <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={cfg.dir} role="dialog" aria-modal="true" aria-labelledby="zoom-modal-word"
+        style={{ width: "100%", maxWidth: 560, background: CARD, borderRadius: 6, padding: "48px 32px 40px", boxShadow: "0 24px 60px -12px rgba(0,0,0,0.45)", textAlign: "center", position: "relative" }}>
+        <button onClick={onClose} aria-label={tr(cfg.dir === "rtl", "Close", "إغلاق")} style={{ position: "absolute", top: 14, insetInlineEnd: 14, border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}>
+          <XIcon size={20} />
+        </button>
+        <div dir={cfg.wordDir} id="zoom-modal-word" style={{ fontFamily: cfg.wordFont, fontSize: "clamp(30px, 6vw, 46px)", fontWeight: 700, color: INK, lineHeight: 1.2, wordBreak: "break-word" }}>
+          {entry.word}
+        </div>
+        <div style={{ width: 48, height: 3, background: cfg.accent, borderRadius: 2, margin: "18px auto" }} />
+        <div dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: "clamp(22px, 4.5vw, 30px)", color: "var(--meaning)", lineHeight: 1.35, wordBreak: "break-word" }}>
+          {entry.meaning}
+        </div>
+        {cfg.wordDir === "ltr" && (
+          <a
+            href={cambridgeUrl(entry.word)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={tr(cfg.dir === "rtl", "Open in Cambridge Dictionary", "افتح في قاموس كامبريدج")}
+            style={{ display: "inline-flex", alignItems: "center", marginTop: 18, background: "#1D2A57", borderRadius: 3, padding: "6px 10px" }}
+            className="lift-hover">
+            <img src="https://dictionary.cambridge.org/external/images/freesearch/sbl.png?version=6.0.78" alt={tr(cfg.dir === "rtl", "Cambridge Dictionary", "قاموس كامبريدج")} style={{ height: 20, display: "block" }} />
+          </a>
+        )}
+        {entry.definition && (
+          <p dir={detectDir(entry.definition)} style={{ fontFamily: detectFont(entry.definition), fontSize: 15, color: "var(--muted-strong)", marginTop: 22, lineHeight: 1.7, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
+            {entry.definition}
+          </p>
+        )}
+        {!!(entry.synonyms && entry.synonyms.length) && (
+          <div style={{ fontSize: 14, color: "var(--muted-strong)", marginTop: 16, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
+            <strong style={{ color: "var(--success)" }}>{tr(cfg.dir === "rtl", "Synonyms", "مرادفات")}</strong>
+            <PairListDisplay cfg={cfg} pairs={entry.synonyms} />
+          </div>
+        )}
+        {!!(entry.antonyms && entry.antonyms.length) && (
+          <div style={{ fontSize: 14, color: "var(--muted-strong)", marginTop: 10, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
+            <strong style={{ color: "var(--danger)" }}>{tr(cfg.dir === "rtl", "Antonyms", "مضادات")}</strong>
+            <PairListDisplay cfg={cfg} pairs={entry.antonyms} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// The MCQ quiz: pick a time range for "which studied words", then work
+// through a shuffled set of multiple-choice questions covering meaning
+// (both directions) plus one question per synonym and per antonym where
+// the word has them. `entries` is already scoped to a single dictionary
+// section by the caller, so the English and Arabic sections always get
+// their own separate quiz over their own studied words.
+// One row in the post-quiz mistake review: just shows the word and an
+// immediate "you said X — it's actually Y" comparison. No typing, no
+// staggered reveal — every mistake is shown at once.
+function ReviewRow({ item, isAr }) {
+  return (
+    <div style={{ padding: "10px 12px", border: "1px solid rgba(var(--border-rgb),0.15)", borderRadius: 4, marginBottom: 8 }}>
+      <div dir={item.wordDir} style={{ fontFamily: item.wordFont, fontSize: 16, fontWeight: 700, color: INK, marginBottom: 4 }}>
+        {item.word}
+      </div>
+      <p style={{ fontSize: 13, color: "var(--muted-strong)", margin: 0 }}>
+        {tr(isAr,
+          `You said "${item.selectedAnswer}" — the correct one is "${item.correctAnswer}".`,
+          `انت غلطت، قلت معناها "${item.selectedAnswer}"، وهي فعلاً "${item.correctAnswer}".`)}
+      </p>
+    </div>
+  );
+}
+
+function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, sessionStart, isAr, onClose }) {
+  const [rangeKey, setRangeKey] = useState("60");
+  const [customMinutes, setCustomMinutes] = useState("120");
+  const [stage, setStage] = useState("setup"); // setup | running | done
+  const [startError, setStartError] = useState("");
+  const [questions, setQuestions] = useState([]);
+  const [index, setIndex] = useState(0);
+  const [selected, setSelected] = useState(null);
+  const [answered, setAnswered] = useState(false);
+  const [results, setResults] = useState([]);
+  const [startedAt, setStartedAt] = useState(null);
+  const [finishedAt, setFinishedAt] = useState(null);
+
+  useEffect(() => {
+    function onKeyDown(e) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  const RANGE_OPTIONS = [
+    { key: "10", label: tr(isAr, "Last 10 min", "آخر 10 دقايق") },
+    { key: "30", label: tr(isAr, "Last 30 min", "آخر 30 دقيقة") },
+    { key: "60", label: tr(isAr, "Last hour", "آخر ساعة") },
+    { key: "180", label: tr(isAr, "Last 3 hours", "آخر 3 ساعات") },
+    { key: "1440", label: tr(isAr, "Last 24 hours", "آخر 24 ساعة") },
+    { key: "today", label: tr(isAr, "Today", "اليوم") },
+    { key: "session", label: tr(isAr, "This session", "هذه الجلسة") },
+    { key: "all", label: tr(isAr, "Any time", "أي وقت") },
+    { key: "custom", label: tr(isAr, "Custom", "مخصص") },
+  ];
+
+  const rangeStart = useMemo(() => quizRangeStart(rangeKey, customMinutes, sessionStart), [rangeKey, customMinutes, sessionStart]);
+  const matchingEntries = useMemo(
+    () => selectQuizEntries(entries, studiedIds, studiedAt, rangeStart),
+    [entries, studiedIds, studiedAt, rangeStart]
+  );
+
+  function startQuiz() {
+    const built = buildQuiz(matchingEntries, entries);
+    if (!built.length) {
+      setStartError(tr(isAr,
+        "Not enough words yet to build a quiz from this selection — add a few more words to the dictionary or pick a wider time range.",
+        "لا توجد كلمات كافية لعمل اختبار من هذا الاختيار — أضف كلمات أكتر للقاموس أو اختر نطاق وقت أوسع."));
+      return;
+    }
+    setStartError("");
+    setQuestions(built);
+    setIndex(0);
+    setSelected(null);
+    setAnswered(false);
+    setResults([]);
+    setStartedAt(Date.now());
+    setFinishedAt(null);
+    setStage("running");
+  }
+
+  function pickOption(opt) {
+    if (answered) return;
+    const q = questions[index];
+    setSelected(opt);
+    setAnswered(true);
+    setResults((r) => [...r, {
+      id: q.id, correct: opt === q.correct, type: q.type,
+      word: q.word, wordDir: q.wordDir, wordFont: q.wordFont,
+      selectedAnswer: opt, correctAnswer: q.correct,
+    }]);
+  }
+
+  function nextQuestion() {
+    if (index + 1 >= questions.length) {
+      setFinishedAt(Date.now());
+      setStage("done");
+    } else {
+      setIndex((i) => i + 1);
+      setSelected(null);
+      setAnswered(false);
+    }
+  }
+
+  function retake() {
+    setStage("setup");
+    setStartError("");
+  }
+
+  const score = results.filter((r) => r.correct).length;
+  const quizDurationMs = startedAt && finishedAt ? finishedAt - startedAt : 0;
+
+  // Every wrong question, grouped into the three review sections. Unlike a
+  // simple word list, a word can appear more than once here (e.g. wrong on
+  // two different synonyms of the same word) since each mistake has its
+  // own correct answer to compare against.
+  const mistakesByCategory = useMemo(() => {
+    const map = { meaning: [], synonym: [], antonym: [] };
+    for (const r of results) {
+      if (r.correct) continue;
+      map[quizResultCategory(r.type)].push(r);
+    }
+    return map;
+  }, [results]);
+
+  // Flat list of every mistake — meaning first, then synonyms, then
+  // antonyms — all shown at once in the review.
+  const mistakesFlat = useMemo(
+    () => [...mistakesByCategory.meaning, ...mistakesByCategory.synonym, ...mistakesByCategory.antonym],
+    [mistakesByCategory]
+  );
+
+  const chipStyle = (active) => ({
+    padding: "7px 13px", fontSize: 12.5, fontWeight: 600, color: active ? "#fff" : "var(--icon-muted)",
+    background: active ? BRASS : "none", border: `1px solid ${active ? BRASS : "rgba(var(--border-rgb),0.25)"}`,
+    borderRadius: 20, cursor: "pointer",
+  });
+
+  return (
+    <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
+      <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={isAr ? "rtl" : "ltr"} role="dialog" aria-modal="true" aria-labelledby="quiz-modal-title"
+        style={{ width: "100%", maxWidth: 540, maxHeight: "88vh", overflowY: "auto", background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <h2 id="quiz-modal-title" style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 19, fontWeight: 600, color: INK, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+            <QuizIcon size={19} color={BRASS} /> {tr(isAr, "Quiz", "اختبار")}
+            {sectionLabel && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>· {sectionLabel}</span>}
+          </h2>
+          <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}><XIcon size={20} /></button>
+        </div>
+
+        {stage === "setup" && (
+          <div style={{ marginTop: 14 }}>
+            <p style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", color: "var(--muted-strong)", fontSize: 14, margin: "0 0 14px" }}>
+              {tr(isAr,
+                "Pick which studied words to be tested on. The quiz asks about meaning, and about synonyms/antonyms for any word that has them.",
+                "اختر الكلمات التي تمت دراستها والتي عايز تختبر فيها. الاختبار بيسأل عن المعنى، وعن المرادفات/المضادات لأي كلمة ليها.")}
+            </p>
+            <label style={labelStyle}>{tr(isAr, "Studied within", "تمت دراستها خلال")}</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 4 }}>
+              {RANGE_OPTIONS.map((o) => (
+                <button key={o.key} type="button" onClick={() => { setRangeKey(o.key); setStartError(""); }} style={chipStyle(rangeKey === o.key)}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            {rangeKey === "custom" && (
+              <>
+                <label style={labelStyle} htmlFor="quiz-custom-minutes">{tr(isAr, "Minutes", "عدد الدقائق")}</label>
+                <input id="quiz-custom-minutes" type="number" min="1" max="10080" value={customMinutes}
+                  onChange={(e) => setCustomMinutes(e.target.value)} style={{ ...inputStyle, maxWidth: 140 }} inputMode="numeric" />
+              </>
+            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 16, fontSize: 13, color: "var(--muted-strong)" }}>
+              <EyeIcon size={14} color="var(--success)" />
+              {tr(isAr,
+                `${matchingEntries.length} studied word${matchingEntries.length === 1 ? "" : "s"} match this range.`,
+                `${matchingEntries.length} كلمة متاحة من الكلمات المدروسة في هذا النطاق.`)}
+            </div>
+            {startError && <div style={errorStyle} role="alert" aria-live="assertive">{startError}</div>}
+            <button type="button" onClick={startQuiz} disabled={matchingEntries.length === 0} style={{ ...primaryBtnStyle, opacity: matchingEntries.length === 0 ? 0.5 : 1, cursor: matchingEntries.length === 0 ? "default" : "pointer" }}>
+              <QuizIcon size={16} /> {tr(isAr, "Start quiz", "ابدأ الاختبار")}
+            </button>
+          </div>
+        )}
+
+        {stage === "running" && questions[index] && (() => {
+          const q = questions[index];
+          return (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>
+                <span>{tr(isAr, `Question ${index + 1} of ${questions.length}`, `السؤال ${index + 1} من ${questions.length}`)}</span>
+                <span>{tr(isAr, `Score: ${score}`, `النتيجة: ${score}`)}</span>
+              </div>
+              <div style={{ width: "100%", height: 4, background: "var(--input-bg)", borderRadius: 2, marginBottom: 18 }}>
+                <div style={{ width: `${((index) / questions.length) * 100}%`, height: "100%", background: BRASS, borderRadius: 2, transition: "width 0.2s" }} />
+              </div>
+              <p style={{ fontSize: 21, fontWeight: 700, color: "var(--muted-strong)", margin: "0 0 8px" }}>{quizQuestionLabel(q.type, isAr)}</p>
+              <div dir={q.promptDir} style={{ fontFamily: q.promptFont, fontSize: "clamp(26px, 4.2vw, 34px)", fontWeight: 700, color: INK, background: "var(--input-bg)", borderRadius: 4, padding: "20px 16px", marginBottom: 16, wordBreak: "break-word", lineHeight: 1.3 }}>
+                {q.promptText}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {q.options.map((opt, i) => {
+                  const isCorrectOpt = opt === q.correct;
+                  const isSelectedOpt = opt === selected;
+                  let bg = "var(--card)", border = "rgba(var(--border-rgb),0.2)", color = INK;
+                  if (answered && isCorrectOpt) { bg = "var(--success-bg)"; border = "var(--success)"; color = "var(--success)"; }
+                  else if (answered && isSelectedOpt && !isCorrectOpt) { bg = "var(--danger-bg)"; border = "var(--danger-border)"; color = "var(--danger)"; }
+                  return (
+                    <button key={i} type="button" onClick={() => pickOption(opt)} disabled={answered}
+                      dir={q.optionDir}
+                      style={{ textAlign: "start", fontFamily: q.optionFont, fontSize: 16, padding: "12px 14px", background: bg, border: `1.5px solid ${border}`, color, borderRadius: 4, cursor: answered ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <span>{opt}</span>
+                      {answered && isCorrectOpt && <CheckIcon size={16} />}
+                      {answered && isSelectedOpt && !isCorrectOpt && <XIcon size={16} />}
+                    </button>
+                  );
+                })}
+              </div>
+              {answered && (
+                <button type="button" onClick={nextQuestion} style={primaryBtnStyle}>
+                  {index + 1 >= questions.length ? tr(isAr, "See results", "عرض النتيجة") : tr(isAr, "Next question", "السؤال التالي")}
+                </button>
+              )}
+            </div>
+          );
+        })()}
+
+        {stage === "done" && (() => {
+          return (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ textAlign: "center" }}>
+                <p style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 22, fontWeight: 600, color: INK, margin: "10px 0 4px" }}>
+                  {score} / {questions.length}
+                </p>
+                <p style={{ fontSize: 14, color: "var(--muted-strong)", margin: "0 0 6px" }}>
+                  {tr(isAr,
+                    `You got ${score} out of ${questions.length} right (${Math.round((score / questions.length) * 100)}%).`,
+                    `أجبت صح على ${score} من ${questions.length} (${Math.round((score / questions.length) * 100)}%).`)}
+                </p>
+                <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 18px" }}>
+                  {tr(isAr, `Time taken: ${formatQuizDuration(quizDurationMs)}`, `الوقت المستغرق لإنهاء الاختبار: ${formatQuizDuration(quizDurationMs)}`)}
+                </p>
+              </div>
+
+              {mistakesFlat.length > 0 ? (
+                <div style={{ textAlign: "start", marginBottom: 10 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: INK, margin: "0 0 10px" }}>
+                    {tr(isAr, "Words to review", "كلمات للمراجعة")}
+                  </p>
+                  {QUIZ_RESULT_CATEGORIES.map((cat) => {
+                    const items = mistakesByCategory[cat.key];
+                    if (!items.length) return null;
+                    return (
+                      <div key={cat.key} style={{ marginBottom: 14 }}>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-strong)", textTransform: "uppercase", letterSpacing: "0.04em", margin: "0 0 6px" }}>
+                          {tr(isAr, cat.label, cat.labelAr)}
+                        </p>
+                        {items.map((item) => (
+                          <ReviewRow key={item.id} item={item} isAr={isAr} />
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p style={{ textAlign: "center", fontSize: 14, color: "var(--success)", margin: "0 0 18px" }}>
+                  {tr(isAr, "Perfect score — nothing to review!", "علامة كاملة — مفيش حاجة للمراجعة!")}
+                </p>
+              )}
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" onClick={retake} style={{ flex: 1, padding: "11px 14px", fontSize: 14, fontWeight: 600, color: "var(--icon-muted)", background: "none", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 3, cursor: "pointer" }}>
+                  {tr(isAr, "New quiz", "اختبار جديد")}
+                </button>
+                <button type="button" onClick={onClose} style={{ ...primaryBtnStyle, marginTop: 0, flex: 1 }}>
+                  <CheckIcon size={16} /> {tr(isAr, "Done", "تم")}
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ hasQuery, onAdd, accent, isAr }) {
+  return (
+    <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--muted-strong)", border: "1px dashed rgba(var(--border-rgb),0.2)", borderRadius: 4 }}>
+      <p style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 18, color: INK, marginBottom: 6 }}>
+        {hasQuery ? tr(isAr, "No entries match your search", "لا توجد نتائج مطابقة لبحثك") : tr(isAr, "This dictionary is empty", "هذا القاموس فارغ")}
+      </p>
+      <p style={{ fontSize: 14, marginBottom: 18 }}>{hasQuery ? tr(isAr, "Try a different word.", "جرّب كلمة أخرى.") : tr(isAr, "Be the first to add a word.", "كن أول من يضيف كلمة.")}</p>
+      {!hasQuery && (
+        <button onClick={onAdd} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 16px", fontSize: 14, fontWeight: 600, color: "#fff", background: accent, border: "none", borderRadius: 3, cursor: "pointer" }}>
+          <PlusIcon size={16} /> {tr(isAr, "Add word", "إضافة كلمة")}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
+  const isAr = cfg.dir === "rtl";
+  const isEdit = !!initialEntry;
+  const [word, setWord] = useState(isEdit ? initialEntry.word : "");
+  const [meaning, setMeaning] = useState(isEdit ? initialEntry.meaning : "");
+  const [definition, setDefinition] = useState(isEdit ? (initialEntry.definition || "") : "");
+  const [synonyms, setSynonyms] = useState(isEdit ? normalizePairs(initialEntry.synonyms, cfg) : []);
+  const [antonyms, setAntonyms] = useState(isEdit ? normalizePairs(initialEntry.antonyms, cfg) : []);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  function cleanPairs(list) {
+    return list
+      .map((p) => ({ id: p.id, word: p.word.trim(), meaning: p.meaning.trim() }))
+      .filter((p) => p.word || p.meaning);
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!word.trim() || !meaning.trim()) { setError(tr(isAr, "Word and meaning are both required.", "الكلمة والمعنى مطلوبان.")); return; }
+    setSaving(true);
+    await onSubmit({
+      word: word.trim(), meaning: meaning.trim(), definition: definition.trim(),
+      synonyms: cleanPairs(synonyms), antonyms: cleanPairs(antonyms),
+    });
+    setSaving(false);
+  }
+
+  return (
+    <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
+      <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={cfg.dir} role="dialog" aria-modal="true" aria-labelledby="add-modal-title" style={{ width: "100%", maxWidth: 440, background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)", maxHeight: "90vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <h2 id="add-modal-title" style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 19, fontWeight: 600, color: INK, margin: 0 }}>{isEdit ? tr(isAr, "Edit word", "تعديل الكلمة") : tr(isAr, `Add to ${cfg.label}`, `إضافة إلى ${cfg.label}`)}</h2>
+          <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}><XIcon size={20} /></button>
+        </div>
+        <form onSubmit={handleSubmit} style={{ marginTop: 14 }}>
+          <label style={labelStyle} htmlFor="add-word">{tr(isAr, "Word *", "الكلمة *")}</label>
+          <input id="add-word" value={word} onChange={(e) => setWord(e.target.value)} placeholder={cfg.wordPlaceholder} dir={cfg.wordDir} style={{ ...inputStyle, fontFamily: cfg.wordFont, fontSize: 16 }} autoFocus />
+          <label style={labelStyle} htmlFor="add-meaning">{tr(isAr, "Meaning *", "المعنى *")}</label>
+          <input id="add-meaning" value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder={cfg.meaningPlaceholder} dir={cfg.meaningDir} style={{ ...inputStyle, fontFamily: cfg.meaningFont, fontSize: 16 }} />
+          <label style={labelStyle} htmlFor="add-definition">{tr(isAr, "Definition (optional)", "تعريف (اختياري)")}</label>
+          <textarea id="add-definition" value={definition} onChange={(e) => setDefinition(e.target.value)} placeholder="شرح إضافي أو مثال" dir="rtl" rows={3} style={{ ...inputStyle, fontFamily: "'Cairo', sans-serif", fontSize: 15, resize: "vertical" }} />
+          <PairListEditor cfg={cfg} label={tr(isAr, "Synonyms (optional)", "مرادفات (اختياري)")} pairs={synonyms} onChange={setSynonyms} isAr={isAr} />
+          <PairListEditor cfg={cfg} label={tr(isAr, "Antonyms (optional)", "مضادات (اختياري)")} pairs={antonyms} onChange={setAntonyms} isAr={isAr} />
+          {error && <div style={errorStyle} role="alert" aria-live="assertive">{error}</div>}
+          <button type="submit" disabled={saving} style={{ ...primaryBtnStyle, background: cfg.accent }}>
+            {saving ? <LoaderIcon size={16} /> : (isEdit ? <CheckIcon size={16} /> : <PlusIcon size={16} />)} {isEdit ? tr(isAr, "Save changes", "حفظ التغييرات") : tr(isAr, "Save word", "حفظ الكلمة")}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function AccountModal({ account, onClose, onSave, isAr }) {
+  const [nameInput, setNameInput] = useState(account.name);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
+
+  useEffect(() => {
+    function onKeyDown(e) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  async function handleCopyCode() {
+    try {
+      await navigator.clipboard.writeText(account.code);
+    } catch (err) {
+      const ta = document.createElement("textarea");
+      ta.value = account.code;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch (e2) {}
+      document.body.removeChild(ta);
+    }
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 1800);
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    const result = await onSave(nameInput);
+    setSaving(false);
+    if (result && result.error) {
+      setError(result.error);
+      return;
+    }
+    onClose();
+  }
+
+  return (
+    <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
+      <div onClick={(e) => e.stopPropagation()} className="modal-card" role="dialog" aria-modal="true" aria-labelledby="account-modal-title" style={{ width: "100%", maxWidth: 440, background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <h2 id="account-modal-title" style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 19, fontWeight: 600, color: INK, margin: 0 }}>{tr(isAr, "My account", "حسابي")}</h2>
+          <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}><XIcon size={20} /></button>
+        </div>
+        <form onSubmit={handleSubmit} style={{ marginTop: 14 }}>
+          <label style={labelStyle} htmlFor="account-name">{tr(isAr, "Name", "الاسم")}</label>
+          {account.role === "admin" ? (
+            <input id="account-name" value={nameInput} onChange={(e) => setNameInput(e.target.value)} style={inputStyle} autoFocus autoCapitalize="off" autoCorrect="off" />
+          ) : (
+            <div id="account-name" style={{ ...inputStyle, background: "var(--input-bg)", color: "var(--muted-strong)", fontWeight: 600 }}>
+              {account.name}
+            </div>
+          )}
+
+          {account.role === "admin" && (
+            <>
+              <label style={labelStyle}>{tr(isAr, "Role", "الدور")}</label>
+              <div style={{ ...inputStyle, background: "var(--input-bg)", color: BRASS, fontWeight: 600 }}>
+                {tr(isAr, "Admin", "مسؤول")}
+              </div>
+            </>
+          )}
+
+          <label style={labelStyle}>{tr(isAr, "Personal code", "الرمز الشخصي")}</label>
+          <div
+            onClick={handleCopyCode}
+            title={tr(isAr, "Click to copy", "اضغط للنسخ")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleCopyCode(); } }}
+            style={{ ...inputStyle, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", background: codeCopied ? "var(--success-bg)" : "var(--input-bg)", userSelect: "none" }}>
+            <span style={{ letterSpacing: "0.06em" }}>{account.code}</span>
+            {codeCopied ? <CheckIcon size={14} color="var(--success)" /> : <CopyIcon size={14} color="var(--icon-muted)" />}
+          </div>
+
+          {error && <div style={errorStyle} role="alert" aria-live="assertive">{tr(isAr, error, error === "Enter your name." ? "أدخل اسمك." : error === "That name is already taken." ? "هذا الاسم مستخدم بالفعل." : error)}</div>}
+          {account.role === "admin" && (
+            <button type="submit" disabled={saving} style={primaryBtnStyle}>
+              {saving ? <LoaderIcon size={16} /> : <CheckIcon size={16} />} {tr(isAr, "Save changes", "حفظ التغييرات")}
+            </button>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Human-readable labels/colors for each action type in the admin activity log.
+const LOG_ACTION_META = {
+  word_add: { label: "Word added", labelAr: "تمت إضافة كلمة", color: "var(--success)" },
+  word_edit: { label: "Word edited", labelAr: "تم تعديل كلمة", color: BRASS },
+  word_delete: { label: "Word deleted", labelAr: "تم حذف كلمة", color: "var(--danger)" },
+  account_add: { label: "Account added", labelAr: "تمت إضافة حساب", color: "var(--success)" },
+  account_edit: { label: "Account edited", labelAr: "تم تعديل حساب", color: BRASS },
+  account_delete: { label: "Account deleted", labelAr: "تم حذف حساب", color: "var(--danger)" },
+  first_sign_in: { label: "First sign in", labelAr: "أول تسجيل دخول", color: "var(--success)" },
+  sign_in: { label: "Sign in", labelAr: "تسجيل دخول", color: "var(--accent-1)" },
+  sign_out: { label: "Sign out", labelAr: "تسجيل خروج", color: "var(--muted-strong)" },
+};
+
+// Sections shown as filter tabs at the top of the admin activity log.
+const LOG_SECTIONS = [
+  { key: "all", label: "All", labelAr: "الكل", match: () => true },
+  { key: "words", label: "Words", labelAr: "الكلمات", match: (a) => a === "word_add" || a === "word_edit" || a === "word_delete" },
+  { key: "accounts", label: "Accounts", labelAr: "الحسابات", match: (a) => a === "account_add" || a === "account_edit" || a === "account_delete" },
+  { key: "first_sign_in", label: "First Sign In", labelAr: "أول تسجيل دخول", match: (a) => a === "first_sign_in" },
+  { key: "sign_in", label: "Sign In", labelAr: "تسجيل الدخول", match: (a) => a === "sign_in" },
+  { key: "sign_out", label: "Sign Out", labelAr: "تسجيل الخروج", match: (a) => a === "sign_out" },
+];
+
+function AdminModal({ accounts, myAccountCode, logs, onClose, onAdd, onEdit, onDelete, isAr }) {
+  const [mode, setMode] = useState("list"); // list | add | edit | added | log
+  const [editingCode, setEditingCode] = useState(null);
+  const [formName, setFormName] = useState("");
+  const [formRole, setFormRole] = useState("user");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [newAccountName, setNewAccountName] = useState("");
+  const [newAccountCode, setNewAccountCode] = useState("");
+  const [confirmDeleteCode, setConfirmDeleteCode] = useState(null);
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [logFilter, setLogFilter] = useState("all");
+
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key !== "Escape") return;
+      if (mode !== "list") setMode("list");
+      else onClose();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose, mode]);
+
+  function startAdd() {
+    setFormName(""); setFormRole("user"); setError(""); setMode("add");
+  }
+  function startEdit(account) {
+    setEditingCode(account.code); setFormName(account.name); setFormRole(account.role === "admin" ? "admin" : "user"); setError(""); setMode("edit");
+  }
+
+  async function submitAdd(e) {
+    e.preventDefault();
+    setSaving(true); setError("");
+    const result = await onAdd(formName, formRole);
+    setSaving(false);
+    if (result && result.error) { setError(translateAdminError(result.error, isAr)); return; }
+    setNewAccountName(formName.trim());
+    setNewAccountCode(result.code);
+    setMode("added");
+  }
+
+  async function submitEdit(e) {
+    e.preventDefault();
+    setSaving(true); setError("");
+    const result = await onEdit(editingCode, { name: formName, role: formRole });
+    setSaving(false);
+    if (result && result.error) { setError(translateAdminError(result.error, isAr)); return; }
+    setMode("list");
+  }
+
+  async function handleCopyNewCode() {
+    try {
+      await navigator.clipboard.writeText(newAccountCode);
+    } catch (err) {
+      const ta = document.createElement("textarea");
+      ta.value = newAccountCode;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch (e2) {}
+      document.body.removeChild(ta);
+    }
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 1800);
+  }
+
+  const sortedLogs = useMemo(() => [...(logs || [])].sort((a, b) => b.at - a.at), [logs]);
+  const activeSection = LOG_SECTIONS.find((s) => s.key === logFilter) || LOG_SECTIONS[0];
+  const filteredLogs = useMemo(() => sortedLogs.filter((entry) => activeSection.match(entry.action)), [sortedLogs, activeSection]);
+
+  const title = mode === "list" ? tr(isAr, "Admin panel", "لوحة التحكم")
+    : mode === "add" ? tr(isAr, "Add account", "إضافة حساب")
+    : mode === "added" ? tr(isAr, "Account created", "تم إنشاء الحساب")
+    : mode === "log" ? tr(isAr, "Activity log", "سجل النشاط")
+    : tr(isAr, "Edit account", "تعديل الحساب");
+
+  return (
+    <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
+      <div onClick={(e) => e.stopPropagation()} className="modal-card" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title" style={{ width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto", background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <h2 id="admin-modal-title" style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 19, fontWeight: 600, color: INK, margin: 0 }}>{title}</h2>
+          <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}><XIcon size={20} /></button>
+        </div>
+
+        {mode === "list" && (
+          <>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 10 }}>
+              <button onClick={() => { setLogFilter("all"); setMode("log"); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, color: INK, background: "none", border: "1px solid rgba(var(--border-rgb),0.25)", borderRadius: 3, cursor: "pointer" }}>
+                <BookIcon size={14} /> {tr(isAr, "Activity log", "سجل النشاط")}
+              </button>
+              <button onClick={startAdd} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, color: "#fff", background: BRASS, border: "none", borderRadius: 3, cursor: "pointer" }}>
+                <PlusIcon size={14} /> {tr(isAr, "Add account", "إضافة حساب")}
+              </button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+              {accounts.length === 0 && <p style={{ fontSize: 13, color: "var(--muted-strong)" }}>{tr(isAr, "No accounts yet.", "لا توجد حسابات بعد.")}</p>}
+              {accounts.map((a) => (
+                <div key={a.code} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px", border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 3 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: INK, display: "flex", alignItems: "center", gap: 6 }}>
+                      {a.name}
+                      {a.code === myAccountCode && <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>{tr(isAr, "(you)", "(أنت)")}</span>}
+                    </div>
+                    <div style={{ fontSize: 12, color: a.role === "admin" ? BRASS : "var(--muted)", fontWeight: a.role === "admin" ? 700 : 400 }}>
+                      {a.role === "admin" ? tr(isAr, "Admin", "مسؤول") : tr(isAr, "User", "مستخدم")}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--muted)", fontFamily: "'JetBrains Mono', 'Cairo', monospace", letterSpacing: "0.04em", marginTop: 2 }}>
+                      {tr(isAr, `Code: ${a.code}`, `الرمز: ${a.code}`)}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => startEdit(a)} title={tr(isAr, "Edit", "تعديل")} aria-label={tr(isAr, `Edit ${a.name}`, `تعديل ${a.name}`)}
+                      style={{ border: "1px solid rgba(var(--border-rgb),0.2)", background: "none", color: "var(--icon-muted)", borderRadius: 3, padding: 6, cursor: "pointer" }}>
+                      <EditIcon size={13} />
+                    </button>
+                    <button
+                      onClick={() => (confirmDeleteCode === a.code ? onDelete(a.code) : setConfirmDeleteCode(a.code))}
+                      onBlur={() => setConfirmDeleteCode(null)}
+                      title={confirmDeleteCode === a.code ? tr(isAr, "Click again to confirm", "اضغط مرة أخرى للتأكيد") : tr(isAr, "Remove", "إزالة")}
+                      aria-label={confirmDeleteCode === a.code ? tr(isAr, `Confirm remove ${a.name}`, `تأكيد إزالة ${a.name}`) : tr(isAr, `Remove ${a.name}`, `إزالة ${a.name}`)}
+                      style={{ border: "none", background: confirmDeleteCode === a.code ? "var(--danger-border)" : "transparent", color: confirmDeleteCode === a.code ? "var(--danger)" : "var(--icon-muted)", borderRadius: 3, padding: 6, cursor: "pointer" }}>
+                      <TrashIcon size={13} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {(mode === "add" || mode === "edit") && (
+          <form onSubmit={mode === "add" ? submitAdd : submitEdit} style={{ marginTop: 14 }}>
+            <label style={labelStyle} htmlFor="acct-form-name">{tr(isAr, "Name", "الاسم")}</label>
+            <input id="acct-form-name" value={formName} onChange={(e) => setFormName(e.target.value)} style={inputStyle} autoFocus autoCapitalize="off" autoCorrect="off" />
+            <label style={labelStyle} htmlFor="acct-form-role">{tr(isAr, "Role", "الدور")}</label>
+            <select id="acct-form-role" value={formRole} onChange={(e) => setFormRole(e.target.value)} style={{ ...inputStyle, fontFamily: "'JetBrains Mono', 'Cairo', monospace" }}>
+              <option value="user">{tr(isAr, "User", "مستخدم")}</option>
+              <option value="admin">{tr(isAr, "Admin", "مسؤول")}</option>
+            </select>
+            {error && <div style={errorStyle} role="alert" aria-live="assertive">{error}</div>}
+            <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+              <button type="button" onClick={() => setMode("list")} style={{ flex: 1, padding: "11px 14px", fontSize: 14, fontWeight: 600, color: "var(--icon-muted)", background: "none", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 3, cursor: "pointer" }}>
+                {tr(isAr, "Cancel", "إلغاء")}
+              </button>
+              <button type="submit" disabled={saving} style={{ ...primaryBtnStyle, marginTop: 0, flex: 1 }}>
+                {saving ? <LoaderIcon size={16} /> : <CheckIcon size={16} />} {tr(isAr, "Save", "حفظ")}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {mode === "added" && (
+          <div style={{ marginTop: 14 }}>
+            <p style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", color: "var(--muted-strong)", fontSize: 14, margin: "0 0 14px" }}>
+              {tr(isAr, `Share this personal code with ${newAccountName} — they'll use it, along with the shared access code, to sign in.`, `شارك هذا الرمز الشخصي مع ${newAccountName} — سيستخدمه مع رمز الوصول المشترك لتسجيل الدخول.`)}
+            </p>
+            <div
+              onClick={handleCopyNewCode}
+              title={tr(isAr, "Click to copy", "اضغط للنسخ")}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleCopyNewCode(); } }}
+              style={{ textAlign: "center", padding: "18px 10px", background: codeCopied ? "var(--success-bg)" : "var(--input-bg)", border: `1px dashed ${codeCopied ? "rgba(var(--success-border-rgb),0.45)" : "rgba(var(--border-rgb),0.3)"}`, borderRadius: 4, marginBottom: 8, cursor: "pointer", userSelect: "none" }}>
+              <span style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 28, fontWeight: 600, letterSpacing: "0.08em", color: INK }}>{newAccountCode}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 12, color: codeCopied ? "var(--success)" : "var(--muted)", marginBottom: 18 }}>
+              {codeCopied ? (<><CheckIcon size={13} /> {tr(isAr, "Copied", "تم النسخ")}</>) : (<><CopyIcon size={13} /> {tr(isAr, "Click the code to copy", "اضغط على الرمز للنسخ")}</>)}
+            </div>
+            <button onClick={() => setMode("list")} style={primaryBtnStyle}>{tr(isAr, "Done", "تم")}</button>
+          </div>
+        )}
+
+        {mode === "log" && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 10 }}>
+              <button onClick={() => setMode("list")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: "var(--icon-muted)", background: "none", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 3, cursor: "pointer" }}>
+                <ChevronIcon size={13} style={{ transform: `rotate(${isAr ? 0 : 180}deg)` }} /> {tr(isAr, "Back", "رجوع")}
+              </button>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+              {LOG_SECTIONS.map((s) => {
+                const active = s.key === logFilter;
+                return (
+                  <button key={s.key} onClick={() => setLogFilter(s.key)}
+                    style={{ padding: "6px 11px", fontSize: 12, fontWeight: 600, color: active ? "#fff" : "var(--icon-muted)", background: active ? BRASS : "none", border: `1px solid ${active ? BRASS : "rgba(var(--border-rgb),0.2)"}`, borderRadius: 20, cursor: "pointer" }}>
+                    {tr(isAr, s.label, s.labelAr)}
+                  </button>
+                );
+              })}
+            </div>
+            {filteredLogs.length === 0 ? (
+              <p style={{ fontSize: 13, color: "var(--muted-strong)" }}>
+                {sortedLogs.length === 0 ? tr(isAr, "No activity recorded yet.", "لا يوجد نشاط مسجل بعد.") : tr(isAr, "No activity in this section yet.", "لا يوجد نشاط في هذا القسم بعد.")}
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: "50vh", overflowY: "auto" }}>
+                {filteredLogs.map((entry) => {
+                  const meta = LOG_ACTION_META[entry.action] || { label: entry.action, labelAr: entry.action, color: "var(--muted-strong)" };
+                  return (
+                    <div key={entry.id} style={{ padding: "8px 10px", border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 3 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: meta.color, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                          {tr(isAr, meta.label, meta.labelAr)}
+                        </span>
+                        <span style={{ fontSize: 11, color: "var(--muted)", flexShrink: 0 }}>
+                          {new Date(entry.at).toLocaleString()}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 13, color: INK, marginTop: 3 }}>{entry.message}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

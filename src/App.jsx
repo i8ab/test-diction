@@ -1467,7 +1467,7 @@ function MainView({
               const active = key === section;
               return (
                 <button key={key} onClick={() => onChangeSection(key)}
-                  style={{ padding: "9px 18px", fontSize: 14, fontWeight: 600, color: active ? s.accent : "var(--icon-muted)", background: active ? CARD : "transparent", border: "1px solid rgba(var(--border-rgb),0.15)", borderBottom: active ? `1px solid ${CARD}` : "1px solid rgba(var(--border-rgb),0.15)", borderRadius: "4px 4px 0 0", marginBottom: -1, cursor: "pointer" }}>
+                  style={{ padding: "9px 18px", fontSize: 14, fontWeight: 600, color: active ? s.accent : "var(--icon-muted)", background: active ? CARD : "transparent", border: "1px solid rgba(var(--border-rgb),0.15)", borderBottom: active ? `1px solid ${CARD}` : "1px solid rgba(var(--border-rgb),0.15)", borderRadius: "8px 8px 0 0", marginBottom: -1, cursor: "pointer", transform: active ? "translateY(-1px)" : "none" }}>
                   {s.shortLabel}
                 </button>
               );
@@ -1507,10 +1507,10 @@ function MainView({
             )}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setShowQuiz(true)} style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: cfg.accent, background: "none", border: `1px solid ${cfg.accent}`, borderRadius: 3, cursor: "pointer", whiteSpace: "nowrap" }}>
+            <button onClick={() => setShowQuiz(true)} className="lift-hover" style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: cfg.accent, background: "none", border: `1px solid ${cfg.accent}`, borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>
               <QuizIcon size={16} /> {tr(isAr, "Quiz", "اختبار")}
             </button>
-            <button onClick={onOpenAdd} style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: "#fff", background: cfg.accent, border: "none", borderRadius: 3, cursor: "pointer", whiteSpace: "nowrap" }}>
+            <button onClick={onOpenAdd} className="btn-shine lift-hover" style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: "#fff", background: cfg.accent, border: "none", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>
               <PlusIcon size={16} /> {tr(isAr, "Add word", "إضافة كلمة")}
             </button>
           </div>
@@ -1550,8 +1550,8 @@ function MainView({
           ].map((f) => {
             const active = studyFilter === f.key;
             return (
-              <button key={f.key} onClick={() => setStudyFilter(f.key)}
-                style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, color: active ? "#fff" : "var(--icon-muted)", background: active ? cfg.accent : "none", border: `1px solid ${active ? cfg.accent : "rgba(var(--border-rgb),0.25)"}`, borderRadius: 3, cursor: "pointer" }}>
+              <button key={f.key} onClick={() => setStudyFilter(f.key)} className={active ? "btn-shine" : ""}
+                style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, color: active ? "#fff" : "var(--icon-muted)", background: active ? cfg.accent : "none", border: `1px solid ${active ? cfg.accent : "rgba(var(--border-rgb),0.25)"}`, borderRadius: 20, cursor: "pointer" }}>
                 {f.label}
               </button>
             );

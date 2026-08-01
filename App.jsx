@@ -1370,7 +1370,7 @@ function MainView({
   const filtered = useMemo(() => {
     const q = query.trim();
     let base = q
-      ? sectionEntries.filter((e) => fuzzyIncludes(e.word, q) || fuzzyIncludes(e.meaning, q) || fuzzyIncludes(e.definition, q))
+      ? sectionEntries.filter((e) => fuzzyIncludes(e.word, q) || fuzzyIncludes(e.meaning, q) || fuzzyIncludes(e.definition, q) || fuzzyIncludes(e.example, q))
       : sectionEntries;
     if (studyFilter === "studied") base = base.filter((e) => studiedIds.has(e.id));
     else if (studyFilter === "not-studied") base = base.filter((e) => !studiedIds.has(e.id));
@@ -1659,9 +1659,10 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
   const [confirmDel, setConfirmDel] = useState(false);
   const [open, setOpen] = useState(false);
   const hasDefinition = !!entry.definition;
+  const hasExample = !!entry.example;
   const hasSynAnt = !!((entry.synonyms && entry.synonyms.length) || (entry.antonyms && entry.antonyms.length));
   const isEnglishWord = cfg.wordDir === "ltr";
-  const isExpandable = isAdmin || hasDefinition || hasSynAnt || isEnglishWord;
+  const isExpandable = isAdmin || hasDefinition || hasExample || hasSynAnt || isEnglishWord;
   return (
     <div className="lift-hover" style={{ background: CARD, border: "1px solid rgba(var(--border-rgb),0.1)", borderInlineStart: `3px solid ${isStudied ? "var(--success)" : cfg.accent}`, borderRadius: 3, padding: "9px 14px", display: "flex", justifyContent: "space-between", gap: 12, animation: "fadeInUp 0.35s ease both" }}>
       <div
@@ -1701,6 +1702,11 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
             )}
             {hasDefinition && (
               <p dir={detectDir(entry.definition)} style={{ fontFamily: detectFont(entry.definition), fontSize: 13, color: "var(--muted-strong)", margin: "6px 0 0", lineHeight: 1.6 }}>{entry.definition}</p>
+            )}
+            {hasExample && (
+              <p dir={detectDir(entry.example)} style={{ fontFamily: detectFont(entry.example), fontSize: 13, color: "var(--muted-strong)", fontStyle: "italic", margin: "6px 0 0", lineHeight: 1.6 }}>
+                <strong style={{ fontStyle: "normal", color: cfg.accent }}>{tr(isAr, "Example: ", "مثال: ")}</strong>{entry.example}
+              </p>
             )}
             {!!(entry.synonyms && entry.synonyms.length) && (
               <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 6 }}>
@@ -1798,6 +1804,11 @@ function WordZoomModal({ entry, cfg, onClose }) {
         {entry.definition && (
           <p dir={detectDir(entry.definition)} style={{ fontFamily: detectFont(entry.definition), fontSize: 15, color: "var(--muted-strong)", marginTop: 22, lineHeight: 1.7, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
             {entry.definition}
+          </p>
+        )}
+        {entry.example && (
+          <p dir={detectDir(entry.example)} style={{ fontFamily: detectFont(entry.example), fontSize: 15, color: "var(--muted-strong)", fontStyle: "italic", marginTop: 14, lineHeight: 1.7, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
+            <strong style={{ fontStyle: "normal", color: cfg.accent }}>{tr(cfg.dir === "rtl", "Example: ", "مثال: ")}</strong>{entry.example}
           </p>
         )}
         {!!(entry.synonyms && entry.synonyms.length) && (
@@ -2124,6 +2135,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
   const [word, setWord] = useState(isEdit ? initialEntry.word : "");
   const [meaning, setMeaning] = useState(isEdit ? initialEntry.meaning : "");
   const [definition, setDefinition] = useState(isEdit ? (initialEntry.definition || "") : "");
+  const [example, setExample] = useState(isEdit ? (initialEntry.example || "") : "");
   const [synonyms, setSynonyms] = useState(isEdit ? normalizePairs(initialEntry.synonyms, cfg) : []);
   const [antonyms, setAntonyms] = useState(isEdit ? normalizePairs(initialEntry.antonyms, cfg) : []);
   const [error, setError] = useState("");
@@ -2148,7 +2160,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
     if (!word.trim() || !meaning.trim()) { setError(tr(isAr, "Word and meaning are both required.", "الكلمة والمعنى مطلوبان.")); return; }
     setSaving(true);
     await onSubmit({
-      word: word.trim(), meaning: meaning.trim(), definition: definition.trim(),
+      word: word.trim(), meaning: meaning.trim(), definition: definition.trim(), example: example.trim(),
       synonyms: cleanPairs(synonyms), antonyms: cleanPairs(antonyms),
     });
     setSaving(false);
@@ -2168,6 +2180,8 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
           <input id="add-meaning" value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder={cfg.meaningPlaceholder} dir={cfg.meaningDir} style={{ ...inputStyle, fontFamily: cfg.meaningFont, fontSize: 16 }} />
           <label style={labelStyle} htmlFor="add-definition">{tr(isAr, "Definition (optional)", "تعريف (اختياري)")}</label>
           <textarea id="add-definition" value={definition} onChange={(e) => setDefinition(e.target.value)} placeholder="شرح إضافي أو مثال" dir="rtl" rows={3} style={{ ...inputStyle, fontFamily: "'Cairo', sans-serif", fontSize: 15, resize: "vertical" }} />
+          <label style={labelStyle} htmlFor="add-example">{tr(isAr, "Example (optional)", "مثال (اختياري)")}</label>
+          <textarea id="add-example" value={example} onChange={(e) => setExample(e.target.value)} placeholder={tr(isAr, "Example sentence using the word", "جملة مثال تستخدم الكلمة")} dir="auto" rows={2} style={{ ...inputStyle, fontFamily: "'Cairo', sans-serif", fontSize: 15, resize: "vertical" }} />
           <PairListEditor cfg={cfg} label={tr(isAr, "Synonyms (optional)", "مرادفات (اختياري)")} pairs={synonyms} onChange={setSynonyms} isAr={isAr} />
           <PairListEditor cfg={cfg} label={tr(isAr, "Antonyms (optional)", "مضادات (اختياري)")} pairs={antonyms} onChange={setAntonyms} isAr={isAr} />
           {error && <div style={errorStyle} role="alert" aria-live="assertive">{error}</div>}

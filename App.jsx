@@ -129,16 +129,6 @@ function cambridgeUrl(word) {
   return `https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(slug)}`;
 }
 
-// Looks up an English word via /api/cambridge (server-side proxy for
-// Cambridge Dictionary) and returns { word, entries: [{ pos, examples }] }.
-// Used by the Add/Edit word form to auto-fill part of speech + examples.
-async function lookupCambridge(word) {
-  const res = await fetch(`/api/cambridge?word=${encodeURIComponent(word.trim().toLowerCase())}`);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Lookup failed");
-  return data;
-}
-
 const EN_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const AR_LETTERS = "ابتثجحخدذرزسشصضطظعغفقكلمنهوي".split("");
 
@@ -551,142 +541,6 @@ function PairListDisplay({ cfg, pairs }) {
         </div>
       ))}
     </div>
-  );
-}
-
-/* =========================================================================
-   PART OF SPEECH — a word can have more than one (e.g. "run" is both a
-   verb and a noun in Cambridge Dictionary), so it's stored as a plain
-   array of short strings like ["verb", "noun"]. Shown as small tags.
-   ========================================================================= */
-function normalizeTags(list) {
-  if (!Array.isArray(list)) return [];
-  return list.map((t) => String(t || "").trim()).filter(Boolean);
-}
-
-// Editable chip input for part-of-speech tags — type a tag, press Enter
-// or "," to commit it as a chip.
-function TagListEditor({ label, tags, onChange, isAr, placeholder }) {
-  const [draft, setDraft] = useState("");
-  function commitDraft() {
-    const v = draft.trim();
-    if (v && !tags.includes(v)) onChange([...tags, v]);
-    setDraft("");
-  }
-  function removeTag(i) {
-    onChange(tags.filter((_, idx) => idx !== i));
-  }
-  function handleKeyDown(e) {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      commitDraft();
-    } else if (e.key === "Backspace" && !draft && tags.length) {
-      removeTag(tags.length - 1);
-    }
-  }
-  return (
-    <div>
-      <label style={labelStyle}>{label}</label>
-      <div style={{ ...inputStyle, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", minHeight: 20, padding: "6px 8px" }}>
-        {tags.map((t, i) => (
-          <span key={t + i} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.25)", borderRadius: 20, padding: "2px 8px 2px 10px", fontSize: 12, fontWeight: 600, color: "var(--muted-strong)", textTransform: "lowercase" }}>
-            {t}
-            <button type="button" onClick={() => removeTag(i)} aria-label={tr(isAr, "Remove", "حذف")}
-              style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 0, display: "flex" }}>
-              <XIcon size={11} />
-            </button>
-          </span>
-        ))}
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={commitDraft}
-          placeholder={tags.length ? "" : placeholder}
-          style={{ flex: 1, minWidth: 80, border: "none", outline: "none", background: "transparent", fontSize: 13, color: INK }}
-        />
-      </div>
-    </div>
-  );
-}
-
-// Read-only part-of-speech tags — shown on the entry card / zoom view.
-function TagListDisplay({ tags }) {
-  const clean = normalizeTags(tags);
-  if (!clean.length) return null;
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-      {clean.map((t, i) => (
-        <span key={t + i} style={{ fontSize: 11, fontWeight: 700, color: BRASS, background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 20, padding: "2px 9px", textTransform: "lowercase", letterSpacing: "0.02em" }}>
-          {t}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-/* =========================================================================
-   EXAMPLE SENTENCES — a plain list of example strings for the word, either
-   typed manually or pulled from Cambridge Dictionary via the lookup button
-   in the add/edit form.
-   ========================================================================= */
-function normalizeExamples(list) {
-  if (!Array.isArray(list)) return [];
-  return list.map((s) => String(s || "").trim()).filter(Boolean);
-}
-
-// Editable list — one text box per example sentence, add/remove rows.
-function ExampleListEditor({ label, examples, onChange, isAr }) {
-  function updateRow(i, value) {
-    onChange(examples.map((s, idx) => (idx === i ? value : s)));
-  }
-  function addRow() {
-    onChange([...examples, ""]);
-  }
-  function removeRow(i) {
-    onChange(examples.filter((_, idx) => idx !== i));
-  }
-  return (
-    <div>
-      <label style={labelStyle}>{label}</label>
-      {examples.map((s, i) => (
-        <div key={i} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
-          <input
-            value={s} onChange={(e) => updateRow(i, e.target.value)}
-            placeholder={tr(isAr, "Example sentence", "جملة مثال")} dir="ltr"
-            style={{ ...inputStyle, flex: 1, minWidth: 0, fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 14 }}
-          />
-          <button
-            type="button" onClick={() => removeRow(i)}
-            aria-label={tr(isAr, "Remove", "حذف")}
-            style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 4, flexShrink: 0, display: "flex" }}
-          >
-            <XIcon size={15} />
-          </button>
-        </div>
-      ))}
-      <button
-        type="button" onClick={addRow}
-        style={{ display: "inline-flex", alignItems: "center", gap: 4, border: "none", background: "none", cursor: "pointer", color: "var(--accent-1)", fontSize: 13, fontWeight: 600, padding: "2px 0 12px" }}
-      >
-        <PlusIcon size={13} /> {tr(isAr, "Add example", "إضافة مثال")}
-      </button>
-    </div>
-  );
-}
-
-// Read-only example list — entry card / zoom view.
-function ExampleListDisplay({ examples }) {
-  const clean = normalizeExamples(examples);
-  if (!clean.length) return null;
-  return (
-    <ul style={{ margin: "4px 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 4 }}>
-      {clean.map((s, i) => (
-        <li key={i} dir="ltr" style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 12.5, color: "var(--muted-strong)", fontStyle: "italic", lineHeight: 1.5, paddingInlineStart: 10, borderInlineStart: "2px solid rgba(var(--border-rgb),0.25)" }}>
-          "{s}"
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -1806,10 +1660,8 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
   const [open, setOpen] = useState(false);
   const hasDefinition = !!entry.definition;
   const hasSynAnt = !!((entry.synonyms && entry.synonyms.length) || (entry.antonyms && entry.antonyms.length));
-  const hasPartOfSpeech = !!(entry.partOfSpeech && entry.partOfSpeech.length);
-  const hasExamples = !!(entry.examples && entry.examples.length);
   const isEnglishWord = cfg.wordDir === "ltr";
-  const isExpandable = isAdmin || hasDefinition || hasSynAnt || hasPartOfSpeech || hasExamples || isEnglishWord;
+  const isExpandable = isAdmin || hasDefinition || hasSynAnt || isEnglishWord;
   return (
     <div className="lift-hover" style={{ background: CARD, border: "1px solid rgba(var(--border-rgb),0.1)", borderInlineStart: `3px solid ${isStudied ? "var(--success)" : cfg.accent}`, borderRadius: 3, padding: "9px 14px", display: "flex", justifyContent: "space-between", gap: 12, animation: "fadeInUp 0.35s ease both" }}>
       <div
@@ -1847,19 +1699,8 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
                 <img src="https://dictionary.cambridge.org/external/images/freesearch/sbl.png?version=6.0.78" alt={tr(isAr, "Cambridge Dictionary", "قاموس كامبريدج")} style={{ height: 18, display: "block" }} />
               </a>
             )}
-            {hasPartOfSpeech && (
-              <div style={{ marginTop: 6 }}>
-                <TagListDisplay tags={entry.partOfSpeech} />
-              </div>
-            )}
             {hasDefinition && (
               <p dir={detectDir(entry.definition)} style={{ fontFamily: detectFont(entry.definition), fontSize: 13, color: "var(--muted-strong)", margin: "6px 0 0", lineHeight: 1.6 }}>{entry.definition}</p>
-            )}
-            {hasExamples && (
-              <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 6 }}>
-                <strong style={{ color: cfg.accent }}>{tr(isAr, "Examples", "أمثلة")}</strong>
-                <ExampleListDisplay examples={entry.examples} />
-              </div>
             )}
             {!!(entry.synonyms && entry.synonyms.length) && (
               <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 6 }}>
@@ -1954,21 +1795,10 @@ function WordZoomModal({ entry, cfg, onClose }) {
             <img src="https://dictionary.cambridge.org/external/images/freesearch/sbl.png?version=6.0.78" alt={tr(cfg.dir === "rtl", "Cambridge Dictionary", "قاموس كامبريدج")} style={{ height: 20, display: "block" }} />
           </a>
         )}
-        {!!(entry.partOfSpeech && entry.partOfSpeech.length) && (
-          <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}>
-            <TagListDisplay tags={entry.partOfSpeech} />
-          </div>
-        )}
         {entry.definition && (
           <p dir={detectDir(entry.definition)} style={{ fontFamily: detectFont(entry.definition), fontSize: 15, color: "var(--muted-strong)", marginTop: 22, lineHeight: 1.7, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
             {entry.definition}
           </p>
-        )}
-        {!!(entry.examples && entry.examples.length) && (
-          <div style={{ fontSize: 14, color: "var(--muted-strong)", marginTop: 16, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
-            <strong style={{ color: cfg.accent }}>{tr(cfg.dir === "rtl", "Examples", "أمثلة")}</strong>
-            <ExampleListDisplay examples={entry.examples} />
-          </div>
         )}
         {!!(entry.synonyms && entry.synonyms.length) && (
           <div style={{ fontSize: 14, color: "var(--muted-strong)", marginTop: 16, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
@@ -2296,41 +2126,8 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
   const [definition, setDefinition] = useState(isEdit ? (initialEntry.definition || "") : "");
   const [synonyms, setSynonyms] = useState(isEdit ? normalizePairs(initialEntry.synonyms, cfg) : []);
   const [antonyms, setAntonyms] = useState(isEdit ? normalizePairs(initialEntry.antonyms, cfg) : []);
-  const [partOfSpeech, setPartOfSpeech] = useState(isEdit ? normalizeTags(initialEntry.partOfSpeech) : []);
-  const [examples, setExamples] = useState(isEdit ? normalizeExamples(initialEntry.examples) : []);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [looking, setLooking] = useState(false);
-  const [lookupError, setLookupError] = useState("");
-  const isEnglishWord = cfg.wordDir === "ltr";
-
-  // Looks the current word up on Cambridge Dictionary (via /api/cambridge)
-  // and fills in part of speech + example sentences. Only offered for the
-  // English-word section, since that's what Cambridge Dictionary covers.
-  async function handleLookup() {
-    if (!word.trim()) { setLookupError(tr(isAr, "Type the word first.", "اكتب الكلمة أولاً.")); return; }
-    setLooking(true);
-    setLookupError("");
-    try {
-      const data = await lookupCambridge(word);
-      const posFound = data.entries.map((e) => e.pos).filter(Boolean);
-      const examplesFound = data.entries.flatMap((e) => e.examples || []).slice(0, 8);
-      setPartOfSpeech((prev) => Array.from(new Set([...prev, ...posFound])));
-      setExamples((prev) => {
-        const merged = [...prev];
-        for (const ex of examplesFound) if (!merged.includes(ex)) merged.push(ex);
-        return merged;
-      });
-      if (!posFound.length && !examplesFound.length) {
-        setLookupError(tr(isAr, "Cambridge Dictionary had nothing to add for this word.", "لا توجد بيانات إضافية لهذه الكلمة في قاموس كامبريدج."));
-      }
-    } catch (err) {
-      setLookupError(err.message === "Word not found in Cambridge Dictionary"
-        ? tr(isAr, "Word not found in Cambridge Dictionary.", "الكلمة غير موجودة في قاموس كامبريدج.")
-        : tr(isAr, "Lookup failed. Try again.", "فشل البحث. حاول مرة أخرى."));
-    }
-    setLooking(false);
-  }
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -2353,8 +2150,6 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
     await onSubmit({
       word: word.trim(), meaning: meaning.trim(), definition: definition.trim(),
       synonyms: cleanPairs(synonyms), antonyms: cleanPairs(antonyms),
-      partOfSpeech: normalizeTags(partOfSpeech),
-      examples: normalizeExamples(examples).filter((s) => s.trim()),
     });
     setSaving(false);
   }
@@ -2368,30 +2163,11 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
         </div>
         <form onSubmit={handleSubmit} style={{ marginTop: 14 }}>
           <label style={labelStyle} htmlFor="add-word">{tr(isAr, "Word *", "الكلمة *")}</label>
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-            <input id="add-word" value={word} onChange={(e) => setWord(e.target.value)} placeholder={cfg.wordPlaceholder} dir={cfg.wordDir} style={{ ...inputStyle, flex: 1, minWidth: 0, fontFamily: cfg.wordFont, fontSize: 16 }} autoFocus />
-            {isEnglishWord && (
-              <button
-                type="button" onClick={handleLookup} disabled={looking}
-                title={tr(isAr, "Look up on Cambridge Dictionary", "بحث في قاموس كامبريدج")}
-                style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, height: 46, padding: "0 12px", fontSize: 12.5, fontWeight: 700, color: "#fff", background: "#1D2A57", border: "none", borderRadius: 3, cursor: looking ? "default" : "pointer", opacity: looking ? 0.7 : 1 }}>
-                {looking ? <LoaderIcon size={14} /> : <SearchIcon size={14} />}
-                {tr(isAr, "Cambridge", "كامبريدج")}
-              </button>
-            )}
-          </div>
-          {lookupError && <div style={{ ...errorStyle, marginTop: 6 }} role="alert" aria-live="assertive">{lookupError}</div>}
+          <input id="add-word" value={word} onChange={(e) => setWord(e.target.value)} placeholder={cfg.wordPlaceholder} dir={cfg.wordDir} style={{ ...inputStyle, fontFamily: cfg.wordFont, fontSize: 16 }} autoFocus />
           <label style={labelStyle} htmlFor="add-meaning">{tr(isAr, "Meaning *", "المعنى *")}</label>
           <input id="add-meaning" value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder={cfg.meaningPlaceholder} dir={cfg.meaningDir} style={{ ...inputStyle, fontFamily: cfg.meaningFont, fontSize: 16 }} />
-          {isEnglishWord && (
-            <TagListEditor label={tr(isAr, "Part of speech (optional)", "نوع الكلمة (اختياري)")} tags={partOfSpeech} onChange={setPartOfSpeech} isAr={isAr}
-              placeholder={tr(isAr, "e.g. noun, verb — press Enter", "مثال: اسم، فعل — اضغط Enter")} />
-          )}
           <label style={labelStyle} htmlFor="add-definition">{tr(isAr, "Definition (optional)", "تعريف (اختياري)")}</label>
           <textarea id="add-definition" value={definition} onChange={(e) => setDefinition(e.target.value)} placeholder="شرح إضافي أو مثال" dir="rtl" rows={3} style={{ ...inputStyle, fontFamily: "'Cairo', sans-serif", fontSize: 15, resize: "vertical" }} />
-          {isEnglishWord && (
-            <ExampleListEditor label={tr(isAr, "Examples (optional)", "أمثلة (اختياري)")} examples={examples} onChange={setExamples} isAr={isAr} />
-          )}
           <PairListEditor cfg={cfg} label={tr(isAr, "Synonyms (optional)", "مرادفات (اختياري)")} pairs={synonyms} onChange={setSynonyms} isAr={isAr} />
           <PairListEditor cfg={cfg} label={tr(isAr, "Antonyms (optional)", "مضادات (اختياري)")} pairs={antonyms} onChange={setAntonyms} isAr={isAr} />
           {error && <div style={errorStyle} role="alert" aria-live="assertive">{error}</div>}

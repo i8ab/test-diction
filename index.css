@@ -1,6 +1,5 @@
   html, body { margin: 0; padding: 0; background: var(--paper); }
   * { box-sizing: border-box; }
-  button, input, textarea, select, optgroup { font-family: inherit; }
   :root {
     --paper: #FAFDFE;
     --card: #FFFFFF;

@@ -14,7 +14,6 @@ export default async function handler(req, res) {
   const { JSONBIN_BIN_ID, JSONBIN_MASTER_KEY } = process.env;
 
   if (!JSONBIN_BIN_ID || !JSONBIN_MASTER_KEY) {
-    console.error("[api/jsonbin] missing JSONBIN_BIN_ID or JSONBIN_MASTER_KEY — check .env.local (dev) or Vercel env vars (prod), and restart the dev server after editing .env.local.");
     return res.status(500).json({ error: "Server not configured: missing JSONBIN_BIN_ID or JSONBIN_MASTER_KEY env vars." });
   }
 
@@ -25,11 +24,7 @@ export default async function handler(req, res) {
       const r = await fetch(`${API_BASE}/latest`, {
         headers: { "X-Master-Key": JSONBIN_MASTER_KEY },
       });
-      if (!r.ok) {
-        const text = await r.text().catch(() => "");
-        console.error(`[api/jsonbin] upstream GET failed: ${r.status} ${r.statusText} ${text}`);
-        return res.status(502).json({ error: "Upstream fetch failed" });
-      }
+      if (!r.ok) return res.status(502).json({ error: "Upstream fetch failed" });
       const data = await r.json();
       return res.status(200).json({
         entries: (data.record && data.record.entries) || [],
@@ -54,18 +49,13 @@ export default async function handler(req, res) {
         headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_MASTER_KEY },
         body: JSON.stringify(body),
       });
-      if (!r.ok) {
-        const text = await r.text().catch(() => "");
-        console.error(`[api/jsonbin] upstream PUT failed: ${r.status} ${r.statusText} ${text}`);
-        return res.status(502).json({ error: "Upstream save failed" });
-      }
+      if (!r.ok) return res.status(502).json({ error: "Upstream save failed" });
       return res.status(200).json({ ok: true });
     }
 
     res.setHeader("Allow", "GET, PUT");
     return res.status(405).json({ error: "Method not allowed" });
   } catch (e) {
-    console.error("[api/jsonbin] unexpected error:", e);
     return res.status(500).json({ error: "Proxy error" });
   }
 }

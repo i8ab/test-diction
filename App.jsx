@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import WordAnalysisPanel from "./components/WordAnalysisPanel.jsx";
 
 /* =========================================================================
    SHARED CLOUD STORAGE — via /api/jsonbin (Vercel serverless proxy)
@@ -407,7 +408,7 @@ function detectDir(text) {
   return /[\u0600-\u06FF]/.test(text) ? "rtl" : "ltr";
 }
 function detectFont(text) {
-  return /[\u0600-\u06FF]/.test(text) ? "'Cairo', sans-serif" : "'JetBrains Mono', 'Cairo', monospace";
+  return /[\u0600-\u06FF]/.test(text) ? "'Amiri', serif" : "'Source Sans 3', sans-serif";
 }
 
 // Tiny inline translation helper — used throughout the authenticated app so
@@ -583,25 +584,25 @@ const SECTIONS = {
   "en-ar": {
     label: "English → Arabic", shortLabel: "EN → AR", dir: "ltr",
     accent: "var(--accent-1)", accentSoft: "var(--accent-1-soft)",
-    wordPlaceholder: "Word in English", wordDir: "ltr", wordFont: "'JetBrains Mono', 'Cairo', monospace",
-    meaningPlaceholder: "المعنى بالعربية", meaningDir: "rtl", meaningFont: "'Cairo', sans-serif",
+    wordPlaceholder: "Word in English", wordDir: "ltr", wordFont: "'Fraunces', serif",
+    meaningPlaceholder: "المعنى بالعربية", meaningDir: "rtl", meaningFont: "'Amiri', serif",
     letters: EN_LETTERS,
   },
   "ar-ar": {
     label: "Arabic → Arabic", shortLabel: "AR → AR", dir: "rtl",
     accent: "var(--accent-2)", accentSoft: "var(--accent-2-soft)",
-    wordPlaceholder: "الكلمة", wordDir: "rtl", wordFont: "'Cairo', sans-serif",
-    meaningPlaceholder: "الشرح بالعربية", meaningDir: "rtl", meaningFont: "'Cairo', sans-serif",
+    wordPlaceholder: "الكلمة", wordDir: "rtl", wordFont: "'Amiri', serif",
+    meaningPlaceholder: "الشرح بالعربية", meaningDir: "rtl", meaningFont: "'Amiri', serif",
     letters: AR_LETTERS,
   },
 };
 
 const INK = "var(--ink)", PAPER = "var(--paper)", CARD = "var(--card)", BRASS = "var(--accent-1)";
 
-const labelStyle = { display: "block", fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 12, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted-strong)", margin: "14px 0 6px" };
-const inputStyle = { width: "100%", boxSizing: "border-box", padding: "10px 12px", fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 15, color: INK, background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 3 };
-const errorStyle = { marginTop: 12, fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 13, color: "var(--danger)", background: "var(--danger-bg)", border: "1px solid var(--danger-border)", borderRadius: 3, padding: "8px 10px", animation: "staggerIn 0.3s ease both" };
-const primaryBtnStyle = { marginTop: 20, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 14px", fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 15, fontWeight: 700, letterSpacing: "0.01em", color: "#fff", background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))", backgroundSize: "160% 160%", border: "none", borderRadius: 8, cursor: "pointer", boxShadow: "0 10px 24px -12px rgba(var(--focus-rgb),0.6)" };
+const labelStyle = { display: "block", fontFamily: "'Source Sans 3', sans-serif", fontSize: 12, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted-strong)", margin: "14px 0 6px" };
+const inputStyle = { width: "100%", boxSizing: "border-box", padding: "10px 12px", fontFamily: "'Source Sans 3', sans-serif", fontSize: 15, color: INK, background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 3 };
+const errorStyle = { marginTop: 12, fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, color: "var(--danger)", background: "var(--danger-bg)", border: "1px solid var(--danger-border)", borderRadius: 3, padding: "8px 10px", animation: "staggerIn 0.3s ease both" };
+const primaryBtnStyle = { marginTop: 20, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 14px", fontFamily: "'Source Sans 3', sans-serif", fontSize: 15, fontWeight: 700, letterSpacing: "0.01em", color: "#fff", background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))", backgroundSize: "160% 160%", border: "none", borderRadius: 8, cursor: "pointer", boxShadow: "0 10px 24px -12px rgba(var(--focus-rgb),0.6)" };
 const authCardStyle = { position: "relative", width: "100%", maxWidth: 400, background: CARD, border: "1px solid rgba(var(--border-rgb),0.15)", borderRadius: 18, padding: "34px 30px 30px", boxShadow: "0 2px 0 rgba(0,0,0,0.06), 0 24px 60px -20px rgba(var(--border-rgb),0.4)" };
 const authInputStyle = { ...inputStyle, borderRadius: 8, padding: "11px 13px" };
 const authBadgeWrapStyle = { position: "relative", width: 56, height: 56, borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))", boxShadow: "0 10px 24px -10px rgba(var(--focus-rgb),0.65)", flexShrink: 0 };
@@ -674,7 +675,7 @@ function LanguageToggle({ isAr, onToggle, floating = true }) {
         padding: "6px 10px", fontSize: 12, fontWeight: 600,
         color: "var(--icon-muted)", background: "var(--input-bg)",
         border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 20,
-        cursor: "pointer", fontFamily: "'JetBrains Mono', 'Cairo', monospace",
+        cursor: "pointer", fontFamily: "'Source Sans 3', sans-serif",
       }}>
       <GlobeIcon size={13} />
       {isAr ? "English" : "العربية"}
@@ -1171,11 +1172,11 @@ export default function DictionaryApp() {
               <BookIcon size={24} color="#fff" />
             </div>
             <div>
-              <h1 style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 24, fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
+              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
               <div style={{ width: 34, height: 3, borderRadius: 2, background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))", marginTop: 6, animation: "underlineGrow 0.6s ease 0.2s both" }} />
             </div>
           </div>
-          <p style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 22px" }}>
+          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 22px" }}>
             Create your account with just your name — you'll get a personal code to sign in with.
           </p>
           <form onSubmit={handleSignup}>
@@ -1188,7 +1189,7 @@ export default function DictionaryApp() {
               {signupSaving ? <LoaderIcon size={16} /> : <PlusIcon size={16} />} Create account
             </button>
           </form>
-          <p className="auth-field-2" style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 13, color: "var(--muted-strong)", textAlign: "center", marginTop: 18 }}>
+          <p className="auth-field-2" style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, color: "var(--muted-strong)", textAlign: "center", marginTop: 18 }}>
             Already have an account?{" "}
             <a href="#" onClick={(e) => { e.preventDefault(); setAuthError(""); goToStage("login"); }} className="link-underline" style={{ color: BRASS, fontWeight: 600, textDecoration: "none" }}>
               Sign in
@@ -1208,11 +1209,11 @@ export default function DictionaryApp() {
               <KeyIcon size={24} color="#fff" />
             </div>
             <div>
-              <h1 style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 22, fontWeight: 600, color: INK, margin: 0 }}>Your personal code</h1>
+              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 600, color: INK, margin: 0 }}>Your personal code</h1>
               <div style={{ width: 34, height: 3, borderRadius: 2, background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))", marginTop: 6, animation: "underlineGrow 0.6s ease 0.2s both" }} />
             </div>
           </div>
-          <p style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 18px" }}>
+          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 18px" }}>
             Save this code — you'll need it, along with the shared access code, every time you sign in.
           </p>
           <div
@@ -1226,9 +1227,9 @@ export default function DictionaryApp() {
             style={{ textAlign: "center", padding: "20px 10px", background: codeCopied ? "var(--success-bg)" : "var(--input-bg)", border: `1.5px dashed ${codeCopied ? "rgba(var(--success-border-rgb),0.5)" : "rgba(var(--border-rgb),0.3)"}`, borderRadius: 10, marginBottom: 8, cursor: "pointer", userSelect: "none", transition: "background 0.2s, border-color 0.2s, transform 0.2s" }}
             onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
-            <span style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 32, fontWeight: 600, letterSpacing: "0.08em", color: INK, animation: codeCopied ? "popIn 0.35s ease" : "none" }}>{myCode}</span>
+            <span style={{ fontFamily: "'Fraunces', serif", fontSize: 32, fontWeight: 600, letterSpacing: "0.08em", color: INK, animation: codeCopied ? "popIn 0.35s ease" : "none" }}>{myCode}</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 12, color: codeCopied ? "var(--success)" : "var(--muted)", fontFamily: "'JetBrains Mono', 'Cairo', monospace", marginBottom: 18, minHeight: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 12, color: codeCopied ? "var(--success)" : "var(--muted)", fontFamily: "'Source Sans 3', sans-serif", marginBottom: 18, minHeight: 16 }}>
             {codeCopied ? (<><CheckIcon size={13} /> Copied</>) : (<><CopyIcon size={13} /> Click the code to copy</>)}
           </div>
           <button
@@ -1263,11 +1264,11 @@ export default function DictionaryApp() {
               <span style={{ position: "absolute", inset: -5, borderRadius: 19, border: "1.5px solid rgba(var(--focus-rgb),0.35)", animation: "pulseGlow 2.6s ease-in-out infinite" }} />
             </div>
             <div>
-              <h1 style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 24, fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
+              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
               <div style={{ width: 34, height: 3, borderRadius: 2, background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))", marginTop: 6, animation: "underlineGrow 0.6s ease 0.2s both" }} />
             </div>
           </div>
-          <p style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 22px" }}>
+          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 22px" }}>
             {atr("Enter the shared access code and your personal code to open the dictionary.", "أدخل رمز الوصول المشترك ورمزك الشخصي لفتح القاموس.")}
           </p>
           <form onSubmit={handleLogin}>
@@ -1284,7 +1285,7 @@ export default function DictionaryApp() {
               {loggingIn ? <LoaderIcon size={16} /> : <LoginIcon size={16} />} {atr("Enter", "دخول")}
             </button>
           </form>
-          <p className="auth-field-3" style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 13, color: "var(--muted-strong)", textAlign: "center", marginTop: 18 }}>
+          <p className="auth-field-3" style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, color: "var(--muted-strong)", textAlign: "center", marginTop: 18 }}>
             {atr("Don't have an account?", "ليس لديك حساب؟")}{" "}
             <a href="#" onClick={(e) => { e.preventDefault(); setSignupError(""); goToStage("signup"); }} className="link-underline" style={{ color: BRASS, fontWeight: 600, textDecoration: "none" }}>
               {atr("Create one", "أنشئ حسابًا")}
@@ -1370,7 +1371,7 @@ function MainView({
   const filtered = useMemo(() => {
     const q = query.trim();
     let base = q
-      ? sectionEntries.filter((e) => fuzzyIncludes(e.word, q) || fuzzyIncludes(e.meaning, q) || fuzzyIncludes(e.definition, q) || fuzzyIncludes(e.example, q))
+      ? sectionEntries.filter((e) => fuzzyIncludes(e.word, q) || fuzzyIncludes(e.meaning, q) || fuzzyIncludes(e.definition, q))
       : sectionEntries;
     if (studyFilter === "studied") base = base.filter((e) => studiedIds.has(e.id));
     else if (studyFilter === "not-studied") base = base.filter((e) => !studiedIds.has(e.id));
@@ -1447,13 +1448,13 @@ function MainView({
   }
 
   return (
-    <div dir={cfg.dir} style={{ minHeight: "100vh", background: PAPER, fontFamily: "'JetBrains Mono', 'Cairo', monospace" }}>
+    <div dir={cfg.dir} style={{ minHeight: "100vh", background: PAPER, fontFamily: "'Source Sans 3', sans-serif" }}>
       <header style={{ borderBottom: "1px solid rgba(var(--border-rgb),0.15)", background: PAPER, position: "sticky", top: 0, zIndex: 20 }}>
         <div style={{ maxWidth: 900, margin: "0 auto", padding: "18px 20px 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
               <BookIcon size={20} color={BRASS} />
-              <h1 style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 21, fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
+              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 21, fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 13, color: "var(--muted-strong)" }}><strong style={{ color: INK }}>{name}</strong></div>
@@ -1566,7 +1567,7 @@ function MainView({
             const has = availableLetters.has(l);
             return (
               <button key={l} disabled={!has} onClick={() => jumpTo(l)}
-                style={{ fontFamily: section === "ar-ar" ? "'Cairo', sans-serif" : "'JetBrains Mono', 'Cairo', monospace", fontSize: 13, padding: "2px 0", border: "none", background: "none", color: has ? cfg.accent : "rgba(var(--border-rgb),0.2)", fontWeight: has ? 700 : 400, cursor: has ? "pointer" : "default", textAlign: "center" }}>
+                style={{ fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif", fontSize: 13, padding: "2px 0", border: "none", background: "none", color: has ? cfg.accent : "rgba(var(--border-rgb),0.2)", fontWeight: has ? 700 : 400, cursor: has ? "pointer" : "default", textAlign: "center" }}>
                 {l}
               </button>
             );
@@ -1583,7 +1584,7 @@ function MainView({
           ) : (
             cfg.letters.filter((l) => grouped[l]).map((letter) => (
               <div key={letter} ref={(el) => (letterRefs.current[letter] = el)} style={{ marginBottom: 26 }}>
-                <div style={{ fontFamily: section === "ar-ar" ? "'Cairo', sans-serif" : "'JetBrains Mono', 'Cairo', monospace", fontSize: 15, fontWeight: 700, color: cfg.accent, borderBottom: `1px solid ${cfg.accentSoft}`, paddingBottom: 4, marginBottom: 10 }}>
+                <div style={{ fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif", fontSize: 15, fontWeight: 700, color: cfg.accent, borderBottom: `1px solid ${cfg.accentSoft}`, paddingBottom: 4, marginBottom: 10 }}>
                   {letter}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1659,10 +1660,9 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
   const [confirmDel, setConfirmDel] = useState(false);
   const [open, setOpen] = useState(false);
   const hasDefinition = !!entry.definition;
-  const hasExample = !!entry.example;
   const hasSynAnt = !!((entry.synonyms && entry.synonyms.length) || (entry.antonyms && entry.antonyms.length));
   const isEnglishWord = cfg.wordDir === "ltr";
-  const isExpandable = isAdmin || hasDefinition || hasExample || hasSynAnt || isEnglishWord;
+  const isExpandable = isAdmin || hasDefinition || hasSynAnt || isEnglishWord;
   return (
     <div className="lift-hover" style={{ background: CARD, border: "1px solid rgba(var(--border-rgb),0.1)", borderInlineStart: `3px solid ${isStudied ? "var(--success)" : cfg.accent}`, borderRadius: 3, padding: "9px 14px", display: "flex", justifyContent: "space-between", gap: 12, animation: "fadeInUp 0.35s ease both" }}>
       <div
@@ -1702,11 +1702,6 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
             )}
             {hasDefinition && (
               <p dir={detectDir(entry.definition)} style={{ fontFamily: detectFont(entry.definition), fontSize: 13, color: "var(--muted-strong)", margin: "6px 0 0", lineHeight: 1.6 }}>{entry.definition}</p>
-            )}
-            {hasExample && (
-              <p dir={detectDir(entry.example)} style={{ fontFamily: detectFont(entry.example), fontSize: 13, color: "var(--muted-strong)", fontStyle: "italic", margin: "6px 0 0", lineHeight: 1.6 }}>
-                <strong style={{ fontStyle: "normal", color: cfg.accent }}>{tr(isAr, "Example: ", "مثال: ")}</strong>{entry.example}
-              </p>
             )}
             {!!(entry.synonyms && entry.synonyms.length) && (
               <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 6 }}>
@@ -1790,6 +1785,9 @@ function WordZoomModal({ entry, cfg, onClose }) {
         <div dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: "clamp(22px, 4.5vw, 30px)", color: "var(--meaning)", lineHeight: 1.35, wordBreak: "break-word" }}>
           {entry.meaning}
         </div>
+        <div style={{ textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
+          <WordAnalysisPanel word={entry.word} isEnglish={cfg.wordDir === "ltr"} isAr={cfg.dir === "rtl"} />
+        </div>
         {cfg.wordDir === "ltr" && (
           <a
             href={cambridgeUrl(entry.word)}
@@ -1804,11 +1802,6 @@ function WordZoomModal({ entry, cfg, onClose }) {
         {entry.definition && (
           <p dir={detectDir(entry.definition)} style={{ fontFamily: detectFont(entry.definition), fontSize: 15, color: "var(--muted-strong)", marginTop: 22, lineHeight: 1.7, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
             {entry.definition}
-          </p>
-        )}
-        {entry.example && (
-          <p dir={detectDir(entry.example)} style={{ fontFamily: detectFont(entry.example), fontSize: 15, color: "var(--muted-strong)", fontStyle: "italic", marginTop: 14, lineHeight: 1.7, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
-            <strong style={{ fontStyle: "normal", color: cfg.accent }}>{tr(cfg.dir === "rtl", "Example: ", "مثال: ")}</strong>{entry.example}
           </p>
         )}
         {!!(entry.synonyms && entry.synonyms.length) && (
@@ -1970,7 +1963,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, sessionStart,
       <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={isAr ? "rtl" : "ltr"} role="dialog" aria-modal="true" aria-labelledby="quiz-modal-title"
         style={{ width: "100%", maxWidth: 540, maxHeight: "88vh", overflowY: "auto", background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-          <h2 id="quiz-modal-title" style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 19, fontWeight: 600, color: INK, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+          <h2 id="quiz-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: INK, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
             <QuizIcon size={19} color={BRASS} /> {tr(isAr, "Quiz", "اختبار")}
             {sectionLabel && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>· {sectionLabel}</span>}
           </h2>
@@ -1979,7 +1972,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, sessionStart,
 
         {stage === "setup" && (
           <div style={{ marginTop: 14 }}>
-            <p style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", color: "var(--muted-strong)", fontSize: 14, margin: "0 0 14px" }}>
+            <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "0 0 14px" }}>
               {tr(isAr,
                 "Pick which studied words to be tested on. The quiz asks about meaning, and about synonyms/antonyms for any word that has them.",
                 "اختر الكلمات التي تمت دراستها والتي عايز تختبر فيها. الاختبار بيسأل عن المعنى، وعن المرادفات/المضادات لأي كلمة ليها.")}
@@ -2058,7 +2051,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, sessionStart,
           return (
             <div style={{ marginTop: 14 }}>
               <div style={{ textAlign: "center" }}>
-                <p style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 22, fontWeight: 600, color: INK, margin: "10px 0 4px" }}>
+                <p style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 600, color: INK, margin: "10px 0 4px" }}>
                   {score} / {questions.length}
                 </p>
                 <p style={{ fontSize: 14, color: "var(--muted-strong)", margin: "0 0 6px" }}>
@@ -2116,7 +2109,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, sessionStart,
 function EmptyState({ hasQuery, onAdd, accent, isAr }) {
   return (
     <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--muted-strong)", border: "1px dashed rgba(var(--border-rgb),0.2)", borderRadius: 4 }}>
-      <p style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 18, color: INK, marginBottom: 6 }}>
+      <p style={{ fontFamily: "'Fraunces', serif", fontSize: 18, color: INK, marginBottom: 6 }}>
         {hasQuery ? tr(isAr, "No entries match your search", "لا توجد نتائج مطابقة لبحثك") : tr(isAr, "This dictionary is empty", "هذا القاموس فارغ")}
       </p>
       <p style={{ fontSize: 14, marginBottom: 18 }}>{hasQuery ? tr(isAr, "Try a different word.", "جرّب كلمة أخرى.") : tr(isAr, "Be the first to add a word.", "كن أول من يضيف كلمة.")}</p>
@@ -2135,7 +2128,6 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
   const [word, setWord] = useState(isEdit ? initialEntry.word : "");
   const [meaning, setMeaning] = useState(isEdit ? initialEntry.meaning : "");
   const [definition, setDefinition] = useState(isEdit ? (initialEntry.definition || "") : "");
-  const [example, setExample] = useState(isEdit ? (initialEntry.example || "") : "");
   const [synonyms, setSynonyms] = useState(isEdit ? normalizePairs(initialEntry.synonyms, cfg) : []);
   const [antonyms, setAntonyms] = useState(isEdit ? normalizePairs(initialEntry.antonyms, cfg) : []);
   const [error, setError] = useState("");
@@ -2160,7 +2152,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
     if (!word.trim() || !meaning.trim()) { setError(tr(isAr, "Word and meaning are both required.", "الكلمة والمعنى مطلوبان.")); return; }
     setSaving(true);
     await onSubmit({
-      word: word.trim(), meaning: meaning.trim(), definition: definition.trim(), example: example.trim(),
+      word: word.trim(), meaning: meaning.trim(), definition: definition.trim(),
       synonyms: cleanPairs(synonyms), antonyms: cleanPairs(antonyms),
     });
     setSaving(false);
@@ -2170,18 +2162,17 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
     <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
       <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={cfg.dir} role="dialog" aria-modal="true" aria-labelledby="add-modal-title" style={{ width: "100%", maxWidth: 440, background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)", maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-          <h2 id="add-modal-title" style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 19, fontWeight: 600, color: INK, margin: 0 }}>{isEdit ? tr(isAr, "Edit word", "تعديل الكلمة") : tr(isAr, `Add to ${cfg.label}`, `إضافة إلى ${cfg.label}`)}</h2>
+          <h2 id="add-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: INK, margin: 0 }}>{isEdit ? tr(isAr, "Edit word", "تعديل الكلمة") : tr(isAr, `Add to ${cfg.label}`, `إضافة إلى ${cfg.label}`)}</h2>
           <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}><XIcon size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} style={{ marginTop: 14 }}>
           <label style={labelStyle} htmlFor="add-word">{tr(isAr, "Word *", "الكلمة *")}</label>
           <input id="add-word" value={word} onChange={(e) => setWord(e.target.value)} placeholder={cfg.wordPlaceholder} dir={cfg.wordDir} style={{ ...inputStyle, fontFamily: cfg.wordFont, fontSize: 16 }} autoFocus />
+          <WordAnalysisPanel word={word} isEnglish={cfg.wordDir === "ltr"} isAr={isAr} />
           <label style={labelStyle} htmlFor="add-meaning">{tr(isAr, "Meaning *", "المعنى *")}</label>
           <input id="add-meaning" value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder={cfg.meaningPlaceholder} dir={cfg.meaningDir} style={{ ...inputStyle, fontFamily: cfg.meaningFont, fontSize: 16 }} />
           <label style={labelStyle} htmlFor="add-definition">{tr(isAr, "Definition (optional)", "تعريف (اختياري)")}</label>
-          <textarea id="add-definition" value={definition} onChange={(e) => setDefinition(e.target.value)} placeholder="شرح إضافي أو مثال" dir="rtl" rows={3} style={{ ...inputStyle, fontFamily: "'Cairo', sans-serif", fontSize: 15, resize: "vertical" }} />
-          <label style={labelStyle} htmlFor="add-example">{tr(isAr, "Example (optional)", "مثال (اختياري)")}</label>
-          <textarea id="add-example" value={example} onChange={(e) => setExample(e.target.value)} placeholder={tr(isAr, "Example sentence using the word", "جملة مثال تستخدم الكلمة")} dir="auto" rows={2} style={{ ...inputStyle, fontFamily: "'Cairo', sans-serif", fontSize: 15, resize: "vertical" }} />
+          <textarea id="add-definition" value={definition} onChange={(e) => setDefinition(e.target.value)} placeholder="شرح إضافي أو مثال" dir="rtl" rows={3} style={{ ...inputStyle, fontFamily: "'Amiri', serif", fontSize: 15, resize: "vertical" }} />
           <PairListEditor cfg={cfg} label={tr(isAr, "Synonyms (optional)", "مرادفات (اختياري)")} pairs={synonyms} onChange={setSynonyms} isAr={isAr} />
           <PairListEditor cfg={cfg} label={tr(isAr, "Antonyms (optional)", "مضادات (اختياري)")} pairs={antonyms} onChange={setAntonyms} isAr={isAr} />
           {error && <div style={errorStyle} role="alert" aria-live="assertive">{error}</div>}
@@ -2240,7 +2231,7 @@ function AccountModal({ account, onClose, onSave, isAr }) {
     <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
       <div onClick={(e) => e.stopPropagation()} className="modal-card" role="dialog" aria-modal="true" aria-labelledby="account-modal-title" style={{ width: "100%", maxWidth: 440, background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-          <h2 id="account-modal-title" style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 19, fontWeight: 600, color: INK, margin: 0 }}>{tr(isAr, "My account", "حسابي")}</h2>
+          <h2 id="account-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: INK, margin: 0 }}>{tr(isAr, "My account", "حسابي")}</h2>
           <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}><XIcon size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} style={{ marginTop: 14 }}>
@@ -2390,7 +2381,7 @@ function AdminModal({ accounts, myAccountCode, logs, onClose, onAdd, onEdit, onD
     <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
       <div onClick={(e) => e.stopPropagation()} className="modal-card" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title" style={{ width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto", background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-          <h2 id="admin-modal-title" style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 19, fontWeight: 600, color: INK, margin: 0 }}>{title}</h2>
+          <h2 id="admin-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: INK, margin: 0 }}>{title}</h2>
           <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}><XIcon size={20} /></button>
         </div>
 
@@ -2416,7 +2407,7 @@ function AdminModal({ accounts, myAccountCode, logs, onClose, onAdd, onEdit, onD
                     <div style={{ fontSize: 12, color: a.role === "admin" ? BRASS : "var(--muted)", fontWeight: a.role === "admin" ? 700 : 400 }}>
                       {a.role === "admin" ? tr(isAr, "Admin", "مسؤول") : tr(isAr, "User", "مستخدم")}
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--muted)", fontFamily: "'JetBrains Mono', 'Cairo', monospace", letterSpacing: "0.04em", marginTop: 2 }}>
+                    <div style={{ fontSize: 12, color: "var(--muted)", fontFamily: "'Fraunces', serif", letterSpacing: "0.04em", marginTop: 2 }}>
                       {tr(isAr, `Code: ${a.code}`, `الرمز: ${a.code}`)}
                     </div>
                   </div>
@@ -2445,7 +2436,7 @@ function AdminModal({ accounts, myAccountCode, logs, onClose, onAdd, onEdit, onD
             <label style={labelStyle} htmlFor="acct-form-name">{tr(isAr, "Name", "الاسم")}</label>
             <input id="acct-form-name" value={formName} onChange={(e) => setFormName(e.target.value)} style={inputStyle} autoFocus autoCapitalize="off" autoCorrect="off" />
             <label style={labelStyle} htmlFor="acct-form-role">{tr(isAr, "Role", "الدور")}</label>
-            <select id="acct-form-role" value={formRole} onChange={(e) => setFormRole(e.target.value)} style={{ ...inputStyle, fontFamily: "'JetBrains Mono', 'Cairo', monospace" }}>
+            <select id="acct-form-role" value={formRole} onChange={(e) => setFormRole(e.target.value)} style={{ ...inputStyle, fontFamily: "'Source Sans 3', sans-serif" }}>
               <option value="user">{tr(isAr, "User", "مستخدم")}</option>
               <option value="admin">{tr(isAr, "Admin", "مسؤول")}</option>
             </select>
@@ -2463,7 +2454,7 @@ function AdminModal({ accounts, myAccountCode, logs, onClose, onAdd, onEdit, onD
 
         {mode === "added" && (
           <div style={{ marginTop: 14 }}>
-            <p style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", color: "var(--muted-strong)", fontSize: 14, margin: "0 0 14px" }}>
+            <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "0 0 14px" }}>
               {tr(isAr, `Share this personal code with ${newAccountName} — they'll use it, along with the shared access code, to sign in.`, `شارك هذا الرمز الشخصي مع ${newAccountName} — سيستخدمه مع رمز الوصول المشترك لتسجيل الدخول.`)}
             </p>
             <div
@@ -2473,7 +2464,7 @@ function AdminModal({ accounts, myAccountCode, logs, onClose, onAdd, onEdit, onD
               tabIndex={0}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleCopyNewCode(); } }}
               style={{ textAlign: "center", padding: "18px 10px", background: codeCopied ? "var(--success-bg)" : "var(--input-bg)", border: `1px dashed ${codeCopied ? "rgba(var(--success-border-rgb),0.45)" : "rgba(var(--border-rgb),0.3)"}`, borderRadius: 4, marginBottom: 8, cursor: "pointer", userSelect: "none" }}>
-              <span style={{ fontFamily: "'JetBrains Mono', 'Cairo', monospace", fontSize: 28, fontWeight: 600, letterSpacing: "0.08em", color: INK }}>{newAccountCode}</span>
+              <span style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 600, letterSpacing: "0.08em", color: INK }}>{newAccountCode}</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 12, color: codeCopied ? "var(--success)" : "var(--muted)", marginBottom: 18 }}>
               {codeCopied ? (<><CheckIcon size={13} /> {tr(isAr, "Copied", "تم النسخ")}</>) : (<><CopyIcon size={13} /> {tr(isAr, "Click the code to copy", "اضغط على الرمز للنسخ")}</>)}

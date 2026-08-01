@@ -122,11 +122,50 @@ const ZoomIcon = (p) => <Icon {...p} path={<><circle cx="11" cy="11" r="7"/><cir
 const GlobeIcon = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/></>} />;
 const QuizIcon = (p) => <Icon {...p} path={<><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8"/><path d="M8 13h5"/><path d="m8 17 2 2 4-4"/></>} />;
 const ExternalLinkIcon = (p) => <Icon {...p} path={<><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></>} />;
+const SpeakerIcon = (p) => <Icon {...p} path={<><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></>} />;
 
 // Builds the Cambridge Dictionary lookup URL for a given English word.
 function cambridgeUrl(word) {
   const slug = (word || "").trim().toLowerCase().replace(/\s+/g, "-");
   return `https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(slug)}`;
+}
+
+/* =========================================================================
+   PRONUNCIATION — reads a word aloud using the browser's built-in
+   text-to-speech (Web Speech API). No server, API key, or audio files
+   needed; works offline in most browsers once the voices are installed.
+   `dir` ("ltr"/"rtl") picks English vs Arabic pronunciation.
+   ========================================================================= */
+function speakWord(text, dir) {
+  if (!text) return;
+  try {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel(); // stop any word currently being read
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = dir === "rtl" ? "ar-SA" : "en-US";
+    utter.rate = 0.95;
+    const voices = window.speechSynthesis.getVoices();
+    const match = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith(utter.lang.split("-")[0]));
+    if (match) utter.voice = match;
+    window.speechSynthesis.speak(utter);
+  } catch (e) {
+    // Speech synthesis unsupported/unavailable — fail silently, the
+    // pronunciation button just won't do anything audible.
+  }
+}
+
+function SpeakButton({ text, dir, isAr, size = 16, style }) {
+  const supported = typeof window !== "undefined" && "speechSynthesis" in window;
+  if (!supported) return null;
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); speakWord(text, dir); }}
+      title={tr(isAr, "Pronounce", "نطق الكلمة")}
+      aria-label={tr(isAr, `Pronounce ${text}`, `نطق ${text}`)}
+      style={{ border: "none", background: "none", color: "var(--icon-muted)", padding: 4, cursor: "pointer", display: "inline-flex", alignItems: "center", ...style }}>
+      <SpeakerIcon size={size} />
+    </button>
+  );
 }
 
 const EN_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
@@ -1724,6 +1763,7 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
         )}
       </div>
       <div style={{ display: "flex", gap: 6, flexShrink: 0, alignSelf: "flex-start" }}>
+        <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={isAr} size={18} />
         <button
           onClick={(e) => { e.stopPropagation(); onOpenZoom(); }}
           title={tr(isAr, "Zoom", "تكبير")}
@@ -1777,8 +1817,11 @@ function WordZoomModal({ entry, cfg, onClose }) {
         <button onClick={onClose} aria-label={tr(cfg.dir === "rtl", "Close", "إغلاق")} style={{ position: "absolute", top: 14, insetInlineEnd: 14, border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}>
           <XIcon size={20} />
         </button>
-        <div dir={cfg.wordDir} id="zoom-modal-word" style={{ fontFamily: cfg.wordFont, fontSize: "clamp(30px, 6vw, 46px)", fontWeight: 700, color: INK, lineHeight: 1.2, wordBreak: "break-word" }}>
-          {entry.word}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+          <div dir={cfg.wordDir} id="zoom-modal-word" style={{ fontFamily: cfg.wordFont, fontSize: "clamp(30px, 6vw, 46px)", fontWeight: 700, color: INK, lineHeight: 1.2, wordBreak: "break-word" }}>
+            {entry.word}
+          </div>
+          <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={cfg.dir === "rtl"} size={26} style={{ color: cfg.accent, flexShrink: 0 }} />
         </div>
         <div style={{ width: 48, height: 3, background: cfg.accent, borderRadius: 2, margin: "18px auto" }} />
         <div dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: "clamp(22px, 4.5vw, 30px)", color: "var(--meaning)", lineHeight: 1.35, wordBreak: "break-word" }}>
@@ -2013,8 +2056,13 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, sessionStart,
                 <div style={{ width: `${((index) / questions.length) * 100}%`, height: "100%", background: BRASS, borderRadius: 2, transition: "width 0.2s" }} />
               </div>
               <p style={{ fontSize: 21, fontWeight: 700, color: "var(--muted-strong)", margin: "0 0 8px" }}>{quizQuestionLabel(q.type, isAr)}</p>
-              <div dir={q.promptDir} style={{ fontFamily: q.promptFont, fontSize: "clamp(26px, 4.2vw, 34px)", fontWeight: 700, color: INK, background: "var(--input-bg)", borderRadius: 4, padding: "20px 16px", marginBottom: 16, wordBreak: "break-word", lineHeight: 1.3 }}>
-                {q.promptText}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--input-bg)", borderRadius: 4, padding: "20px 16px", marginBottom: 16 }}>
+                <div dir={q.promptDir} style={{ flex: 1, fontFamily: q.promptFont, fontSize: "clamp(26px, 4.2vw, 34px)", fontWeight: 700, color: INK, wordBreak: "break-word", lineHeight: 1.3 }}>
+                  {q.promptText}
+                </div>
+                {q.type !== "meaning_word" && (
+                  <SpeakButton text={q.promptText} dir={q.promptDir} isAr={isAr} size={24} style={{ flexShrink: 0 }} />
+                )}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {q.options.map((opt, i) => {

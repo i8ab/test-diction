@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import WordAnalysisPanel from "./components/WordAnalysisPanel.jsx";
 
 /* =========================================================================
    SHARED CLOUD STORAGE — via /api/jsonbin (Vercel serverless proxy)
@@ -1785,9 +1784,6 @@ function WordZoomModal({ entry, cfg, onClose }) {
         <div dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: "clamp(22px, 4.5vw, 30px)", color: "var(--meaning)", lineHeight: 1.35, wordBreak: "break-word" }}>
           {entry.meaning}
         </div>
-        <div style={{ textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
-          <WordAnalysisPanel word={entry.word} isEnglish={cfg.wordDir === "ltr"} isAr={cfg.dir === "rtl"} />
-        </div>
         {cfg.wordDir === "ltr" && (
           <a
             href={cambridgeUrl(entry.word)}
@@ -2168,7 +2164,6 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
         <form onSubmit={handleSubmit} style={{ marginTop: 14 }}>
           <label style={labelStyle} htmlFor="add-word">{tr(isAr, "Word *", "الكلمة *")}</label>
           <input id="add-word" value={word} onChange={(e) => setWord(e.target.value)} placeholder={cfg.wordPlaceholder} dir={cfg.wordDir} style={{ ...inputStyle, fontFamily: cfg.wordFont, fontSize: 16 }} autoFocus />
-          <WordAnalysisPanel word={word} isEnglish={cfg.wordDir === "ltr"} isAr={isAr} />
           <label style={labelStyle} htmlFor="add-meaning">{tr(isAr, "Meaning *", "المعنى *")}</label>
           <input id="add-meaning" value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder={cfg.meaningPlaceholder} dir={cfg.meaningDir} style={{ ...inputStyle, fontFamily: cfg.meaningFont, fontSize: 16 }} />
           <label style={labelStyle} htmlFor="add-definition">{tr(isAr, "Definition (optional)", "تعريف (اختياري)")}</label>

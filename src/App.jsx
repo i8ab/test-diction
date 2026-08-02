@@ -133,52 +133,106 @@ function cambridgeUrl(word) {
 /* =========================================================================
    PRONUNCIATION
    -------------------------------------------------------------------------
-   English uses the browser's built-in text-to-speech (Web Speech API) —
-   that part works everywhere reliably because virtually every OS ships
-   an English voice.
+   Two paths, tried in order:
+   1. The device's own local voice (speechSynthesis) — works fully offline,
+      no dependency on any external service being reachable.
+   2. Only if that genuinely doesn't produce sound do we fall back to the
+      online Google Translate audio endpoint — and we now know that
+      endpoint is blocked on at least some networks (confirmed: it failed
+      with a network error for this exact deployment), so it can't be the
+      only path for Arabic.
 
-   Arabic is the unreliable one: on a lot of machines (most Windows PCs,
-   plenty of Android phones, some Linux setups) there is NO Arabic voice
-   pack installed at the OS level. When that's true, speechSynthesis
-   doesn't error — it just silently produces no sound, and trying to
-   *detect* whether a usable Arabic voice exists turned out to be too
-   unreliable across browsers to trust (that was the bug in the previous
-   version: the detection itself could be wrong).
-
-   So instead, Arabic words go straight through a free online TTS endpoint
-   (the same audio API Google Translate's website uses) via a plain
-   <audio> element — no detection, no guessing, no API key. This only
-   needs the browser to have an internet connection, same as loading the
-   rest of the page.
+   The earlier bug: we checked getVoices() *once*, synchronously, on the
+   very first click. Voices — especially non-English ones — often aren't
+   loaded yet at that point and only appear after the async
+   "voiceschanged" event fires, sometimes a second or more after the page
+   loads. Checking too early made it look like "no Arabic voice exists"
+   when really the browser just hadn't reported it yet. Now we actively
+   wait/retry for voices to show up before deciding there's truly nothing
+   usable.
    ========================================================================= */
+function waitForVoices(timeoutMs) {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return resolve([]);
+    const existing = window.speechSynthesis.getVoices();
+    if (existing && existing.length) return resolve(existing);
+    let done = false;
+    const finish = (list) => {
+      if (done) return;
+      done = true;
+      window.speechSynthesis.onvoiceschanged = null;
+      resolve(list || []);
+    };
+    window.speechSynthesis.onvoiceschanged = () => finish(window.speechSynthesis.getVoices());
+    // Some browsers never fire voiceschanged if there's truly nothing to
+    // report — poll as a backup so we don't wait forever.
+    const start = Date.now();
+    const poll = setInterval(() => {
+      const list = window.speechSynthesis.getVoices();
+      if ((list && list.length) || Date.now() - start > timeoutMs) {
+        clearInterval(poll);
+        finish(list);
+      }
+    }, 150);
+  });
+}
+
+function findArabicVoice(voices) {
+  const ar = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith("ar"));
+  if (ar.length) return ar.find((v) => /sa|eg|xa/i.test(v.lang)) || ar[0];
+  return voices.find((v) => /arabic|عربي/i.test(v.name || "")) || null;
+}
+
 let ttsAudioEl = null;
-function speakArabic(text) {
+function playOnlineArabic(text, onFail) {
   try {
-    // Fresh element per call — reusing one Audio() across calls can get
-    // stuck in a bad state (still loading/aborted) after a rapid second
-    // click, which looks identical to "nothing happens".
     if (ttsAudioEl) { try { ttsAudioEl.pause(); } catch (e) {} }
     const url = "https://translate.google.com/translate_tts?ie=UTF-8&q=" +
       encodeURIComponent(text) + "&tl=ar&client=tw-ob";
     const audio = new Audio(url);
     ttsAudioEl = audio;
-    audio.addEventListener("error", () => {
-      // This fires for a real failure (network blocked, non-200 response,
-      // unplayable stream, etc.) — surface it instead of staying silent so
-      // it's obvious *why* nothing was heard.
-      window.alert(
-        "تعذّر نطق الكلمة العربية — يبدو إن فيه مشكلة في الاتصال بخدمة النطق (تأكد من الإنترنت، أو إن حاجب إعلانات/VPN مش بيمنع translate.google.com)."
-      );
-    });
-    const playPromise = audio.play();
-    if (playPromise && playPromise.catch) {
-      playPromise.catch((err) => {
-        window.alert("تعذّر تشغيل النطق العربي: " + (err && err.message ? err.message : err));
-      });
-    }
+    audio.addEventListener("error", () => onFail && onFail());
+    const p = audio.play();
+    if (p && p.catch) p.catch(() => onFail && onFail());
   } catch (e) {
-    window.alert("تعذّر تشغيل النطق العربي: " + e.message);
+    onFail && onFail();
   }
+}
+
+async function speakArabic(text) {
+  const hasSynth = typeof window !== "undefined" && "speechSynthesis" in window;
+  if (hasSynth) {
+    const voices = await waitForVoices(1500);
+    const arVoice = findArabicVoice(voices);
+    if (arVoice) {
+      let started = false;
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.voice = arVoice;
+      utter.lang = arVoice.lang;
+      utter.rate = 0.95;
+      utter.onstart = () => { started = true; };
+      setTimeout(() => window.speechSynthesis.speak(utter), 30);
+      // Give it a beat to actually start; if it silently never does,
+      // fall through to the online voice instead of staying silent.
+      setTimeout(() => {
+        if (!started) {
+          playOnlineArabic(text, () => {
+            window.alert(
+              "تعذّر نطق الكلمة العربية: مفيش صوت عربي شغال على جهازك، وخدمة النطق الأونلاين محجوبة على الشبكة دي."
+            );
+          });
+        }
+      }, 700);
+      return;
+    }
+  }
+  // No local Arabic voice at all — go straight online.
+  playOnlineArabic(text, () => {
+    window.alert(
+      "تعذّر نطق الكلمة العربية: مفيش صوت عربي مثبت على جهازك، وخدمة النطق الأونلاين مش متاحة (محجوبة على الشبكة أو مفيش إنترنت). جرّب تثبّت حزمة اللغة العربية لقارئ الشاشة/النطق من إعدادات الجهاز (Windows: Settings → Time & Language → Speech، أو أندرويد: Settings → Text-to-speech)."
+    );
+  });
 }
 
 function speakEnglish(text) {

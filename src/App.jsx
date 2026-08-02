@@ -3115,15 +3115,28 @@ function LeaderboardModal({ accounts, sectionEntries, accountCode, sectionLabel,
   const ranked = useMemo(() => {
     const rows = accounts.map((a) => {
       const studiedHere = ((a.studied) || []).filter((id) => sectionIds.has(id)).length;
+      const srsStats = a.srsStats || {};
+      // "studiedHere" is just a self-toggled flag — someone can mark a word
+      // as studied without ever actually being quizzed on it. So ranking
+      // uses quiz-verified progress instead: a word only counts once the
+      // account has answered questions on it in the Quiz and reached at
+      // least the "Familiar" accuracy level (see srsLevelFromStats).
+      let verifiedHere = 0;
+      let masteredHere = 0;
+      for (const id of sectionIds) {
+        const level = srsLevelFromStats(srsStats[id]);
+        if (level >= 2) verifiedHere++;
+        if (level === 3) masteredHere++;
+      }
       const history = a.quizHistory || [];
       const totalScore = history.reduce((sum, h) => sum + (h.score || 0), 0);
       const totalQuestions = history.reduce((sum, h) => sum + (h.total || 0), 0);
       const avgPct = totalQuestions ? Math.round((totalScore / totalQuestions) * 100) : null;
-      return { code: a.code, name: a.name, studiedHere, avgPct, quizCount: history.length };
+      return { code: a.code, name: a.name, studiedHere, verifiedHere, masteredHere, avgPct, quizCount: history.length };
     });
     return rows
-      .filter((r) => r.studiedHere > 0 || r.quizCount > 0)
-      .sort((a, b) => b.studiedHere - a.studiedHere || (b.avgPct || 0) - (a.avgPct || 0));
+      .filter((r) => r.verifiedHere > 0 || r.quizCount > 0)
+      .sort((a, b) => b.verifiedHere - a.verifiedHere || b.masteredHere - a.masteredHere || (b.avgPct || 0) - (a.avgPct || 0));
   }, [accounts, sectionIds]);
 
   const medalColors = ["#d4af37", "#a8a8a8", "#c98a4b"];
@@ -3140,11 +3153,11 @@ function LeaderboardModal({ accounts, sectionEntries, accountCode, sectionLabel,
           <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}><XIcon size={20} /></button>
         </div>
         <p style={{ fontSize: 13, color: "var(--muted)", margin: "10px 0 16px" }}>
-          {tr(isAr, "Ranked by words studied in this section; average quiz score breaks ties.", "الترتيب حسب عدد الكلمات المدروسة في هذا القسم؛ متوسط نتيجة الاختبارات بيفصل التعادل.")}
+          {tr(isAr, "Ranked by words verified through the Quiz (not just marked \"studied\"); average quiz score and mastered words break ties.", "الترتيب حسب الكلمات اللي اتأكدت فعليًا عن طريق الاختبار (مش بس اللي اتعلّمت عليها \"درستها\")؛ متوسط نتيجة الاختبارات وعدد الكلمات المتقنة بيفصلوا التعادل.")}
         </p>
         {ranked.length === 0 ? (
           <p style={{ fontSize: 14, color: "var(--muted)", textAlign: "center", marginTop: 20 }}>
-            {tr(isAr, "No one has studied any words here yet — be the first!", "محدش ذاكر أي كلمة هنا لسه — يلا كون أول واحد!")}
+            {tr(isAr, "No one has been quizzed on any words here yet — take a quiz to be the first!", "محدش اتاختبر في أي كلمة هنا لسه — خد اختبار عشان تكون أول واحد!")}
           </p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -3163,11 +3176,12 @@ function LeaderboardModal({ accounts, sectionEntries, accountCode, sectionLabel,
                     <div style={{ fontSize: 14, fontWeight: 700, color: INK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {r.name} {isMe && <span style={{ fontSize: 11, fontWeight: 600, color: cfg.accent }}>({tr(isAr, "you", "انت")})</span>}
                     </div>
-                    {r.avgPct !== null && (
-                      <div style={{ fontSize: 12, color: "var(--muted)" }}>{tr(isAr, `Avg quiz score: ${r.avgPct}%`, `متوسط الاختبارات: ${r.avgPct}%`)}</div>
-                    )}
+                    <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                      {tr(isAr, `${r.masteredHere} mastered`, `${r.masteredHere} متقنة`)}
+                      {r.avgPct !== null && ` · ${tr(isAr, `Avg quiz score: ${r.avgPct}%`, `متوسط الاختبارات: ${r.avgPct}%`)}`}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: cfg.accent }}>{r.studiedHere}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: cfg.accent }}>{r.verifiedHere}</div>
                 </div>
               );
             })}

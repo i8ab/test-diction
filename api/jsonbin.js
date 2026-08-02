@@ -26,6 +26,14 @@ export default async function handler(req, res) {
       });
       if (!r.ok) return res.status(502).json({ error: "Upstream fetch failed" });
       const data = await r.json();
+      // Every GET used to round-trip all the way to JSONBin.io on Vercel's
+      // servers, which is the main source of the "slow/laggy" feeling —
+      // JSONBin's free tier can take a noticeable moment to respond, and we
+      // paid that cost on *every single visit*, even when nothing changed.
+      // Letting Vercel's edge cache serve a short-lived cached copy (and
+      // refresh it in the background) means most visits get a near-instant
+      // response instead of waiting on JSONBin at all.
+      res.setHeader("Cache-Control", "public, max-age=0, s-maxage=10, stale-while-revalidate=55");
       return res.status(200).json({
         entries: (data.record && data.record.entries) || [],
         accounts: (data.record && data.record.accounts) || [],

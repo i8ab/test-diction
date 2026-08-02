@@ -2096,26 +2096,22 @@ function MainView({
             </button>
           </div>
 
-          <div className="toolbar-icon-group toolbar-anim" style={{ animationDelay: "0.08s", borderColor: `${cfg.accent}33` }}>
-            <button onClick={() => setShowLeaderboard(true)} className="toolbar-icon-btn" data-tooltip={tr(isAr, "Leaderboard", "الترتيب")} style={{ color: cfg.accent }}>
-              <TrophyIcon size={17} />
+          <div className="toolbar-action-row toolbar-anim" style={{ animationDelay: "0.08s" }}>
+            <button onClick={() => setShowLeaderboard(true)} className="toolbar-pill-btn" style={{ color: cfg.accent, borderColor: `${cfg.accent}40` }}>
+              <TrophyIcon size={15} /> {tr(isAr, "Leaderboard", "الترتيب")}
             </button>
-            <span className="toolbar-icon-divider" />
-            <button onClick={() => setShowStats(true)} className="toolbar-icon-btn" data-tooltip={tr(isAr, "Stats", "إحصائياتي")} style={{ color: cfg.accent }}>
-              <StatsIcon size={17} />
+            <button onClick={() => setShowStats(true)} className="toolbar-pill-btn" style={{ color: cfg.accent, borderColor: `${cfg.accent}40` }}>
+              <StatsIcon size={15} /> {tr(isAr, "Stats", "إحصائياتي")}
             </button>
-            <span className="toolbar-icon-divider" />
-            <button onClick={() => setShowQuiz(true)} className="toolbar-icon-btn" data-tooltip={tr(isAr, "Quiz", "اختبار")} style={{ color: cfg.accent }}>
-              <QuizIcon size={17} />
+            <button onClick={() => setShowQuiz(true)} className="toolbar-pill-btn" style={{ color: cfg.accent, borderColor: `${cfg.accent}40` }}>
+              <QuizIcon size={15} /> {tr(isAr, "Quiz", "اختبار")}
             </button>
-            <span className="toolbar-icon-divider" />
             <button
               onClick={() => exportEntriesAsCsv(filtered.length ? filtered : sectionEntries, cfg, cfg.shortLabel)}
               disabled={sectionEntries.length === 0}
-              className="toolbar-icon-btn"
-              data-tooltip={tr(isAr, "Export CSV", "تصدير CSV")}
-              style={{ color: cfg.accent, opacity: sectionEntries.length === 0 ? 0.4 : 1, cursor: sectionEntries.length === 0 ? "default" : "pointer" }}>
-              <DownloadIcon size={17} />
+              className="toolbar-pill-btn"
+              style={{ color: cfg.accent, borderColor: `${cfg.accent}40`, opacity: sectionEntries.length === 0 ? 0.5 : 1, cursor: sectionEntries.length === 0 ? "default" : "pointer" }}>
+              <DownloadIcon size={15} /> {tr(isAr, "Export CSV", "تصدير CSV")}
             </button>
           </div>
         </div>

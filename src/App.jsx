@@ -1363,21 +1363,48 @@ export default function DictionaryApp() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginTop: "clamp(40px, 6vw, 68px)" }}>
-            {introFeatures.map((f, i) => (
-              <div key={f.title} className="auth-field-1 lift-hover"
-                style={{ animationDelay: `${0.08 + i * 0.05}s`, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.14)", borderRadius: 14, padding: "20px 18px", boxShadow: "0 2px 0 rgba(0,0,0,0.04), 0 16px 40px -24px rgba(var(--border-rgb),0.4)" }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--accent-1-soft)", color: BRASS, marginBottom: 12 }}>
-                  <f.icon size={18} />
+          {/* Bento-style showcase: an asymmetric mosaic instead of a plain
+              uniform grid — two "hero" tiles get extra room to breathe while
+              the rest tile in around them, each carrying a large faint
+              ordinal numeral for a more editorial, less templated feel. */}
+          <style>{`
+            .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 122px; gap: 14px; grid-auto-flow: dense; margin-top: clamp(40px, 6vw, 68px); }
+            .bento-item { position: relative; overflow: hidden; background: var(--card); border: 1px solid rgba(var(--border-rgb),0.14); border-radius: 16px; padding: 20px; box-shadow: 0 2px 0 rgba(0,0,0,0.04), 0 16px 40px -24px rgba(var(--border-rgb),0.4); transition: transform 0.35s cubic-bezier(0.22,1,0.36,1), box-shadow 0.35s ease, border-color 0.3s ease; display: flex; flex-direction: column; justify-content: flex-end; }
+            .bento-item:hover { transform: translateY(-5px) scale(1.015); box-shadow: 0 24px 50px -20px rgba(var(--border-rgb),0.5); border-color: rgba(var(--focus-rgb),0.4); }
+            .bento-num { position: absolute; top: 6px; inset-inline-end: 12px; font-family: 'Fraunces', serif; font-size: 58px; font-weight: 600; color: var(--ink); opacity: 0.06; line-height: 1; pointer-events: none; transition: opacity 0.35s ease, transform 0.35s ease; }
+            .bento-item:hover .bento-num { opacity: 0.11; transform: scale(1.08); }
+            .bento-icon { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; background: var(--accent-1-soft); color: var(--accent-1); margin-bottom: 12px; transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+            .bento-item:hover .bento-icon { transform: rotate(-8deg) scale(1.1); }
+            .bento-big { grid-column: span 2; grid-row: span 2; }
+            .bento-big .bento-icon { width: 44px; height: 44px; border-radius: 13px; }
+            .bento-big .bento-num { font-size: 78px; }
+            .bento-wide { grid-column: span 2; grid-row: span 1; }
+            .bento-solo { grid-column: span 1; grid-row: span 1; }
+            .bento-more { grid-column: span 2; grid-row: span 1; border-style: dashed; border-width: 1.5px; align-items: center; justify-content: center; text-align: center; color: var(--muted); }
+            @media (max-width: 720px) {
+              .bento-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 150px; }
+              .bento-big, .bento-wide, .bento-more { grid-column: span 2; grid-row: span 1; }
+            }
+            @media (max-width: 420px) {
+              .bento-grid { grid-template-columns: 1fr; }
+              .bento-big, .bento-wide, .bento-solo, .bento-more { grid-column: span 1; }
+            }
+          `}</style>
+          <div className="bento-grid">
+            {introFeatures.map((f, i) => {
+              const shape = [ "bento-big", "bento-wide", "bento-solo", "bento-solo", "bento-wide", "bento-big" ][i] || "bento-solo";
+              return (
+                <div key={f.title} className={`bento-item auth-field-1 ${shape}`} style={{ animationDelay: `${0.08 + i * 0.05}s` }}>
+                  <span className="bento-num">{String(i + 1).padStart(2, "0")}</span>
+                  <div className="bento-icon"><f.icon size={shape === "bento-big" ? 20 : 18} /></div>
+                  <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: shape === "bento-big" ? 19 : 16, fontWeight: 600, color: INK, margin: "0 0 6px" }}>{f.title}</h3>
+                  <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13.5, color: "var(--muted-strong)", margin: 0, lineHeight: 1.55 }}>{f.desc}</p>
                 </div>
-                <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: 16, fontWeight: 600, color: INK, margin: "0 0 6px" }}>{f.title}</h3>
-                <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13.5, color: "var(--muted-strong)", margin: 0, lineHeight: 1.55 }}>{f.desc}</p>
-              </div>
-            ))}
-            {/* Reserved slot: room to slot in more feature cards later without
-                restructuring the grid — keeps the intro screen easy to extend. */}
-            <div className="auth-field-1"
-              style={{ animationDelay: `${0.08 + introFeatures.length * 0.05}s`, border: "1.5px dashed rgba(var(--border-rgb),0.3)", borderRadius: 14, padding: "20px 18px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", color: "var(--muted)", minHeight: 128 }}>
+              );
+            })}
+            {/* Reserved slot: room to slot in more feature tiles later — just
+                add entries to introFeatures and, optionally, a shape above. */}
+            <div className="bento-item bento-more auth-field-1" style={{ animationDelay: `${0.08 + introFeatures.length * 0.05}s` }}>
               <PlusIcon size={18} style={{ marginBottom: 8, opacity: 0.6 }} />
               <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, margin: 0 }}>{atr("More features on the way", "المزيد من المميزات قريبًا")}</p>
             </div>

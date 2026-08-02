@@ -141,6 +141,17 @@ function cambridgeUrl(word) {
    so we cache the list and refresh it once that event has fired at least
    once instead of trusting whatever getVoices() returns on the very first
    call.
+
+   THE REAL ARABIC PROBLEM: on a lot of machines (most Windows PCs and
+   plenty of Android phones) there simply is no Arabic voice pack installed
+   at the OS level. When that's the case, speechSynthesis doesn't throw or
+   warn — it just silently does nothing for an "ar-SA" utterance, which is
+   exactly the "nothing happens" symptom. There's no way to make a missing
+   local voice speak, so instead: if we scan every ar-* variant and still
+   find nothing installed, we fall back to a free online TTS endpoint
+   (Google Translate's audio API) that always has an Arabic voice, played
+   through a normal <audio> element. This needs the browser to be online,
+   same as loading any other page content, but requires no key/server.
    ========================================================================= */
 let cachedVoices = [];
 function refreshVoiceCache() {
@@ -153,15 +164,59 @@ if (typeof window !== "undefined" && "speechSynthesis" in window) {
   window.speechSynthesis.onvoiceschanged = refreshVoiceCache;
 }
 
+// Arabic gets reported under many different regional tags depending on the
+// OS/browser (Saudi, Egyptian, generic "world Arabic", Google's ar-XA...),
+// so check every common one rather than just ar-SA.
+const AR_LANG_TAGS = ["ar-sa", "ar-eg", "ar-ae", "ar-xa", "ar-jo", "ar-ma", "ar-001", "ar"];
+
 function pickVoice(langPrefix) {
   const exact = cachedVoices.find((v) => v.lang && v.lang.toLowerCase() === langPrefix);
   if (exact) return exact;
   return cachedVoices.find((v) => v.lang && v.lang.toLowerCase().startsWith(langPrefix.split("-")[0]));
 }
 
+function findArabicVoice() {
+  for (const tag of AR_LANG_TAGS) {
+    const v = pickVoice(tag);
+    if (v) return v;
+  }
+  // Some systems label the Arabic voice by name instead of a proper lang tag.
+  return cachedVoices.find((v) => /arabic|عربي/i.test(v.name || ""));
+}
+
+let ttsAudioEl = null;
+function speakViaGoogleTranslate(text, langCode) {
+  try {
+    if (!ttsAudioEl) ttsAudioEl = new Audio();
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${langCode}&client=tw-ob&q=${encodeURIComponent(text)}`;
+    ttsAudioEl.pause();
+    ttsAudioEl.src = url;
+    ttsAudioEl.play().catch(() => {
+      // Autoplay/network blocked — nothing more we can do without a real
+      // local voice or a paid TTS API.
+    });
+  } catch (e) {
+    // ignore
+  }
+}
+
 function speakWord(text, dir) {
   if (!text) return;
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  const hasSynth = typeof window !== "undefined" && "speechSynthesis" in window;
+
+  if (dir === "rtl") {
+    refreshVoiceCache();
+    const arVoice = hasSynth ? findArabicVoice() : null;
+    if (!arVoice) {
+      // No Arabic voice installed on this device at all (or no speech
+      // synthesis support to begin with) — use the online fallback instead
+      // of calling speechSynthesis with a language it can't actually produce.
+      speakViaGoogleTranslate(text, "ar");
+      return;
+    }
+  }
+
+  if (!hasSynth) { speakViaGoogleTranslate(text, "en"); return; }
   refreshVoiceCache(); // in case voiceschanged never fired but voices are ready now
   const lang = dir === "rtl" ? "ar-SA" : "en-US";
   const run = () => {
@@ -169,12 +224,11 @@ function speakWord(text, dir) {
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = lang;
       utter.rate = 0.95;
-      const match = pickVoice(lang.toLowerCase());
+      const match = dir === "rtl" ? findArabicVoice() : pickVoice(lang.toLowerCase());
       if (match) utter.voice = match;
       window.speechSynthesis.speak(utter);
     } catch (e) {
-      // Speech synthesis unsupported/unavailable — fail silently, the
-      // pronunciation button just won't do anything audible.
+      speakViaGoogleTranslate(text, dir === "rtl" ? "ar" : "en");
     }
   };
   // Cancelling and immediately speaking in the same tick silently drops the
@@ -185,8 +239,7 @@ function speakWord(text, dir) {
 }
 
 function SpeakButton({ text, dir, isAr, size = 16, style }) {
-  const supported = typeof window !== "undefined" && "speechSynthesis" in window;
-  if (!supported || !text) return null;
+  if (!text) return null;
   return (
     <button
       type="button"

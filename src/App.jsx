@@ -128,6 +128,7 @@ const ZoomIcon = (p) => <Icon {...p} path={<><circle cx="11" cy="11" r="7"/><cir
 const GlobeIcon = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/></>} />;
 const QuizIcon = (p) => <Icon {...p} path={<><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8"/><path d="M8 13h5"/><path d="m8 17 2 2 4-4"/></>} />;
 const StatsIcon = (p) => <Icon {...p} path={<><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></>} />;
+const TrophyIcon = (p) => <Icon {...p} path={<><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4a2 2 0 0 0 0 4h3"/><path d="M17 5h3a2 2 0 0 1 0 4h-3"/></>} />;
 const FlameIcon = (p) => <Icon {...p} path={<path d="M8.5 14.5A2.5 2.5 0 0 0 11 17a2.5 2.5 0 0 0 2.5-2.5c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7.5 7.5 0 1 1-15 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5"/>} />;
 const ExternalLinkIcon = (p) => <Icon {...p} path={<><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></>} />;
 const SpeakerIcon = (p) => <Icon {...p} path={<><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></>} />;
@@ -460,20 +461,28 @@ function quizQuestionLabel(type, isAr) {
 }
 
 /* =========================================================================
-   SPACED REPETITION (simple 4-box Leitner system)
+   SPACED REPETITION (cumulative accuracy, not a streak)
    -------------------------------------------------------------------------
-   Stored per-account: srsBox (0-3, how "known" a word is) and srsDueAt
-   (when it should be tested again). A correct quiz answer promotes the
-   word to the next box and pushes its due date out further; a wrong
-   answer drops it straight back to box 0 (due immediately). Words that
-   have never been quizzed have no entry in either map — they count as
-   "due now" so new words always show up for review right away.
+   Stored per-account per-word: srsStats = { correct, total } — every quiz
+   answer adds to `total`, and to `correct` if it was right. Nothing ever
+   resets on a wrong answer; a word's level is just correct/total so far.
+   Levels:
+     - New:       total === 0 (never quizzed yet)
+     - Learning:  accuracy < 50%
+     - Familiar:  50% <= accuracy < 100%
+     - Mastered:  accuracy === 100% AND at least SRS_MASTERY_MIN_ATTEMPTS
+                  answers given (so one lucky guess isn't "mastered")
+   `srsDueAt` (next-review timestamp) is still tracked separately so the
+   quiz's "due for review" filter keeps working: it's pushed further out
+   the higher the current level is, and pulled back to "due now" on a
+   wrong answer (even though the level itself doesn't reset).
    ========================================================================= */
-const SRS_INTERVALS_MS = [
-  10 * 60 * 1000,        // box 0 -> 1: 10 minutes
-  24 * 60 * 60 * 1000,   // box 1 -> 2: 1 day
-  3 * 24 * 60 * 60 * 1000, // box 2 -> 3: 3 days
-  7 * 24 * 60 * 60 * 1000, // box 3 -> stays at 3, re-tested every 7 days
+const SRS_MASTERY_MIN_ATTEMPTS = 3;
+const SRS_LEVEL_INTERVALS_MS = [
+  10 * 60 * 1000,          // New/just answered wrong -> re-test soon
+  12 * 60 * 60 * 1000,     // Learning -> re-test within half a day
+  3 * 24 * 60 * 60 * 1000, // Familiar -> re-test in a few days
+  7 * 24 * 60 * 60 * 1000, // Mastered -> re-test weekly, just to keep it fresh
 ];
 const SRS_BOX_LABELS = [
   { en: "New", ar: "جديدة" },
@@ -481,6 +490,18 @@ const SRS_BOX_LABELS = [
   { en: "Familiar", ar: "مألوفة" },
   { en: "Mastered", ar: "متقنة" },
 ];
+
+// Turns a word's { correct, total } into one of the 4 levels above
+// (indices matching SRS_BOX_LABELS / SRS_LEVEL_INTERVALS_MS).
+function srsLevelFromStats(stats) {
+  const total = (stats && stats.total) || 0;
+  if (total === 0) return 0;
+  const correct = (stats && stats.correct) || 0;
+  const accuracy = correct / total;
+  if (accuracy >= 1 && total >= SRS_MASTERY_MIN_ATTEMPTS) return 3;
+  if (accuracy >= 0.5) return 2;
+  return 1;
+}
 
 // True if a word is due for review right now: never quizzed, or its last
 // due timestamp has passed. `srsDueAt` may be undefined/null-safe.
@@ -955,11 +976,20 @@ export default function DictionaryApp() {
   // Spaced-repetition state for the signed-in account — see the
   // "SPACED REPETITION" helpers above. Both default to empty objects so
   // accounts created before this feature existed (or words never quizzed)
-  // behave as "box 0 / due now", same as a brand-new word.
-  const srsBox = useMemo(() => {
+  // behave as "New / due now", same as a brand-new word.
+  const srsStats = useMemo(() => {
     const acct = accounts.find((a) => a.code === accountCode);
-    return (acct && acct.srsBox) || {};
+    return (acct && acct.srsStats) || {};
   }, [accounts, accountCode]);
+
+  // Derived level (0-3) per word, computed from cumulative accuracy — see
+  // srsLevelFromStats. Kept as its own memo so consumers (Stats panel,
+  // quiz "due" filter) don't each recompute it themselves.
+  const srsBox = useMemo(() => {
+    const out = {};
+    for (const id of Object.keys(srsStats)) out[id] = srsLevelFromStats(srsStats[id]);
+    return out;
+  }, [srsStats]);
 
   const srsDueAt = useMemo(() => {
     const acct = accounts.find((a) => a.code === accountCode);
@@ -1174,18 +1204,20 @@ export default function DictionaryApp() {
     await persistAccounts(nextAccounts);
   }
 
-  // Called once per answered quiz question. Advances (or resets) the
-  // word's Leitner box and schedules its next due date — see the SRS
-  // helpers near buildQuiz. Best-effort: a failed save shouldn't interrupt
-  // the quiz the user is in the middle of taking.
+  // Called once per answered quiz question. Adds to the word's cumulative
+  // correct/total tally (never resets on a wrong answer — see
+  // srsLevelFromStats) and reschedules its next due date based on the
+  // resulting level. Best-effort: a failed save shouldn't interrupt the
+  // quiz the user is in the middle of taking.
   async function handleRecordSrsAnswer(entryId, correct) {
     const acct = accounts.find((a) => a.code === accountCode);
     if (!acct) return;
-    const currentBox = (acct.srsBox && acct.srsBox[entryId]) || 0;
-    const nextBox = correct ? Math.min(currentBox + 1, SRS_INTERVALS_MS.length - 1) : 0;
-    const nextDue = Date.now() + SRS_INTERVALS_MS[nextBox];
+    const prevStats = (acct.srsStats && acct.srsStats[entryId]) || { correct: 0, total: 0 };
+    const nextStats = { correct: prevStats.correct + (correct ? 1 : 0), total: prevStats.total + 1 };
+    const nextLevel = correct ? srsLevelFromStats(nextStats) : 0; // a miss always means "re-test soon", regardless of the word's overall level
+    const nextDue = Date.now() + SRS_LEVEL_INTERVALS_MS[nextLevel];
     const nextAccounts = accounts.map((a) => (a.code === accountCode
-      ? { ...a, srsBox: { ...(a.srsBox || {}), [entryId]: nextBox }, srsDueAt: { ...(a.srsDueAt || {}), [entryId]: nextDue } }
+      ? { ...a, srsStats: { ...(a.srsStats || {}), [entryId]: nextStats }, srsDueAt: { ...(a.srsDueAt || {}), [entryId]: nextDue } }
       : a));
     try { await persistAccounts(nextAccounts); } catch (e) { /* best-effort, quiz keeps going */ }
   }
@@ -1692,6 +1724,7 @@ function MainView({
   const [zoomEntry, setZoomEntry] = useState(null);
   const [showQuiz, setShowQuiz] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   const suggestions = useMemo(() => {
     const q = query.trim();
@@ -1848,6 +1881,9 @@ function MainView({
             )}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setShowLeaderboard(true)} className="lift-hover" style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: cfg.accent, background: "none", border: `1px solid ${cfg.accent}`, borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>
+              <TrophyIcon size={16} /> {tr(isAr, "Leaderboard", "الترتيب")}
+            </button>
             <button onClick={() => setShowStats(true)} className="lift-hover" style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: cfg.accent, background: "none", border: `1px solid ${cfg.accent}`, borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>
               <StatsIcon size={16} /> {tr(isAr, "Stats", "إحصائياتي")}
             </button>
@@ -1859,6 +1895,7 @@ function MainView({
             </button>
           </div>
         </div>
+        <ReminderBanner studiedAt={studiedAt} isAr={isAr} cfg={cfg} onOpenQuiz={() => setShowQuiz(true)} />
         <div style={{ marginTop: 12, background: CARD, border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 10, padding: "12px 14px" }}>
           <div dir={isAr ? "rtl" : "ltr"} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 700, color: INK }}>
@@ -1988,6 +2025,17 @@ function MainView({
           onClose={() => setShowStats(false)}
         />
       )}
+      {showLeaderboard && (
+        <LeaderboardModal
+          accounts={accounts}
+          sectionEntries={sectionEntries}
+          accountCode={accountCode}
+          sectionLabel={cfg.shortLabel}
+          isAr={isAr}
+          cfg={cfg}
+          onClose={() => setShowLeaderboard(false)}
+        />
+      )}
       {showAccount && (
         <AccountModal
           account={accounts.find((a) => a.code === accountCode) || { name, code: accountCode, role: isAdmin ? "admin" : "user" }}
@@ -2021,9 +2069,10 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
   const [confirmDel, setConfirmDel] = useState(false);
   const [open, setOpen] = useState(false);
   const hasDefinition = !!entry.definition;
+  const hasExample = !!entry.example;
   const hasSynAnt = !!((entry.synonyms && entry.synonyms.length) || (entry.antonyms && entry.antonyms.length));
   const isEnglishWord = cfg.wordDir === "ltr";
-  const isExpandable = isAdmin || hasDefinition || hasSynAnt || isEnglishWord;
+  const isExpandable = isAdmin || hasDefinition || hasExample || hasSynAnt || isEnglishWord;
   return (
     <div className="lift-hover" style={{ background: CARD, border: "1px solid rgba(var(--border-rgb),0.1)", borderInlineStart: `3px solid ${isStudied ? "var(--success)" : cfg.accent}`, borderRadius: 3, padding: "9px 14px", display: "flex", justifyContent: "space-between", gap: 12, animation: "fadeInUp 0.35s ease both" }}>
       <div
@@ -2064,6 +2113,11 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
             )}
             {hasDefinition && (
               <p dir={detectDir(entry.definition)} style={{ fontFamily: detectFont(entry.definition), fontSize: 13, color: "var(--muted-strong)", margin: "6px 0 0", lineHeight: 1.6 }}>{entry.definition}</p>
+            )}
+            {hasExample && (
+              <p dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 13, fontStyle: "italic", color: "var(--muted)", margin: "6px 0 0", lineHeight: 1.6 }}>
+                “{entry.example}”
+              </p>
             )}
             {!!(entry.synonyms && entry.synonyms.length) && (
               <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 6 }}>
@@ -2168,6 +2222,11 @@ function WordZoomModal({ entry, cfg, onClose }) {
         {entry.definition && (
           <p dir={detectDir(entry.definition)} style={{ fontFamily: detectFont(entry.definition), fontSize: 15, color: "var(--muted-strong)", marginTop: 22, lineHeight: 1.7, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
             {entry.definition}
+          </p>
+        )}
+        {entry.example && (
+          <p dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 15, fontStyle: "italic", color: "var(--muted)", marginTop: 14, lineHeight: 1.7, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
+            “{entry.example}”
           </p>
         )}
         {!!(entry.synonyms && entry.synonyms.length) && (
@@ -2595,6 +2654,20 @@ function computeStreak(studiedAt) {
   return streak;
 }
 
+// Formats a future timestamp as a short relative label ("in 2 days",
+// "in 3 hours"), or "Due now" if it's already passed. Used for the Stats
+// panel's "upcoming reviews" list.
+function formatDueIn(ms, isAr) {
+  const diff = ms - Date.now();
+  if (diff <= 0) return tr(isAr, "Due now", "مستحقة الآن");
+  const mins = Math.round(diff / 60000);
+  if (mins < 60) return tr(isAr, `in ${mins} min`, `بعد ${mins} دقيقة`);
+  const hours = Math.round(diff / 3600000);
+  if (hours < 24) return tr(isAr, `in ${hours} hr`, `بعد ${hours} ساعة`);
+  const days = Math.round(diff / 86400000);
+  return tr(isAr, `in ${days} day${days === 1 ? "" : "s"}`, `بعد ${days} يوم`);
+}
+
 function StatsModal({ entries, sectionLabel, studiedIds, studiedAt, srsBox, srsDueAt, quizHistory, isAr, cfg, onClose }) {
   useEffect(() => {
     function onKeyDown(e) { if (e.key === "Escape") onClose(); }
@@ -2628,6 +2701,15 @@ function StatsModal({ entries, sectionLabel, studiedIds, studiedAt, srsBox, srsD
   }, [studiedEntries, srsBox, studiedAt]);
 
   const streak = useMemo(() => computeStreak(studiedAt), [studiedAt]);
+
+  // Only words that have an actual scheduled due date (i.e. have been
+  // quizzed at least once) — sorted soonest-first, closest 8 shown.
+  const upcomingReviews = useMemo(() => {
+    return studiedEntries
+      .filter((e) => typeof (srsDueAt && srsDueAt[e.id]) === "number")
+      .sort((a, b) => srsDueAt[a.id] - srsDueAt[b.id])
+      .slice(0, 8);
+  }, [studiedEntries, srsDueAt]);
 
   const recentQuizzes = useMemo(() => [...(quizHistory || [])].reverse().slice(0, 5), [quizHistory]);
 
@@ -2694,6 +2776,24 @@ function StatsModal({ entries, sectionLabel, studiedIds, studiedAt, srsBox, srsD
           </>
         )}
 
+        {upcomingReviews.length > 0 && (
+          <>
+            <label style={{ ...labelStyle, marginTop: 20 }}>{tr(isAr, "Upcoming reviews", "موعد المراجعة الجاية")}</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+              {upcomingReviews.map((e) => {
+                const due = srsDueAt[e.id];
+                const isDueNow = due <= Date.now();
+                return (
+                  <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "var(--input-bg)", borderRadius: 4 }}>
+                    <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 14, fontWeight: 600, color: INK }}>{e.word}</span>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: isDueNow ? "var(--danger)" : "var(--muted)" }}>{formatDueIn(due, isAr)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
         {recentQuizzes.length > 0 && (
           <>
             <label style={{ ...labelStyle, marginTop: 20 }}>{tr(isAr, "Recent quizzes", "آخر الاختبارات")}</label>
@@ -2714,6 +2814,181 @@ function StatsModal({ entries, sectionLabel, studiedIds, studiedAt, srsBox, srsD
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+/* =========================================================================
+   LEADERBOARD
+   -------------------------------------------------------------------------
+   Ranks every account by how many of the CURRENT section's words they've
+   studied, with average quiz score as a tie-breaker/secondary stat. Reads
+   only from data already loaded (accounts + sectionEntries) — no new
+   network calls or stored fields.
+   ========================================================================= */
+function LeaderboardModal({ accounts, sectionEntries, accountCode, sectionLabel, isAr, cfg, onClose }) {
+  useEffect(() => {
+    function onKeyDown(e) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  const sectionIds = useMemo(() => new Set(sectionEntries.map((e) => e.id)), [sectionEntries]);
+
+  const ranked = useMemo(() => {
+    const rows = accounts.map((a) => {
+      const studiedHere = ((a.studied) || []).filter((id) => sectionIds.has(id)).length;
+      const history = a.quizHistory || [];
+      const totalScore = history.reduce((sum, h) => sum + (h.score || 0), 0);
+      const totalQuestions = history.reduce((sum, h) => sum + (h.total || 0), 0);
+      const avgPct = totalQuestions ? Math.round((totalScore / totalQuestions) * 100) : null;
+      return { code: a.code, name: a.name, studiedHere, avgPct, quizCount: history.length };
+    });
+    return rows
+      .filter((r) => r.studiedHere > 0 || r.quizCount > 0)
+      .sort((a, b) => b.studiedHere - a.studiedHere || (b.avgPct || 0) - (a.avgPct || 0));
+  }, [accounts, sectionIds]);
+
+  const medalColors = ["#d4af37", "#a8a8a8", "#c98a4b"];
+
+  return (
+    <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
+      <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={isAr ? "rtl" : "ltr"} role="dialog" aria-modal="true" aria-labelledby="leaderboard-modal-title"
+        style={{ width: "100%", maxWidth: 480, maxHeight: "88vh", overflowY: "auto", background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <h2 id="leaderboard-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: INK, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+            <TrophyIcon size={19} color={BRASS} /> {tr(isAr, "Leaderboard", "الترتيب")}
+            {sectionLabel && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>· {sectionLabel}</span>}
+          </h2>
+          <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}><XIcon size={20} /></button>
+        </div>
+        <p style={{ fontSize: 13, color: "var(--muted)", margin: "10px 0 16px" }}>
+          {tr(isAr, "Ranked by words studied in this section; average quiz score breaks ties.", "الترتيب حسب عدد الكلمات المدروسة في هذا القسم؛ متوسط نتيجة الاختبارات بيفصل التعادل.")}
+        </p>
+        {ranked.length === 0 ? (
+          <p style={{ fontSize: 14, color: "var(--muted)", textAlign: "center", marginTop: 20 }}>
+            {tr(isAr, "No one has studied any words here yet — be the first!", "محدش ذاكر أي كلمة هنا لسه — يلا كون أول واحد!")}
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {ranked.map((r, i) => {
+              const isMe = r.code === accountCode;
+              return (
+                <div key={r.code} style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 6,
+                  background: isMe ? cfg.accentSoft : "var(--input-bg)",
+                  border: isMe ? `1px solid ${cfg.accent}` : "1px solid transparent",
+                }}>
+                  <div style={{ width: 26, textAlign: "center", fontSize: 14, fontWeight: 700, color: i < 3 ? medalColors[i] : "var(--muted)" }}>
+                    {i < 3 ? <TrophyIcon size={16} color={medalColors[i]} /> : `#${i + 1}`}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: INK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {r.name} {isMe && <span style={{ fontSize: 11, fontWeight: 600, color: cfg.accent }}>({tr(isAr, "you", "انت")})</span>}
+                    </div>
+                    {r.avgPct !== null && (
+                      <div style={{ fontSize: 12, color: "var(--muted)" }}>{tr(isAr, `Avg quiz score: ${r.avgPct}%`, `متوسط الاختبارات: ${r.avgPct}%`)}</div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: cfg.accent }}>{r.studiedHere}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
+   STUDY REMINDER
+   -------------------------------------------------------------------------
+   A small dismissible banner shown when the signed-in account hasn't
+   studied anything (in ANY section) in over a day. Also offers to turn on
+   browser notifications for a nudge next time the app is opened after a
+   gap — this is a soft, in-app reminder (fired when the page loads), NOT
+   a true background/push notification while the site is closed, since
+   that needs a service worker + push server this project doesn't have.
+   Preferences are stored in localStorage, same pattern as the personal
+   login code.
+   ========================================================================= */
+const REMINDER_PREF_KEY = "twoTongues.remindersEnabled";
+const REMINDER_DISMISS_KEY = "twoTongues.reminderDismissedOn";
+const REMINDER_NOTIFIED_KEY = "twoTongues.reminderNotifiedOn";
+
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function ReminderBanner({ studiedAt, isAr, cfg, onOpenQuiz }) {
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem(REMINDER_DISMISS_KEY) === todayKey(); } catch (e) { return false; }
+  });
+  const [remindersOn, setRemindersOn] = useState(() => {
+    try { return localStorage.getItem(REMINDER_PREF_KEY) === "1"; } catch (e) { return false; }
+  });
+
+  const lastStudied = useMemo(() => {
+    const values = Object.values(studiedAt || {});
+    return values.length ? Math.max(...values) : null;
+  }, [studiedAt]);
+
+  const daysSince = lastStudied == null ? null : Math.floor((Date.now() - lastStudied) / (24 * 60 * 60 * 1000));
+  const shouldShow = daysSince !== null && daysSince >= 1 && !dismissed;
+
+  // Fire a soft, local notification (only while the app is open) once per
+  // day if the person has opted in and it's been a day+ since they studied.
+  useEffect(() => {
+    if (!remindersOn || daysSince === null || daysSince < 1) return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    try {
+      if (localStorage.getItem(REMINDER_NOTIFIED_KEY) === todayKey()) return;
+      new Notification(tr(isAr, "Time to review!", "وقت المراجعة!"), {
+        body: tr(isAr, `It's been ${daysSince} day${daysSince === 1 ? "" : "s"} since you studied.`, `عدّى ${daysSince} يوم من غير ما تراجع.`),
+      });
+      localStorage.setItem(REMINDER_NOTIFIED_KEY, todayKey());
+    } catch (e) { /* Notification API not available/blocked — ignore */ }
+  }, [remindersOn, daysSince, isAr]);
+
+  function dismiss() {
+    setDismissed(true);
+    try { localStorage.setItem(REMINDER_DISMISS_KEY, todayKey()); } catch (e) {}
+  }
+
+  async function enableReminders() {
+    try {
+      if (typeof Notification !== "undefined" && Notification.permission !== "granted") {
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") return;
+      }
+      setRemindersOn(true);
+      localStorage.setItem(REMINDER_PREF_KEY, "1");
+    } catch (e) { /* Notification API not available — the in-app banner still works */ }
+  }
+
+  if (!shouldShow) return null;
+
+  return (
+    <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: cfg.accentSoft, border: `1px solid ${cfg.accent}`, borderRadius: 8, padding: "10px 14px" }}>
+      <FlameIcon size={17} color={cfg.accent} style={{ flexShrink: 0 }} />
+      <span style={{ flex: 1, minWidth: 200, fontSize: 13.5, color: "var(--muted-strong)" }}>
+        {tr(isAr,
+          `It's been ${daysSince} day${daysSince === 1 ? "" : "s"} since your last review — a quick quiz keeps it fresh.`,
+          `عدّى ${daysSince} يوم من غير ما تراجع — اختبار سريع هيفضّل الكلام طازة.`)}
+      </span>
+      <button type="button" onClick={onOpenQuiz} style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700, color: "#fff", background: cfg.accent, border: "none", borderRadius: 6, cursor: "pointer" }}>
+        {tr(isAr, "Review now", "راجع دلوقتي")}
+      </button>
+      {!remindersOn && (
+        <button type="button" onClick={enableReminders} style={{ padding: "6px 12px", fontSize: 13, fontWeight: 600, color: cfg.accent, background: "none", border: `1px solid ${cfg.accent}`, borderRadius: 6, cursor: "pointer" }}>
+          {tr(isAr, "Remind me daily", "ذكّرني يوميًا")}
+        </button>
+      )}
+      <button type="button" onClick={dismiss} aria-label={tr(isAr, "Dismiss", "إخفاء")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 4 }}>
+        <XIcon size={16} />
+      </button>
     </div>
   );
 }
@@ -2740,6 +3015,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
   const [word, setWord] = useState(isEdit ? initialEntry.word : "");
   const [meaning, setMeaning] = useState(isEdit ? initialEntry.meaning : "");
   const [definition, setDefinition] = useState(isEdit ? (initialEntry.definition || "") : "");
+  const [example, setExample] = useState(isEdit ? (initialEntry.example || "") : "");
   const [synonyms, setSynonyms] = useState(isEdit ? normalizePairs(initialEntry.synonyms, cfg) : []);
   const [antonyms, setAntonyms] = useState(isEdit ? normalizePairs(initialEntry.antonyms, cfg) : []);
   const [error, setError] = useState("");
@@ -2764,7 +3040,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
     if (!word.trim() || !meaning.trim()) { setError(tr(isAr, "Word and meaning are both required.", "الكلمة والمعنى مطلوبان.")); return; }
     setSaving(true);
     await onSubmit({
-      word: word.trim(), meaning: meaning.trim(), definition: definition.trim(),
+      word: word.trim(), meaning: meaning.trim(), definition: definition.trim(), example: example.trim(),
       synonyms: cleanPairs(synonyms), antonyms: cleanPairs(antonyms),
     });
     setSaving(false);
@@ -2784,6 +3060,8 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
           <input id="add-meaning" value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder={cfg.meaningPlaceholder} dir={cfg.meaningDir} style={{ ...inputStyle, fontFamily: cfg.meaningFont, fontSize: 16 }} />
           <label style={labelStyle} htmlFor="add-definition">{tr(isAr, "Definition (optional)", "تعريف (اختياري)")}</label>
           <textarea id="add-definition" value={definition} onChange={(e) => setDefinition(e.target.value)} placeholder="شرح إضافي أو مثال" dir="rtl" rows={3} style={{ ...inputStyle, fontFamily: "'Amiri', serif", fontSize: 15, resize: "vertical" }} />
+          <label style={labelStyle} htmlFor="add-example">{tr(isAr, "Example sentence (optional)", "جملة توضيحية (اختياري)")}</label>
+          <textarea id="add-example" value={example} onChange={(e) => setExample(e.target.value)} placeholder={cfg.wordPlaceholder} dir={cfg.wordDir} rows={2} style={{ ...inputStyle, fontFamily: cfg.wordFont, fontSize: 15, resize: "vertical" }} />
           <PairListEditor cfg={cfg} label={tr(isAr, "Synonyms (optional)", "مرادفات (اختياري)")} pairs={synonyms} onChange={setSynonyms} isAr={isAr} />
           <PairListEditor cfg={cfg} label={tr(isAr, "Antonyms (optional)", "مضادات (اختياري)")} pairs={antonyms} onChange={setAntonyms} isAr={isAr} />
           {error && <div style={errorStyle} role="alert" aria-live="assertive">{error}</div>}

@@ -187,8 +187,13 @@ let ttsAudioEl = null;
 function playOnlineArabic(text, onFail) {
   try {
     if (ttsAudioEl) { try { ttsAudioEl.pause(); } catch (e) {} }
-    const url = "https://translate.google.com/translate_tts?ie=UTF-8&q=" +
-      encodeURIComponent(text) + "&tl=ar&client=tw-ob";
+    // StreamElements' free speech endpoint (no API key, permissive CORS,
+    // widely embedded by third-party sites/bots) proxying Amazon Polly's
+    // Arabic voice "Zeina". Using this instead of Google Translate's
+    // translate_tts, which turned out to reject third-party embedding
+    // outright now (not just on one network — that's why it failed on a
+    // second device too).
+    const url = "https://api.streamelements.com/kappa/v2/speech?voice=Zeina&text=" + encodeURIComponent(text);
     const audio = new Audio(url);
     ttsAudioEl = audio;
     audio.addEventListener("error", () => onFail && onFail());

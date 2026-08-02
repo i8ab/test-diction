@@ -401,12 +401,43 @@ function pickDistractors(pool, excludeValues, count) {
   return shuffleArray(unique).slice(0, count);
 }
 
-// Builds every applicable MCQ question for one studied entry: what it
-// means, which word matches its meaning, and — if the entry has them — one
-// question for EACH synonym and EACH antonym it has (not just one picked at
-// random), so a word with several synonyms/antonyms gets asked about all
-// of them.
-function buildQuestionsForEntry(entry, allEntries) {
+// Turns typed/target text into a comparable form: trimmed, lowercased,
+// Arabic diacritics stripped. Shared by the typing-mode grader and by
+// anything else that needs to compare two answers loosely.
+function normalizeForTyping(s) {
+  return (s || "").trim().toLowerCase().replace(/[\u064B-\u065F\u0670]/g, "");
+}
+
+// Typing-mode grading: correct if the normalized answer matches ANY of the
+// accepted answers exactly, OR is a close-enough typo of one of them (using
+// the same fuzzy-typo budget the search box uses). This is what makes
+// typing mode forgiving of small spelling slips instead of demanding a
+// keystroke-perfect match.
+function isTypingCorrect(typed, acceptedAnswers) {
+  const t = normalizeForTyping(typed);
+  if (!t) return false;
+  const list = (Array.isArray(acceptedAnswers) ? acceptedAnswers : [acceptedAnswers]).filter(Boolean);
+  return list.some((raw) => {
+    const a = normalizeForTyping(raw);
+    if (!a) return false;
+    if (t === a) return true;
+    const budget = typoBudget(a.length);
+    return budget > 0 && Math.abs(t.length - a.length) <= budget && levenshtein(t, a) <= budget;
+  });
+}
+
+// Builds every applicable question for one studied entry — meaning,
+// definition, a fill-in-the-blank from its example sentence (when one is
+// available and actually contains the word), and synonyms/antonyms.
+//
+// `mode` changes how synonyms/antonyms are asked:
+//  - "mcq": one question per synonym/antonym (as before) — no ambiguity,
+//    since the user just picks from a fixed list of options.
+//  - "typing": ONE combined question per word for "a synonym" / "an
+//    antonym", accepting ANY word from that list as correct — because a
+//    word can have several valid synonyms/antonyms and the user shouldn't
+//    have to guess which single one the quiz had in mind.
+function buildQuestionsForEntry(entry, allEntries, mode) {
   const sectionCfg = SECTIONS[entry.section] || SECTIONS["en-ar"];
   const sameSection = allEntries.filter((e) => e.section === entry.section && e.id !== entry.id);
   const otherPool = sameSection.length >= 3 ? sameSection : allEntries.filter((e) => e.id !== entry.id);
@@ -423,6 +454,7 @@ function buildQuestionsForEntry(entry, allEntries) {
       id: uid(), entryId: entry.id, word: entry.word, wordDir, wordFont, type: "word_meaning",
       promptText: entry.word, promptDir: sectionCfg.wordDir, promptFont: sectionCfg.wordFont,
       options: shuffleArray([entry.meaning, ...meaningDistractors]), correct: entry.meaning,
+      acceptedAnswers: [entry.meaning],
       optionDir: sectionCfg.meaningDir, optionFont: sectionCfg.meaningFont,
     });
   }
@@ -433,42 +465,95 @@ function buildQuestionsForEntry(entry, allEntries) {
       id: uid(), entryId: entry.id, word: entry.word, wordDir, wordFont, type: "meaning_word",
       promptText: entry.meaning, promptDir: sectionCfg.meaningDir, promptFont: sectionCfg.meaningFont,
       options: shuffleArray([entry.word, ...wordDistractors]), correct: entry.word,
+      acceptedAnswers: [entry.word],
       optionDir: sectionCfg.wordDir, optionFont: sectionCfg.wordFont,
     });
+  }
+
+  // Definition -> word. Only generated when the entry actually has a
+  // written definition, so this doesn't fire for most words.
+  if (entry.definition && entry.definition.trim()) {
+    const defDistractors = pickDistractors(otherPool.map((e) => e.word), [entry.word], 3);
+    if (defDistractors.length >= 1) {
+      questions.push({
+        id: uid(), entryId: entry.id, word: entry.word, wordDir, wordFont, type: "definition_word",
+        promptText: entry.definition.trim(), promptDir: "rtl", promptFont: "'Amiri', serif",
+        options: shuffleArray([entry.word, ...defDistractors]), correct: entry.word,
+        acceptedAnswers: [entry.word],
+        optionDir: sectionCfg.wordDir, optionFont: sectionCfg.wordFont,
+      });
+    }
+  }
+
+  // Fill-in-the-blank from the example sentence — only generated when an
+  // example exists AND the word literally appears in it (no example, or a
+  // conjugated/inflected form that doesn't match, means this is skipped).
+  if (entry.example && entry.example.trim() && entry.word) {
+    const idx = entry.example.toLowerCase().indexOf(entry.word.toLowerCase());
+    if (idx !== -1) {
+      const blanked = entry.example.slice(0, idx) + "ـــــ" + entry.example.slice(idx + entry.word.length);
+      const blankDistractors = pickDistractors(otherPool.map((e) => e.word), [entry.word], 3);
+      if (blankDistractors.length >= 1) {
+        questions.push({
+          id: uid(), entryId: entry.id, word: entry.word, wordDir, wordFont, type: "fill_blank",
+          promptText: blanked, promptDir: wordDir, promptFont: wordFont,
+          options: shuffleArray([entry.word, ...blankDistractors]), correct: entry.word,
+          acceptedAnswers: [entry.word],
+          optionDir: sectionCfg.wordDir, optionFont: sectionCfg.wordFont,
+        });
+      }
+    }
   }
 
   // Synonyms/antonyms are stored as { word, meaning } pairs. The quiz asks
   // "which of these is a synonym/antonym of this word" — that's a
   // same-language question (e.g. an English word's English synonym), so
   // the word-language side is used here, never the Arabic meaning side.
-  // This also keeps every option in one question the same language as the
-  // distractor pool (other entries' `word`), so answers never mix scripts.
   const synonymPairs = normalizePairs(entry.synonyms, sectionCfg).map((p) => p.word || p.meaning).filter(Boolean);
   const antonymPairs = normalizePairs(entry.antonyms, sectionCfg).map((p) => p.word || p.meaning).filter(Boolean);
 
-  for (const correct of synonymPairs) {
-    const pool = [...antonymPairs, ...otherPool.map((e) => e.word)];
-    const distractors = pickDistractors(pool, [...synonymPairs, entry.word], 3);
-    if (distractors.length >= 1) {
+  if (mode === "typing") {
+    if (synonymPairs.length) {
       questions.push({
         id: uid(), entryId: entry.id, word: entry.word, wordDir, wordFont, type: "synonym",
         promptText: entry.word, promptDir: sectionCfg.wordDir, promptFont: sectionCfg.wordFont,
-        options: shuffleArray([correct, ...distractors]), correct,
+        options: [], correct: synonymPairs.join(" / "), acceptedAnswers: synonymPairs,
         optionDir: sectionCfg.wordDir, optionFont: sectionCfg.wordFont,
       });
     }
-  }
-
-  for (const correct of antonymPairs) {
-    const pool = [...synonymPairs, ...otherPool.map((e) => e.word)];
-    const distractors = pickDistractors(pool, [...antonymPairs, entry.word], 3);
-    if (distractors.length >= 1) {
+    if (antonymPairs.length) {
       questions.push({
         id: uid(), entryId: entry.id, word: entry.word, wordDir, wordFont, type: "antonym",
         promptText: entry.word, promptDir: sectionCfg.wordDir, promptFont: sectionCfg.wordFont,
-        options: shuffleArray([correct, ...distractors]), correct,
+        options: [], correct: antonymPairs.join(" / "), acceptedAnswers: antonymPairs,
         optionDir: sectionCfg.wordDir, optionFont: sectionCfg.wordFont,
       });
+    }
+  } else {
+    for (const correct of synonymPairs) {
+      const pool = [...antonymPairs, ...otherPool.map((e) => e.word)];
+      const distractors = pickDistractors(pool, [...synonymPairs, entry.word], 3);
+      if (distractors.length >= 1) {
+        questions.push({
+          id: uid(), entryId: entry.id, word: entry.word, wordDir, wordFont, type: "synonym",
+          promptText: entry.word, promptDir: sectionCfg.wordDir, promptFont: sectionCfg.wordFont,
+          options: shuffleArray([correct, ...distractors]), correct, acceptedAnswers: synonymPairs,
+          optionDir: sectionCfg.wordDir, optionFont: sectionCfg.wordFont,
+        });
+      }
+    }
+
+    for (const correct of antonymPairs) {
+      const pool = [...synonymPairs, ...otherPool.map((e) => e.word)];
+      const distractors = pickDistractors(pool, [...antonymPairs, entry.word], 3);
+      if (distractors.length >= 1) {
+        questions.push({
+          id: uid(), entryId: entry.id, word: entry.word, wordDir, wordFont, type: "antonym",
+          promptText: entry.word, promptDir: sectionCfg.wordDir, promptFont: sectionCfg.wordFont,
+          options: shuffleArray([correct, ...distractors]), correct, acceptedAnswers: antonymPairs,
+          optionDir: sectionCfg.wordDir, optionFont: sectionCfg.wordFont,
+        });
+      }
     }
   }
 
@@ -476,12 +561,13 @@ function buildQuestionsForEntry(entry, allEntries) {
 }
 
 // Builds the full shuffled question set for a quiz session. No cap on
-// count — every meaning/synonym/antonym question generated for the
-// studied words is included, so nothing gets left untested, just shuffled
-// into a random order.
-function buildQuiz(studiedEntries, allEntries) {
+// count — every question generated for the studied words is included, so
+// nothing gets left untested, just shuffled into a random order. `mode`
+// ("mcq" | "typing") is threaded through so synonym/antonym questions are
+// built the right way for how they'll be graded (see buildQuestionsForEntry).
+function buildQuiz(studiedEntries, allEntries, mode) {
   let all = [];
-  for (const entry of studiedEntries) all = all.concat(buildQuestionsForEntry(entry, allEntries));
+  for (const entry of studiedEntries) all = all.concat(buildQuestionsForEntry(entry, allEntries, mode));
   return shuffleArray(all);
 }
 
@@ -489,8 +575,10 @@ function quizQuestionLabel(type, isAr) {
   switch (type) {
     case "word_meaning": return tr(isAr, "What does this word mean?", "ما معنى هذه الكلمة؟");
     case "meaning_word": return tr(isAr, "Which word matches this meaning?", "ما الكلمة التي تطابق هذا المعنى؟");
-    case "synonym": return tr(isAr, "Which of these is a synonym of this word?", "أيّ من هذه الكلمات مرادف لهذه الكلمة؟");
-    case "antonym": return tr(isAr, "Which of these is an antonym of this word?", "أيّ من هذه الكلمات ضد هذه الكلمة؟");
+    case "definition_word": return tr(isAr, "Which word matches this definition?", "ما الكلمة التي يصفها هذا التعريف؟");
+    case "fill_blank": return tr(isAr, "Fill in the blank", "أكمل الفراغ بالكلمة المناسبة");
+    case "synonym": return tr(isAr, "Name a synonym of this word.", "اذكر مرادفًا لهذه الكلمة.");
+    case "antonym": return tr(isAr, "Name an antonym of this word.", "اذكر ضدًا لهذه الكلمة.");
     default: return "";
   }
 }
@@ -2447,7 +2535,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
   }, [entries, studiedIds, studiedAt, rangeStart, dueOnly, srsDueAt]);
 
   function startQuiz() {
-    const built = buildQuiz(matchingEntries, entries);
+    const built = buildQuiz(matchingEntries, entries, mode);
     if (!built.length) {
       setStartError(tr(isAr,
         "Not enough words yet to build a quiz from this selection — add a few more words to the dictionary or pick a wider time range.",
@@ -2485,17 +2573,16 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
     recordAnswer(q, opt, opt === q.correct);
   }
 
-  // Typing mode: compares the typed text to the expected answer, ignoring
-  // case, leading/trailing whitespace, and Arabic tashkeel (diacritics) so
-  // a correct answer without diacritics still counts as correct.
-  function normalizeForTyping(s) {
-    return (s || "").trim().toLowerCase().replace(/[\u064B-\u065F\u0670]/g, "");
-  }
-
+  // Typing mode: compares the typed text to every accepted answer for
+  // this question (see isTypingCorrect) — ignoring case, whitespace, and
+  // Arabic tashkeel, and tolerating small typos. For synonym/antonym
+  // questions this means ANY valid synonym/antonym from the word's list
+  // counts, not just the one specific string the quiz happened to pick.
   function submitTyped() {
     if (answered) return;
     const q = questions[index];
-    const isCorrect = normalizeForTyping(typedAnswer) === normalizeForTyping(q.correct);
+    const accepted = q.acceptedAnswers && q.acceptedAnswers.length ? q.acceptedAnswers : [q.correct];
+    const isCorrect = isTypingCorrect(typedAnswer, accepted);
     recordAnswer(q, typedAnswer, isCorrect);
   }
 
@@ -2570,8 +2657,8 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
           <div style={{ marginTop: 14 }}>
             <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "0 0 14px" }}>
               {tr(isAr,
-                "Pick which studied words to be tested on. The quiz asks about meaning, and about synonyms/antonyms for any word that has them.",
-                "اختر الكلمات التي تمت دراستها والتي عايز تختبر فيها. الاختبار بيسأل عن المعنى، وعن المرادفات/المضادات لأي كلمة ليها.")}
+                "Pick which studied words to be tested on. The quiz mixes meaning, definition, fill-in-the-blank (when a word has an example sentence), and synonyms/antonyms for any word that has them — so it's not just rote memorization.",
+                "اختر الكلمات التي تمت دراستها والتي عايز تختبر فيها. الاختبار بيخلط بين المعنى والتعريف وإكمال الفراغ (لو الكلمة ليها جملة مثال) والمرادفات/المضادات لأي كلمة ليها — مش مجرد حفظ.")}
             </p>
             <label style={labelStyle}>{tr(isAr, "Studied within", "تمت دراستها خلال")}</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 4 }}>
@@ -2672,7 +2759,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); answered ? nextQuestion() : submitTyped(); } }}
                     placeholder={tr(isAr, "Type your answer…", "اكتب إجابتك…")}
                     style={{ ...inputStyle, fontFamily: q.optionFont, fontSize: 17,
-                      borderColor: answered ? (selected && normalizeForTyping(selected) === normalizeForTyping(q.correct) ? "var(--success)" : "var(--danger-border)") : undefined }}
+                      borderColor: answered ? (results[results.length - 1]?.correct ? "var(--success)" : "var(--danger-border)") : undefined }}
                   />
                   {!answered && (
                     <button type="button" onClick={submitTyped} disabled={!typedAnswer.trim()} style={{ ...primaryBtnStyle, opacity: typedAnswer.trim() ? 1 : 0.5, cursor: typedAnswer.trim() ? "pointer" : "default" }}>

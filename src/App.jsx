@@ -135,31 +135,62 @@ function cambridgeUrl(word) {
    text-to-speech (Web Speech API). No server, API key, or audio files
    needed; works offline in most browsers once the voices are installed.
    `dir` ("ltr"/"rtl") picks English vs Arabic pronunciation.
+
+   Voices load asynchronously (this is especially true for Arabic voices,
+   which some browsers only report after the "voiceschanged" event fires),
+   so we cache the list and refresh it once that event has fired at least
+   once instead of trusting whatever getVoices() returns on the very first
+   call.
    ========================================================================= */
+let cachedVoices = [];
+function refreshVoiceCache() {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  const list = window.speechSynthesis.getVoices();
+  if (list && list.length) cachedVoices = list;
+}
+if (typeof window !== "undefined" && "speechSynthesis" in window) {
+  refreshVoiceCache();
+  window.speechSynthesis.onvoiceschanged = refreshVoiceCache;
+}
+
+function pickVoice(langPrefix) {
+  const exact = cachedVoices.find((v) => v.lang && v.lang.toLowerCase() === langPrefix);
+  if (exact) return exact;
+  return cachedVoices.find((v) => v.lang && v.lang.toLowerCase().startsWith(langPrefix.split("-")[0]));
+}
+
 function speakWord(text, dir) {
   if (!text) return;
-  try {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel(); // stop any word currently being read
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = dir === "rtl" ? "ar-SA" : "en-US";
-    utter.rate = 0.95;
-    const voices = window.speechSynthesis.getVoices();
-    const match = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith(utter.lang.split("-")[0]));
-    if (match) utter.voice = match;
-    window.speechSynthesis.speak(utter);
-  } catch (e) {
-    // Speech synthesis unsupported/unavailable — fail silently, the
-    // pronunciation button just won't do anything audible.
-  }
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  refreshVoiceCache(); // in case voiceschanged never fired but voices are ready now
+  const lang = dir === "rtl" ? "ar-SA" : "en-US";
+  const run = () => {
+    try {
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = lang;
+      utter.rate = 0.95;
+      const match = pickVoice(lang.toLowerCase());
+      if (match) utter.voice = match;
+      window.speechSynthesis.speak(utter);
+    } catch (e) {
+      // Speech synthesis unsupported/unavailable — fail silently, the
+      // pronunciation button just won't do anything audible.
+    }
+  };
+  // Cancelling and immediately speaking in the same tick silently drops the
+  // new utterance in some browsers (a long-standing Chrome quirk) — give it
+  // a beat to actually clear before queuing the next one.
+  window.speechSynthesis.cancel();
+  setTimeout(run, 30);
 }
 
 function SpeakButton({ text, dir, isAr, size = 16, style }) {
   const supported = typeof window !== "undefined" && "speechSynthesis" in window;
-  if (!supported) return null;
+  if (!supported || !text) return null;
   return (
     <button
-      onClick={(e) => { e.stopPropagation(); speakWord(text, dir); }}
+      type="button"
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); speakWord(text, dir); }}
       title={tr(isAr, "Pronounce", "نطق الكلمة")}
       aria-label={tr(isAr, `Pronounce ${text}`, `نطق ${text}`)}
       style={{ border: "none", background: "none", color: "var(--icon-muted)", padding: 4, cursor: "pointer", display: "inline-flex", alignItems: "center", ...style }}>
@@ -567,15 +598,18 @@ function PairListEditor({ cfg, label, pairs, onChange, isAr }) {
 function PairListDisplay({ cfg, pairs }) {
   const clean = normalizePairs(pairs, cfg);
   if (!clean.length) return null;
+  const isAr = cfg.dir === "rtl";
   return (
     <div dir={cfg.dir} style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 3 }}>
       {clean.map((p) => (
         <div key={p.id} style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
-          <span dir={cfg.wordDir} style={{ flex: 1, minWidth: 0, fontFamily: cfg.wordFont, padding: "3px 8px", background: "var(--input-bg)", borderRadius: 3, color: INK }}>
-            {p.word || "—"}
+          <span dir={cfg.wordDir} style={{ flex: 1, minWidth: 0, fontFamily: cfg.wordFont, padding: "3px 8px", background: "var(--input-bg)", borderRadius: 3, color: INK, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4 }}>
+            <span style={{ minWidth: 0, overflowWrap: "break-word" }}>{p.word || "—"}</span>
+            {!!p.word && <SpeakButton text={p.word} dir={cfg.wordDir} isAr={isAr} size={13} style={{ padding: 2, flexShrink: 0 }} />}
           </span>
-          <span dir={cfg.meaningDir} style={{ flex: 1, minWidth: 0, fontFamily: cfg.meaningFont, padding: "3px 8px", background: "var(--input-bg)", borderRadius: 3, color: "var(--meaning)" }}>
-            {p.meaning || "—"}
+          <span dir={cfg.meaningDir} style={{ flex: 1, minWidth: 0, fontFamily: cfg.meaningFont, padding: "3px 8px", background: "var(--input-bg)", borderRadius: 3, color: "var(--meaning)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4 }}>
+            <span style={{ minWidth: 0, overflowWrap: "break-word" }}>{p.meaning || "—"}</span>
+            {!!p.meaning && <SpeakButton text={p.meaning} dir={cfg.meaningDir} isAr={isAr} size={13} style={{ padding: 2, flexShrink: 0 }} />}
           </span>
         </div>
       ))}
@@ -1718,6 +1752,7 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
               style={{ flexShrink: 0, transition: "transform 0.15s", transform: `${cfg.dir === "rtl" ? "scaleX(-1) " : ""}${open ? "rotate(90deg)" : ""}` }} />
           )}
           <span dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: 14, color: "var(--meaning)" }}>{entry.meaning}</span>
+          {!!entry.meaning && <SpeakButton text={entry.meaning} dir={cfg.meaningDir} isAr={isAr} size={13} />}
         </div>
         {isStudied && (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: "var(--success)", background: "var(--success-bg)", borderRadius: 3, padding: "2px 6px", marginTop: 5 }}>
@@ -1824,8 +1859,11 @@ function WordZoomModal({ entry, cfg, onClose }) {
           <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={cfg.dir === "rtl"} size={26} style={{ color: cfg.accent, flexShrink: 0 }} />
         </div>
         <div style={{ width: 48, height: 3, background: cfg.accent, borderRadius: 2, margin: "18px auto" }} />
-        <div dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: "clamp(22px, 4.5vw, 30px)", color: "var(--meaning)", lineHeight: 1.35, wordBreak: "break-word" }}>
-          {entry.meaning}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <div dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: "clamp(22px, 4.5vw, 30px)", color: "var(--meaning)", lineHeight: 1.35, wordBreak: "break-word" }}>
+            {entry.meaning}
+          </div>
+          <SpeakButton text={entry.meaning} dir={cfg.meaningDir} isAr={cfg.dir === "rtl"} size={20} style={{ color: "var(--meaning)", flexShrink: 0 }} />
         </div>
         {cfg.wordDir === "ltr" && (
           <a
@@ -2060,7 +2098,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, sessionStart,
                 <div dir={q.promptDir} style={{ flex: 1, fontFamily: q.promptFont, fontSize: "clamp(26px, 4.2vw, 34px)", fontWeight: 700, color: INK, wordBreak: "break-word", lineHeight: 1.3 }}>
                   {q.promptText}
                 </div>
-                {q.type !== "meaning_word" && (
+                {q.promptText && (
                   <SpeakButton text={q.promptText} dir={q.promptDir} isAr={isAr} size={24} style={{ flexShrink: 0 }} />
                 )}
               </div>

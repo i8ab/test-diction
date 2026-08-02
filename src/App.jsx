@@ -1057,8 +1057,9 @@ function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onExport, exportDis
   return (
     <div ref={ref} className="toolbar-anim" style={{ position: "relative", animationDelay: "0.06s" }}>
       <button onClick={() => setOpen((o) => !o)} aria-label={tr(isAr, "More actions", "المزيد")} aria-expanded={open} className="lift-hover"
-        style={{ display: "flex", alignItems: "center", gap: 6, height: "100%", padding: "0 14px", fontSize: 14, fontWeight: 600, color: accent, background: "var(--card)", border: `1px solid ${accent}40`, borderRadius: 10, cursor: "pointer" }}>
-        <MoreIcon size={17} />
+        style={{ display: "flex", alignItems: "center", gap: 7, height: "100%", padding: "10px 16px", fontSize: 14, fontWeight: 600, color: accent, background: "var(--card)", border: `1px solid ${accent}40`, borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
+        <TrophyIcon size={16} /> {tr(isAr, "More", "المزيد")}
+        <ChevronIcon size={13} style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s ease" }} />
       </button>
       {open && (
         <div role="menu" dir={isAr ? "rtl" : "ltr"}
@@ -1696,6 +1697,10 @@ export default function DictionaryApp() {
       { icon: EditIcon, title: atr("Grow the dictionary", "أضِف كلمات جديدة"), desc: atr("Add new words and definitions that everyone in the group can use.", "أضف كلمات وتعريفات جديدة يستفيد منها الجميع.") },
       { icon: UsersIcon, title: atr("Shared with your group", "مشترك مع مجموعتك"), desc: atr("One dictionary for everyone, with each person's progress tracked separately.", "قاموس واحد للجميع، وتقدّم كل شخص محفوظ بشكل منفصل.") },
       { icon: GlobeIcon, title: atr("Fully bilingual", "ثنائي اللغة بالكامل"), desc: atr("Switch the whole app between English and Arabic anytime.", "بدّل الموقع بالكامل بين الإنجليزية والعربية في أي وقت.") },
+      { icon: ZoomIcon, title: atr("Automatic grammar breakdown", "تحليل نحوي تلقائي"), desc: atr("Full English tense tables, Arabic verb conjugation, and adjective breakdowns — detected automatically as you type.", "جداول أزمنة إنجليزية كاملة، تصريف الفعل العربي، وتحليل الصفات — يتم اكتشافها تلقائيًا أثناء الكتابة.") },
+      { icon: TrophyIcon, title: atr("Leaderboard", "لوحة الصدارة"), desc: atr("See how you stack up against the rest of your group.", "شوف ترتيبك مقارنة بباقي أفراد مجموعتك.") },
+      { icon: StatsIcon, title: atr("Smart review reminders", "تذكيرات مراجعة ذكية"), desc: atr("Spaced-repetition scheduling brings words back right before you'd forget them.", "جدولة تكرار متباعد تعيد لك الكلمات في التوقيت المثالي قبل ما تنساها.") },
+      { icon: WifiOffIcon, title: atr("Works offline", "يعمل بدون إنترنت"), desc: atr("Your saved words stay with you even without a connection.", "كلماتك المحفوظة تفضل معاك حتى من غير اتصال بالإنترنت.") },
     ];
     return (
       <div
@@ -1772,7 +1777,7 @@ export default function DictionaryApp() {
           `}</style>
           <div className="bento-grid">
             {introFeatures.map((f, i) => {
-              const shape = [ "bento-big", "bento-wide", "bento-solo", "bento-solo", "bento-wide", "bento-big" ][i] || "bento-solo";
+              const shape = [ "bento-big", "bento-wide", "bento-solo", "bento-solo", "bento-wide", "bento-solo", "bento-wide", "bento-solo", "bento-solo", "bento-wide" ][i] || "bento-solo";
               return (
                 <div key={f.title} className={`bento-item auth-field-1 ${shape}`} style={{ animationDelay: `${0.08 + i * 0.05}s` }}>
                   <span className="bento-num">{String(i + 1).padStart(2, "0")}</span>

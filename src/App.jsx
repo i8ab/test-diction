@@ -127,6 +127,8 @@ const LogoutIcon = (p) => <Icon {...p} path={<><path d="M9 21H5a2 2 0 0 1-2-2V5a
 const ZoomIcon = (p) => <Icon {...p} path={<><circle cx="11" cy="11" r="7"/><circle cx="11" cy="11" r="2.75"/><path d="m21 21-3.8-3.8"/></>} />;
 const GlobeIcon = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/></>} />;
 const QuizIcon = (p) => <Icon {...p} path={<><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8"/><path d="M8 13h5"/><path d="m8 17 2 2 4-4"/></>} />;
+const StatsIcon = (p) => <Icon {...p} path={<><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></>} />;
+const FlameIcon = (p) => <Icon {...p} path={<path d="M8.5 14.5A2.5 2.5 0 0 0 11 17a2.5 2.5 0 0 0 2.5-2.5c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7.5 7.5 0 1 1-15 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5"/>} />;
 const ExternalLinkIcon = (p) => <Icon {...p} path={<><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></>} />;
 const SpeakerIcon = (p) => <Icon {...p} path={<><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></>} />;
 
@@ -455,6 +457,36 @@ function quizQuestionLabel(type, isAr) {
     case "antonym": return tr(isAr, "Which of these is an antonym of this word?", "أيّ من هذه الكلمات ضد هذه الكلمة؟");
     default: return "";
   }
+}
+
+/* =========================================================================
+   SPACED REPETITION (simple 4-box Leitner system)
+   -------------------------------------------------------------------------
+   Stored per-account: srsBox (0-3, how "known" a word is) and srsDueAt
+   (when it should be tested again). A correct quiz answer promotes the
+   word to the next box and pushes its due date out further; a wrong
+   answer drops it straight back to box 0 (due immediately). Words that
+   have never been quizzed have no entry in either map — they count as
+   "due now" so new words always show up for review right away.
+   ========================================================================= */
+const SRS_INTERVALS_MS = [
+  10 * 60 * 1000,        // box 0 -> 1: 10 minutes
+  24 * 60 * 60 * 1000,   // box 1 -> 2: 1 day
+  3 * 24 * 60 * 60 * 1000, // box 2 -> 3: 3 days
+  7 * 24 * 60 * 60 * 1000, // box 3 -> stays at 3, re-tested every 7 days
+];
+const SRS_BOX_LABELS = [
+  { en: "New", ar: "جديدة" },
+  { en: "Learning", ar: "قيد التعلم" },
+  { en: "Familiar", ar: "مألوفة" },
+  { en: "Mastered", ar: "متقنة" },
+];
+
+// True if a word is due for review right now: never quizzed, or its last
+// due timestamp has passed. `srsDueAt` may be undefined/null-safe.
+function isSrsDue(entryId, srsDueAt) {
+  const due = srsDueAt && srsDueAt[entryId];
+  return typeof due !== "number" || due <= Date.now();
 }
 
 // Groups a question type into the three results-review sections the user
@@ -920,6 +952,28 @@ export default function DictionaryApp() {
     return (acct && acct.studiedAt) || {};
   }, [accounts, accountCode]);
 
+  // Spaced-repetition state for the signed-in account — see the
+  // "SPACED REPETITION" helpers above. Both default to empty objects so
+  // accounts created before this feature existed (or words never quizzed)
+  // behave as "box 0 / due now", same as a brand-new word.
+  const srsBox = useMemo(() => {
+    const acct = accounts.find((a) => a.code === accountCode);
+    return (acct && acct.srsBox) || {};
+  }, [accounts, accountCode]);
+
+  const srsDueAt = useMemo(() => {
+    const acct = accounts.find((a) => a.code === accountCode);
+    return (acct && acct.srsDueAt) || {};
+  }, [accounts, accountCode]);
+
+  // Past quiz results for the signed-in account (most recent last), capped
+  // to the last 50 so the shared bin doesn't grow forever. Powers the
+  // Stats panel's "recent quizzes" list and streak calculation.
+  const quizHistory = useMemo(() => {
+    const acct = accounts.find((a) => a.code === accountCode);
+    return (acct && acct.quizHistory) || [];
+  }, [accounts, accountCode]);
+
   // Load the shared record (entries + accounts) once on mount — accounts are
   // needed for both signup (checking for name clashes) and login (checking
   // the personal code), and entries are ready by the time the user gets in.
@@ -1118,6 +1172,32 @@ export default function DictionaryApp() {
     else delete nextStudiedAt[entryId];
     const nextAccounts = accounts.map((a) => (a.code === accountCode ? { ...a, studied: nextStudied, studiedAt: nextStudiedAt } : a));
     await persistAccounts(nextAccounts);
+  }
+
+  // Called once per answered quiz question. Advances (or resets) the
+  // word's Leitner box and schedules its next due date — see the SRS
+  // helpers near buildQuiz. Best-effort: a failed save shouldn't interrupt
+  // the quiz the user is in the middle of taking.
+  async function handleRecordSrsAnswer(entryId, correct) {
+    const acct = accounts.find((a) => a.code === accountCode);
+    if (!acct) return;
+    const currentBox = (acct.srsBox && acct.srsBox[entryId]) || 0;
+    const nextBox = correct ? Math.min(currentBox + 1, SRS_INTERVALS_MS.length - 1) : 0;
+    const nextDue = Date.now() + SRS_INTERVALS_MS[nextBox];
+    const nextAccounts = accounts.map((a) => (a.code === accountCode
+      ? { ...a, srsBox: { ...(a.srsBox || {}), [entryId]: nextBox }, srsDueAt: { ...(a.srsDueAt || {}), [entryId]: nextDue } }
+      : a));
+    try { await persistAccounts(nextAccounts); } catch (e) { /* best-effort, quiz keeps going */ }
+  }
+
+  // Appends one finished quiz's summary to the account's history (for the
+  // Stats panel), capped to the most recent 50 so the shared bin stays small.
+  async function handleSaveQuizResult(result) {
+    const acct = accounts.find((a) => a.code === accountCode);
+    if (!acct) return;
+    const nextHistory = [...((acct.quizHistory) || []), result].slice(-50);
+    const nextAccounts = accounts.map((a) => (a.code === accountCode ? { ...a, quizHistory: nextHistory } : a));
+    try { await persistAccounts(nextAccounts); } catch (e) { /* best-effort */ }
   }
 
   async function handleSignup(e) {
@@ -1574,6 +1654,8 @@ export default function DictionaryApp() {
       onLogout={handleLogout}
       accounts={accounts} accountCode={accountCode} logs={logs}
       studiedIds={studiedIds} studiedAt={studiedAt} onToggleStudied={handleToggleStudied}
+      srsBox={srsBox} srsDueAt={srsDueAt} quizHistory={quizHistory}
+      onRecordSrsAnswer={handleRecordSrsAnswer} onSaveQuizResult={handleSaveQuizResult}
       showAccount={showAccount} onOpenAccount={openAccountModal} onCloseAccount={closeAccountModal} onUpdateOwnName={handleUpdateOwnName}
       showAdmin={showAdmin} onOpenAdmin={openAdminModal} onCloseAdmin={closeAdminModal}
       onAdminAddAccount={handleAdminAddAccount} onAdminEditAccount={handleAdminEditAccount} onAdminDeleteAccount={handleAdminDeleteAccount}
@@ -1589,6 +1671,7 @@ function MainView({
   name, isAdmin, entries, entriesLoaded, loadError, section, onChangeSection, query, setQuery,
   showAdd, onOpenAdd, onCloseAdd, persistEntries, saveError, onLogout,
   accounts, accountCode, logs, studiedIds, studiedAt, onToggleStudied, showAccount, onOpenAccount, onCloseAccount, onUpdateOwnName,
+  srsBox, srsDueAt, quizHistory, onRecordSrsAnswer, onSaveQuizResult,
   showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount,
   toast, theme, onToggleTheme,
   appIsAr, onToggleAppLang,
@@ -1608,6 +1691,7 @@ function MainView({
   const [editingEntry, setEditingEntry] = useState(null);
   const [zoomEntry, setZoomEntry] = useState(null);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [showStats, setShowStats] = useState(false);
 
   const suggestions = useMemo(() => {
     const q = query.trim();
@@ -1764,6 +1848,9 @@ function MainView({
             )}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setShowStats(true)} className="lift-hover" style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: cfg.accent, background: "none", border: `1px solid ${cfg.accent}`, borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>
+              <StatsIcon size={16} /> {tr(isAr, "Stats", "إحصائياتي")}
+            </button>
             <button onClick={() => setShowQuiz(true)} className="lift-hover" style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: cfg.accent, background: "none", border: `1px solid ${cfg.accent}`, borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>
               <QuizIcon size={16} /> {tr(isAr, "Quiz", "اختبار")}
             </button>
@@ -1879,9 +1966,26 @@ function MainView({
           sectionLabel={cfg.shortLabel}
           studiedIds={studiedIds}
           studiedAt={studiedAt}
+          srsDueAt={srsDueAt}
           sessionStart={sessionStart}
           isAr={isAr}
           onClose={() => setShowQuiz(false)}
+          onRecordSrsAnswer={onRecordSrsAnswer}
+          onSaveQuizResult={onSaveQuizResult}
+        />
+      )}
+      {showStats && (
+        <StatsModal
+          entries={sectionEntries}
+          sectionLabel={cfg.shortLabel}
+          studiedIds={studiedIds}
+          studiedAt={studiedAt}
+          srsBox={srsBox}
+          srsDueAt={srsDueAt}
+          quizHistory={quizHistory}
+          isAr={isAr}
+          cfg={cfg}
+          onClose={() => setShowStats(false)}
         />
       )}
       {showAccount && (
@@ -2107,9 +2211,11 @@ function ReviewRow({ item, isAr }) {
   );
 }
 
-function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, sessionStart, isAr, onClose }) {
+function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, sessionStart, isAr, onClose, onRecordSrsAnswer, onSaveQuizResult }) {
   const [rangeKey, setRangeKey] = useState("60");
   const [customMinutes, setCustomMinutes] = useState("120");
+  const [mode, setMode] = useState("mcq"); // mcq | typing
+  const [dueOnly, setDueOnly] = useState(false);
   const [stage, setStage] = useState("setup"); // setup | running | done
   const [startError, setStartError] = useState("");
   const [questions, setQuestions] = useState([]);
@@ -2119,6 +2225,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, sessionStart,
   const [results, setResults] = useState([]);
   const [startedAt, setStartedAt] = useState(null);
   const [finishedAt, setFinishedAt] = useState(null);
+  const [typedAnswer, setTypedAnswer] = useState("");
 
   useEffect(() => {
     function onKeyDown(e) { if (e.key === "Escape") onClose(); }
@@ -2139,10 +2246,10 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, sessionStart,
   ];
 
   const rangeStart = useMemo(() => quizRangeStart(rangeKey, customMinutes, sessionStart), [rangeKey, customMinutes, sessionStart]);
-  const matchingEntries = useMemo(
-    () => selectQuizEntries(entries, studiedIds, studiedAt, rangeStart),
-    [entries, studiedIds, studiedAt, rangeStart]
-  );
+  const matchingEntries = useMemo(() => {
+    const base = selectQuizEntries(entries, studiedIds, studiedAt, rangeStart);
+    return dueOnly ? base.filter((e) => isSrsDue(e.id, srsDueAt)) : base;
+  }, [entries, studiedIds, studiedAt, rangeStart, dueOnly, srsDueAt]);
 
   function startQuiz() {
     const built = buildQuiz(matchingEntries, entries);
@@ -2160,29 +2267,61 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, sessionStart,
     setResults([]);
     setStartedAt(Date.now());
     setFinishedAt(null);
+    setTypedAnswer("");
     setStage("running");
+  }
+
+  function recordAnswer(q, opt, correct) {
+    setSelected(opt);
+    setAnswered(true);
+    setResults((r) => [...r, {
+      id: q.id, correct, type: q.type,
+      word: q.word, wordDir: q.wordDir, wordFont: q.wordFont,
+      selectedAnswer: opt, correctAnswer: q.correct,
+    }]);
+    // Feed this word's result into its spaced-repetition schedule. Fire
+    // and forget — the quiz UI doesn't need to wait on the save.
+    if (onRecordSrsAnswer) onRecordSrsAnswer(q.entryId, correct);
   }
 
   function pickOption(opt) {
     if (answered) return;
     const q = questions[index];
-    setSelected(opt);
-    setAnswered(true);
-    setResults((r) => [...r, {
-      id: q.id, correct: opt === q.correct, type: q.type,
-      word: q.word, wordDir: q.wordDir, wordFont: q.wordFont,
-      selectedAnswer: opt, correctAnswer: q.correct,
-    }]);
+    recordAnswer(q, opt, opt === q.correct);
+  }
+
+  // Typing mode: compares the typed text to the expected answer, ignoring
+  // case, leading/trailing whitespace, and Arabic tashkeel (diacritics) so
+  // a correct answer without diacritics still counts as correct.
+  function normalizeForTyping(s) {
+    return (s || "").trim().toLowerCase().replace(/[\u064B-\u065F\u0670]/g, "");
+  }
+
+  function submitTyped() {
+    if (answered) return;
+    const q = questions[index];
+    const isCorrect = normalizeForTyping(typedAnswer) === normalizeForTyping(q.correct);
+    recordAnswer(q, typedAnswer, isCorrect);
   }
 
   function nextQuestion() {
     if (index + 1 >= questions.length) {
-      setFinishedAt(Date.now());
+      const finishedTime = Date.now();
+      setFinishedAt(finishedTime);
       setStage("done");
+      if (onSaveQuizResult) {
+        const finalScore = results.filter((r) => r.correct).length;
+        onSaveQuizResult({
+          id: uid(), at: finishedTime, section: sectionLabel || "", mode,
+          score: finalScore, total: results.length,
+          durationMs: startedAt ? finishedTime - startedAt : 0,
+        });
+      }
     } else {
       setIndex((i) => i + 1);
       setSelected(null);
       setAnswered(false);
+      setTypedAnswer("");
     }
   }
 
@@ -2260,6 +2399,19 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, sessionStart,
                 `${matchingEntries.length} studied word${matchingEntries.length === 1 ? "" : "s"} match this range.`,
                 `${matchingEntries.length} كلمة متاحة من الكلمات المدروسة في هذا النطاق.`)}
             </div>
+            <label style={{ ...labelStyle, marginTop: 16 }}>{tr(isAr, "Question type", "نوع الأسئلة")}</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 4 }}>
+              <button type="button" onClick={() => setMode("mcq")} style={chipStyle(mode === "mcq")}>
+                {tr(isAr, "Multiple choice", "اختيار من متعدد")}
+              </button>
+              <button type="button" onClick={() => setMode("typing")} style={chipStyle(mode === "typing")}>
+                {tr(isAr, "Type the answer", "اكتب الإجابة")}
+              </button>
+            </div>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, fontSize: 13.5, color: "var(--muted-strong)", cursor: "pointer" }}>
+              <input type="checkbox" checked={dueOnly} onChange={(e) => setDueOnly(e.target.checked)} />
+              {tr(isAr, "Only words due for review (spaced repetition)", "الكلمات المستحقة للمراجعة فقط (التكرار المتباعد)")}
+            </label>
             {startError && <div style={errorStyle} role="alert" aria-live="assertive">{startError}</div>}
             <button type="button" onClick={startQuiz} disabled={matchingEntries.length === 0} style={{ ...primaryBtnStyle, opacity: matchingEntries.length === 0 ? 0.5 : 1, cursor: matchingEntries.length === 0 ? "default" : "pointer" }}>
               <QuizIcon size={16} /> {tr(isAr, "Start quiz", "ابدأ الاختبار")}
@@ -2292,24 +2444,57 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, sessionStart,
                     style={{ flexShrink: 0, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.25)", borderRadius: "50%", width: 38, height: 38, justifyContent: "center", color: BRASS }} />
                 )}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {q.options.map((opt, i) => {
-                  const isCorrectOpt = opt === q.correct;
-                  const isSelectedOpt = opt === selected;
-                  let bg = "var(--card)", border = "rgba(var(--border-rgb),0.2)", color = INK;
-                  if (answered && isCorrectOpt) { bg = "var(--success-bg)"; border = "var(--success)"; color = "var(--success)"; }
-                  else if (answered && isSelectedOpt && !isCorrectOpt) { bg = "var(--danger-bg)"; border = "var(--danger-border)"; color = "var(--danger)"; }
-                  return (
-                    <button key={i} type="button" onClick={() => pickOption(opt)} disabled={answered}
-                      dir={q.optionDir}
-                      style={{ textAlign: "start", fontFamily: q.optionFont, fontSize: 16, padding: "12px 14px", background: bg, border: `1.5px solid ${border}`, color, borderRadius: 4, cursor: answered ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                      <span>{opt}</span>
-                      {answered && isCorrectOpt && <CheckIcon size={16} />}
-                      {answered && isSelectedOpt && !isCorrectOpt && <XIcon size={16} />}
+              {mode === "mcq" ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {q.options.map((opt, i) => {
+                    const isCorrectOpt = opt === q.correct;
+                    const isSelectedOpt = opt === selected;
+                    let bg = "var(--card)", border = "rgba(var(--border-rgb),0.2)", color = INK;
+                    if (answered && isCorrectOpt) { bg = "var(--success-bg)"; border = "var(--success)"; color = "var(--success)"; }
+                    else if (answered && isSelectedOpt && !isCorrectOpt) { bg = "var(--danger-bg)"; border = "var(--danger-border)"; color = "var(--danger)"; }
+                    return (
+                      <button key={i} type="button" onClick={() => pickOption(opt)} disabled={answered}
+                        dir={q.optionDir}
+                        style={{ textAlign: "start", fontFamily: q.optionFont, fontSize: 16, padding: "12px 14px", background: bg, border: `1.5px solid ${border}`, color, borderRadius: 4, cursor: answered ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                        <span>{opt}</span>
+                        {answered && isCorrectOpt && <CheckIcon size={16} />}
+                        {answered && isSelectedOpt && !isCorrectOpt && <XIcon size={16} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                // Typing mode: one free-text input, checked on submit (or
+                // Enter) against the correct answer, case/diacritic-insensitive.
+                <div>
+                  <input
+                    type="text"
+                    dir={q.optionDir}
+                    autoFocus
+                    disabled={answered}
+                    value={typedAnswer}
+                    onChange={(e) => setTypedAnswer(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); answered ? nextQuestion() : submitTyped(); } }}
+                    placeholder={tr(isAr, "Type your answer…", "اكتب إجابتك…")}
+                    style={{ ...inputStyle, fontFamily: q.optionFont, fontSize: 17,
+                      borderColor: answered ? (selected && normalizeForTyping(selected) === normalizeForTyping(q.correct) ? "var(--success)" : "var(--danger-border)") : undefined }}
+                  />
+                  {!answered && (
+                    <button type="button" onClick={submitTyped} disabled={!typedAnswer.trim()} style={{ ...primaryBtnStyle, opacity: typedAnswer.trim() ? 1 : 0.5, cursor: typedAnswer.trim() ? "pointer" : "default" }}>
+                      {tr(isAr, "Check answer", "تحقق من الإجابة")}
                     </button>
-                  );
-                })}
-              </div>
+                  )}
+                  {answered && (
+                    <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 4, fontSize: 14,
+                      background: results[results.length - 1]?.correct ? "var(--success-bg)" : "var(--danger-bg)",
+                      color: results[results.length - 1]?.correct ? "var(--success)" : "var(--danger)" }}>
+                      {results[results.length - 1]?.correct
+                        ? tr(isAr, "Correct!", "إجابة صحيحة!")
+                        : tr(isAr, `Not quite — the answer is "${q.correct}".`, `مش صح — الإجابة الصح هي "${q.correct}".`)}
+                    </div>
+                  )}
+                </div>
+              )}
               {answered && (
                 <button type="button" onClick={nextQuestion} style={primaryBtnStyle}>
                   {index + 1 >= questions.length ? tr(isAr, "See results", "عرض النتيجة") : tr(isAr, "Next question", "السؤال التالي")}
@@ -2373,6 +2558,161 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, sessionStart,
             </div>
           );
         })()}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
+   STATS PANEL
+   -------------------------------------------------------------------------
+   Read-only summary for the signed-in account, scoped to the dictionary
+   section it was opened from: overall progress, a spaced-repetition
+   breakdown (new/learning/familiar/mastered + how many are due right
+   now), a short "needs work" list, a day streak, and recent quiz scores.
+   Pulls only from data that's already loaded client-side — no extra
+   network calls.
+   ========================================================================= */
+function dateKey(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+// Consecutive days up to and including today that have at least one
+// "studied" timestamp. A gap of a full day breaks the streak.
+function computeStreak(studiedAt) {
+  const days = new Set(Object.values(studiedAt || {}).map((t) => dateKey(t)));
+  let streak = 0;
+  let cursor = Date.now();
+  // Today doesn't have to have activity yet for the streak to still count
+  // up to yesterday — but if today's missing we start checking from
+  // yesterday instead of breaking immediately on day 0.
+  if (!days.has(dateKey(cursor))) cursor -= 24 * 60 * 60 * 1000;
+  while (days.has(dateKey(cursor))) {
+    streak += 1;
+    cursor -= 24 * 60 * 60 * 1000;
+  }
+  return streak;
+}
+
+function StatsModal({ entries, sectionLabel, studiedIds, studiedAt, srsBox, srsDueAt, quizHistory, isAr, cfg, onClose }) {
+  useEffect(() => {
+    function onKeyDown(e) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  const studiedEntries = useMemo(() => entries.filter((e) => studiedIds.has(e.id)), [entries, studiedIds]);
+  const total = entries.length;
+  const studiedCount = studiedEntries.length;
+  const pct = total ? Math.round((studiedCount / total) * 100) : 0;
+
+  const boxCounts = useMemo(() => {
+    const counts = [0, 0, 0, 0];
+    for (const e of studiedEntries) {
+      const box = (srsBox && srsBox[e.id]) || 0;
+      counts[box] += 1;
+    }
+    return counts;
+  }, [studiedEntries, srsBox]);
+
+  const dueCount = useMemo(() => studiedEntries.filter((e) => isSrsDue(e.id, srsDueAt)).length, [studiedEntries, srsDueAt]);
+
+  // "Needs work" — studied words still in box 0/1, oldest-studied first
+  // (the ones sitting around the longest without being solidified).
+  const weakWords = useMemo(() => {
+    return studiedEntries
+      .filter((e) => ((srsBox && srsBox[e.id]) || 0) <= 1)
+      .sort((a, b) => (studiedAt[a.id] || 0) - (studiedAt[b.id] || 0))
+      .slice(0, 8);
+  }, [studiedEntries, srsBox, studiedAt]);
+
+  const streak = useMemo(() => computeStreak(studiedAt), [studiedAt]);
+
+  const recentQuizzes = useMemo(() => [...(quizHistory || [])].reverse().slice(0, 5), [quizHistory]);
+
+  const statCardStyle = { flex: "1 1 120px", background: "var(--input-bg)", borderRadius: 6, padding: "12px 14px", textAlign: "center" };
+
+  return (
+    <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
+      <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={isAr ? "rtl" : "ltr"} role="dialog" aria-modal="true" aria-labelledby="stats-modal-title"
+        style={{ width: "100%", maxWidth: 540, maxHeight: "88vh", overflowY: "auto", background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <h2 id="stats-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: INK, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+            <StatsIcon size={19} color={BRASS} /> {tr(isAr, "Your stats", "إحصائياتي")}
+            {sectionLabel && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>· {sectionLabel}</span>}
+          </h2>
+          <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}><XIcon size={20} /></button>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16 }}>
+          <div style={statCardStyle}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: cfg.accent }}>{pct}%</div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{tr(isAr, `${studiedCount} of ${total} words`, `${studiedCount} من ${total} كلمة`)}</div>
+          </div>
+          <div style={statCardStyle}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "var(--success)" }}>{boxCounts[3]}</div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{tr(isAr, "Mastered", "متقنة")}</div>
+          </div>
+          <div style={statCardStyle}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "var(--danger)" }}>{dueCount}</div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{tr(isAr, "Due for review", "مستحقة للمراجعة")}</div>
+          </div>
+          <div style={{ ...statCardStyle, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 24, fontWeight: 700, color: BRASS }}>
+              <FlameIcon size={20} color={BRASS} /> {streak}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{tr(isAr, "day streak", "يوم متتالي")}</div>
+          </div>
+        </div>
+
+        <label style={{ ...labelStyle, marginTop: 20 }}>{tr(isAr, "Learning progress", "مستوى التعلّم")}</label>
+        <div style={{ display: "flex", height: 10, borderRadius: 20, overflow: "hidden", marginTop: 6 }}>
+          {["#c9c9c9", "#e0b04a", "#7fa8d9", "var(--success)"].map((color, i) => (
+            studiedCount > 0 && boxCounts[i] > 0 ? (
+              <div key={i} title={tr(isAr, SRS_BOX_LABELS[i].en, SRS_BOX_LABELS[i].ar)} style={{ width: `${(boxCounts[i] / studiedCount) * 100}%`, background: color }} />
+            ) : null
+          ))}
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 8, fontSize: 12, color: "var(--muted)" }}>
+          {SRS_BOX_LABELS.map((l, i) => (
+            <span key={i}>{tr(isAr, l.en, l.ar)}: {boxCounts[i]}</span>
+          ))}
+        </div>
+
+        {weakWords.length > 0 && (
+          <>
+            <label style={{ ...labelStyle, marginTop: 20 }}>{tr(isAr, "Needs work", "محتاجة مراجعة")}</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+              {weakWords.map((e) => (
+                <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "var(--input-bg)", borderRadius: 4 }}>
+                  <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 14, fontWeight: 600, color: INK }}>{e.word}</span>
+                  <span dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: 13, color: "var(--muted)" }}>{e.meaning}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {recentQuizzes.length > 0 && (
+          <>
+            <label style={{ ...labelStyle, marginTop: 20 }}>{tr(isAr, "Recent quizzes", "آخر الاختبارات")}</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+              {recentQuizzes.map((q) => (
+                <div key={q.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "var(--input-bg)", borderRadius: 4, fontSize: 13 }}>
+                  <span style={{ color: "var(--muted)" }}>{new Date(q.at).toLocaleString(isAr ? "ar-EG" : "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                  <span style={{ fontWeight: 700, color: q.total && q.score / q.total >= 0.7 ? "var(--success)" : INK }}>{q.score}/{q.total}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {studiedCount === 0 && (
+          <p style={{ marginTop: 20, fontSize: 14, color: "var(--muted)", textAlign: "center" }}>
+            {tr(isAr, "Mark some words as studied to start seeing stats here.", "علّم بعض الكلمات كمدروسة عشان تبدأ تشوف إحصائياتك هنا.")}
+          </p>
+        )}
       </div>
     </div>
   );

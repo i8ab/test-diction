@@ -2059,55 +2059,63 @@ function MainView({
       </header>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "18px 20px 0" }}>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <div style={{ position: "relative", flex: "1 1 240px" }}>
-            <SearchIcon size={16} color="var(--icon-muted)" style={{ position: "absolute", insetInlineStart: 12, top: "50%", transform: "translateY(-50%)" }} />
-            <input
-              value={query}
-              onChange={(e) => { setQuery(e.target.value); setShowSuggestions(true); }}
-              onFocus={() => { if (query.trim()) setShowSuggestions(true); }}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 120)}
-              onKeyDown={handleSearchKeyDown}
-              placeholder={tr(isAr, `Search ${cfg.shortLabel}…`, `بحث في ${cfg.shortLabel}…`)} dir={section === "ar-ar" ? "rtl" : "auto"}
-              role="combobox" aria-autocomplete="list" aria-expanded={showSuggestions && suggestions.length > 0}
-              aria-controls="search-suggestions" aria-activedescendant={activeIndex >= 0 ? `search-suggestion-${activeIndex}` : undefined}
-              autoComplete="off"
-              style={{ width: "100%", padding: "10px 12px", paddingInlineStart: 36, fontSize: 14, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 3, background: "var(--input-bg)", color: INK }} />
-            {showSuggestions && suggestions.length > 0 && (
-              <ul id="search-suggestions" role="listbox" dir={section === "ar-ar" ? "rtl" : "auto"}
-                style={{ listStyle: "none", margin: "4px 0 0", padding: 4, position: "absolute", top: "100%", insetInlineStart: 0, insetInlineEnd: 0, background: CARD, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 3, boxShadow: "0 10px 24px -10px rgba(0,0,0,0.3)", zIndex: 30, maxHeight: 260, overflowY: "auto" }}>
-                {suggestions.map((s, i) => (
-                  <li key={s.id} id={`search-suggestion-${i}`} role="option" aria-selected={i === activeIndex}
-                    onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
-                    onMouseEnter={() => setActiveIndex(i)}
-                    style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "7px 9px", borderRadius: 3, cursor: "pointer", background: i === activeIndex ? cfg.accentSoft : "transparent" }}>
-                    <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 14, fontWeight: 600, color: INK }}>{s.word}</span>
-                    <span dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: 13, color: "var(--meaning)" }}>{s.meaning}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setShowLeaderboard(true)} className="lift-hover" style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: cfg.accent, background: "none", border: `1px solid ${cfg.accent}`, borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>
-              <TrophyIcon size={16} /> {tr(isAr, "Leaderboard", "الترتيب")}
-            </button>
-            <button onClick={() => setShowStats(true)} className="lift-hover" style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: cfg.accent, background: "none", border: `1px solid ${cfg.accent}`, borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>
-              <StatsIcon size={16} /> {tr(isAr, "Stats", "إحصائياتي")}
-            </button>
-            <button onClick={() => setShowQuiz(true)} className="lift-hover" style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: cfg.accent, background: "none", border: `1px solid ${cfg.accent}`, borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>
-              <QuizIcon size={16} /> {tr(isAr, "Quiz", "اختبار")}
-            </button>
-            <button onClick={onOpenAdd} className="btn-shine lift-hover" style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: "#fff", background: cfg.accent, border: "none", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>
+        <div className="toolbar-modern">
+          <div className="toolbar-search-row toolbar-anim" style={{ animationDelay: "0.02s" }}>
+            <div style={{ position: "relative", flex: 1 }}>
+              <SearchIcon size={17} color="var(--icon-muted)" style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)" }} />
+              <input
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setShowSuggestions(true); }}
+                onFocus={() => { if (query.trim()) setShowSuggestions(true); }}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 120)}
+                onKeyDown={handleSearchKeyDown}
+                placeholder={tr(isAr, `Search ${cfg.shortLabel}…`, `بحث في ${cfg.shortLabel}…`)} dir={section === "ar-ar" ? "rtl" : "auto"}
+                role="combobox" aria-autocomplete="list" aria-expanded={showSuggestions && suggestions.length > 0}
+                aria-controls="search-suggestions" aria-activedescendant={activeIndex >= 0 ? `search-suggestion-${activeIndex}` : undefined}
+                autoComplete="off"
+                className="toolbar-search-input"
+                style={{ width: "100%", padding: "12px 14px", paddingInlineStart: 40, fontSize: 14, border: "1px solid rgba(var(--border-rgb),0.18)", borderRadius: 10, background: "var(--input-bg)", color: INK }} />
+              {showSuggestions && suggestions.length > 0 && (
+                <ul id="search-suggestions" role="listbox" dir={section === "ar-ar" ? "rtl" : "auto"}
+                  className="modal-card"
+                  style={{ listStyle: "none", margin: "6px 0 0", padding: 4, position: "absolute", top: "100%", insetInlineStart: 0, insetInlineEnd: 0, background: CARD, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, boxShadow: "0 14px 30px -12px rgba(0,0,0,0.3)", zIndex: 30, maxHeight: 260, overflowY: "auto" }}>
+                  {suggestions.map((s, i) => (
+                    <li key={s.id} id={`search-suggestion-${i}`} role="option" aria-selected={i === activeIndex}
+                      onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
+                      onMouseEnter={() => setActiveIndex(i)}
+                      style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "7px 9px", borderRadius: 7, cursor: "pointer", background: i === activeIndex ? cfg.accentSoft : "transparent" }}>
+                      <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 14, fontWeight: 600, color: INK }}>{s.word}</span>
+                      <span dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: 13, color: "var(--meaning)" }}>{s.meaning}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <button onClick={onOpenAdd} className="btn-shine lift-hover toolbar-add-btn" style={{ display: "flex", alignItems: "center", gap: 7, padding: "12px 18px", fontSize: 14, fontWeight: 600, color: "#fff", background: cfg.accent, border: "none", borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
               <PlusIcon size={16} /> {tr(isAr, "Add word", "إضافة كلمة")}
             </button>
+          </div>
+
+          <div className="toolbar-icon-group toolbar-anim" style={{ animationDelay: "0.08s", borderColor: `${cfg.accent}33` }}>
+            <button onClick={() => setShowLeaderboard(true)} className="toolbar-icon-btn" data-tooltip={tr(isAr, "Leaderboard", "الترتيب")} style={{ color: cfg.accent }}>
+              <TrophyIcon size={17} />
+            </button>
+            <span className="toolbar-icon-divider" />
+            <button onClick={() => setShowStats(true)} className="toolbar-icon-btn" data-tooltip={tr(isAr, "Stats", "إحصائياتي")} style={{ color: cfg.accent }}>
+              <StatsIcon size={17} />
+            </button>
+            <span className="toolbar-icon-divider" />
+            <button onClick={() => setShowQuiz(true)} className="toolbar-icon-btn" data-tooltip={tr(isAr, "Quiz", "اختبار")} style={{ color: cfg.accent }}>
+              <QuizIcon size={17} />
+            </button>
+            <span className="toolbar-icon-divider" />
             <button
               onClick={() => exportEntriesAsCsv(filtered.length ? filtered : sectionEntries, cfg, cfg.shortLabel)}
               disabled={sectionEntries.length === 0}
-              title={tr(isAr, "Download this list as CSV", "تنزيل هذه القائمة كملف CSV")}
-              className="lift-hover"
-              style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: cfg.accent, background: "none", border: `1px solid ${cfg.accent}`, borderRadius: 8, cursor: sectionEntries.length === 0 ? "default" : "pointer", opacity: sectionEntries.length === 0 ? 0.5 : 1, whiteSpace: "nowrap" }}>
-              <DownloadIcon size={16} /> {tr(isAr, "Export CSV", "تصدير CSV")}
+              className="toolbar-icon-btn"
+              data-tooltip={tr(isAr, "Export CSV", "تصدير CSV")}
+              style={{ color: cfg.accent, opacity: sectionEntries.length === 0 ? 0.4 : 1, cursor: sectionEntries.length === 0 ? "default" : "pointer" }}>
+              <DownloadIcon size={17} />
             </button>
           </div>
         </div>

@@ -162,35 +162,10 @@
   .link-underline::after { content: ""; position: absolute; left: 0; bottom: -2px; height: 1px; width: 0; background: currentColor; transition: width 0.25s ease; }
   .link-underline:hover::after { width: 100%; }
 
-  /* ================= Modern toolbar (search + actions) ================= */
-  .toolbar-modern { display: flex; flex-direction: column; gap: 10px; }
-  .toolbar-search-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  /* ================= Toolbar entrance + search polish ================= */
+  .toolbar-anim { animation: fadeInUp 0.4s cubic-bezier(0.22,1,0.36,1) both; }
   .toolbar-search-input { transition: box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease; }
   .toolbar-search-input:focus { background: var(--card) !important; }
-  .toolbar-add-btn { flex-shrink: 0; }
-
-  .toolbar-anim { animation: fadeInUp 0.45s cubic-bezier(0.22,1,0.36,1) both; }
-
-  .toolbar-action-row { display: flex; gap: 8px; flex-wrap: wrap; }
-  .toolbar-pill-btn {
-    display: flex; align-items: center; gap: 6px;
-    padding: 7px 13px; font-size: 12.5px; font-weight: 600;
-    background: var(--card); border: 1px solid rgba(var(--border-rgb),0.2);
-    border-radius: 20px; white-space: nowrap;
-    transition: transform 0.2s cubic-bezier(0.22,1,0.36,1), box-shadow 0.2s ease, background 0.2s ease;
-  }
-  .toolbar-pill-btn:not(:disabled):hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 22px -12px rgba(0,0,0,0.3);
-    background: var(--input-bg);
-  }
-
-  @media (max-width: 560px) {
-    .toolbar-search-row { flex-wrap: wrap; }
-    .toolbar-add-btn { flex: 1 1 auto; justify-content: center; }
-    .toolbar-action-row { justify-content: space-between; }
-    .toolbar-pill-btn { flex: 1 1 auto; justify-content: center; }
-  }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }

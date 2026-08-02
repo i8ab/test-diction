@@ -14,8 +14,14 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 // code has been retired: an admin account already exists, so manage roles
 // from the Admin panel from here on.
 
-async function fetchRecord() {
-  const res = await fetch("/api/jsonbin");
+// `fresh: true` bypasses the browser/edge cache (see api/jsonbin.js) for the
+// rare calls where we must have the absolute latest data — e.g. checking for
+// a duplicate name right before creating an account. Everywhere else (most
+// notably the initial page load) we're happy to accept a response that's up
+// to ~10s old in exchange for it arriving instantly instead of waiting on a
+// round trip to JSONBin.io on every single visit.
+async function fetchRecord({ fresh = false } = {}) {
+  const res = await fetch("/api/jsonbin", fresh ? { cache: "no-store" } : undefined);
   if (!res.ok) throw new Error("fetch failed");
   const data = await res.json();
   return {
@@ -1124,7 +1130,7 @@ export default function DictionaryApp() {
     try {
       // Re-fetch the freshest account list right before checking/creating, so a
       // name taken moments ago by someone else (on any device) is still caught.
-      const rec = await fetchRecord();
+      const rec = await fetchRecord({ fresh: true });
       const clash = rec.accounts.some((a) => a.name.toLowerCase() === trimmed.toLowerCase());
       if (clash) {
         setSignupError("An account with this name already exists. Use another name, or sign in if it's yours.");

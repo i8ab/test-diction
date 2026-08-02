@@ -2168,11 +2168,12 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, sessionStart,
               </div>
               <p style={{ fontSize: 21, fontWeight: 700, color: "var(--muted-strong)", margin: "0 0 8px" }}>{quizQuestionLabel(q.type, isAr)}</p>
               <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--input-bg)", borderRadius: 4, padding: "20px 16px", marginBottom: 16 }}>
-                <div dir={q.promptDir} style={{ flex: 1, fontFamily: q.promptFont, fontSize: "clamp(26px, 4.2vw, 34px)", fontWeight: 700, color: INK, wordBreak: "break-word", lineHeight: 1.3 }}>
+                <div dir={q.promptDir} style={{ flex: 1, minWidth: 0, fontFamily: q.promptFont, fontSize: "clamp(26px, 4.2vw, 34px)", fontWeight: 700, color: INK, wordBreak: "break-word", lineHeight: 1.3 }}>
                   {q.promptText}
                 </div>
                 {q.promptText && (
-                  <SpeakButton text={q.promptText} dir={q.promptDir} isAr={isAr} size={24} style={{ flexShrink: 0 }} />
+                  <SpeakButton text={q.promptText} dir={q.promptDir} isAr={isAr} size={22}
+                    style={{ flexShrink: 0, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.25)", borderRadius: "50%", width: 38, height: 38, justifyContent: "center", color: BRASS }} />
                 )}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

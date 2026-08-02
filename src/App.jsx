@@ -154,20 +154,30 @@ function cambridgeUrl(word) {
 let ttsAudioEl = null;
 function speakArabic(text) {
   try {
-    if (!ttsAudioEl) ttsAudioEl = new Audio();
+    // Fresh element per call — reusing one Audio() across calls can get
+    // stuck in a bad state (still loading/aborted) after a rapid second
+    // click, which looks identical to "nothing happens".
+    if (ttsAudioEl) { try { ttsAudioEl.pause(); } catch (e) {} }
     const url = "https://translate.google.com/translate_tts?ie=UTF-8&q=" +
       encodeURIComponent(text) + "&tl=ar&client=tw-ob";
-    ttsAudioEl.pause();
-    ttsAudioEl.currentTime = 0;
-    ttsAudioEl.src = url;
-    const playPromise = ttsAudioEl.play();
+    const audio = new Audio(url);
+    ttsAudioEl = audio;
+    audio.addEventListener("error", () => {
+      // This fires for a real failure (network blocked, non-200 response,
+      // unplayable stream, etc.) — surface it instead of staying silent so
+      // it's obvious *why* nothing was heard.
+      window.alert(
+        "تعذّر نطق الكلمة العربية — يبدو إن فيه مشكلة في الاتصال بخدمة النطق (تأكد من الإنترنت، أو إن حاجب إعلانات/VPN مش بيمنع translate.google.com)."
+      );
+    });
+    const playPromise = audio.play();
     if (playPromise && playPromise.catch) {
       playPromise.catch((err) => {
-        console.error("Arabic pronunciation failed to play:", err);
+        window.alert("تعذّر تشغيل النطق العربي: " + (err && err.message ? err.message : err));
       });
     }
   } catch (e) {
-    console.error("Arabic pronunciation error:", e);
+    window.alert("تعذّر تشغيل النطق العربي: " + e.message);
   }
 }
 

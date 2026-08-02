@@ -131,111 +131,63 @@ function cambridgeUrl(word) {
 }
 
 /* =========================================================================
-   PRONUNCIATION — reads a word aloud using the browser's built-in
-   text-to-speech (Web Speech API). No server, API key, or audio files
-   needed; works offline in most browsers once the voices are installed.
-   `dir` ("ltr"/"rtl") picks English vs Arabic pronunciation.
+   PRONUNCIATION
+   -------------------------------------------------------------------------
+   English uses the browser's built-in text-to-speech (Web Speech API) —
+   that part works everywhere reliably because virtually every OS ships
+   an English voice.
 
-   Voices load asynchronously (this is especially true for Arabic voices,
-   which some browsers only report after the "voiceschanged" event fires),
-   so we cache the list and refresh it once that event has fired at least
-   once instead of trusting whatever getVoices() returns on the very first
-   call.
+   Arabic is the unreliable one: on a lot of machines (most Windows PCs,
+   plenty of Android phones, some Linux setups) there is NO Arabic voice
+   pack installed at the OS level. When that's true, speechSynthesis
+   doesn't error — it just silently produces no sound, and trying to
+   *detect* whether a usable Arabic voice exists turned out to be too
+   unreliable across browsers to trust (that was the bug in the previous
+   version: the detection itself could be wrong).
 
-   THE REAL ARABIC PROBLEM: on a lot of machines (most Windows PCs and
-   plenty of Android phones) there simply is no Arabic voice pack installed
-   at the OS level. When that's the case, speechSynthesis doesn't throw or
-   warn — it just silently does nothing for an "ar-SA" utterance, which is
-   exactly the "nothing happens" symptom. There's no way to make a missing
-   local voice speak, so instead: if we scan every ar-* variant and still
-   find nothing installed, we fall back to a free online TTS endpoint
-   (Google Translate's audio API) that always has an Arabic voice, played
-   through a normal <audio> element. This needs the browser to be online,
-   same as loading any other page content, but requires no key/server.
+   So instead, Arabic words go straight through a free online TTS endpoint
+   (the same audio API Google Translate's website uses) via a plain
+   <audio> element — no detection, no guessing, no API key. This only
+   needs the browser to have an internet connection, same as loading the
+   rest of the page.
    ========================================================================= */
-let cachedVoices = [];
-function refreshVoiceCache() {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-  const list = window.speechSynthesis.getVoices();
-  if (list && list.length) cachedVoices = list;
-}
-if (typeof window !== "undefined" && "speechSynthesis" in window) {
-  refreshVoiceCache();
-  window.speechSynthesis.onvoiceschanged = refreshVoiceCache;
-}
-
-// Arabic gets reported under many different regional tags depending on the
-// OS/browser (Saudi, Egyptian, generic "world Arabic", Google's ar-XA...),
-// so check every common one rather than just ar-SA.
-const AR_LANG_TAGS = ["ar-sa", "ar-eg", "ar-ae", "ar-xa", "ar-jo", "ar-ma", "ar-001", "ar"];
-
-function pickVoice(langPrefix) {
-  const exact = cachedVoices.find((v) => v.lang && v.lang.toLowerCase() === langPrefix);
-  if (exact) return exact;
-  return cachedVoices.find((v) => v.lang && v.lang.toLowerCase().startsWith(langPrefix.split("-")[0]));
-}
-
-function findArabicVoice() {
-  for (const tag of AR_LANG_TAGS) {
-    const v = pickVoice(tag);
-    if (v) return v;
-  }
-  // Some systems label the Arabic voice by name instead of a proper lang tag.
-  return cachedVoices.find((v) => /arabic|عربي/i.test(v.name || ""));
-}
-
 let ttsAudioEl = null;
-function speakViaGoogleTranslate(text, langCode) {
+function speakArabic(text) {
   try {
     if (!ttsAudioEl) ttsAudioEl = new Audio();
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${langCode}&client=tw-ob&q=${encodeURIComponent(text)}`;
+    const url = "https://translate.google.com/translate_tts?ie=UTF-8&q=" +
+      encodeURIComponent(text) + "&tl=ar&client=tw-ob";
     ttsAudioEl.pause();
+    ttsAudioEl.currentTime = 0;
     ttsAudioEl.src = url;
-    ttsAudioEl.play().catch(() => {
-      // Autoplay/network blocked — nothing more we can do without a real
-      // local voice or a paid TTS API.
-    });
+    const playPromise = ttsAudioEl.play();
+    if (playPromise && playPromise.catch) {
+      playPromise.catch((err) => {
+        console.error("Arabic pronunciation failed to play:", err);
+      });
+    }
   } catch (e) {
-    // ignore
+    console.error("Arabic pronunciation error:", e);
+  }
+}
+
+function speakEnglish(text) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "en-US";
+    utter.rate = 0.95;
+    setTimeout(() => window.speechSynthesis.speak(utter), 30);
+  } catch (e) {
+    console.error("English pronunciation error:", e);
   }
 }
 
 function speakWord(text, dir) {
   if (!text) return;
-  const hasSynth = typeof window !== "undefined" && "speechSynthesis" in window;
-
-  if (dir === "rtl") {
-    refreshVoiceCache();
-    const arVoice = hasSynth ? findArabicVoice() : null;
-    if (!arVoice) {
-      // No Arabic voice installed on this device at all (or no speech
-      // synthesis support to begin with) — use the online fallback instead
-      // of calling speechSynthesis with a language it can't actually produce.
-      speakViaGoogleTranslate(text, "ar");
-      return;
-    }
-  }
-
-  if (!hasSynth) { speakViaGoogleTranslate(text, "en"); return; }
-  refreshVoiceCache(); // in case voiceschanged never fired but voices are ready now
-  const lang = dir === "rtl" ? "ar-SA" : "en-US";
-  const run = () => {
-    try {
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = lang;
-      utter.rate = 0.95;
-      const match = dir === "rtl" ? findArabicVoice() : pickVoice(lang.toLowerCase());
-      if (match) utter.voice = match;
-      window.speechSynthesis.speak(utter);
-    } catch (e) {
-      speakViaGoogleTranslate(text, dir === "rtl" ? "ar" : "en");
-    }
-  };
-  // Cancelling and immediately speaking in the same tick silently drops the
-  // new utterance in some browsers (a long-standing Chrome quirk) — give it
-  // a beat to actually clear before queuing the next one.
-  window.speechSynthesis.cancel();
-  setTimeout(run, 30);
+  if (dir === "rtl") speakArabic(text);
+  else speakEnglish(text);
 }
 
 function SpeakButton({ text, dir, isAr, size = 16, style }) {

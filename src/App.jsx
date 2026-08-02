@@ -847,7 +847,7 @@ export default function DictionaryApp() {
   // Fixed the moment this tab loaded — powers the quiz's "This session"
   // time-range option ("studied since I opened the site this time").
   const sessionStartRef = useRef(Date.now());
-  const [authStage, setAuthStage] = useState(savedPersonalCode ? "restoring" : "login"); // signup | codeShown | login | restoring | in
+  const [authStage, setAuthStage] = useState(savedPersonalCode ? "restoring" : "intro"); // intro | signup | codeShown | login | restoring | in
   const [name, setName] = useState("");
   const [codeInput, setCodeInput] = useState("");
   const [personalCodeInput, setPersonalCodeInput] = useState("");
@@ -978,9 +978,9 @@ export default function DictionaryApp() {
   useEffect(() => {
     window.history.replaceState({ authStage, showAdd: false, showAccount: false, showAdmin: false, section: "en-ar" }, "");
     function onPopState(e) {
-      const state = e.state || { authStage: savedPersonalCode ? "restoring" : "login", showAdd: false, showAccount: false, showAdmin: false, section: "en-ar" };
+      const state = e.state || { authStage: savedPersonalCode ? "restoring" : "intro", showAdd: false, showAccount: false, showAdmin: false, section: "en-ar" };
       isPoppingRef.current = true;
-      let nextStage = state.authStage || "login";
+      let nextStage = state.authStage || "intro";
       // History entries created before Sign Out still carry authStage: "in"
       // (pushState snapshots aren't retroactively updated on logout). Never
       // trust a snapshot claiming an authenticated view unless there's still
@@ -1306,6 +1306,85 @@ export default function DictionaryApp() {
     if (targetCode === accountCode) {
       handleLogout();
     }
+  }
+
+  if (authStage === "intro") {
+    const introFeatures = [
+      { icon: SearchIcon, title: atr("Instant search", "بحث فوري"), desc: atr("Look up any word between English and Arabic in a heartbeat.", "ابحث عن أي كلمة بين الإنجليزية والعربية في لحظة.") },
+      { icon: SpeakerIcon, title: atr("Hear it spoken", "استمع للنطق"), desc: atr("Native-style pronunciation for every entry, one tap away.", "نطق واضح لكل كلمة بضغطة زر واحدة.") },
+      { icon: QuizIcon, title: atr("Practice quizzes", "اختبارات تدريبية"), desc: atr("Turn what you've studied into quick multiple-choice quizzes.", "حوّل ما درسته إلى اختبارات اختيار من متعدد سريعة.") },
+      { icon: EditIcon, title: atr("Grow the dictionary", "أضِف كلمات جديدة"), desc: atr("Add new words and definitions that everyone in the group can use.", "أضف كلمات وتعريفات جديدة يستفيد منها الجميع.") },
+      { icon: UsersIcon, title: atr("Shared with your group", "مشترك مع مجموعتك"), desc: atr("One dictionary for everyone, with each person's progress tracked separately.", "قاموس واحد للجميع، وتقدّم كل شخص محفوظ بشكل منفصل.") },
+      { icon: GlobeIcon, title: atr("Fully bilingual", "ثنائي اللغة بالكامل"), desc: atr("Switch the whole app between English and Arabic anytime.", "بدّل الموقع بالكامل بين الإنجليزية والعربية في أي وقت.") },
+    ];
+    return (
+      <div
+        dir={appIsAr ? "rtl" : "ltr"}
+        style={{ position: "relative", minHeight: "100vh", background: PAPER, backgroundImage: "radial-gradient(circle at 1px 1px, rgba(var(--border-rgb),0.06) 1px, transparent 0)", backgroundSize: "18px 18px", overflowX: "hidden" }}>
+        <div className="auth-orb" style={{ width: 420, height: 420, top: "-14%", insetInlineStart: "-10%", background: "radial-gradient(circle, var(--accent-1) 0%, transparent 70%)", animationDuration: "15s" }} />
+        <div className="auth-orb" style={{ width: 360, height: 360, top: "14%", insetInlineEnd: "-12%", background: "radial-gradient(circle, var(--accent-2) 0%, transparent 70%)", animationDuration: "17s", animationDelay: "-5s" }} />
+        <div className="auth-orb" style={{ width: 240, height: 240, bottom: "-6%", insetInlineStart: "22%", background: "radial-gradient(circle, var(--focus-rgb,25,167,206), transparent 70%)", opacity: 0.25, animationDuration: "11s", animationDelay: "-3s" }} />
+
+        <div style={{ position: "relative", zIndex: 1, maxWidth: 1080, margin: "0 auto", padding: "22px 24px 64px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "clamp(36px, 8vw, 84px)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div className="auth-badge" style={{ ...authBadgeWrapStyle, width: 38, height: 38, borderRadius: 11 }}>
+                <BookIcon size={18} color="#fff" />
+              </div>
+              <span style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 600, color: INK }}>Two Tongues</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button type="button" onClick={toggleTheme} className="lift-hover" aria-label={atr("Toggle theme", "تبديل المظهر")}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", color: "var(--icon-muted)", background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.2)" }}>
+                {theme === "dark" ? <SunIcon size={15} /> : <MoonIcon size={15} />}
+              </button>
+              <LanguageToggle isAr={appIsAr} onToggle={toggleAppLang} floating={false} />
+            </div>
+          </div>
+
+          <div className="auth-field-1" style={{ textAlign: "center", maxWidth: 680, margin: "0 auto" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: BRASS, background: "var(--accent-1-soft)", padding: "6px 14px", borderRadius: 20, marginBottom: 18 }}>
+              <GlobeIcon size={12} /> {atr("English ⇄ Arabic dictionary", "قاموس إنجليزي ⇄ عربي")}
+            </div>
+            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(30px, 6vw, 50px)", fontWeight: 600, color: INK, margin: "0 0 16px", lineHeight: 1.15 }}>
+              {atr("Learn words that stick, together.", "تعلّم كلمات تثبت في ذاكرتك… مع فريقك.")}
+            </h1>
+            <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: "clamp(14px, 2vw, 17px)", color: "var(--muted-strong)", margin: "0 auto 30px", maxWidth: 560, lineHeight: 1.65 }}>
+              {atr("A shared bilingual dictionary with pronunciation, quick quizzes and progress tracking — built for you and your study group.", "قاموس مشترك ثنائي اللغة فيه نطق واختبارات سريعة ومتابعة للتقدّم — مصمَّم لك ولمجموعتك.")}
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 12 }}>
+              <button type="button" onClick={() => { setAuthError(""); goToStage("login"); }} className="btn-shine" style={{ ...primaryBtnStyle, width: "auto", marginTop: 0, padding: "13px 28px" }}>
+                <LoginIcon size={16} /> {atr("Sign in", "تسجيل الدخول")}
+              </button>
+              <button type="button" onClick={() => { setSignupError(""); goToStage("signup"); }} className="lift-hover"
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "13px 26px", fontFamily: "'Source Sans 3', sans-serif", fontSize: 15, fontWeight: 700, color: INK, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 8, cursor: "pointer" }}>
+                <PlusIcon size={16} /> {atr("Create account", "إنشاء حساب")}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginTop: "clamp(40px, 6vw, 68px)" }}>
+            {introFeatures.map((f, i) => (
+              <div key={f.title} className="auth-field-1 lift-hover"
+                style={{ animationDelay: `${0.08 + i * 0.05}s`, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.14)", borderRadius: 14, padding: "20px 18px", boxShadow: "0 2px 0 rgba(0,0,0,0.04), 0 16px 40px -24px rgba(var(--border-rgb),0.4)" }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--accent-1-soft)", color: BRASS, marginBottom: 12 }}>
+                  <f.icon size={18} />
+                </div>
+                <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: 16, fontWeight: 600, color: INK, margin: "0 0 6px" }}>{f.title}</h3>
+                <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13.5, color: "var(--muted-strong)", margin: 0, lineHeight: 1.55 }}>{f.desc}</p>
+              </div>
+            ))}
+            {/* Reserved slot: room to slot in more feature cards later without
+                restructuring the grid — keeps the intro screen easy to extend. */}
+            <div className="auth-field-1"
+              style={{ animationDelay: `${0.08 + introFeatures.length * 0.05}s`, border: "1.5px dashed rgba(var(--border-rgb),0.3)", borderRadius: 14, padding: "20px 18px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", color: "var(--muted)", minHeight: 128 }}>
+              <PlusIcon size={18} style={{ marginBottom: 8, opacity: 0.6 }} />
+              <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, margin: 0 }}>{atr("More features on the way", "المزيد من المميزات قريبًا")}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (authStage === "signup") {

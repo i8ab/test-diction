@@ -122,6 +122,7 @@ const EyeOffIcon = (p) => <Icon {...p} path={<><path d="M9.88 9.88a3 3 0 1 0 4.2
 const SunIcon = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></>} />;
 const MoonIcon = (p) => <Icon {...p} path={<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/>} />;
 const MenuIcon = (p) => <Icon {...p} path={<><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></>} />;
+const DownloadIcon = (p) => <Icon {...p} path={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></>} />;
 const UserIcon = (p) => <Icon {...p} path={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>} />;
 const LogoutIcon = (p) => <Icon {...p} path={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></>} />;
 const ZoomIcon = (p) => <Icon {...p} path={<><circle cx="11" cy="11" r="7"/><circle cx="11" cy="11" r="2.75"/><path d="m21 21-3.8-3.8"/></>} />;
@@ -618,6 +619,48 @@ function detectFont(text) {
 // in English.
 function tr(isAr, en, ar) {
   return isAr ? ar : en;
+}
+
+/* =========================================================================
+   CSV EXPORT — lets a user download their word list (or a filtered subset
+   of it) as a .csv file they can open in Excel/Sheets or print for offline
+   study. Values are escaped per RFC 4180 (quotes doubled, field wrapped in
+   quotes whenever it contains a comma, quote, or newline). A UTF-8 BOM is
+   prepended so Excel opens Arabic text correctly instead of mangling it.
+   ========================================================================= */
+function csvEscape(value) {
+  const str = value == null ? "" : String(value);
+  if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  return str;
+}
+
+function entriesToCsv(entries, cfg) {
+  const header = ["word", "meaning", "definition", "synonyms", "antonyms"];
+  const rows = entries.map((e) => {
+    const syn = normalizePairs(e.synonyms, cfg).map((p) => p.word).filter(Boolean).join("; ");
+    const ant = normalizePairs(e.antonyms, cfg).map((p) => p.word).filter(Boolean).join("; ");
+    return [e.word, e.meaning, e.definition || "", syn, ant];
+  });
+  const lines = [header, ...rows].map((row) => row.map(csvEscape).join(","));
+  return "\uFEFF" + lines.join("\r\n");
+}
+
+function downloadTextFile(filename, text, mimeType) {
+  const blob = new Blob([text], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function exportEntriesAsCsv(entries, cfg, sectionLabel) {
+  const csv = entriesToCsv(entries, cfg);
+  const date = new Date().toISOString().slice(0, 10);
+  downloadTextFile(`two-tongues-${sectionLabel}-${date}.csv`, csv, "text/csv;charset=utf-8;");
 }
 
 /* =========================================================================
@@ -1892,6 +1935,14 @@ function MainView({
             </button>
             <button onClick={onOpenAdd} className="btn-shine lift-hover" style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: "#fff", background: cfg.accent, border: "none", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>
               <PlusIcon size={16} /> {tr(isAr, "Add word", "إضافة كلمة")}
+            </button>
+            <button
+              onClick={() => exportEntriesAsCsv(filtered.length ? filtered : sectionEntries, cfg, cfg.shortLabel)}
+              disabled={sectionEntries.length === 0}
+              title={tr(isAr, "Download this list as CSV", "تنزيل هذه القائمة كملف CSV")}
+              className="lift-hover"
+              style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: cfg.accent, background: "none", border: `1px solid ${cfg.accent}`, borderRadius: 8, cursor: sectionEntries.length === 0 ? "default" : "pointer", opacity: sectionEntries.length === 0 ? 0.5 : 1, whiteSpace: "nowrap" }}>
+              <DownloadIcon size={16} /> {tr(isAr, "Export CSV", "تصدير CSV")}
             </button>
           </div>
         </div>

@@ -2166,7 +2166,11 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, sessionStart,
               <div style={{ width: "100%", height: 4, background: "var(--input-bg)", borderRadius: 2, marginBottom: 18 }}>
                 <div style={{ width: `${((index) / questions.length) * 100}%`, height: "100%", background: BRASS, borderRadius: 2, transition: "width 0.2s" }} />
               </div>
-              <p style={{ fontSize: 21, fontWeight: 700, color: "var(--muted-strong)", margin: "0 0 8px" }}>{quizQuestionLabel(q.type, isAr)}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "0 0 8px" }}>
+                <p style={{ fontSize: 21, fontWeight: 700, color: "var(--muted-strong)", margin: 0 }}>{quizQuestionLabel(q.type, isAr)}</p>
+                <SpeakButton text={quizQuestionLabel(q.type, isAr)} dir={isAr ? "rtl" : "ltr"} isAr={isAr} size={16}
+                  style={{ flexShrink: 0 }} />
+              </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--input-bg)", borderRadius: 4, padding: "20px 16px", marginBottom: 16 }}>
                 <div dir={q.promptDir} style={{ flex: 1, minWidth: 0, fontFamily: q.promptFont, fontSize: "clamp(26px, 4.2vw, 34px)", fontWeight: 700, color: INK, wordBreak: "break-word", lineHeight: 1.3 }}>
                   {q.promptText}

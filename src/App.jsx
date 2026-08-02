@@ -168,6 +168,10 @@ const FlameIcon = (p) => <Icon {...p} path={<path d="M8.5 14.5A2.5 2.5 0 0 0 11 
 const ExternalLinkIcon = (p) => <Icon {...p} path={<><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></>} />;
 const SpeakerIcon = (p) => <Icon {...p} path={<><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></>} />;
 const MoreIcon = (p) => <Icon {...p} path={<><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/></>} />;
+const StarIcon = (p) => <Icon {...p} path={<path d="m12 2 2.9 6.26 6.9.6-5.2 4.6 1.56 6.76L12 16.9l-6.16 3.32L7.4 13.46 2.2 8.86l6.9-.6Z"/>} />;
+const UploadIcon = (p) => <Icon {...p} path={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></>} />;
+const UndoIcon = (p) => <Icon {...p} path={<><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-6.7L3 9"/></>} />;
+const LinkIcon = (p) => <Icon {...p} path={<><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></>} />;
 
 // Builds the Cambridge Dictionary lookup URL for a given English word.
 function cambridgeUrl(word) {
@@ -757,6 +761,38 @@ function csvEscape(value) {
   return str;
 }
 
+// Minimal CSV parser (handles quoted fields, escaped "" quotes, and both
+// \n and \r\n line endings) — the counterpart to entriesToCsv() above, used
+// by the "Import CSV" bulk-add feature. Good enough for the flat,
+// non-nested rows this app itself exports; not a general-purpose parser.
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+  const src = text.replace(/^\uFEFF/, ""); // strip BOM if present
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (src[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ",") {
+      row.push(field); field = "";
+    } else if (c === "\n" || c === "\r") {
+      if (c === "\r" && src[i + 1] === "\n") i++;
+      row.push(field); field = "";
+      if (row.length > 1 || row[0] !== "") rows.push(row);
+      row = [];
+    } else field += c;
+  }
+  if (field !== "" || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
 function entriesToCsv(entries, cfg) {
   const header = ["word", "meaning", "definition", "synonyms", "antonyms"];
   const rows = entries.map((e) => {
@@ -1031,7 +1067,7 @@ function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin,
 
 // Dropdown menu that groups the secondary toolbar actions (Leaderboard,
 // Stats, Quiz, Export CSV) so the search bar isn't crowded by 4+ buttons.
-function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onExport, exportDisabled, isAr }) {
+function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onExport, exportDisabled, onImport, importing, isAr }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -1078,6 +1114,11 @@ function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onExport, exportDis
             onClick={() => { if (!exportDisabled) itemClick(onExport); }}>
             <DownloadIcon size={16} /> {tr(isAr, "Export CSV", "تصدير CSV")}
           </button>
+          <button role="menuitem" disabled={importing}
+            style={{ ...itemStyle, borderTop: "1px solid rgba(var(--border-rgb),0.12)", opacity: importing ? 0.5 : 1, cursor: importing ? "default" : "pointer" }}
+            onClick={() => { if (!importing) itemClick(onImport); }}>
+            {importing ? <LoaderIcon size={16} /> : <UploadIcon size={16} />} {tr(isAr, "Import CSV", "استيراد CSV")}
+          </button>
         </div>
       )}
     </div>
@@ -1123,11 +1164,25 @@ function Shell({ children }) {
 
 const savedPersonalCode = loadPersonalCode();
 
+// If someone opened an invite link (?invite=1), skip the intro and go
+// straight to "create account" — the shared access code still has to be
+// given to them separately (it's a server-only secret, never exposed to
+// any client, admin included), but this saves the extra tap.
+function hasInviteParam() {
+  try {
+    return new URLSearchParams(window.location.search).get("invite") === "1";
+  } catch (e) {
+    return false;
+  }
+}
+
 export default function DictionaryApp() {
   // Fixed the moment this tab loaded — powers the quiz's "This session"
   // time-range option ("studied since I opened the site this time").
   const sessionStartRef = useRef(Date.now());
-  const [authStage, setAuthStage] = useState(savedPersonalCode ? "restoring" : "intro"); // intro | signup | codeShown | login | restoring | in
+  const [authStage, setAuthStage] = useState(
+    savedPersonalCode ? "restoring" : hasInviteParam() ? "signup" : "intro"
+  ); // intro | signup | codeShown | login | restoring | in
   const [name, setName] = useState("");
   const [codeInput, setCodeInput] = useState("");
   const [personalCodeInput, setPersonalCodeInput] = useState("");
@@ -1196,6 +1251,11 @@ export default function DictionaryApp() {
   const studiedIds = useMemo(() => {
     const acct = accounts.find((a) => a.code === accountCode);
     return new Set((acct && acct.studied) || []);
+  }, [accounts, accountCode]);
+
+  const favoriteIds = useMemo(() => {
+    const acct = accounts.find((a) => a.code === accountCode);
+    return new Set((acct && acct.favorites) || []);
   }, [accounts, accountCode]);
 
   // When each currently-studied entry was marked as studied (ms since epoch),
@@ -1464,6 +1524,20 @@ export default function DictionaryApp() {
     if (nowStudying) nextStudiedAt[entryId] = Date.now();
     else delete nextStudiedAt[entryId];
     const nextAccounts = accounts.map((a) => (a.code === accountCode ? { ...a, studied: nextStudied, studiedAt: nextStudiedAt } : a));
+    await persistAccounts(nextAccounts);
+  }
+
+  // Toggles whether the current signed-in account has bookmarked a word as
+  // a "favorite" — separate from "studied", so someone can flag a word to
+  // come back to later without that being read as "I've already learned
+  // this". Stored per-account (account.favorites: [entryId, ...]).
+  async function handleToggleFavorite(entryId) {
+    const acct = accounts.find((a) => a.code === accountCode);
+    const current = (acct && acct.favorites) || [];
+    const nextFavorites = current.includes(entryId)
+      ? current.filter((id) => id !== entryId)
+      : [...current, entryId];
+    const nextAccounts = accounts.map((a) => (a.code === accountCode ? { ...a, favorites: nextFavorites } : a));
     await persistAccounts(nextAccounts);
   }
 
@@ -1954,12 +2028,13 @@ export default function DictionaryApp() {
       onLogout={handleLogout}
       accounts={accounts} accountCode={accountCode} logs={logs}
       studiedIds={studiedIds} studiedAt={studiedAt} onToggleStudied={handleToggleStudied}
+      favoriteIds={favoriteIds} onToggleFavorite={handleToggleFavorite}
       srsBox={srsBox} srsDueAt={srsDueAt} quizHistory={quizHistory}
       onRecordSrsAnswer={handleRecordSrsAnswer} onSaveQuizResult={handleSaveQuizResult}
       showAccount={showAccount} onOpenAccount={openAccountModal} onCloseAccount={closeAccountModal} onUpdateOwnName={handleUpdateOwnName}
       showAdmin={showAdmin} onOpenAdmin={openAdminModal} onCloseAdmin={closeAdminModal}
       onAdminAddAccount={handleAdminAddAccount} onAdminEditAccount={handleAdminEditAccount} onAdminDeleteAccount={handleAdminDeleteAccount}
-      toast={toast}
+      toast={toast} showToast={showToast}
       theme={theme} onToggleTheme={toggleTheme}
       appIsAr={appIsAr} onToggleAppLang={toggleAppLang}
       sessionStart={sessionStartRef.current}
@@ -1970,10 +2045,10 @@ export default function DictionaryApp() {
 function MainView({
   name, isAdmin, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
   showAdd, onOpenAdd, onCloseAdd, persistEntries, saveError, onLogout,
-  accounts, accountCode, logs, studiedIds, studiedAt, onToggleStudied, showAccount, onOpenAccount, onCloseAccount, onUpdateOwnName,
+  accounts, accountCode, logs, studiedIds, studiedAt, onToggleStudied, favoriteIds, onToggleFavorite, showAccount, onOpenAccount, onCloseAccount, onUpdateOwnName,
   srsBox, srsDueAt, quizHistory, onRecordSrsAnswer, onSaveQuizResult,
   showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount,
-  toast, theme, onToggleTheme,
+  toast, showToast, theme, onToggleTheme,
   appIsAr, onToggleAppLang,
   sessionStart,
 }) {
@@ -1993,6 +2068,11 @@ function MainView({
   const [showQuiz, setShowQuiz] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [undoDelete, setUndoDelete] = useState(null); // { entry, prevEntries } — cleared after UNDO_DELETE_MS or on undo
+  const undoTimerRef = useRef(null);
+  const importInputRef = useRef(null);
+  const [importing, setImporting] = useState(false);
+  useEffect(() => () => clearTimeout(undoTimerRef.current), []);
 
   const suggestions = useMemo(() => {
     const q = query.trim();
@@ -2017,8 +2097,9 @@ function MainView({
       : sectionEntries;
     if (studyFilter === "studied") base = base.filter((e) => studiedIds.has(e.id));
     else if (studyFilter === "not-studied") base = base.filter((e) => !studiedIds.has(e.id));
+    else if (studyFilter === "favorites") base = base.filter((e) => favoriteIds.has(e.id));
     return base;
-  }, [sectionEntries, query, studyFilter, studiedIds]);
+  }, [sectionEntries, query, studyFilter, studiedIds, favoriteIds]);
 
   useEffect(() => { setActiveIndex(-1); }, [query]);
 
@@ -2070,9 +2151,57 @@ function MainView({
   }
   async function handleDelete(id) {
     const target = entries.find((e) => e.id === id);
+    const prevEntries = entries;
     const next = entries.filter((e) => e.id !== id);
     const logEntry = makeLogEntry("word_delete", `${name} deleted "${(target && target.word) || id}"`, name, accountCode);
     await persistEntries(next, logEntry);
+    if (target) {
+      clearTimeout(undoTimerRef.current);
+      setUndoDelete({ entry: target, prevEntries });
+      undoTimerRef.current = setTimeout(() => setUndoDelete(null), 6000);
+    }
+  }
+  async function handleUndoDelete() {
+    if (!undoDelete) return;
+    clearTimeout(undoTimerRef.current);
+    const restored = undoDelete;
+    setUndoDelete(null);
+    const logEntry = makeLogEntry("word_add", `${name} restored "${restored.entry.word}" (${cfg.shortLabel})`, name, accountCode);
+    await persistEntries(restored.prevEntries, logEntry);
+  }
+  // Bulk-imports words from a CSV file matching the Export CSV column
+  // layout (word, meaning, definition, synonyms, antonyms — synonyms and
+  // antonyms are ";"-separated words). Lets someone paste in a list they
+  // already have instead of adding words one by one through the form.
+  async function handleImportCsv(file) {
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const rows = parseCsv(text);
+      let dataRows = rows;
+      if (rows.length && rows[0][0] && rows[0][0].trim().toLowerCase() === "word") dataRows = rows.slice(1);
+      const newEntries = dataRows
+        .filter((r) => r[0] && r[0].trim() && r[1] && r[1].trim())
+        .map((r) => ({
+          id: uid(), section,
+          word: r[0].trim(), meaning: r[1].trim(), definition: (r[2] || "").trim(), example: "",
+          synonyms: normalizePairs((r[3] || "").split(";").map((s) => s.trim()).filter(Boolean), cfg),
+          antonyms: normalizePairs((r[4] || "").split(";").map((s) => s.trim()).filter(Boolean), cfg),
+          addedBy: accountCode, addedAt: Date.now(),
+        }));
+      if (!newEntries.length) {
+        showToast(tr(isAr, "No valid rows found in that file.", "الملف ده مفيهوش صفوف صالحة."));
+        return;
+      }
+      const next = [...entries, ...newEntries];
+      const logEntry = makeLogEntry("word_add", `${name} imported ${newEntries.length} word(s) via CSV (${cfg.shortLabel})`, name, accountCode);
+      await persistEntries(next, logEntry);
+      showToast(tr(isAr, `Imported ${newEntries.length} word(s).`, `تم استيراد ${newEntries.length} كلمة.`));
+    } catch (err) {
+      showToast(tr(isAr, "Couldn't read that CSV file.", "تعذر قراءة ملف الـ CSV ده."));
+    } finally {
+      setImporting(false);
+    }
   }
   async function handleEdit(id, updates) {
     const target = entries.find((e) => e.id === id);
@@ -2161,10 +2290,33 @@ function MainView({
               onQuiz={() => setShowQuiz(true)}
               onExport={() => exportEntriesAsCsv(filtered.length ? filtered : sectionEntries, cfg, cfg.shortLabel)}
               exportDisabled={sectionEntries.length === 0}
+              onImport={() => importInputRef.current && importInputRef.current.click()}
+              importing={importing}
               isAr={isAr}
+            />
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files && e.target.files[0];
+                e.target.value = "";
+                if (file) handleImportCsv(file);
+              }}
             />
           </div>
         </div>
+        {undoDelete && (
+          <div role="status" className="modal-card"
+            style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 14px", background: "var(--ink)", color: "var(--paper)", borderRadius: 10, fontSize: 13 }}>
+            <span>{tr(isAr, `Deleted "${undoDelete.entry.word}".`, `اتمسحت "${undoDelete.entry.word}".`)}</span>
+            <button onClick={handleUndoDelete} className="lift-hover"
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", fontSize: 13, fontWeight: 700, color: "var(--ink)", background: "var(--paper)", border: "none", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>
+              <UndoIcon size={14} /> {tr(isAr, "Undo", "تراجع")}
+            </button>
+          </div>
+        )}
         <ReminderBanner studiedAt={studiedAt} isAr={isAr} cfg={cfg} onOpenQuiz={() => setShowQuiz(true)} />
         <div style={{ marginTop: 12, background: CARD, border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 10, padding: "12px 14px" }}>
           <div dir={isAr ? "rtl" : "ltr"} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
@@ -2198,6 +2350,7 @@ function MainView({
             { key: "all", label: tr(isAr, "All", "الكل") },
             { key: "studied", label: tr(isAr, "Studied", "تمت دراستها") },
             { key: "not-studied", label: tr(isAr, "Not Studied", "لم تُدرس بعد") },
+            { key: "favorites", label: tr(isAr, "Favorites", "المفضلة") },
           ].map((f) => {
             const active = studyFilter === f.key;
             return (
@@ -2253,6 +2406,7 @@ function MainView({
                       onDelete={() => handleDelete(e.id)} onEdit={() => setEditingEntry(e)}
                       onOpenZoom={() => setZoomEntry(e)}
                       isStudied={studiedIds.has(e.id)} onToggleStudied={() => onToggleStudied(e.id)}
+                      isFavorite={favoriteIds.has(e.id)} onToggleFavorite={() => onToggleFavorite(e.id)}
                       addedByLabel={accountNameByCode[e.addedBy] || e.addedBy}
                       editedByLabel={accountNameByCode[e.editedBy] || e.editedBy} />
                   ))}
@@ -2343,7 +2497,7 @@ function MainView({
   );
 }
 
-function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpenZoom, isStudied, onToggleStudied, addedByLabel, editedByLabel }) {
+function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpenZoom, isStudied, onToggleStudied, isFavorite, onToggleFavorite, addedByLabel, editedByLabel }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const [open, setOpen] = useState(false);
   const hasDefinition = !!entry.definition;
@@ -2370,10 +2524,19 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
           <span dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: 14, color: "var(--meaning)" }}>{entry.meaning}</span>
           {!!entry.meaning && <SpeakButton text={entry.meaning} dir={cfg.meaningDir} isAr={isAr} size={13} />}
         </div>
-        {isStudied && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: "var(--success)", background: "var(--success-bg)", borderRadius: 3, padding: "2px 6px", marginTop: 5 }}>
-            <CheckIcon size={9} /> {tr(isAr, "Studied", "تمت الدراسة")}
-          </span>
+        {(isStudied || isFavorite) && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5 }}>
+            {isStudied && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: "var(--success)", background: "var(--success-bg)", borderRadius: 3, padding: "2px 6px" }}>
+                <CheckIcon size={9} /> {tr(isAr, "Studied", "تمت الدراسة")}
+              </span>
+            )}
+            {isFavorite && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: BRASS, background: "var(--accent-1-soft)", borderRadius: 3, padding: "2px 6px" }}>
+                <StarIcon size={9} fill={BRASS} /> {tr(isAr, "Favorite", "مفضلة")}
+              </span>
+            )}
+          </div>
         )}
         {open && isExpandable && (
           <>
@@ -2420,6 +2583,14 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
       </div>
       <div style={{ display: "flex", gap: 6, flexShrink: 0, alignSelf: "flex-start" }}>
         <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={isAr} size={18} />
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+          title={isFavorite ? tr(isAr, "Remove from favorites", "إزالة من المفضلة") : tr(isAr, "Add to favorites", "إضافة للمفضلة")}
+          aria-label={isFavorite ? tr(isAr, `Remove ${entry.word} from favorites`, `إزالة ${entry.word} من المفضلة`) : tr(isAr, `Add ${entry.word} to favorites`, `إضافة ${entry.word} للمفضلة`)}
+          aria-pressed={isFavorite}
+          style={{ border: "none", background: "none", color: isFavorite ? BRASS : "var(--icon-muted)", padding: 4, cursor: "pointer", display: "flex", alignItems: "center" }}>
+          <StarIcon size={18} fill={isFavorite ? BRASS : "none"} />
+        </button>
         <button
           onClick={(e) => { e.stopPropagation(); onOpenZoom(); }}
           title={tr(isAr, "Zoom", "تكبير")}
@@ -3547,6 +3718,25 @@ function AdminModal({ accounts, myAccountCode, logs, onClose, onAdd, onEdit, onD
     setTimeout(() => setCodeCopied(false), 1800);
   }
 
+  const [inviteCopied, setInviteCopied] = useState(false);
+  async function handleCopyInviteLink() {
+    const link = `${window.location.origin}${window.location.pathname}?invite=1`;
+    try {
+      await navigator.clipboard.writeText(link);
+    } catch (err) {
+      const ta = document.createElement("textarea");
+      ta.value = link;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch (e2) {}
+      document.body.removeChild(ta);
+    }
+    setInviteCopied(true);
+    setTimeout(() => setInviteCopied(false), 1800);
+  }
+
   const sortedLogs = useMemo(() => [...(logs || [])].sort((a, b) => b.at - a.at), [logs]);
   const activeSection = LOG_SECTIONS.find((s) => s.key === logFilter) || LOG_SECTIONS[0];
   const filteredLogs = useMemo(() => sortedLogs.filter((entry) => activeSection.match(entry.action)), [sortedLogs, activeSection]);
@@ -3567,7 +3757,10 @@ function AdminModal({ accounts, myAccountCode, logs, onClose, onAdd, onEdit, onD
 
         {mode === "list" && (
           <>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 10 }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+              <button onClick={handleCopyInviteLink} className="lift-hover" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, color: inviteCopied ? "var(--success)" : INK, background: "none", border: `1px solid ${inviteCopied ? "var(--success)" : "rgba(var(--border-rgb),0.25)"}`, borderRadius: 3, cursor: "pointer" }}>
+                {inviteCopied ? <CheckIcon size={14} /> : <LinkIcon size={14} />} {inviteCopied ? tr(isAr, "Link copied", "تم النسخ") : tr(isAr, "Copy invite link", "نسخ رابط الدعوة")}
+              </button>
               <button onClick={() => { setLogFilter("all"); setMode("log"); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, color: INK, background: "none", border: "1px solid rgba(var(--border-rgb),0.25)", borderRadius: 3, cursor: "pointer" }}>
                 <BookIcon size={14} /> {tr(isAr, "Activity log", "سجل النشاط")}
               </button>
@@ -3575,6 +3768,9 @@ function AdminModal({ accounts, myAccountCode, logs, onClose, onAdd, onEdit, onD
                 <PlusIcon size={14} /> {tr(isAr, "Add account", "إضافة حساب")}
               </button>
             </div>
+            <p style={{ fontSize: 12, color: "var(--muted)", margin: "8px 0 0" }}>
+              {tr(isAr, "Anyone with this link can create an account, but they'll still need the shared access code from you to actually sign in.", "أي حد معاه الرابط ده يقدر يعمل حساب، بس لسه محتاج منك رمز الوصول المشترك عشان يقدر يسجل دخول فعلاً.")}
+            </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
               {accounts.length === 0 && <p style={{ fontSize: 13, color: "var(--muted-strong)" }}>{tr(isAr, "No accounts yet.", "لا توجد حسابات بعد.")}</p>}
               {accounts.map((a) => (

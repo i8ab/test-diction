@@ -72,7 +72,16 @@
   .auth-field-2 { animation: staggerIn 0.5s ease both 0.16s; }
   .auth-field-3 { animation: staggerIn 0.5s ease both 0.24s; }
   .auth-badge { animation: floatY 4.5s ease-in-out infinite; }
-  .auth-orb { position: absolute; border-radius: 50%; filter: blur(46px); opacity: 0.55; pointer-events: none; animation: floatSlow 10s ease-in-out infinite; }
+  /* These orbs sit behind the intro screen and animate forever. They used to
+     carry `filter: blur(46px)`, which forces the browser to recompute an
+     expensive blur on a ~500px region on every single animation frame — with
+     three of them animating at once, that's the main reason the intro screen
+     felt janky/slow, especially on phones. The radial-gradient they're
+     painted with already fades out to transparent, so it reads as "soft"
+     without needing a live blur filter at all. `will-change` hints the
+     browser to composite the translate/scale on the GPU instead of
+     repainting layout each frame. */
+  .auth-orb { position: absolute; border-radius: 50%; opacity: 0.55; pointer-events: none; animation: floatSlow 10s ease-in-out infinite; will-change: transform; }
 
   /* ================= Modern global button system ================= */
   button {

@@ -60,6 +60,39 @@ function generatePersonalCode() {
 const SESSION_KEY = "twoTongues.personalCode";
 const THEME_KEY = "twoTongues.theme";
 
+/* =========================================================================
+   OFFLINE CACHE — mirrors the last successful jsonbin fetch into
+   localStorage so the app still shows something useful (read-only) when
+   there's no network. Paired with the service worker (sw.js), which caches
+   the app shell itself, this lets the app open and be usable with no
+   connection at all — not just tolerate a dropped request mid-session.
+   ========================================================================= */
+const OFFLINE_CACHE_KEY = "twoTongues.offlineCache";
+
+function saveOfflineCache(record) {
+  try {
+    localStorage.setItem(OFFLINE_CACHE_KEY, JSON.stringify({ ...record, cachedAt: Date.now() }));
+  } catch (e) {
+    // Storage full or unavailable — offline fallback just won't be there.
+  }
+}
+
+function loadOfflineCache() {
+  try {
+    const raw = localStorage.getItem(OFFLINE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return {
+      entries: parsed.entries || [],
+      accounts: parsed.accounts || [],
+      logs: parsed.logs || [],
+      cachedAt: parsed.cachedAt || null,
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 function loadSavedTheme() {
   try {
     const t = localStorage.getItem(THEME_KEY);
@@ -122,6 +155,7 @@ const EyeOffIcon = (p) => <Icon {...p} path={<><path d="M9.88 9.88a3 3 0 1 0 4.2
 const SunIcon = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></>} />;
 const MoonIcon = (p) => <Icon {...p} path={<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/>} />;
 const MenuIcon = (p) => <Icon {...p} path={<><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></>} />;
+const WifiOffIcon = (p) => <Icon {...p} path={<><path d="M2 2l20 20"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M5 12.5a10 10 0 0 1 3.5-2.3"/><path d="M19 12.5a10 10 0 0 0-2.5-1.9"/><path d="M12.5 8.5a13 13 0 0 1 6 1.6"/><path d="M2 8.5a13 13 0 0 1 3.5-2.4"/><line x1="12" y1="20" x2="12.01" y2="20"/></>} />;
 const DownloadIcon = (p) => <Icon {...p} path={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></>} />;
 const UserIcon = (p) => <Icon {...p} path={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>} />;
 const LogoutIcon = (p) => <Icon {...p} path={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></>} />;
@@ -974,6 +1008,8 @@ export default function DictionaryApp() {
   const [entries, setEntries] = useState([]);
   const [entriesLoaded, setEntriesLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [isOffline, setIsOffline] = useState(false);
+  const [offlineCachedAt, setOfflineCachedAt] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [accountsLoaded, setAccountsLoaded] = useState(false);
   const [logs, setLogs] = useState([]);
@@ -992,6 +1028,17 @@ export default function DictionaryApp() {
     document.documentElement.setAttribute("data-theme", theme);
     try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
   }, [theme]);
+
+  // Registers the offline service worker (see /sw.js). Wrapped in feature
+  // detection + try/catch since some browsers (or non-HTTPS dev servers)
+  // don't support it — the app should keep working online-only there.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // Registration failure just means no offline app-shell caching;
+      // the localStorage data cache above still works independently.
+    });
+  }, []);
 
   function toggleTheme() {
     setTheme((t) => (t === "dark" ? "light" : "dark"));
@@ -1070,6 +1117,8 @@ export default function DictionaryApp() {
         setEntries(rec.entries);
         setAccounts(rec.accounts);
         setLogs(rec.logs);
+        saveOfflineCache(rec);
+        setIsOffline(false);
         if (savedPersonalCode) {
           const account = rec.accounts.find((a) => a.code === savedPersonalCode);
           if (account) {
@@ -1085,10 +1134,35 @@ export default function DictionaryApp() {
           }
         }
       } catch (e) {
-        setLoadError("Couldn't load the shared dictionary. Check your connection and try refreshing.");
-        if (savedPersonalCode) {
-          setAuthStage("login");
-          syncBaseHistory("login");
+        // No network (or the API is down) — fall back to whatever we last
+        // cached locally so the app still opens with the words in it,
+        // read-only, instead of a dead error screen.
+        const cached = loadOfflineCache();
+        if (cached && cached.entries.length) {
+          setEntries(cached.entries);
+          setAccounts(cached.accounts);
+          setLogs(cached.logs);
+          setIsOffline(true);
+          setOfflineCachedAt(cached.cachedAt);
+          if (savedPersonalCode) {
+            const account = cached.accounts.find((a) => a.code === savedPersonalCode);
+            if (account) {
+              setName(account.name);
+              setIsAdmin(account.role === "admin");
+              setAccountCode(account.code);
+              setAuthStage("in");
+              syncBaseHistory("in");
+            } else {
+              setAuthStage("login");
+              syncBaseHistory("login");
+            }
+          }
+        } else {
+          setLoadError("Couldn't load the shared dictionary. Check your connection and try refreshing.");
+          if (savedPersonalCode) {
+            setAuthStage("login");
+            syncBaseHistory("login");
+          }
         }
       } finally {
         setEntriesLoaded(true);
@@ -1194,6 +1268,7 @@ export default function DictionaryApp() {
     if (logEntry) setLogs(nextLogs);
     try {
       await saveRecord({ entries: next, accounts, logs: nextLogs });
+      saveOfflineCache({ entries: next, accounts, logs: nextLogs });
       setSaveError("");
     } catch (e) {
       setSaveError("Couldn't save — check your connection and try again.");
@@ -1206,6 +1281,7 @@ export default function DictionaryApp() {
     if (logEntry) setLogs(nextLogs);
     try {
       await saveRecord({ entries, accounts: next, logs: nextLogs });
+      saveOfflineCache({ entries, accounts: next, logs: nextLogs });
       setSaveError("");
     } catch (e) {
       setSaveError("Couldn't save — check your connection and try again.");
@@ -1724,6 +1800,7 @@ export default function DictionaryApp() {
   return (
     <MainView
       name={name} isAdmin={isAdmin} entries={entries} entriesLoaded={entriesLoaded} loadError={loadError}
+      isOffline={isOffline} offlineCachedAt={offlineCachedAt}
       section={section} onChangeSection={changeSection} query={query} setQuery={setQuery}
       showAdd={showAdd} onOpenAdd={openAddModal} onCloseAdd={closeAddModal} persistEntries={persistEntries} saveError={saveError}
       onLogout={handleLogout}
@@ -1743,7 +1820,7 @@ export default function DictionaryApp() {
 }
 
 function MainView({
-  name, isAdmin, entries, entriesLoaded, loadError, section, onChangeSection, query, setQuery,
+  name, isAdmin, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
   showAdd, onOpenAdd, onCloseAdd, persistEntries, saveError, onLogout,
   accounts, accountCode, logs, studiedIds, studiedAt, onToggleStudied, showAccount, onOpenAccount, onCloseAccount, onUpdateOwnName,
   srsBox, srsDueAt, quizHistory, onRecordSrsAnswer, onSaveQuizResult,
@@ -1991,6 +2068,14 @@ function MainView({
         </div>
         {loadError && <div style={{ ...errorStyle, marginTop: 10 }} role="alert" aria-live="assertive">{tr(isAr, loadError, "تعذر تحميل القاموس المشترك. تحقق من اتصالك وحاول تحديث الصفحة.")}</div>}
         {saveError && <div style={{ ...errorStyle, marginTop: 10 }} role="alert" aria-live="assertive">{tr(isAr, saveError, "تعذر الحفظ — تحقق من اتصالك وحاول مرة أخرى.")}</div>}
+        {isOffline && (
+          <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", fontSize: 13, color: "var(--muted-strong)", background: "var(--input-bg)", border: "1px dashed rgba(var(--border-rgb),0.3)", borderRadius: 6 }} role="status">
+            <WifiOffIcon size={14} color="var(--icon-muted)" />
+            {tr(isAr,
+              `You're offline — showing your saved words${offlineCachedAt ? ` from ${new Date(offlineCachedAt).toLocaleString()}` : ""}. Adding or editing words needs a connection.`,
+              `أنت غير متصل — يتم عرض كلماتك المحفوظة${offlineCachedAt ? ` من ${new Date(offlineCachedAt).toLocaleString()}` : ""}. إضافة أو تعديل الكلمات يحتاج اتصال بالإنترنت.`)}
+          </div>
+        )}
       </div>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 20px 60px", display: "flex", gap: 18 }}>

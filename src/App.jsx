@@ -1069,10 +1069,20 @@ function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin,
 // Stats, Quiz, Export CSV) so the search bar isn't crowded by 4+ buttons.
 function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onExport, exportDisabled, onImport, importing, isAr }) {
   const [open, setOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
   const ref = useRef(null);
 
   useEffect(() => {
     if (!open) return;
+    // Decide, at the moment we open, whether there's enough room below the
+    // button for the menu (~260px tall). If not, flip it to grow upward
+    // instead — otherwise the last items (e.g. Import CSV) get clipped by
+    // the bottom of the viewport with no way to reach them.
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setOpenUpward(spaceBelow < 280 && rect.top > spaceBelow);
+    }
     function onDocClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
     function onKeyDown(e) { if (e.key === "Escape") setOpen(false); }
     document.addEventListener("mousedown", onDocClick);
@@ -1099,7 +1109,7 @@ function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onExport, exportDis
       </button>
       {open && (
         <div role="menu" dir={isAr ? "rtl" : "ltr"}
-          style={{ position: "absolute", top: "calc(100% + 8px)", insetInlineEnd: 0, minWidth: 190, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, boxShadow: "0 14px 30px -12px rgba(0,0,0,0.35)", overflowY: "auto", maxHeight: "min(320px, calc(100vh - 90px))", overscrollBehavior: "contain", zIndex: 40, animation: "scaleIn 0.18s cubic-bezier(0.22,1,0.36,1) both", transformOrigin: "top" }}>
+          style={{ position: "absolute", ...(openUpward ? { bottom: "calc(100% + 8px)" } : { top: "calc(100% + 8px)" }), insetInlineEnd: 0, minWidth: 190, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, boxShadow: "0 14px 30px -12px rgba(0,0,0,0.35)", overflowY: "auto", maxHeight: "min(320px, calc(100vh - 90px))", overscrollBehavior: "contain", zIndex: 40, animation: "scaleIn 0.18s cubic-bezier(0.22,1,0.36,1) both", transformOrigin: openUpward ? "bottom" : "top" }}>
           <button role="menuitem" style={itemStyle} onClick={() => itemClick(onLeaderboard)}>
             <TrophyIcon size={16} /> {tr(isAr, "Leaderboard", "الترتيب")}
           </button>

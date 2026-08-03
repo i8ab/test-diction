@@ -4,7 +4,7 @@
   "description": "A bilingual vocabulary dictionary and quiz app.",
   "start_url": "/",
   "scope": "/",
-  "display": "standalone",
+  "display": "fullscreen",
   "background_color": "#faf6ee",
   "theme_color": "#b08d57",
   "icons": [

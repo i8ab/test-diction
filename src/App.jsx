@@ -3222,6 +3222,8 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
   const [flipped, setFlipped] = useState(false);
   const [knewCount, setKnewCount] = useState(0);
   const [learningCount, setLearningCount] = useState(0);
+  const [enterDir, setEnterDir] = useState(1); // 1 = next card enters from the "forward" side
+  const [pulse, setPulse] = useState(null); // "knew" | "learning" | null — brief button feedback
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -3249,6 +3251,9 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
 
   function advance(knew) {
     if (knew) setKnewCount((c) => c + 1); else setLearningCount((c) => c + 1);
+    setPulse(knew ? "knew" : "learning");
+    setTimeout(() => setPulse(null), 300);
+    setEnterDir(1);
     if (pos + 1 >= deck.length) { setPos(deck.length); return; } // reached the summary screen
     setPos((p) => p + 1);
     setFlipped(false);
@@ -3304,27 +3309,30 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
             <div style={{ fontSize: 12, color: "var(--icon-muted)", marginBottom: 10, textAlign: "center" }}>
               {tr(isAr, `Card ${pos + 1} of ${deck.length}`, `بطاقة ${pos + 1} من ${deck.length}`)}
             </div>
-            <div onClick={() => setFlipped((f) => !f)} role="button" tabIndex={0}
-              style={{ minHeight: 190, borderRadius: 14, border: `1px solid ${cfg.accentSoft}`, background: "var(--input-bg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 24, cursor: "pointer", textAlign: "center" }}>
-              {!flipped ? (
-                <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 30, fontWeight: 700, color: INK }}>{current.word}</span>
-              ) : (
-                <>
+            <div key={current.id} className="flashcard-scene flashcard-enter" style={{ "--flashcard-enter-x": `${enterDir * 24}px` }}>
+              <div onClick={() => setFlipped((f) => !f)} role="button" tabIndex={0}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFlipped((f) => !f); } }}
+                className={`flashcard-flip${flipped ? " is-flipped" : ""}`}>
+                <div className="flashcard-face" style={{ border: `1px solid ${cfg.accentSoft}`, background: "var(--input-bg)" }}>
+                  <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 30, fontWeight: 700, color: INK }}>{current.word}</span>
+                  <span style={{ fontSize: 11, color: "var(--icon-muted)", marginTop: 4 }}>{tr(isAr, "Tap to flip", "اضغط عشان تقلب")}</span>
+                </div>
+                <div className="flashcard-face flashcard-face-back" style={{ border: `1px solid ${cfg.accent}`, background: cfg.accentSoft }}>
                   <span dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: 22, fontWeight: 700, color: cfg.accent }}>{current.meaning}</span>
                   {current.definition && <span dir="rtl" style={{ fontFamily: "'Amiri', serif", fontSize: 14, color: "var(--muted-strong)" }}>{current.definition}</span>}
                   {current.example && <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 13, color: "var(--icon-muted)", fontStyle: "italic" }}>{current.example}</span>}
-                </>
-              )}
-              <span style={{ fontSize: 11, color: "var(--icon-muted)", marginTop: 4 }}>
-                {tr(isAr, "Tap to flip", "اضغط عشان تقلب")}
-              </span>
+                  <span style={{ fontSize: 11, color: "var(--icon-muted)", marginTop: 4 }}>{tr(isAr, "Tap to flip back", "اضغط عشان ترجع")}</span>
+                </div>
+              </div>
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
               <button type="button" onClick={() => advance(false)}
+                className={pulse === "learning" ? "flashcard-choice-pop" : undefined}
                 style={{ flex: 1, padding: "11px 0", fontSize: 14, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid var(--danger)", background: "none", color: "var(--danger)" }}>
                 {tr(isAr, "Still learning", "لسه بتعلّمها")}
               </button>
               <button type="button" onClick={() => { if (onToggleStudied && !studiedIds.has(current.id)) onToggleStudied(current.id); advance(true); }}
+                className={pulse === "knew" ? "flashcard-choice-pop" : undefined}
                 style={{ flex: 1, padding: "11px 0", fontSize: 14, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "none", background: cfg.accent, color: "#fff" }}>
                 {tr(isAr, "Knew it", "كنت عارفها")}
               </button>
@@ -3333,7 +3341,7 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
         )}
 
         {isDone && (
-          <div style={{ marginTop: 20, textAlign: "center" }}>
+          <div className="flashcard-enter" style={{ marginTop: 20, textAlign: "center" }}>
             <div style={{ fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 700, color: INK, marginBottom: 6 }}>
               {knewCount} / {deck.length}
             </div>

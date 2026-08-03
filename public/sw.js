@@ -2,19 +2,26 @@
    Two Tongues — offline service worker
    -----------------------------------------------------------------------------
    Strategy:
-   - App shell (HTML/CSS/JS/fonts): cache-first, falling back to network, so
-     the app itself opens instantly even with no connection.
+   - HTML / navigation requests: network-first. This is what fixes "I deployed
+     but the site still looks old" — the page shell always tries the network
+     first so a new deploy shows up on the very next load, not just after a
+     second reload. Falls back to the cached shell only when offline.
+   - Hashed static assets (JS/CSS/fonts from /assets/*, produced by Vite with
+     a content hash in the filename): cache-first, since a changed file always
+     gets a new URL — there's no staleness risk, and this is what makes the
+     app feel instant / work offline.
    - /api/jsonbin (the word data): network-first, so users always see fresh
      data when online; App.jsx's own localStorage cache (OFFLINE_CACHE_KEY)
      is what serves the words when this fetch fails offline — this worker
      does not need to cache that endpoint itself.
    - Everything else: network-first with cache fallback.
 
-   Bump CACHE_VERSION whenever you deploy a new build so old clients pick up
-   the new shell instead of serving a stale cached one forever.
+   Bump CACHE_VERSION whenever you want to force old clients to drop every
+   previously cached asset (rarely needed now that the shell is
+   network-first, but still useful as a hard reset).
    ============================================================================= */
 
-const CACHE_VERSION = "two-tongues-v1";
+const CACHE_VERSION = "two-tongues-v2";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -52,7 +59,26 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // App shell / static assets: cache-first, refresh cache in the background.
+  // HTML / navigations: network-first so a fresh deploy is visible right
+  // away instead of waiting for a stale cached shell to be replaced in the
+  // background on some later visit.
+  const isNavigation = request.mode === "navigate" || request.headers.get("accept")?.includes("text/html");
+  if (isNavigation) {
+    event.respondWith(
+      fetch(request)
+        .then((res) => {
+          if (res && res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_VERSION).then((cache) => cache.put(request, clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(request).then((cached) => cached || caches.match("/index.html")))
+    );
+    return;
+  }
+
+  // Hashed static assets: cache-first, refresh cache in the background.
   event.respondWith(
     caches.match(request).then((cached) => {
       const network = fetch(request)

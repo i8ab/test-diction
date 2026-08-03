@@ -1043,7 +1043,7 @@ function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin,
         <MenuIcon size={16} />
       </button>
       {open && (
-        <div role="menu" style={{ position: "absolute", top: "calc(100% + 8px)", insetInlineEnd: 0, minWidth: 190, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, boxShadow: "0 14px 30px -12px rgba(0,0,0,0.35)", overflow: "hidden", zIndex: 40, animation: "scaleIn 0.18s cubic-bezier(0.22,1,0.36,1) both", transformOrigin: "top" }}>
+        <div role="menu" style={{ position: "absolute", top: "calc(100% + 8px)", insetInlineEnd: 0, minWidth: 190, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, boxShadow: "0 14px 30px -12px rgba(0,0,0,0.35)", overflowY: "auto", maxHeight: "min(320px, calc(100vh - 90px))", overscrollBehavior: "contain", zIndex: 40, animation: "scaleIn 0.18s cubic-bezier(0.22,1,0.36,1) both", transformOrigin: "top" }}>
           <button role="menuitem" style={itemStyle} onClick={() => itemClick(onToggleTheme)}>
             {theme === "dark" ? <SunIcon size={15} /> : <MoonIcon size={15} />}
             {theme === "dark" ? tr(isAr, "Light Mode", "الوضع الفاتح") : tr(isAr, "Dark Mode", "الوضع الداكن")}
@@ -1099,7 +1099,7 @@ function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onExport, exportDis
       </button>
       {open && (
         <div role="menu" dir={isAr ? "rtl" : "ltr"}
-          style={{ position: "absolute", top: "calc(100% + 8px)", insetInlineEnd: 0, minWidth: 190, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, boxShadow: "0 14px 30px -12px rgba(0,0,0,0.35)", overflow: "hidden", zIndex: 40, animation: "scaleIn 0.18s cubic-bezier(0.22,1,0.36,1) both", transformOrigin: "top" }}>
+          style={{ position: "absolute", top: "calc(100% + 8px)", insetInlineEnd: 0, minWidth: 190, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, boxShadow: "0 14px 30px -12px rgba(0,0,0,0.35)", overflowY: "auto", maxHeight: "min(320px, calc(100vh - 90px))", overscrollBehavior: "contain", zIndex: 40, animation: "scaleIn 0.18s cubic-bezier(0.22,1,0.36,1) both", transformOrigin: "top" }}>
           <button role="menuitem" style={itemStyle} onClick={() => itemClick(onLeaderboard)}>
             <TrophyIcon size={16} /> {tr(isAr, "Leaderboard", "الترتيب")}
           </button>

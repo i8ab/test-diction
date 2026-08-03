@@ -1034,16 +1034,16 @@ function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin,
     fn();
   }
 
-  const itemStyle = { display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 14px", fontSize: 13, fontWeight: 600, color: "var(--ink)", background: "none", border: "none", textAlign: "start", cursor: "pointer" };
+  const itemStyle = { display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "10px 14px", fontSize: 13.5, fontWeight: 600, color: "var(--ink)", background: "none", border: "none", textAlign: "start", cursor: "pointer" };
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button onClick={() => setOpen((o) => !o)} title={tr(isAr, "Menu", "القائمة")} aria-label={tr(isAr, "Menu", "القائمة")} aria-expanded={open} className="lift-hover"
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, border: "1px solid rgba(var(--border-rgb),0.25)", background: "none", color: "var(--icon-muted)", borderRadius: 3, cursor: "pointer" }}>
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, border: "1px solid rgba(var(--border-rgb),0.25)", background: "none", color: "var(--icon-muted)", borderRadius: 10, cursor: "pointer" }}>
         <MenuIcon size={16} />
       </button>
       {open && (
-        <div role="menu" style={{ position: "absolute", top: "calc(100% + 6px)", insetInlineEnd: 0, minWidth: 190, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 4, boxShadow: "0 12px 30px -12px rgba(0,0,0,0.35)", overflow: "hidden", zIndex: 40, animation: "scaleIn 0.18s cubic-bezier(0.22,1,0.36,1) both", transformOrigin: "top" }}>
+        <div role="menu" style={{ position: "absolute", top: "calc(100% + 8px)", insetInlineEnd: 0, minWidth: 190, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, boxShadow: "0 14px 30px -12px rgba(0,0,0,0.35)", overflow: "hidden", zIndex: 40, animation: "scaleIn 0.18s cubic-bezier(0.22,1,0.36,1) both", transformOrigin: "top" }}>
           <button role="menuitem" style={itemStyle} onClick={() => itemClick(onToggleTheme)}>
             {theme === "dark" ? <SunIcon size={15} /> : <MoonIcon size={15} />}
             {theme === "dark" ? tr(isAr, "Light Mode", "الوضع الفاتح") : tr(isAr, "Dark Mode", "الوضع الداكن")}
@@ -1094,7 +1094,7 @@ function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onExport, exportDis
     <div ref={ref} className="toolbar-anim" style={{ position: "relative", animationDelay: "0.06s" }}>
       <button onClick={() => setOpen((o) => !o)} aria-label={tr(isAr, "More actions", "المزيد")} aria-expanded={open} className="lift-hover"
         style={{ display: "flex", alignItems: "center", gap: 7, height: "100%", padding: "10px 16px", fontSize: 14, fontWeight: 600, color: accent, background: "var(--card)", border: `1px solid ${accent}40`, borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
-        <TrophyIcon size={16} /> {tr(isAr, "More", "المزيد")}
+        <MoreIcon size={16} /> {tr(isAr, "More", "المزيد")}
         <ChevronIcon size={13} style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s ease" }} />
       </button>
       {open && (
@@ -1193,6 +1193,7 @@ export default function DictionaryApp() {
   const [myCode, setMyCode] = useState("");
   const [codeCopied, setCodeCopied] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [moreFeaturesOpen, setMoreFeaturesOpen] = useState(false);
 
   // App-wide language toggle — starts out matching the device's system
   // language, but the switch in the header (and on the login screen) lets
@@ -1839,7 +1840,13 @@ export default function DictionaryApp() {
             .bento-big .bento-num { font-size: 78px; }
             .bento-wide { grid-column: span 2; grid-row: span 1; }
             .bento-solo { grid-column: span 1; grid-row: span 1; }
-            .bento-more { grid-column: span 2; grid-row: span 1; border-style: dashed; border-width: 1.5px; align-items: center; justify-content: center; text-align: center; color: var(--muted); }
+            .bento-more { grid-column: span 2; grid-row: span 1; border-style: dashed; border-width: 1.5px; align-items: center; justify-content: center; text-align: center; color: var(--muted); cursor: pointer; height: auto; }
+            .bento-more:hover { border-color: rgba(var(--focus-rgb),0.5); color: var(--ink); }
+            .bento-more .bento-more-chevron { transition: transform 0.3s cubic-bezier(0.22,1,0.36,1); margin-inline-start: 4px; transform: rotate(90deg); }
+            .bento-more.is-open .bento-more-chevron { transform: rotate(270deg); }
+            .bento-more-peek { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.35s cubic-bezier(0.22,1,0.36,1); width: 100%; }
+            .bento-more.is-open .bento-more-peek { grid-template-rows: 1fr; }
+            .bento-more-peek-inner { overflow: hidden; min-height: 0; }
             @media (max-width: 720px) {
               .bento-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 150px; }
               .bento-big, .bento-wide, .bento-more { grid-column: span 2; grid-row: span 1; }
@@ -1862,10 +1869,33 @@ export default function DictionaryApp() {
               );
             })}
             {/* Reserved slot: room to slot in more feature tiles later — just
-                add entries to introFeatures and, optionally, a shape above. */}
-            <div className="bento-item bento-more auth-field-1" style={{ animationDelay: `${0.08 + introFeatures.length * 0.05}s` }}>
-              <PlusIcon size={18} style={{ marginBottom: 8, opacity: 0.6 }} />
-              <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, margin: 0 }}>{atr("More features on the way", "المزيد من المميزات قريبًا")}</p>
+                add entries to introFeatures and, optionally, a shape above.
+                Doubles as a teaser accordion: tapping it peeks at what's
+                coming next without committing a full tile to it. */}
+            <div
+              className={`bento-item bento-more auth-field-1${moreFeaturesOpen ? " is-open" : ""}`}
+              style={{ animationDelay: `${0.08 + introFeatures.length * 0.05}s` }}
+              role="button"
+              tabIndex={0}
+              aria-expanded={moreFeaturesOpen}
+              onClick={() => setMoreFeaturesOpen((o) => !o)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setMoreFeaturesOpen((o) => !o); } }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <PlusIcon size={18} style={{ opacity: 0.6 }} />
+                <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, margin: 0 }}>{atr("More features on the way", "المزيد من المميزات قريبًا")}</p>
+                <ChevronIcon size={13} className="bento-more-chevron" />
+              </div>
+              <div className="bento-more-peek">
+                <div className="bento-more-peek-inner">
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 12, marginTop: 12, borderTop: "1px dashed rgba(var(--border-rgb),0.3)", opacity: 0.75 }}>
+                    <FlameIcon size={16} />
+                    <span style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 12.5 }}>
+                      {atr("Daily streaks and study challenges", "سلاسل يومية وتحديات مذاكرة")}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

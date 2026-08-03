@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import DictionaryApp from "./App.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import "./index.css";
 
 // ---------------------------------------------------------------------------
@@ -38,6 +39,8 @@ attachGlobalButtonRipple();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <DictionaryApp />
+    <ErrorBoundary>
+      <DictionaryApp />
+    </ErrorBoundary>
   </React.StrictMode>
 );

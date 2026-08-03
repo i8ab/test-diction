@@ -62,6 +62,61 @@ const SESSION_KEY = "twoTongues.personalCode";
 const THEME_KEY = "twoTongues.theme";
 
 /* =========================================================================
+   SEARCH HISTORY — remembers the last few searches per section (ar-ar /
+   en-en) so the user can quickly re-run a recent search instead of
+   retyping it. Stored locally per-device (not synced to the shared cloud
+   record), capped at MAX_SEARCH_HISTORY entries, most recent first.
+   ========================================================================= */
+const SEARCH_HISTORY_KEY = "twoTongues.searchHistory";
+const MAX_SEARCH_HISTORY = 8;
+
+function loadSearchHistory(section) {
+  try {
+    const raw = localStorage.getItem(SEARCH_HISTORY_KEY);
+    if (!raw) return [];
+    const all = JSON.parse(raw);
+    const list = (all && all[section]) || [];
+    return Array.isArray(list) ? list.filter((s) => typeof s === "string") : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveSearchHistory(section, list) {
+  try {
+    const raw = localStorage.getItem(SEARCH_HISTORY_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    all[section] = list;
+    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(all));
+  } catch (e) {
+    // Storage full or unavailable — history just won't persist this time.
+  }
+}
+
+// Adds `term` to the front of the section's history, de-duping (case/whitespace
+// insensitive) and capping the list length.
+function addToSearchHistory(section, term) {
+  const clean = term.trim();
+  if (!clean) return loadSearchHistory(section);
+  const existing = loadSearchHistory(section);
+  const deduped = existing.filter((t) => t.toLowerCase() !== clean.toLowerCase());
+  const next = [clean, ...deduped].slice(0, MAX_SEARCH_HISTORY);
+  saveSearchHistory(section, next);
+  return next;
+}
+
+function removeFromSearchHistory(section, term) {
+  const next = loadSearchHistory(section).filter((t) => t !== term);
+  saveSearchHistory(section, next);
+  return next;
+}
+
+function clearSearchHistory(section) {
+  saveSearchHistory(section, []);
+  return [];
+}
+
+/* =========================================================================
    OFFLINE CACHE — mirrors the last successful jsonbin fetch into
    localStorage so the app still shows something useful (read-only) when
    there's no network. Paired with the service worker (sw.js), which caches
@@ -173,6 +228,7 @@ const StarIcon = (p) => <Icon {...p} path={<path d="m12 2 2.9 6.26 6.9.6-5.2 4.6
 const UploadIcon = (p) => <Icon {...p} path={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></>} />;
 const UndoIcon = (p) => <Icon {...p} path={<><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-6.7L3 9"/></>} />;
 const LinkIcon = (p) => <Icon {...p} path={<><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></>} />;
+const ClockIcon = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></>} />;
 
 // Builds the Cambridge Dictionary lookup URL for a given English word.
 function cambridgeUrl(word) {
@@ -2159,6 +2215,9 @@ function MainView({
   const accountNameByCode = useMemo(() => Object.fromEntries(accounts.map((a) => [a.code, a.name])), [accounts]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [showHistory, setShowHistory] = useState(false);
+  const [searchHistory, setSearchHistory] = useState(() => loadSearchHistory(section));
+  useEffect(() => { setSearchHistory(loadSearchHistory(section)); }, [section]);
   const [studyFilter, setStudyFilter] = useState("all"); // "all" | "studied" | "not-studied"
   const [editingEntry, setEditingEntry] = useState(null);
   const [zoomEntry, setZoomEntry] = useState(null);
@@ -2200,13 +2259,42 @@ function MainView({
 
   useEffect(() => { setActiveIndex(-1); }, [query]);
 
+  function commitSearchTerm(term) {
+    if (!term.trim()) return;
+    setSearchHistory(addToSearchHistory(section, term));
+  }
+
   function selectSuggestion(entry) {
     setQuery(entry.word);
     setShowSuggestions(false);
+    setShowHistory(false);
     setActiveIndex(-1);
+    commitSearchTerm(entry.word);
+  }
+
+  function selectHistoryTerm(term) {
+    setQuery(term);
+    setShowHistory(false);
+    setShowSuggestions(false);
+    // Re-committing bumps it back to the front of the list (most-recent-first).
+    commitSearchTerm(term);
+  }
+
+  function handleRemoveHistoryTerm(e, term) {
+    e.preventDefault();
+    e.stopPropagation();
+    setSearchHistory(removeFromSearchHistory(section, term));
+  }
+
+  function handleClearHistory() {
+    setSearchHistory(clearSearchHistory(section));
   }
 
   function handleSearchKeyDown(e) {
+    if (showHistory && !showSuggestions) {
+      if (e.key === "Escape") setShowHistory(false);
+      return;
+    }
     if (!showSuggestions || suggestions.length === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -2218,6 +2306,9 @@ function MainView({
       if (activeIndex >= 0 && activeIndex < suggestions.length) {
         e.preventDefault();
         selectSuggestion(suggestions[activeIndex]);
+      } else if (query.trim()) {
+        commitSearchTerm(query);
+        setShowSuggestions(false);
       }
     } else if (e.key === "Escape") {
       setShowSuggestions(false);
@@ -2350,9 +2441,17 @@ function MainView({
             <SearchIcon size={16} color="var(--icon-muted)" style={{ position: "absolute", insetInlineStart: 12, top: "50%", transform: "translateY(-50%)" }} />
             <input
               value={query}
-              onChange={(e) => { setQuery(e.target.value); setShowSuggestions(true); }}
-              onFocus={() => { if (query.trim()) setShowSuggestions(true); }}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 120)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setQuery(v);
+                setShowSuggestions(!!v.trim());
+                setShowHistory(!v.trim() && searchHistory.length > 0);
+              }}
+              onFocus={() => {
+                if (query.trim()) setShowSuggestions(true);
+                else if (searchHistory.length > 0) setShowHistory(true);
+              }}
+              onBlur={() => setTimeout(() => { setShowSuggestions(false); setShowHistory(false); }, 120)}
               onKeyDown={handleSearchKeyDown}
               placeholder={tr(isAr, `Search ${cfg.shortLabel}…`, `بحث في ${cfg.shortLabel}…`)} dir={section === "ar-ar" ? "rtl" : "auto"}
               role="combobox" aria-autocomplete="list" aria-expanded={showSuggestions && suggestions.length > 0}
@@ -2374,6 +2473,36 @@ function MainView({
                   </li>
                 ))}
               </ul>
+            )}
+            {showHistory && !query.trim() && searchHistory.length > 0 && (
+              <div dir={section === "ar-ar" ? "rtl" : "auto"}
+                className="modal-card"
+                style={{ margin: "4px 0 0", padding: 4, position: "absolute", top: "100%", insetInlineStart: 0, insetInlineEnd: 0, background: CARD, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, boxShadow: "0 10px 24px -10px rgba(0,0,0,0.3)", zIndex: 30, maxHeight: 260, overflowY: "auto" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 9px 3px", fontSize: 11, color: "var(--icon-muted)", fontWeight: 600 }}>
+                  <span>{tr(isAr, "Recent searches", "عمليات بحث سابقة")}</span>
+                  <button onMouseDown={(e) => { e.preventDefault(); handleClearHistory(); }}
+                    style={{ background: "none", border: "none", color: "var(--icon-muted)", fontSize: 11, cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                    {tr(isAr, "Clear", "مسح الكل")}
+                  </button>
+                </div>
+                <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                  {searchHistory.map((term) => (
+                    <li key={term}
+                      onMouseDown={(e) => { e.preventDefault(); selectHistoryTerm(term); }}
+                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", borderRadius: 7, cursor: "pointer" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = cfg.accentSoft; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                      <ClockIcon size={14} color="var(--icon-muted)" style={{ flexShrink: 0 }} />
+                      <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 14, color: INK, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{term}</span>
+                      <button onMouseDown={(e) => handleRemoveHistoryTerm(e, term)}
+                        aria-label={tr(isAr, "Remove", "إزالة")}
+                        style={{ background: "none", border: "none", color: "var(--icon-muted)", cursor: "pointer", padding: 2, display: "flex", flexShrink: 0 }}>
+                        <XIcon size={13} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
           <div style={{ display: "flex", gap: 8 }}>

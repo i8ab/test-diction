@@ -47,6 +47,8 @@
   body { transition: background 0.25s; }
   .spin { animation: spin 0.9s linear infinite; }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .voice-mic-active { animation: micPulse 1s ease-in-out infinite; }
+  @keyframes micPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
   input:focus, textarea:focus { border-color: var(--accent-1) !important; box-shadow: 0 0 0 3px rgba(var(--focus-rgb),0.18); outline: none; }
 
   /* ================= Global motion system ================= */

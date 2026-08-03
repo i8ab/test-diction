@@ -60,6 +60,46 @@ function generatePersonalCode() {
    ========================================================================= */
 const SESSION_KEY = "twoTongues.personalCode";
 const THEME_KEY = "twoTongues.theme";
+const ACCENT_KEY = "twoTongues.accent";
+
+// Extra accent-color palettes the user can pick from, on top of the base
+// light/dark mode. Each defines the two accent colors + their "soft"
+// (low-opacity background) variants for both light and dark mode, so
+// switching accent never fights with switching light/dark.
+const ACCENT_THEMES = {
+  brass:  { label: { en: "Brass (default)", ar: "نحاسي (افتراضي)" }, light: { a1: "#19A7CE", a1s: "#D3E7EF", a2: "#146C94", a2s: "#E4EEF2" }, dark: { a1: "#3FC1E8", a1s: "#163642", a2: "#6BAFD1", a2s: "#142A34" } },
+  forest: { label: { en: "Forest", ar: "أخضر" }, light: { a1: "#2E9E5B", a1s: "#DCEFE1", a2: "#1F6E44", a2s: "#E1EFE6" }, dark: { a1: "#4ED08A", a1s: "#173C29", a2: "#7FCBA0", a2s: "#153025" } },
+  plum:   { label: { en: "Plum", ar: "بنفسجي" }, light: { a1: "#9A5FC9", a1s: "#EBE0F5", a2: "#6E3D96", a2s: "#EEE5F5" }, dark: { a1: "#C094E8", a1s: "#2E2140", a2: "#9E77C4", a2s: "#271C36" } },
+  amber:  { label: { en: "Amber", ar: "كهرماني" }, light: { a1: "#D98B2B", a1s: "#F5E7D3", a2: "#A85E1B", a2s: "#F2E6D8" }, dark: { a1: "#F0AE5C", a1s: "#3A2A16", a2: "#D68F44", a2s: "#332314" } },
+  rose:   { label: { en: "Rose", ar: "وردي" }, light: { a1: "#D9557C", a1s: "#F5DCE4", a2: "#A83A5B", a2s: "#F2DEE5" }, dark: { a1: "#F08AA6", a1s: "#3A1E27", a2: "#D66E8C", a2s: "#331B22" } },
+};
+
+function loadSavedAccent() {
+  try {
+    const a = localStorage.getItem(ACCENT_KEY);
+    return a && ACCENT_THEMES[a] ? a : "brass";
+  } catch (e) {
+    return "brass";
+  }
+}
+
+function saveAccent(accent) {
+  try { localStorage.setItem(ACCENT_KEY, accent); } catch (e) {}
+}
+
+// Applies the chosen accent palette as CSS custom properties on <html>,
+// overriding the base --accent-1/--accent-2 (etc.) set in index.css for
+// the current light/dark mode. Called on load and whenever either the
+// accent or the light/dark mode changes.
+function applyAccentTheme(accent, mode) {
+  const theme = ACCENT_THEMES[accent] || ACCENT_THEMES.brass;
+  const pal = theme[mode] || theme.light;
+  const root = document.documentElement.style;
+  root.setProperty("--accent-1", pal.a1);
+  root.setProperty("--accent-1-soft", pal.a1s);
+  root.setProperty("--accent-2", pal.a2);
+  root.setProperty("--accent-2-soft", pal.a2s);
+}
 
 /* =========================================================================
    SEARCH HISTORY — remembers the last few searches per section (ar-ar /
@@ -229,8 +269,109 @@ const UploadIcon = (p) => <Icon {...p} path={<><path d="M21 15v4a2 2 0 0 1-2 2H5
 const UndoIcon = (p) => <Icon {...p} path={<><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-6.7L3 9"/></>} />;
 const LinkIcon = (p) => <Icon {...p} path={<><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></>} />;
 const ClockIcon = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></>} />;
+const MicIcon = (p) => <Icon {...p} path={<><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></>} />;
+const PaletteIcon = (p) => <Icon {...p} path={<><path d="M12 2a10 10 0 1 0 0 20 2.5 2.5 0 0 0 2-4 2 2 0 0 1 2-2h1a3 3 0 0 0 3-3c0-6-3.5-11-8-11Z"/><circle cx="7" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="10" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="14" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="17" cy="10" r="1.2" fill="currentColor" stroke="none"/></>} />;
+const LayersIcon = (p) => <Icon {...p} path={<><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></>} />;
+const ShareIcon = (p) => <Icon {...p} path={<><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/></>} />;
 
 // Builds the Cambridge Dictionary lookup URL for a given English word.
+// Renders a shareable PNG image of a single word (word + meaning + optional
+// definition/example) onto an offscreen canvas, styled to loosely match the
+// app's paper/ink palette so it reads well when shared outside the app.
+// Returns a Blob (image/png) via a Promise.
+function generateWordCardImage(entry, cfg) {
+  const width = 1080, height = 1080;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+
+  // Background
+  ctx.fillStyle = "#FBF7EF";
+  ctx.fillRect(0, 0, width, height);
+  ctx.strokeStyle = cfg.accent || "#146C94";
+  ctx.lineWidth = 10;
+  ctx.strokeRect(30, 30, width - 60, height - 60);
+
+  ctx.textAlign = "center";
+  ctx.direction = cfg.wordDir === "rtl" ? "rtl" : "ltr";
+
+  // Word
+  ctx.fillStyle = "#1B1B1B";
+  ctx.font = "700 96px 'Fraunces', 'Amiri', serif";
+  wrapCanvasText(ctx, entry.word || "", width / 2, 420, width - 200, 104);
+
+  // Divider
+  ctx.fillStyle = cfg.accent || "#146C94";
+  ctx.fillRect(width / 2 - 60, 470, 120, 6);
+
+  // Meaning
+  ctx.fillStyle = cfg.accent || "#146C94";
+  ctx.font = "600 56px 'Amiri', 'Fraunces', serif";
+  wrapCanvasText(ctx, entry.meaning || "", width / 2, 580, width - 220, 66);
+
+  // Footer brand
+  ctx.fillStyle = "#8A8374";
+  ctx.font = "600 30px 'Source Sans 3', sans-serif";
+  ctx.direction = "ltr";
+  ctx.fillText("Two Tongues", width / 2, height - 60);
+
+  return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), "image/png"));
+}
+
+// Minimal manual word-wrap for canvas text (canvas has no built-in wrapping).
+function wrapCanvasText(ctx, text, cx, startY, maxWidth, lineHeight) {
+  const words = text.split(/\s+/);
+  let line = "";
+  let y = startY;
+  const lines = [];
+  for (const w of words) {
+    const test = line ? `${line} ${w}` : w;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = w;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  // Vertically center the block of lines around startY.
+  const totalHeight = lines.length * lineHeight;
+  y = startY - totalHeight / 2 + lineHeight / 2;
+  for (const l of lines) {
+    ctx.fillText(l, cx, y);
+    y += lineHeight;
+  }
+}
+
+// Shares (via Web Share API, when supported for files) or downloads the
+// generated word-card image. Falls back to a plain download whenever
+// navigator.share/canShare for files isn't available (most desktop browsers).
+async function shareWordCard(entry, cfg) {
+  const blob = await generateWordCardImage(entry, cfg);
+  if (!blob) return false;
+  const fileName = `${(entry.word || "word").replace(/[^\p{L}\p{N}]+/gu, "-")}.png`;
+  const file = new File([blob], fileName, { type: "image/png" });
+  if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: entry.word });
+      return true;
+    } catch (e) {
+      if (e && e.name === "AbortError") return false; // user cancelled the share sheet
+      // fall through to download on any other failure
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return true;
+}
+
 function cambridgeUrl(word) {
   const slug = (word || "").trim().toLowerCase().replace(/\s+/g, "-");
   return `https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(slug)}`;
@@ -356,6 +497,37 @@ function speakEnglish(text) {
   } catch (e) {
     console.error("English pronunciation error:", e);
   }
+}
+
+// Web Speech API's SpeechRecognition, prefixed in some browsers. Returns
+// null when the browser has no support (e.g. Firefox, most non-Chromium
+// mobile browsers) so callers can hide the mic button entirely.
+function getSpeechRecognitionCtor() {
+  if (typeof window === "undefined") return null;
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+// Runs one voice-search capture. `lang` is a BCP-47 tag ("ar-EG"/"en-US").
+// Resolves with the recognized text, or rejects on error/no-match — callers
+// should catch and show a toast rather than let this throw uncaught.
+function recognizeSpeech(lang) {
+  return new Promise((resolve, reject) => {
+    const Ctor = getSpeechRecognitionCtor();
+    if (!Ctor) { reject(new Error("unsupported")); return; }
+    const rec = new Ctor();
+    rec.lang = lang;
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    let settled = false;
+    rec.onresult = (e) => {
+      settled = true;
+      const text = e.results && e.results[0] && e.results[0][0] && e.results[0][0].transcript;
+      if (text) resolve(text.trim()); else reject(new Error("empty"));
+    };
+    rec.onerror = (e) => { if (!settled) { settled = true; reject(new Error(e.error || "recognition failed")); } };
+    rec.onend = () => { if (!settled) reject(new Error("no match")); };
+    try { rec.start(); } catch (e) { reject(e); }
+  });
 }
 
 function speakWord(text, dir) {
@@ -1070,7 +1242,7 @@ const authCardStyle = { position: "relative", width: "100%", maxWidth: 400, back
 const authInputStyle = { ...inputStyle, borderRadius: 8, padding: "11px 13px" };
 const authBadgeWrapStyle = { position: "relative", width: 56, height: 56, borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))", boxShadow: "0 10px 24px -10px rgba(var(--focus-rgb),0.65)", flexShrink: 0 };
 
-function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin, onLogout, isAr }) {
+function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin, onLogout, isAr, accentTheme, onChangeAccent }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -1105,6 +1277,24 @@ function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin,
             {theme === "dark" ? <SunIcon size={15} /> : <MoonIcon size={15} />}
             {theme === "dark" ? tr(isAr, "Light Mode", "الوضع الفاتح") : tr(isAr, "Dark Mode", "الوضع الداكن")}
           </button>
+          {onChangeAccent && (
+            <div style={{ padding: "9px 14px", borderTop: "1px solid rgba(var(--border-rgb),0.12)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, color: "var(--icon-muted)", marginBottom: 7 }}>
+                <PaletteIcon size={13} /> {tr(isAr, "Color theme", "لون الواجهة")}
+              </div>
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                {Object.entries(ACCENT_THEMES).map(([key, t]) => {
+                  const swatch = (t[theme] || t.light).a1;
+                  const active = key === accentTheme;
+                  return (
+                    <button key={key} type="button" onClick={() => onChangeAccent(key)}
+                      title={tr(isAr, t.label.en, t.label.ar)} aria-label={tr(isAr, t.label.en, t.label.ar)}
+                      style={{ width: 22, height: 22, borderRadius: "50%", background: swatch, border: active ? "2px solid var(--ink)" : "1px solid rgba(var(--border-rgb),0.3)", cursor: "pointer", padding: 0, boxShadow: active ? "0 0 0 2px var(--card)" : "none" }} />
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <button role="menuitem" style={{ ...itemStyle, borderTop: "1px solid rgba(var(--border-rgb),0.12)" }} onClick={() => itemClick(onOpenAccount)}>
             <UserIcon size={15} /> {tr(isAr, "My Account", "حسابي")}
           </button>
@@ -1126,7 +1316,7 @@ function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin,
 // Stats, Quiz, Export CSV) so the search bar isn't crowded by 4+ buttons.
 const TOOLS_MENU_ITEMS_META = { minWidth: 190, gap: 8 };
 
-function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onExport, exportDisabled, onImport, importing, isAr }) {
+function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFlashcards, onExport, exportDisabled, onImport, importing, isAr }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState(null); // { left, top, openUpward } in viewport (fixed) coordinates
   const btnRef = useRef(null);
@@ -1215,6 +1405,9 @@ function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onExport, exportDis
       </button>
       <button role="menuitem" style={{ ...itemStyle, borderTop: "1px solid rgba(var(--border-rgb),0.12)" }} onClick={() => itemClick(onQuiz)}>
         <QuizIcon size={16} /> {tr(isAr, "Quiz", "اختبار")}
+      </button>
+      <button role="menuitem" style={{ ...itemStyle, borderTop: "1px solid rgba(var(--border-rgb),0.12)" }} onClick={() => itemClick(onFlashcards)}>
+        <LayersIcon size={16} /> {tr(isAr, "Flashcards", "بطاقات تعليمية")}
       </button>
       <button role="menuitem" disabled={exportDisabled}
         style={{ ...itemStyle, borderTop: "1px solid rgba(var(--border-rgb),0.12)", opacity: exportDisabled ? 0.5 : 1, cursor: exportDisabled ? "default" : "pointer" }}
@@ -1346,11 +1539,20 @@ export default function DictionaryApp() {
   const [saveError, setSaveError] = useState("");
   const [toast, setToast] = useState("");
   const [theme, setTheme] = useState(loadSavedTheme);
+  const [accentTheme, setAccentTheme] = useState(loadSavedAccent);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
   }, [theme]);
+
+  // Re-applies the chosen accent color palette whenever the accent choice
+  // or the light/dark mode changes (each accent has its own light+dark
+  // variant so contrast stays correct either way).
+  useEffect(() => {
+    applyAccentTheme(accentTheme, theme);
+    saveAccent(accentTheme);
+  }, [accentTheme, theme]);
 
   // Registers the offline service worker (see /sw.js). Wrapped in feature
   // detection + try/catch since some browsers (or non-HTTPS dev servers)
@@ -2189,6 +2391,7 @@ export default function DictionaryApp() {
       onAdminAddAccount={handleAdminAddAccount} onAdminEditAccount={handleAdminEditAccount} onAdminDeleteAccount={handleAdminDeleteAccount}
       toast={toast} showToast={showToast}
       theme={theme} onToggleTheme={toggleTheme}
+      accentTheme={accentTheme} onChangeAccent={setAccentTheme}
       appIsAr={appIsAr} onToggleAppLang={toggleAppLang}
       sessionStart={sessionStartRef.current}
     />
@@ -2201,7 +2404,7 @@ function MainView({
   accounts, accountCode, logs, studiedIds, studiedAt, onToggleStudied, favoriteIds, onToggleFavorite, showAccount, onOpenAccount, onCloseAccount, onUpdateOwnName,
   srsBox, srsDueAt, quizHistory, onRecordSrsAnswer, onSaveQuizResult,
   showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount,
-  toast, showToast, theme, onToggleTheme,
+  toast, showToast, theme, onToggleTheme, accentTheme, onChangeAccent,
   appIsAr, onToggleAppLang,
   sessionStart,
 }) {
@@ -2213,6 +2416,23 @@ function MainView({
   const studiedPct = sectionEntries.length ? (studiedCount / sectionEntries.length) * 100 : 0;
   const notStudiedPct = 100 - studiedPct;
   const accountNameByCode = useMemo(() => Object.fromEntries(accounts.map((a) => [a.code, a.name])), [accounts]);
+  const [voiceListening, setVoiceListening] = useState(false);
+  const speechSupported = useMemo(() => !!getSpeechRecognitionCtor(), []);
+  const handleVoiceSearch = useCallback(async () => {
+    if (!speechSupported || voiceListening) return;
+    setVoiceListening(true);
+    try {
+      const lang = isAr ? "ar-EG" : "en-US";
+      const text = await recognizeSpeech(lang);
+      setQuery(text);
+      setShowSuggestions(true);
+    } catch (e) {
+      showToast(tr(isAr, "Didn't catch that — try again.", "معرفتش أسمع صح — جرّب تاني."));
+    } finally {
+      setVoiceListening(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speechSupported, voiceListening, isAr]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [showHistory, setShowHistory] = useState(false);
@@ -2222,6 +2442,7 @@ function MainView({
   const [editingEntry, setEditingEntry] = useState(null);
   const [zoomEntry, setZoomEntry] = useState(null);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [showFlashcards, setShowFlashcards] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [undoDelete, setUndoDelete] = useState(null); // { entry, prevEntries } — cleared after UNDO_DELETE_MS or on undo
@@ -2418,7 +2639,8 @@ function MainView({
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 13, color: "var(--muted-strong)" }}><strong style={{ color: INK }}>{name}</strong></div>
               <HeaderMenu theme={theme} onToggleTheme={onToggleTheme} isAdmin={isAdmin}
-                onOpenAccount={onOpenAccount} onOpenAdmin={onOpenAdmin} onLogout={onLogout} isAr={appIsAr} />
+                onOpenAccount={onOpenAccount} onOpenAdmin={onOpenAdmin} onLogout={onLogout} isAr={appIsAr}
+                accentTheme={accentTheme} onChangeAccent={onChangeAccent} />
             </div>
           </div>
           <div style={{ display: "flex", gap: 4, marginTop: 16 }}>
@@ -2458,7 +2680,15 @@ function MainView({
               aria-controls="search-suggestions" aria-activedescendant={activeIndex >= 0 ? `search-suggestion-${activeIndex}` : undefined}
               autoComplete="off"
               className="toolbar-search-input"
-              style={{ width: "100%", padding: "10px 12px", paddingInlineStart: 36, fontSize: 14, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, background: "var(--input-bg)", color: INK }} />
+              style={{ width: "100%", padding: "10px 12px", paddingInlineStart: 36, paddingInlineEnd: speechSupported ? 38 : 12, fontSize: 14, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, background: "var(--input-bg)", color: INK }} />
+            {speechSupported && (
+              <button type="button" onClick={handleVoiceSearch} disabled={voiceListening}
+                title={tr(isAr, "Search by voice", "بحث صوتي")} aria-label={tr(isAr, "Search by voice", "بحث صوتي")}
+                className={voiceListening ? "voice-mic-active" : undefined}
+                style={{ position: "absolute", insetInlineEnd: 8, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, border: "none", background: "none", color: voiceListening ? cfg.accent : "var(--icon-muted)", cursor: voiceListening ? "default" : "pointer", padding: 0 }}>
+                <MicIcon size={15} />
+              </button>
+            )}
             {showSuggestions && suggestions.length > 0 && (
               <ul id="search-suggestions" role="listbox" dir={section === "ar-ar" ? "rtl" : "auto"}
                 className="modal-card"
@@ -2514,6 +2744,7 @@ function MainView({
               onLeaderboard={() => setShowLeaderboard(true)}
               onStats={() => setShowStats(true)}
               onQuiz={() => setShowQuiz(true)}
+              onFlashcards={() => setShowFlashcards(true)}
               onExport={() => exportEntriesAsCsv(filtered.length ? filtered : sectionEntries, cfg, cfg.shortLabel)}
               exportDisabled={sectionEntries.length === 0}
               onImport={() => importInputRef.current && importInputRef.current.click()}
@@ -2669,6 +2900,18 @@ function MainView({
           onSaveQuizResult={onSaveQuizResult}
         />
       )}
+      {showFlashcards && (
+        <FlashcardsModal
+          entries={sectionEntries}
+          cfg={cfg}
+          sectionLabel={cfg.shortLabel}
+          studiedIds={studiedIds}
+          favoriteIds={favoriteIds}
+          onToggleStudied={onToggleStudied}
+          isAr={isAr}
+          onClose={() => setShowFlashcards(false)}
+        />
+      )}
       {showStats && (
         <StatsModal
           entries={sectionEntries}
@@ -2727,7 +2970,7 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
   const [confirmDel, setConfirmDel] = useState(false);
   const [open, setOpen] = useState(false);
   const hasDefinition = !!entry.definition;
-  const hasExample = !!entry.example;
+  const hasExample = !!entry.example || !!(entry.examples && entry.examples.length);
   const hasSynAnt = !!((entry.synonyms && entry.synonyms.length) || (entry.antonyms && entry.antonyms.length));
   const isEnglishWord = cfg.wordDir === "ltr";
   const isExpandable = isAdmin || hasDefinition || hasExample || hasSynAnt || isEnglishWord;
@@ -2786,6 +3029,11 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
                 “{entry.example}”
               </p>
             )}
+            {!!(entry.examples && entry.examples.length) && entry.examples.map((ex, i) => (
+              <p key={i} dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 13, fontStyle: "italic", color: "var(--muted)", margin: "4px 0 0", lineHeight: 1.6 }}>
+                “{ex}”
+              </p>
+            ))}
             {!!(entry.synonyms && entry.synonyms.length) && (
               <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 6 }}>
                 <strong style={{ color: "var(--success)" }}>{tr(isAr, "Synonyms", "مرادفات")}</strong>
@@ -2857,16 +3105,28 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
 // (plus definition, if any) in a large, readable font. Opened via the zoom
 // icon on each entry card.
 function WordZoomModal({ entry, cfg, onClose }) {
+  const [sharing, setSharing] = useState(false);
   useEffect(() => {
     function onKeyDown(e) { if (e.key === "Escape") onClose(); }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  async function handleShare() {
+    if (sharing) return;
+    setSharing(true);
+    try { await shareWordCard(entry, cfg); } finally { setSharing(false); }
+  }
+
   return (
     <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
       <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={cfg.dir} role="dialog" aria-modal="true" aria-labelledby="zoom-modal-word"
         style={{ width: "100%", maxWidth: 560, background: CARD, borderRadius: 6, padding: "48px 32px 40px", boxShadow: "0 24px 60px -12px rgba(0,0,0,0.45)", textAlign: "center", position: "relative" }}>
+        <button onClick={handleShare} disabled={sharing} aria-label={tr(cfg.dir === "rtl", "Share this word", "شارك الكلمة دي")}
+          title={tr(cfg.dir === "rtl", "Share this word", "شارك الكلمة دي")}
+          style={{ position: "absolute", top: 14, insetInlineStart: 14, border: "none", background: "none", cursor: sharing ? "default" : "pointer", color: "var(--icon-muted)" }}>
+          {sharing ? <LoaderIcon size={19} /> : <ShareIcon size={19} />}
+        </button>
         <button onClick={onClose} aria-label={tr(cfg.dir === "rtl", "Close", "إغلاق")} style={{ position: "absolute", top: 14, insetInlineEnd: 14, border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}>
           <XIcon size={20} />
         </button>
@@ -2904,6 +3164,11 @@ function WordZoomModal({ entry, cfg, onClose }) {
             “{entry.example}”
           </p>
         )}
+        {!!(entry.examples && entry.examples.length) && entry.examples.map((ex, i) => (
+          <p key={i} dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 15, fontStyle: "italic", color: "var(--muted)", marginTop: 8, lineHeight: 1.7, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
+            “{ex}”
+          </p>
+        ))}
         {!!(entry.synonyms && entry.synonyms.length) && (
           <div style={{ fontSize: 14, color: "var(--muted-strong)", marginTop: 16, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
             <strong style={{ color: "var(--success)" }}>{tr(cfg.dir === "rtl", "Synonyms", "مرادفات")}</strong>
@@ -2941,6 +3206,152 @@ function ReviewRow({ item, isAr }) {
           `You said "${item.selectedAnswer}" — the correct one is "${item.correctAnswer}".`,
           `انت غلطت، قلت معناها "${item.selectedAnswer}"، وهي فعلاً "${item.correctAnswer}".`)}
       </p>
+    </div>
+  );
+}
+
+// Simple flip-card review mode: front shows the word, tap/click flips to
+// the meaning + definition + example, then the user marks it "knew it" or
+// "still learning" (which just moves it to the back of the deck to see
+// again) before moving to the next card. Lighter-weight than the Quiz —
+// no scoring, just quick repetition through the section's words.
+function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, onToggleStudied, isAr, onClose }) {
+  const [filterKey, setFilterKey] = useState("all"); // all | studied | favorites
+  const [deck, setDeck] = useState(null); // null = setup stage, array = running
+  const [pos, setPos] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [knewCount, setKnewCount] = useState(0);
+  const [learningCount, setLearningCount] = useState(0);
+
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key === "Escape") { onClose(); return; }
+      if (!deck) return;
+      if (e.key === " " || e.key === "Enter") { e.preventDefault(); setFlipped((f) => !f); }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose, deck]);
+
+  const pool = useMemo(() => {
+    if (filterKey === "studied") return entries.filter((e) => studiedIds.has(e.id));
+    if (filterKey === "favorites") return entries.filter((e) => favoriteIds && favoriteIds.has(e.id));
+    return entries;
+  }, [entries, filterKey, studiedIds, favoriteIds]);
+
+  function startDeck() {
+    setDeck(shuffleArray(pool));
+    setPos(0);
+    setFlipped(false);
+    setKnewCount(0);
+    setLearningCount(0);
+  }
+
+  function advance(knew) {
+    if (knew) setKnewCount((c) => c + 1); else setLearningCount((c) => c + 1);
+    if (pos + 1 >= deck.length) { setPos(deck.length); return; } // reached the summary screen
+    setPos((p) => p + 1);
+    setFlipped(false);
+  }
+
+  const current = deck && pos < deck.length ? deck[pos] : null;
+  const isDone = deck && pos >= deck.length;
+
+  return (
+    <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
+      <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={isAr ? "rtl" : "ltr"} role="dialog" aria-modal="true" aria-labelledby="flashcards-modal-title"
+        style={{ width: "100%", maxWidth: 480, maxHeight: "88vh", overflowY: "auto", background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <h2 id="flashcards-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: INK, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+            <LayersIcon size={19} color={BRASS} /> {tr(isAr, "Flashcards", "بطاقات تعليمية")}
+            {sectionLabel && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>· {sectionLabel}</span>}
+          </h2>
+          <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}><XIcon size={20} /></button>
+        </div>
+
+        {!deck && (
+          <div style={{ marginTop: 14 }}>
+            <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "0 0 14px" }}>
+              {tr(isAr,
+                "Flip through your words one at a time. Tap a card to reveal the meaning, then mark whether you knew it.",
+                "قلّب على كلماتك واحدة واحدة. اضغط على البطاقة عشان تشوف المعنى، وبعدين حدد هل كنت عارفها ولا لسه.")}
+            </p>
+            <label style={labelStyle}>{tr(isAr, "Which words?", "أنهي كلمات؟")}</label>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+              {[
+                { key: "all", label: tr(isAr, "All words", "كل الكلمات") },
+                { key: "studied", label: tr(isAr, "Studied only", "المدروسة بس") },
+                { key: "favorites", label: tr(isAr, "Favorites only", "المفضلة بس") },
+              ].map((opt) => (
+                <button key={opt.key} type="button" onClick={() => setFilterKey(opt.key)}
+                  style={{ padding: "7px 14px", fontSize: 13, fontWeight: 600, borderRadius: 20, cursor: "pointer", border: `1px solid ${filterKey === opt.key ? cfg.accent : "rgba(var(--border-rgb),0.25)"}`, background: filterKey === opt.key ? cfg.accentSoft : "none", color: filterKey === opt.key ? cfg.accent : "var(--muted-strong)" }}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize: 13, color: "var(--icon-muted)", margin: "0 0 16px" }}>
+              {tr(isAr, `${pool.length} word(s) in this deck.`, `${pool.length} كلمة في المجموعة دي.`)}
+            </p>
+            <button type="button" onClick={startDeck} disabled={pool.length === 0} className="btn-shine"
+              style={{ ...primaryBtnStyle, opacity: pool.length === 0 ? 0.5 : 1, cursor: pool.length === 0 ? "default" : "pointer" }}>
+              <LayersIcon size={16} /> {tr(isAr, "Start reviewing", "ابدأ المراجعة")}
+            </button>
+          </div>
+        )}
+
+        {current && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 12, color: "var(--icon-muted)", marginBottom: 10, textAlign: "center" }}>
+              {tr(isAr, `Card ${pos + 1} of ${deck.length}`, `بطاقة ${pos + 1} من ${deck.length}`)}
+            </div>
+            <div onClick={() => setFlipped((f) => !f)} role="button" tabIndex={0}
+              style={{ minHeight: 190, borderRadius: 14, border: `1px solid ${cfg.accentSoft}`, background: "var(--input-bg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 24, cursor: "pointer", textAlign: "center" }}>
+              {!flipped ? (
+                <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 30, fontWeight: 700, color: INK }}>{current.word}</span>
+              ) : (
+                <>
+                  <span dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: 22, fontWeight: 700, color: cfg.accent }}>{current.meaning}</span>
+                  {current.definition && <span dir="rtl" style={{ fontFamily: "'Amiri', serif", fontSize: 14, color: "var(--muted-strong)" }}>{current.definition}</span>}
+                  {current.example && <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 13, color: "var(--icon-muted)", fontStyle: "italic" }}>{current.example}</span>}
+                </>
+              )}
+              <span style={{ fontSize: 11, color: "var(--icon-muted)", marginTop: 4 }}>
+                {tr(isAr, "Tap to flip", "اضغط عشان تقلب")}
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <button type="button" onClick={() => advance(false)}
+                style={{ flex: 1, padding: "11px 0", fontSize: 14, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid var(--danger)", background: "none", color: "var(--danger)" }}>
+                {tr(isAr, "Still learning", "لسه بتعلّمها")}
+              </button>
+              <button type="button" onClick={() => { if (onToggleStudied && !studiedIds.has(current.id)) onToggleStudied(current.id); advance(true); }}
+                style={{ flex: 1, padding: "11px 0", fontSize: 14, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "none", background: cfg.accent, color: "#fff" }}>
+                {tr(isAr, "Knew it", "كنت عارفها")}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {isDone && (
+          <div style={{ marginTop: 20, textAlign: "center" }}>
+            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 700, color: INK, marginBottom: 6 }}>
+              {knewCount} / {deck.length}
+            </div>
+            <p style={{ fontSize: 14, color: "var(--muted-strong)", marginBottom: 18 }}>
+              {tr(isAr, `You knew ${knewCount} and are still learning ${learningCount}.`, `كنت عارف ${knewCount} ولسه بتتعلّم ${learningCount}.`)}
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button type="button" onClick={startDeck} className="btn-shine" style={{ ...primaryBtnStyle, width: "auto", padding: "11px 22px" }}>
+                {tr(isAr, "Review again", "راجع تاني")}
+              </button>
+              <button type="button" onClick={() => setDeck(null)}
+                style={{ padding: "11px 22px", fontSize: 14, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid rgba(var(--border-rgb),0.25)", background: "none", color: INK }}>
+                {tr(isAr, "Change selection", "غيّر الاختيار")}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -3704,6 +4115,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
   const [meaning, setMeaning] = useState(isEdit ? initialEntry.meaning : "");
   const [definition, setDefinition] = useState(isEdit ? (initialEntry.definition || "") : "");
   const [example, setExample] = useState(isEdit ? (initialEntry.example || "") : "");
+  const [extraExamples, setExtraExamples] = useState(isEdit && initialEntry.examples ? initialEntry.examples : []);
   const [synonyms, setSynonyms] = useState(isEdit ? normalizePairs(initialEntry.synonyms, cfg) : []);
   const [antonyms, setAntonyms] = useState(isEdit ? normalizePairs(initialEntry.antonyms, cfg) : []);
   const [error, setError] = useState("");
@@ -3729,6 +4141,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
     setSaving(true);
     await onSubmit({
       word: word.trim(), meaning: meaning.trim(), definition: definition.trim(), example: example.trim(),
+      examples: extraExamples.map((ex) => ex.trim()).filter(Boolean),
       synonyms: cleanPairs(synonyms), antonyms: cleanPairs(antonyms),
     });
     setSaving(false);
@@ -3750,6 +4163,23 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
           <textarea id="add-definition" value={definition} onChange={(e) => setDefinition(e.target.value)} placeholder="شرح إضافي أو مثال" dir="rtl" rows={3} style={{ ...inputStyle, fontFamily: "'Amiri', serif", fontSize: 15, resize: "vertical" }} />
           <label style={labelStyle} htmlFor="add-example">{tr(isAr, "Example sentence (optional)", "جملة توضيحية (اختياري)")}</label>
           <textarea id="add-example" value={example} onChange={(e) => setExample(e.target.value)} placeholder={cfg.wordPlaceholder} dir={cfg.wordDir} rows={2} style={{ ...inputStyle, fontFamily: cfg.wordFont, fontSize: 15, resize: "vertical" }} />
+          {extraExamples.map((ex, i) => (
+            <div key={i} style={{ display: "flex", gap: 6, marginTop: 6 }}>
+              <textarea value={ex} dir={cfg.wordDir} rows={2}
+                onChange={(e) => setExtraExamples((list) => list.map((v, idx) => (idx === i ? e.target.value : v)))}
+                placeholder={cfg.wordPlaceholder}
+                style={{ ...inputStyle, flex: 1, fontFamily: cfg.wordFont, fontSize: 15, resize: "vertical", marginTop: 0 }} />
+              <button type="button" onClick={() => setExtraExamples((list) => list.filter((_, idx) => idx !== i))}
+                aria-label={tr(isAr, "Remove example", "إزالة الجملة")}
+                style={{ alignSelf: "flex-start", marginTop: 4, border: "none", background: "none", color: "var(--icon-muted)", cursor: "pointer", padding: 2 }}>
+                <XIcon size={15} />
+              </button>
+            </div>
+          ))}
+          <button type="button" onClick={() => setExtraExamples((list) => [...list, ""])}
+            style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 8, border: "none", background: "none", color: cfg.accent, fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: 0 }}>
+            <PlusIcon size={12} /> {tr(isAr, "Add another example", "أضف جملة تانية")}
+          </button>
           <PairListEditor cfg={cfg} label={tr(isAr, "Synonyms (optional)", "مرادفات (اختياري)")} pairs={synonyms} onChange={setSynonyms} isAr={isAr} />
           <PairListEditor cfg={cfg} label={tr(isAr, "Antonyms (optional)", "مضادات (اختياري)")} pairs={antonyms} onChange={setAntonyms} isAr={isAr} />
           {error && <div style={errorStyle} role="alert" aria-live="assertive">{error}</div>}

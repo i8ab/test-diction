@@ -3,6 +3,9 @@
 // No React/JSX here — safe to import from any component.
 
 import { tr } from "../config/i18n";
+import { SECTIONS } from "../config/sections";
+import { normalizePairs } from "./pairUtils";
+import { levenshtein, typoBudget } from "./searchUtils";
 
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);

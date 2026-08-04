@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { tr } from "../../lib/config/i18n";
 import { FlameIcon, XIcon } from "../common/Icons";
-import { pushSupported, subscribeToPush, getPushStatus } from "../../lib/state/push";
+import { pushSupported, subscribeToPush, unsubscribeFromPush, getPushStatus } from "../../lib/state/push";
 
 /* =========================================================================
    STUDY REMINDER BANNER
@@ -97,6 +97,16 @@ export default function ReminderBanner({ studiedAt, isAr, cfg, onOpenQuiz, accou
     setSubscribing(false);
   }
 
+  async function disableReminders() {
+    setSubscribing(true);
+    try {
+      if (accountCode) await unsubscribeFromPush(accountCode);
+    } catch (e) { /* ignore — still clear the local flag below */ }
+    setRemindersOn(false);
+    try { localStorage.removeItem(REMINDER_PREF_KEY); } catch (e) {}
+    setSubscribing(false);
+  }
+
   if (!shouldShow) return null;
 
   return (
@@ -110,9 +120,13 @@ export default function ReminderBanner({ studiedAt, isAr, cfg, onOpenQuiz, accou
       <button type="button" onClick={onOpenQuiz} style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700, color: "#fff", background: cfg.accent, border: "none", borderRadius: 6, cursor: "pointer" }}>
         {tr(isAr, "Review now", "راجع دلوقتي")}
       </button>
-      {!remindersOn && (
+      {!remindersOn ? (
         <button type="button" onClick={enableReminders} disabled={subscribing} style={{ padding: "6px 12px", fontSize: 13, fontWeight: 600, color: cfg.accent, background: "none", border: `1px solid ${cfg.accent}`, borderRadius: 6, cursor: subscribing ? "default" : "pointer", opacity: subscribing ? 0.6 : 1 }}>
           {subscribing ? tr(isAr, "Enabling...", "بيتفعّل...") : tr(isAr, "Remind me daily", "ذكّرني يوميًا")}
+        </button>
+      ) : (
+        <button type="button" onClick={disableReminders} disabled={subscribing} style={{ padding: "6px 12px", fontSize: 13, fontWeight: 600, color: "var(--muted-strong)", background: "none", border: "1px solid var(--muted-strong)", borderRadius: 6, cursor: subscribing ? "default" : "pointer", opacity: subscribing ? 0.6 : 1 }}>
+          {subscribing ? tr(isAr, "Disabling...", "بيتلغي...") : tr(isAr, "Stop reminders", "وقف التذكيرات")}
         </button>
       )}
       <button type="button" onClick={dismiss} aria-label={tr(isAr, "Dismiss", "إخفاء")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 4 }}>

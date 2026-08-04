@@ -94,3 +94,43 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+
+/* =============================================================================
+   REAL WEB PUSH (arrives even when the tab/site is closed)
+   -----------------------------------------------------------------------------
+   Fired by the browser's push service when api/push-send-reminders.js (a
+   daily Vercel Cron job) sends a message to a subscription this worker
+   registered via src/lib/state/push.js. This is what actually shows the
+   OS-level notification — the JS in ReminderBanner.jsx only ever showed a
+   notification while the page itself was open.
+   ============================================================================= */
+self.addEventListener("push", (event) => {
+  let data = { title: "وقت المراجعة! / Time to review!", body: "", url: "/" };
+  try {
+    if (event.data) data = { ...data, ...event.data.json() };
+  } catch (e) {
+    // payload wasn't JSON — fall back to the defaults above
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: { url: data.url || "/" },
+    })
+  );
+});
+
+// Clicking the notification focuses an existing tab if one's open,
+// otherwise opens a new one, and closes the notification either way.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsArr) => {
+      const existing = clientsArr.find((c) => "focus" in c);
+      if (existing) return existing.focus();
+      return self.clients.openWindow(targetUrl);
+    })
+  );
+});

@@ -510,26 +510,34 @@ export default function DictionaryApp() {
   // resulting level. Best-effort: a failed save shouldn't interrupt the
   // quiz the user is in the middle of taking.
   async function handleRecordSrsAnswer(entryId, correct) {
-    const acct = accounts.find((a) => a.code === accountCode);
-    if (!acct) return;
-    const prevStats = (acct.srsStats && acct.srsStats[entryId]) || { correct: 0, total: 0 };
-    const nextStats = { correct: prevStats.correct + (correct ? 1 : 0), total: prevStats.total + 1 };
-    const nextLevel = correct ? srsLevelFromStats(nextStats) : 0; // a miss always means "re-test soon", regardless of the word's overall level
-    const nextDue = Date.now() + SRS_LEVEL_INTERVALS_MS[nextLevel];
-    const nextAccounts = accounts.map((a) => (a.code === accountCode
-      ? { ...a, srsStats: { ...(a.srsStats || {}), [entryId]: nextStats }, srsDueAt: { ...(a.srsDueAt || {}), [entryId]: nextDue } }
-      : a));
-    try { await persistAccounts(nextAccounts); } catch (e) { /* best-effort, quiz keeps going */ }
+    // Passed as a function (not a precomputed array) so persistAccounts can
+    // safely auto-retry on a version conflict, re-deriving the update from
+    // the freshest accounts each time. This matters a lot here: quiz
+    // questions fire these calls back-to-back without waiting for the
+    // previous save to finish, so consecutive calls routinely race against
+    // each other's own in-flight save — not actually a different user.
+    try {
+      await persistAccounts((curAccounts) => curAccounts.map((a) => {
+        if (a.code !== accountCode) return a;
+        const prevStats = (a.srsStats && a.srsStats[entryId]) || { correct: 0, total: 0 };
+        const nextStats = { correct: prevStats.correct + (correct ? 1 : 0), total: prevStats.total + 1 };
+        const nextLevel = correct ? srsLevelFromStats(nextStats) : 0; // a miss always means "re-test soon", regardless of the word's overall level
+        const nextDue = Date.now() + SRS_LEVEL_INTERVALS_MS[nextLevel];
+        return { ...a, srsStats: { ...(a.srsStats || {}), [entryId]: nextStats }, srsDueAt: { ...(a.srsDueAt || {}), [entryId]: nextDue } };
+      }));
+    } catch (e) { /* best-effort, quiz keeps going */ }
   }
 
   // Appends one finished quiz's summary to the account's history (for the
   // Stats panel), capped to the most recent 50 so the shared bin stays small.
   async function handleSaveQuizResult(result) {
-    const acct = accounts.find((a) => a.code === accountCode);
-    if (!acct) return;
-    const nextHistory = [...((acct.quizHistory) || []), result].slice(-50);
-    const nextAccounts = accounts.map((a) => (a.code === accountCode ? { ...a, quizHistory: nextHistory } : a));
-    try { await persistAccounts(nextAccounts); } catch (e) { /* best-effort */ }
+    try {
+      await persistAccounts((curAccounts) => curAccounts.map((a) => {
+        if (a.code !== accountCode) return a;
+        const nextHistory = [...((a.quizHistory) || []), result].slice(-50);
+        return { ...a, quizHistory: nextHistory };
+      }));
+    } catch (e) { /* best-effort */ }
   }
 
   async function handleSignup(e) {

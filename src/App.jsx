@@ -1,17 +1,17 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { tr } from "./lib/i18n";
-import { fetchRecord, saveRecord, SaveConflictError } from "./lib/cloudApi";
+import { tr } from "./lib/config/i18n";
+import { fetchRecord, saveRecord, SaveConflictError } from "./lib/state/cloudApi";
 import {
   loadSavedAccent, saveAccent, applyAccentTheme, ACCENT_THEMES, THEME_KEY,
   loadSearchHistory, saveSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory,
   saveOfflineCache, loadOfflineCache, loadSavedTheme, savePersonalCode, loadPersonalCode, clearPersonalCode,
   generatePersonalCode, detectDeviceIsAr, hasInviteParam,
-} from "./lib/storage";
-import { SRS_LEVEL_INTERVALS_MS, srsLevelFromStats } from "./lib/quizHelpers";
-import { capLogs, makeLogEntry } from "./lib/logs";
-import { LoaderIcon } from "./components/Icons";
-import { Shell } from "./components/Shell";
-import AuthScreens from "./components/AuthScreens";
+} from "./lib/state/storage";
+import { SRS_LEVEL_INTERVALS_MS, srsLevelFromStats } from "./lib/utils/quizHelpers";
+import { capLogs, makeLogEntry } from "./lib/state/logs";
+import { LoaderIcon } from "./components/common/Icons";
+import { Shell } from "./components/layout/Shell";
+import AuthScreens from "./components/auth/AuthScreens";
 import MainView from "./components/MainView";
 
 const deviceIsAr = detectDeviceIsAr();

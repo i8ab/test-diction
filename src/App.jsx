@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { tr } from "./lib/i18n";
 import { INK, PAPER, CARD, BRASS, labelStyle, inputStyle, errorStyle } from "./lib/theme";
-import { speakWord } from "./lib/speech";
+import { speakWord, getSpeechRecognitionCtor, recognizeSpeech } from "./lib/speech";
 import {
-  uid, srsLevelFromStats,
+  uid, srsLevelFromStats, SRS_LEVEL_INTERVALS_MS,
 } from "./lib/quizHelpers";
 import {
   SearchIcon, PlusIcon, BookIcon, XIcon, TrashIcon, LoaderIcon, LoginIcon, KeyIcon,

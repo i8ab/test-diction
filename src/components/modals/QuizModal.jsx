@@ -3,7 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
 import {
   uid, quizRangeStart, selectQuizEntries, isTypingCorrect, buildQuiz,
-  quizQuestionLabel, isSrsDue, quizResultCategory, formatQuizDuration,
+  quizQuestionLabel, isSrsDue, quizResultCategory, QUIZ_RESULT_CATEGORIES, formatQuizDuration,
 } from "../../lib/utils/quizHelpers";
 import { SpeakButton, XIcon, CheckIcon, EyeIcon, QuizIcon } from "../common/Icons";
 

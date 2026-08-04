@@ -17,6 +17,7 @@ import EntryCard from "./common/EntryCard";
 import HeaderMenu from "./layout/HeaderMenu";
 import ToolsMenu from "./layout/ToolsMenu";
 import ReminderBanner from "./layout/ReminderBanner";
+import WordOfTheDay from "./layout/WordOfTheDay";
 import EmptyState from "./layout/EmptyState";
 
 // These are only ever rendered behind a boolean flag (showQuiz, showAdd,
@@ -89,6 +90,7 @@ export default function MainView({
   const [editingEntry, setEditingEntry] = useState(null);
   const [zoomEntry, setZoomEntry] = useState(null);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [quizDueOnly, setQuizDueOnly] = useState(false);
   const [showFlashcards, setShowFlashcards] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -547,7 +549,8 @@ export default function MainView({
             </button>
           </div>
         )}
-        <ReminderBanner studiedAt={studiedAt} isAr={isAr} cfg={cfg} onOpenQuiz={() => setShowQuiz(true)} />
+        <WordOfTheDay entries={sectionEntries} section={section} cfg={cfg} isAr={isAr} onOpenZoom={(id) => setZoomEntry(sectionEntries.find((e) => e.id === id) || null)} />
+        <ReminderBanner studiedAt={studiedAt} isAr={isAr} cfg={cfg} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />
         <div style={{ marginTop: 12, background: CARD, border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 10, padding: "12px 14px" }}>
           <div dir={isAr ? "rtl" : "ltr"} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 700, color: INK }}>
@@ -679,7 +682,8 @@ export default function MainView({
             srsDueAt={srsDueAt}
             sessionStart={sessionStart}
             isAr={isAr}
-            onClose={() => setShowQuiz(false)}
+            initialDueOnly={quizDueOnly}
+            onClose={() => { setShowQuiz(false); setQuizDueOnly(false); }}
             onRecordSrsAnswer={onRecordSrsAnswer}
             onSaveQuizResult={onSaveQuizResult}
           />

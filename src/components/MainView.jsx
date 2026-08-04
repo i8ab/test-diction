@@ -12,6 +12,7 @@ import { normalizePairs } from "../lib/pairUtils";
 import { parseCsv, exportEntriesAsCsv } from "../lib/csvUtils";
 import { makeLogEntry } from "../lib/logs";
 import { SECTIONS } from "../lib/sections";
+import { loadSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory } from "../lib/storage";
 import QuizModal from "./QuizModal";
 import StatsModal from "./StatsModal";
 import LeaderboardModal from "./LeaderboardModal";

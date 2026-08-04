@@ -17,6 +17,7 @@ import EntryCard from "./common/EntryCard";
 import HeaderMenu from "./layout/HeaderMenu";
 import ToolsMenu from "./layout/ToolsMenu";
 import ReminderBanner from "./layout/ReminderBanner";
+import BackupReminderBanner from "./layout/BackupReminderBanner";
 import WordOfTheDay from "./layout/WordOfTheDay";
 import EmptyState from "./layout/EmptyState";
 
@@ -551,6 +552,7 @@ export default function MainView({
         )}
         <WordOfTheDay entries={sectionEntries} section={section} cfg={cfg} isAr={isAr} onOpenZoom={(id) => setZoomEntry(sectionEntries.find((e) => e.id === id) || null)} />
         <ReminderBanner studiedAt={studiedAt} isAr={isAr} cfg={cfg} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />
+        {isAdmin && <BackupReminderBanner isAr={isAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
         <div style={{ marginTop: 12, background: CARD, border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 10, padding: "12px 14px" }}>
           <div dir={isAr ? "rtl" : "ltr"} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 700, color: INK }}>
@@ -736,6 +738,7 @@ export default function MainView({
         {showAdmin && (
           <AdminModal
             accounts={accounts}
+            entries={entries}
             myAccountCode={accountCode}
             logs={logs}
             onClearLogs={onClearLogs}

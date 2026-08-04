@@ -139,4 +139,39 @@ function speakWord(text, dir) {
   else speakEnglish(text);
 }
 
-export { waitForVoices, findArabicVoice, playOnlineArabic, speakArabic, speakEnglish, getSpeechRecognitionCtor, recognizeSpeech, speakWord };
+/* =========================================================================
+   PRONUNCIATION PRACTICE
+   -------------------------------------------------------------------------
+   Records one utterance via the same SpeechRecognition API used for voice
+   search, then grades how close it was to the target word using the same
+   fuzzy typo-distance logic the quiz's typing mode already relies on
+   (normalizeForTyping + levenshtein). Returns a 0-100 score instead of a
+   hard pass/fail so the UI can show a graded result rather than just
+   right/wrong.
+   ========================================================================= */
+import { levenshtein } from "./searchUtils";
+
+function normalizeForCompare(s) {
+  return (s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\u064B-\u065F\u0670]/g, ""); // strip Arabic diacritics
+}
+
+// Scores a spoken attempt against the target word: 100 = exact match,
+// scaling down with edit distance relative to the word's length, floored
+// at 0. `lang` is a BCP-47 tag ("ar-EG"/"en-US"), matching recognizeSpeech.
+async function scorePronunciation(targetWord, lang) {
+  const transcript = await recognizeSpeech(lang);
+  const target = normalizeForCompare(targetWord);
+  const said = normalizeForCompare(transcript);
+  if (!target) return { transcript, score: 0, passed: false };
+  const dist = levenshtein(said, target);
+  const score = Math.max(0, Math.round((1 - dist / Math.max(target.length, said.length, 1)) * 100));
+  return { transcript, score, passed: score >= 75 };
+}
+
+export {
+  waitForVoices, findArabicVoice, playOnlineArabic, speakArabic, speakEnglish,
+  getSpeechRecognitionCtor, recognizeSpeech, speakWord, scorePronunciation,
+};

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { tr } from "./lib/i18n";
 import { fetchRecord, saveRecord, SaveConflictError } from "./lib/cloudApi";
 import {

@@ -11,28 +11,34 @@
 // After adding/changing the env var you must redeploy for it to take effect.
 //
 // ---------------------------------------------------------------------------
-// RATE LIMITING — what this does and doesn't guarantee
+// RATE LIMITING — durable when configured, in-memory otherwise
 // ---------------------------------------------------------------------------
-// Attempts are tracked in memory, per serverless instance: up to
-// MAX_ATTEMPTS wrong codes from the same IP within WINDOW_MS get a 429
-// with a "try again in Ns" message; every failed attempt also gets a small
-// artificial delay to slow down scripted guessing.
+// Two backends, picked automatically:
 //
-// The honest caveat: Vercel functions run across multiple instances and
-// restart on cold starts, so this in-memory counter is a soft deterrent,
-// not a hard guarantee — a distributed or very patient attacker can still
-// get more than MAX_ATTEMPTS guesses in across different instances. For a
-// small shared-code login like this it meaningfully raises the bar (a
-// single script hammering the endpoint gets slowed to a crawl); it's not
-// bank-grade. If you ever want durable, instance-independent limiting,
-// swap the Map below for a small Vercel KV / Upstash Redis counter — same
-// logic, just backed by a real store instead of process memory.
+// 1. DURABLE (preferred) — if UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
+//    are set (a free Upstash Redis database gives you both), attempt counts
+//    are stored there via plain `fetch` calls to Upstash's REST API — no npm
+//    package needed. This survives cold starts and is shared correctly
+//    across every Vercel serverless instance, so the limit is a real,
+//    instance-independent guarantee.
+//
+//    To enable: create a free database at https://upstash.com (Redis),
+//    copy its REST URL + token into Vercel's env vars under those exact
+//    names, redeploy. Nothing else changes.
+//
+// 2. IN-MEMORY (fallback) — if those env vars aren't set, attempts are
+//    tracked in a plain Map per serverless instance instead. Vercel
+//    functions run across multiple instances and restart on cold starts, so
+//    this is a soft deterrent, not a hard guarantee — a distributed or very
+//    patient attacker can still get more than MAX_ATTEMPTS guesses in
+//    across different instances. It still meaningfully raises the bar for
+//    casual scripted guessing; it's just not bank-grade on its own.
 
 const WINDOW_MS = 60 * 1000; // 1 minute
 const MAX_ATTEMPTS = 5;      // wrong codes allowed per IP per window
 const FAIL_DELAY_MS = 400;   // slows down scripted guessing a bit further
 
-const attempts = new Map(); // ip -> { count, windowStart }
+const attempts = new Map(); // ip -> { count, windowStart }  (in-memory fallback)
 
 function getClientIp(req) {
   const fwd = req.headers["x-forwarded-for"];
@@ -52,6 +58,41 @@ function pruneStale(now) {
   }
 }
 
+function redisConfigured() {
+  return !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+}
+
+// Minimal Upstash REST helper — sends one command per call as a path
+// segment array, per https://upstash.com/docs/redis/features/restapi.
+async function redisCommand(...args) {
+  const { UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN } = process.env;
+  const url = `${UPSTASH_REDIS_REST_URL}/${args.map(encodeURIComponent).join("/")}`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${UPSTASH_REDIS_REST_TOKEN}` } });
+  if (!r.ok) throw new Error(`Upstash error ${r.status}`);
+  const data = await r.json();
+  return data.result;
+}
+
+// Returns { blocked, retryAfterSec } using an atomic INCR + EXPIRE-if-new
+// so concurrent requests from the same IP can't race past the limit.
+async function checkAndBumpDurable(ip) {
+  const key = `twoTongues:loginAttempts:${ip}`;
+  const count = await redisCommand("INCR", key);
+  if (count === 1) {
+    // First failure in a fresh window — set the window to expire on its own.
+    await redisCommand("EXPIRE", key, String(Math.ceil(WINDOW_MS / 1000)));
+  }
+  if (count > MAX_ATTEMPTS) {
+    const ttl = await redisCommand("TTL", key);
+    return { blocked: true, retryAfterSec: ttl && ttl > 0 ? ttl : Math.ceil(WINDOW_MS / 1000) };
+  }
+  return { blocked: false };
+}
+
+async function clearDurable(ip) {
+  await redisCommand("DEL", `twoTongues:loginAttempts:${ip}`).catch(() => {});
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -65,32 +106,50 @@ export default async function handler(req, res) {
 
   const ip = getClientIp(req);
   const now = Date.now();
-  pruneStale(now);
-
-  const entry = attempts.get(ip);
-  if (entry && now - entry.windowStart < WINDOW_MS) {
-    if (entry.count >= MAX_ATTEMPTS) {
-      const retryAfterSec = Math.ceil((entry.windowStart + WINDOW_MS - now) / 1000);
-      res.setHeader("Retry-After", String(retryAfterSec));
-      return res.status(429).json({
-        ok: false,
-        error: `Too many attempts — try again in ${retryAfterSec}s.`,
-      });
-    }
-  } else {
-    attempts.set(ip, { count: 0, windowStart: now });
-  }
+  const durable = redisConfigured();
 
   let body = req.body;
   if (typeof body === "string") {
     try { body = JSON.parse(body); } catch (e) { body = null; }
   }
   const submitted = body && typeof body.code === "string" ? body.code.trim().toLowerCase() : "";
-
   const ok = submitted.length > 0 && submitted === ACCESS_CODE.trim().toLowerCase();
 
+  if (durable) {
+    try {
+      if (ok) {
+        await clearDurable(ip);
+        return res.status(200).json({ ok: true });
+      }
+      const { blocked, retryAfterSec } = await checkAndBumpDurable(ip);
+      if (blocked) {
+        res.setHeader("Retry-After", String(retryAfterSec));
+        return res.status(429).json({ ok: false, error: `Too many attempts — try again in ${retryAfterSec}s.` });
+      }
+      await sleep(FAIL_DELAY_MS);
+      return res.status(200).json({ ok: false });
+    } catch (e) {
+      // Upstash unreachable — don't lock users out entirely; fall through
+      // to the in-memory path below as a best-effort backstop for this
+      // request instead of failing closed.
+    }
+  }
+
+  // --- in-memory fallback (also used if the durable path threw above) ---
+  pruneStale(now);
+  const entry = attempts.get(ip);
+  if (entry && now - entry.windowStart < WINDOW_MS) {
+    if (entry.count >= MAX_ATTEMPTS) {
+      const retryAfterSec = Math.ceil((entry.windowStart + WINDOW_MS - now) / 1000);
+      res.setHeader("Retry-After", String(retryAfterSec));
+      return res.status(429).json({ ok: false, error: `Too many attempts — try again in ${retryAfterSec}s.` });
+    }
+  } else {
+    attempts.set(ip, { count: 0, windowStart: now });
+  }
+
   if (ok) {
-    attempts.delete(ip); // successful login clears this IP's count
+    attempts.delete(ip);
     return res.status(200).json({ ok: true });
   }
 
@@ -98,6 +157,6 @@ export default async function handler(req, res) {
   current.count += 1;
   attempts.set(ip, current);
 
-  await sleep(FAIL_DELAY_MS); // throttle failed guesses a little further
+  await sleep(FAIL_DELAY_MS);
   return res.status(200).json({ ok: false });
 }

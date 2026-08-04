@@ -9,6 +9,30 @@
 //   JSONBIN_MASTER_KEY your JSONBin X-Master-Key
 //
 // After adding/changing env vars you must redeploy for them to take effect.
+//
+// ---------------------------------------------------------------------------
+// CONCURRENCY — optimistic locking with a `version` counter
+// ---------------------------------------------------------------------------
+// The whole dictionary (entries + accounts + logs) lives in a single
+// JSONBin record, so without any guard, two people saving around the same
+// moment could silently clobber each other: A reads, B reads, B writes, A
+// writes — A's write overwrites B's change with no warning ("last write
+// wins"). To catch that instead of silently losing data:
+//   - Every record carries a `version` integer, bumped by 1 on every PUT.
+//   - The client must send back the `version` it last read as
+//     `expectedVersion`.
+//   - Right before writing, the server re-fetches the CURRENT record from
+//     JSONBin and compares its version against `expectedVersion`. If they
+//     don't match, someone else saved in between — reject with 409 and hand
+//     back the fresh record so the client can show a "reload / merge"
+//     message instead of destroying that change.
+// Honest caveat: this closes the common case, but the read-compare-write
+// here still isn't a true atomic transaction (JSONBin has no built-in
+// compare-and-swap), so a write landing in the handful of milliseconds
+// between our re-fetch and our PUT could still race. For a small shared
+// app like this, that's an acceptable residual risk; a proper database
+// (e.g. Postgres with a real transaction, or Vercel KV) would remove it
+// completely if this ever needs to be airtight.
 
 export default async function handler(req, res) {
   const { JSONBIN_BIN_ID, JSONBIN_MASTER_KEY } = process.env;
@@ -38,6 +62,7 @@ export default async function handler(req, res) {
         entries: (data.record && data.record.entries) || [],
         accounts: (data.record && data.record.accounts) || [],
         logs: (data.record && data.record.logs) || [],
+        version: (data.record && data.record.version) || 0,
       });
     }
 
@@ -51,14 +76,42 @@ export default async function handler(req, res) {
       if (!body || typeof body !== "object") {
         return res.status(400).json({ error: "Invalid body" });
       }
+      if (typeof body.expectedVersion !== "number") {
+        return res.status(400).json({ error: "Missing expectedVersion — client must send the version it last read." });
+      }
 
+      // Re-fetch the freshest copy right before writing (no-cache, bypassing
+      // the CDN) so the version check is against the true current state,
+      // not a stale edge-cached response from up to ~10s ago.
+      const freshRes = await fetch(`${API_BASE}/latest`, {
+        headers: { "X-Master-Key": JSONBIN_MASTER_KEY },
+      });
+      if (!freshRes.ok) return res.status(502).json({ error: "Upstream fetch failed" });
+      const freshData = await freshRes.json();
+      const currentVersion = (freshData.record && freshData.record.version) || 0;
+
+      if (currentVersion !== body.expectedVersion) {
+        // Someone else saved since the client last read — refuse the write
+        // instead of overwriting their change, and hand back the current
+        // record so the client can refresh/retry against it.
+        return res.status(409).json({
+          error: "conflict",
+          message: "The dictionary changed since you last loaded it.",
+          entries: (freshData.record && freshData.record.entries) || [],
+          accounts: (freshData.record && freshData.record.accounts) || [],
+          logs: (freshData.record && freshData.record.logs) || [],
+          version: currentVersion,
+        });
+      }
+
+      const nextVersion = currentVersion + 1;
       const r = await fetch(API_BASE, {
         method: "PUT",
         headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_MASTER_KEY },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ entries: body.entries, accounts: body.accounts, logs: body.logs, version: nextVersion }),
       });
       if (!r.ok) return res.status(502).json({ error: "Upstream save failed" });
-      return res.status(200).json({ ok: true });
+      return res.status(200).json({ ok: true, version: nextVersion });
     }
 
     res.setHeader("Allow", "GET, PUT");

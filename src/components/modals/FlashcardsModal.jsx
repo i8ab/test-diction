@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { tr } from "../../lib/config/i18n";
-import { INK, CARD, BRASS, labelStyle } from "../../lib/config/theme";
+import { INK, CARD, BRASS, labelStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { shuffleArray } from "../../lib/utils/quizHelpers";
 import { XIcon, LayersIcon } from "../common/Icons";
 

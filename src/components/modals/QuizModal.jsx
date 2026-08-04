@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { tr } from "../../lib/config/i18n";
-import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle } from "../../lib/config/theme";
+import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
 import {
   uid, quizRangeStart, selectQuizEntries, isTypingCorrect, buildQuiz,
   quizQuestionLabel, isSrsDue, quizResultCategory, formatQuizDuration,

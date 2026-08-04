@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import DictionaryApp from "./App.jsx";
-import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import ErrorBoundary from "./components/layout/ErrorBoundary.jsx";
 import "./index.css";
 
 // ---------------------------------------------------------------------------

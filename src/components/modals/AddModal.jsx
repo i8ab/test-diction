@@ -3,8 +3,10 @@ import { useState, useEffect } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { normalizePairs } from "../../lib/utils/pairUtils";
+import { uid } from "../../lib/utils/quizHelpers";
+import { fetchDictionarySuggestion, DictionaryLookupError } from "../../lib/utils/dictionaryApi";
 import { PairListEditor } from "../common/PairList";
-import { PlusIcon, XIcon, CheckIcon, LoaderIcon } from "../common/Icons";
+import { PlusIcon, XIcon, CheckIcon, LoaderIcon, WandIcon } from "../common/Icons";
 
 function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
   const isAr = cfg.dir === "rtl";
@@ -18,6 +20,44 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
   const [antonyms, setAntonyms] = useState(isEdit ? normalizePairs(initialEntry.antonyms, cfg) : []);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // "Fetch from dictionary" only makes sense for English words (there's no
+  // free API for Arabic definitions), and only fills fields the user
+  // hasn't already written something into.
+  const canAutoSuggest = cfg.wordDir === "ltr";
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState("");
+
+  async function handleAutoSuggest() {
+    if (!word.trim() || suggesting) return;
+    setSuggesting(true);
+    setSuggestError("");
+    try {
+      const result = await fetchDictionarySuggestion(word);
+      if (!definition.trim() && result.definition) setDefinition(result.definition);
+      if (!example.trim() && result.example) setExample(result.example);
+      if (result.synonyms.length) {
+        setSynonyms((list) => {
+          const existing = new Set(list.map((p) => p.word.trim().toLowerCase()).filter(Boolean));
+          const additions = result.synonyms
+            .filter((s) => !existing.has(s.toLowerCase()))
+            .map((s) => ({ id: uid(), word: s, meaning: "" }));
+          return additions.length ? [...list, ...additions] : list;
+        });
+      }
+      if (!result.definition && !result.example && !result.synonyms.length) {
+        setSuggestError(tr(isAr, "No extra details found for that word.", "معرفتش ألاقي تفاصيل إضافية للكلمة دي."));
+      }
+    } catch (e) {
+      if (e instanceof DictionaryLookupError && e.message === "not_found") {
+        setSuggestError(tr(isAr, "That word isn't in the dictionary lookup.", "الكلمة دي مش موجودة في القاموس الخارجي."));
+      } else {
+        setSuggestError(tr(isAr, "Couldn't reach the dictionary lookup — check your connection.", "تعذر الوصول للقاموس الخارجي — تحقق من اتصالك."));
+      }
+    } finally {
+      setSuggesting(false);
+    }
+  }
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -54,7 +94,18 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
         </div>
         <form onSubmit={handleSubmit} style={{ marginTop: 14 }}>
           <label style={labelStyle} htmlFor="add-word">{tr(isAr, "Word *", "الكلمة *")}</label>
-          <input id="add-word" value={word} onChange={(e) => setWord(e.target.value)} placeholder={cfg.wordPlaceholder} dir={cfg.wordDir} style={{ ...inputStyle, fontFamily: cfg.wordFont, fontSize: 16 }} autoFocus />
+          <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+            <input id="add-word" value={word} onChange={(e) => setWord(e.target.value)} placeholder={cfg.wordPlaceholder} dir={cfg.wordDir} style={{ ...inputStyle, flex: 1, fontFamily: cfg.wordFont, fontSize: 16 }} autoFocus />
+            {canAutoSuggest && (
+              <button type="button" onClick={handleAutoSuggest} disabled={!word.trim() || suggesting}
+                title={tr(isAr, "Fetch definition/example from dictionary", "جلب التعريف والمثال من القاموس")}
+                style={{ display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", padding: "10px 12px", fontSize: 12.5, fontWeight: 700, color: cfg.accent, background: cfg.accentSoft, border: "none", borderRadius: 3, cursor: !word.trim() || suggesting ? "default" : "pointer", opacity: !word.trim() ? 0.6 : 1 }}>
+                {suggesting ? <LoaderIcon size={14} /> : <WandIcon size={14} />}
+                {tr(isAr, "Auto-fill", "تعبئة تلقائية")}
+              </button>
+            )}
+          </div>
+          {suggestError && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{suggestError}</div>}
           <label style={labelStyle} htmlFor="add-meaning">{tr(isAr, "Meaning *", "المعنى *")}</label>
           <input id="add-meaning" value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder={cfg.meaningPlaceholder} dir={cfg.meaningDir} style={{ ...inputStyle, fontFamily: cfg.meaningFont, fontSize: 16 }} />
           <label style={labelStyle} htmlFor="add-definition">{tr(isAr, "Definition (optional)", "تعريف (اختياري)")}</label>

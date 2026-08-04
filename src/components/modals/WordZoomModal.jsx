@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD } from "../../lib/config/theme";
 import { cambridgeUrl, shareWordCard } from "../../lib/utils/wordCard";
 import { detectDir, detectFont } from "../../lib/utils/searchUtils";
-import { LoaderIcon, ShareIcon, SpeakButton, XIcon } from "../common/Icons";
+import { getSpeechRecognitionCtor, scorePronunciation } from "../../lib/utils/speech";
+import { LoaderIcon, ShareIcon, SpeakButton, XIcon, MicIcon } from "../common/Icons";
 import { PairListDisplay } from "../common/PairList";
 
 // Big, centered "zoom" view of a single word — just the word and its meaning
@@ -11,6 +12,33 @@ import { PairListDisplay } from "../common/PairList";
 // icon on each entry card.
 export default function WordZoomModal({ entry, cfg, onClose }) {
   const [sharing, setSharing] = useState(false);
+  const isAr = cfg.dir === "rtl";
+
+  // Pronunciation practice: record one attempt via the browser's speech
+  // recognition and grade it against the target word (see
+  // scorePronunciation in lib/utils/speech.js). Hidden entirely when the
+  // browser has no SpeechRecognition support.
+  const speechSupported = useMemo(() => !!getSpeechRecognitionCtor(), []);
+  const [listening, setListening] = useState(false);
+  const [pronResult, setPronResult] = useState(null); // { transcript, score, passed } | null
+  const [pronError, setPronError] = useState("");
+
+  async function handlePracticePronunciation() {
+    if (listening) return;
+    setListening(true);
+    setPronError("");
+    setPronResult(null);
+    try {
+      const lang = cfg.wordDir === "rtl" ? "ar-EG" : "en-US";
+      const result = await scorePronunciation(entry.word, lang);
+      setPronResult(result);
+    } catch (e) {
+      setPronError(tr(isAr, "Didn't catch that — try again.", "معرفتش أسمع صح — جرّب تاني."));
+    } finally {
+      setListening(false);
+    }
+  }
+
   useEffect(() => {
     function onKeyDown(e) { if (e.key === "Escape") onClose(); }
     document.addEventListener("keydown", onKeyDown);
@@ -48,6 +76,24 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
           </div>
           <SpeakButton text={entry.meaning} dir={cfg.meaningDir} isAr={cfg.dir === "rtl"} size={20} style={{ color: "var(--meaning)", flexShrink: 0 }} />
         </div>
+        {speechSupported && (
+          <div style={{ marginTop: 18 }}>
+            <button type="button" onClick={handlePracticePronunciation} disabled={listening}
+              style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 16px", fontSize: 13, fontWeight: 700, color: "#fff", background: listening ? "var(--muted)" : cfg.accent, border: "none", borderRadius: 20, cursor: listening ? "default" : "pointer" }}>
+              <MicIcon size={14} />
+              {listening ? tr(isAr, "Listening…", "بسمع دلوقتي…") : tr(isAr, "Practice pronunciation", "تمرين النطق")}
+            </button>
+            {pronResult && (
+              <div style={{ marginTop: 10, fontSize: 13, color: pronResult.passed ? "var(--success)" : "var(--muted-strong)" }}>
+                {tr(isAr, `You said "${pronResult.transcript}" — ${pronResult.score}% match`, `قلت "${pronResult.transcript}" — تطابق ${pronResult.score}%`)}
+                {pronResult.passed
+                  ? ` ✓ ${tr(isAr, "Nice!", "تمام!")}`
+                  : ` — ${tr(isAr, "try again for a closer match.", "جرّب تاني عشان تقرّب أكتر.")}`}
+              </div>
+            )}
+            {pronError && <div style={{ marginTop: 10, fontSize: 13, color: "var(--muted)" }}>{pronError}</div>}
+          </div>
+        )}
         {cfg.wordDir === "ltr" && (
           <a
             href={cambridgeUrl(entry.word)}

@@ -7,7 +7,7 @@ import {
   saveOfflineCache, loadOfflineCache, loadSavedTheme, savePersonalCode, loadPersonalCode, clearPersonalCode,
   generatePersonalCode, detectDeviceIsAr, hasInviteParam,
 } from "./lib/storage";
-import { SRS_LEVEL_INTERVALS_MS } from "./lib/quizHelpers";
+import { SRS_LEVEL_INTERVALS_MS, srsLevelFromStats } from "./lib/quizHelpers";
 import { capLogs, makeLogEntry } from "./lib/logs";
 import { LoaderIcon } from "./components/Icons";
 import { Shell } from "./components/Shell";

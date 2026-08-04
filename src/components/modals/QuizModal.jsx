@@ -22,11 +22,16 @@ function ReviewRow({ item, isAr }) {
   );
 }
 
-function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, sessionStart, isAr, onClose, onRecordSrsAnswer, onSaveQuizResult }) {
-  const [rangeKey, setRangeKey] = useState("60");
+function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, sessionStart, isAr, onClose, onRecordSrsAnswer, onSaveQuizResult, initialDueOnly }) {
+  // "Daily review" entry points (the reminder banner's "Review now", the
+  // due-count stat) jump straight into a due-only quiz spanning every
+  // studied word, not just whatever the last-used time range happened to
+  // be — so default the range wide open whenever we're asked to start
+  // due-only, instead of the usual "last hour" default.
+  const [rangeKey, setRangeKey] = useState(initialDueOnly ? "all" : "60");
   const [customMinutes, setCustomMinutes] = useState("120");
   const [mode, setMode] = useState("mcq"); // mcq | typing
-  const [dueOnly, setDueOnly] = useState(false);
+  const [dueOnly, setDueOnly] = useState(!!initialDueOnly);
   const [stage, setStage] = useState("setup"); // setup | running | done
   const [startError, setStartError] = useState("");
   const [questions, setQuestions] = useState([]);

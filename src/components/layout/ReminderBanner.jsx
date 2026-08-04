@@ -1,15 +1,19 @@
 import { useState, useEffect, useMemo } from "react";
 import { tr } from "../../lib/config/i18n";
 import { FlameIcon, XIcon } from "../common/Icons";
+import { pushSupported, subscribeToPush, getPushStatus } from "../../lib/state/push";
 
 /* =========================================================================
    STUDY REMINDER BANNER
    -------------------------------------------------------------------------
    Shown above the entry list once it's been a day+ since the person last
-   studied. Can optionally opt in to a local (in-app only) browser
-   notification once per day. Everything here is derived from data already
-   loaded client-side (per-entry `studiedAt` timestamps) — no extra
-   network calls or stored fields.
+   studied. "Remind me daily" now registers a REAL push subscription
+   (src/lib/state/push.js + api/push-send-reminders.js's daily cron) that
+   reaches the person even if the site/tab is closed — not just the old
+   in-app-only Notification, which only ever fired while this component
+   itself was mounted and on-screen. If push isn't supported (or the VAPID
+   key isn't configured), this quietly falls back to the old local-only
+   notification so the banner still works everywhere.
    ========================================================================= */
 const REMINDER_PREF_KEY = "twoTongues.remindersEnabled";
 const REMINDER_DISMISS_KEY = "twoTongues.reminderDismissedOn";
@@ -20,13 +24,26 @@ function todayKey() {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-export default function ReminderBanner({ studiedAt, isAr, cfg, onOpenQuiz }) {
+export default function ReminderBanner({ studiedAt, isAr, cfg, onOpenQuiz, accountCode }) {
   const [dismissed, setDismissed] = useState(() => {
     try { return localStorage.getItem(REMINDER_DISMISS_KEY) === todayKey(); } catch (e) { return false; }
   });
   const [remindersOn, setRemindersOn] = useState(() => {
     try { return localStorage.getItem(REMINDER_PREF_KEY) === "1"; } catch (e) { return false; }
   });
+  const [subscribing, setSubscribing] = useState(false);
+
+  // On mount, if the user previously opted in AND the browser's push
+  // permission is still granted but somehow lost its subscription (e.g.
+  // cleared site data), re-subscribe quietly so reminders keep working.
+  useEffect(() => {
+    (async () => {
+      if (!remindersOn || !accountCode || !pushSupported()) return;
+      const status = await getPushStatus();
+      if (status === "granted") await subscribeToPush(accountCode);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const lastStudied = useMemo(() => {
     const values = Object.values(studiedAt || {});
@@ -37,9 +54,14 @@ export default function ReminderBanner({ studiedAt, isAr, cfg, onOpenQuiz }) {
   const shouldShow = daysSince !== null && daysSince >= 1 && !dismissed;
 
   // Fire a soft, local notification (only while the app is open) once per
-  // day if the person has opted in and it's been a day+ since they studied.
+  // day if the person has opted in, it's been a day+ since they studied,
+  // AND real push isn't set up (server-side cron handles that case instead
+  // — firing both would double-notify). This is the fallback for when
+  // push is unsupported/unconfigured; while the app happens to be open,
+  // it still nudges the person.
   useEffect(() => {
     if (!remindersOn || daysSince === null || daysSince < 1) return;
+    if (pushSupported()) return; // real push (server cron) owns notifying in this case
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     try {
       if (localStorage.getItem(REMINDER_NOTIFIED_KEY) === todayKey()) return;
@@ -56,14 +78,23 @@ export default function ReminderBanner({ studiedAt, isAr, cfg, onOpenQuiz }) {
   }
 
   async function enableReminders() {
+    setSubscribing(true);
     try {
-      if (typeof Notification !== "undefined" && Notification.permission !== "granted") {
+      if (pushSupported() && accountCode) {
+        // Real push: reaches the person even with the site closed. Handles
+        // its own permission prompt.
+        const result = await subscribeToPush(accountCode);
+        if (!result.ok) { setSubscribing(false); return; }
+      } else if (typeof Notification !== "undefined" && Notification.permission !== "granted") {
+        // Fallback: old local-only notification (VAPID key missing, or
+        // browser doesn't support Push API at all — e.g. some iOS versions).
         const perm = await Notification.requestPermission();
-        if (perm !== "granted") return;
+        if (perm !== "granted") { setSubscribing(false); return; }
       }
       setRemindersOn(true);
       localStorage.setItem(REMINDER_PREF_KEY, "1");
-    } catch (e) { /* Notification API not available — the in-app banner still works */ }
+    } catch (e) { /* ignore — the in-app banner still works either way */ }
+    setSubscribing(false);
   }
 
   if (!shouldShow) return null;
@@ -80,8 +111,8 @@ export default function ReminderBanner({ studiedAt, isAr, cfg, onOpenQuiz }) {
         {tr(isAr, "Review now", "راجع دلوقتي")}
       </button>
       {!remindersOn && (
-        <button type="button" onClick={enableReminders} style={{ padding: "6px 12px", fontSize: 13, fontWeight: 600, color: cfg.accent, background: "none", border: `1px solid ${cfg.accent}`, borderRadius: 6, cursor: "pointer" }}>
-          {tr(isAr, "Remind me daily", "ذكّرني يوميًا")}
+        <button type="button" onClick={enableReminders} disabled={subscribing} style={{ padding: "6px 12px", fontSize: 13, fontWeight: 600, color: cfg.accent, background: "none", border: `1px solid ${cfg.accent}`, borderRadius: 6, cursor: subscribing ? "default" : "pointer", opacity: subscribing ? 0.6 : 1 }}>
+          {subscribing ? tr(isAr, "Enabling...", "بيتفعّل...") : tr(isAr, "Remind me daily", "ذكّرني يوميًا")}
         </button>
       )}
       <button type="button" onClick={dismiss} aria-label={tr(isAr, "Dismiss", "إخفاء")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 4 }}>

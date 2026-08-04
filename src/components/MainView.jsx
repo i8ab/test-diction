@@ -36,7 +36,7 @@ const WordZoomModal = lazy(() => import("./modals/WordZoomModal"));
 export default function MainView({
   name, isAdmin, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
   showAdd, onOpenAdd, onCloseAdd, persistEntries, saveError, onLogout,
-  accounts, accountCode, logs, studiedIds, studiedAt, onToggleStudied, favoriteIds, onToggleFavorite, showAccount, onOpenAccount, onCloseAccount, onUpdateOwnName,
+  accounts, accountCode, logs, onClearLogs, studiedIds, studiedAt, onToggleStudied, favoriteIds, onToggleFavorite, showAccount, onOpenAccount, onCloseAccount, onUpdateOwnName,
   srsBox, srsDueAt, quizHistory, onRecordSrsAnswer, onSaveQuizResult,
   showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount,
   toast, showToast, theme, onToggleTheme, accentTheme, onChangeAccent,
@@ -734,6 +734,7 @@ export default function MainView({
             accounts={accounts}
             myAccountCode={accountCode}
             logs={logs}
+            onClearLogs={onClearLogs}
             onClose={onCloseAdmin}
             onAdd={onAdminAddAccount}
             onEdit={onAdminEditAccount}

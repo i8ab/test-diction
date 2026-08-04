@@ -52,6 +52,7 @@ const MicIcon = (p) => <Icon {...p} path={<><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0
 const PaletteIcon = (p) => <Icon {...p} path={<><path d="M12 2a10 10 0 1 0 0 20 2.5 2.5 0 0 0 2-4 2 2 0 0 1 2-2h1a3 3 0 0 0 3-3c0-6-3.5-11-8-11Z"/><circle cx="7" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="10" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="14" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="17" cy="10" r="1.2" fill="currentColor" stroke="none"/></>} />;
 const LayersIcon = (p) => <Icon {...p} path={<><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></>} />;
 const ShareIcon = (p) => <Icon {...p} path={<><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/></>} />;
+const CalendarIcon = (p) => <Icon {...p} path={<><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></>} />;
 
 function SpeakButton({ text, dir, isAr, size = 16, style }) {
   if (!text) return null;
@@ -109,5 +110,6 @@ export {
   PaletteIcon,
   LayersIcon,
   ShareIcon,
+  CalendarIcon,
   SpeakButton,
 };

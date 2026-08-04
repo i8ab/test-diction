@@ -1822,9 +1822,9 @@ export default function DictionaryApp() {
   }
 
   // Shared conflict handler: on a version mismatch, adopt the server's
-  // fresh data (so we're not left silently diverged from what's actually
-  // saved) and surface a clear message instead of retrying blindly, since
-  // the caller's local `next` was computed against data that's now stale.
+  // fresh data so we're not left silently diverged from what's actually
+  // saved. Used as a last-resort fallback when we can't safely auto-retry
+  // (e.g. retry attempts exhausted).
   function handleSaveConflict(err) {
     setEntries(err.fresh.entries || []);
     setAccounts(err.fresh.accounts || []);
@@ -1833,35 +1833,93 @@ export default function DictionaryApp() {
     setSaveError("Someone else updated the dictionary at the same time — your last change wasn't saved. The list has been refreshed; please try again.");
   }
 
-  const persistEntries = useCallback(async (next, logEntry) => {
-    setEntries(next);
-    const nextLogs = logEntry ? capLogs([...logs, logEntry]) : logs;
-    if (logEntry) setLogs(nextLogs);
-    try {
-      const newVersion = await saveRecord({ entries: next, accounts, logs: nextLogs }, recordVersion);
-      setRecordVersion(newVersion);
-      saveOfflineCache({ entries: next, accounts, logs: nextLogs });
-      setSaveError("");
-    } catch (e) {
-      if (e instanceof SaveConflictError) handleSaveConflict(e);
-      else setSaveError("Couldn't save — check your connection and try again.");
-    }
-  }, [accounts, logs, recordVersion]);
+  // Max number of automatic retries on a version conflict before giving up
+  // and falling back to handleSaveConflict (which discards the pending
+  // change and asks the user to retry manually). In practice a single
+  // retry resolves the vast majority of real-world races (two people
+  // adding a word within the same second), since each retry re-reads the
+  // absolute latest server state.
+  const MAX_SAVE_RETRIES = 5;
 
-  const persistAccounts = useCallback(async (next, logEntry) => {
-    setAccounts(next);
-    const nextLogs = logEntry ? capLogs([...logs, logEntry]) : logs;
-    if (logEntry) setLogs(nextLogs);
-    try {
-      const newVersion = await saveRecord({ entries, accounts: next, logs: nextLogs }, recordVersion);
-      setRecordVersion(newVersion);
-      saveOfflineCache({ entries, accounts: next, logs: nextLogs });
-      setSaveError("");
-    } catch (e) {
-      if (e instanceof SaveConflictError) handleSaveConflict(e);
-      else setSaveError("Couldn't save — check your connection and try again.");
+  // `entriesFn` is either an array (the new entries list) or a function
+  // `(currentEntries) => nextEntries`. Passing a function is what makes
+  // concurrent adds safe: if the server rejects our save because someone
+  // else saved first, we re-fetch the fresh entries and *re-run* the
+  // function against them, so our own change (e.g. "add this one word")
+  // gets re-applied on top of theirs instead of being thrown away. Same
+  // idea for `logEntryFn`, which may depend on data that changed (e.g. a
+  // log message referencing something in the freshly-read state).
+  const persistEntries = useCallback(async (entriesFn, logEntryFn) => {
+    let curEntries = typeof entriesFn === "function" ? entries : entriesFn;
+    let curAccounts = accounts;
+    let curLogs = logs;
+    let curVersion = recordVersion;
+
+    for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+      const next = typeof entriesFn === "function" ? entriesFn(curEntries) : entriesFn;
+      const logEntry = typeof logEntryFn === "function" ? logEntryFn(curEntries) : logEntryFn;
+      const nextLogs = logEntry ? capLogs([...curLogs, logEntry]) : curLogs;
+
+      setEntries(next);
+      if (logEntry) setLogs(nextLogs);
+
+      try {
+        const newVersion = await saveRecord({ entries: next, accounts: curAccounts, logs: nextLogs }, curVersion);
+        setRecordVersion(newVersion);
+        saveOfflineCache({ entries: next, accounts: curAccounts, logs: nextLogs });
+        setSaveError("");
+        return;
+      } catch (e) {
+        if (e instanceof SaveConflictError && typeof entriesFn === "function" && attempt < MAX_SAVE_RETRIES) {
+          // Someone else saved first — reapply our change on top of the
+          // fresh server data and try again, instead of losing it.
+          curEntries = e.fresh.entries || [];
+          curAccounts = e.fresh.accounts || [];
+          curLogs = e.fresh.logs || [];
+          curVersion = e.fresh.version || 0;
+          continue;
+        }
+        if (e instanceof SaveConflictError) handleSaveConflict(e);
+        else setSaveError("Couldn't save — check your connection and try again.");
+        return;
+      }
     }
-  }, [entries, logs, recordVersion]);
+  }, [entries, accounts, logs, recordVersion]);
+
+  const persistAccounts = useCallback(async (accountsFn, logEntryFn) => {
+    let curEntries = entries;
+    let curAccounts = typeof accountsFn === "function" ? accounts : accountsFn;
+    let curLogs = logs;
+    let curVersion = recordVersion;
+
+    for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+      const next = typeof accountsFn === "function" ? accountsFn(curAccounts) : accountsFn;
+      const logEntry = typeof logEntryFn === "function" ? logEntryFn(curAccounts) : logEntryFn;
+      const nextLogs = logEntry ? capLogs([...curLogs, logEntry]) : curLogs;
+
+      setAccounts(next);
+      if (logEntry) setLogs(nextLogs);
+
+      try {
+        const newVersion = await saveRecord({ entries: curEntries, accounts: next, logs: nextLogs }, curVersion);
+        setRecordVersion(newVersion);
+        saveOfflineCache({ entries: curEntries, accounts: next, logs: nextLogs });
+        setSaveError("");
+        return;
+      } catch (e) {
+        if (e instanceof SaveConflictError && typeof accountsFn === "function" && attempt < MAX_SAVE_RETRIES) {
+          curEntries = e.fresh.entries || [];
+          curAccounts = e.fresh.accounts || [];
+          curLogs = e.fresh.logs || [];
+          curVersion = e.fresh.version || 0;
+          continue;
+        }
+        if (e instanceof SaveConflictError) handleSaveConflict(e);
+        else setSaveError("Couldn't save — check your connection and try again.");
+        return;
+      }
+    }
+  }, [entries, accounts, logs, recordVersion]);
 
   // For events that don't touch entries/accounts (sign in/out) — still saved
   // into the same shared record so it stays in sync with everything else.
@@ -2689,17 +2747,24 @@ function MainView({
   }
 
   async function handleAdd(newEntry) {
-    const next = [...entries, { ...newEntry, id: uid(), section, addedBy: accountCode, addedAt: Date.now() }];
-    const logEntry = makeLogEntry("word_add", `${name} added "${newEntry.word}" (${cfg.shortLabel})`, name, accountCode);
-    await persistEntries(next, logEntry);
+    // Pass a function rather than a precomputed array: if another device
+    // saves a word at the same moment, persistEntries re-runs this against
+    // the freshly-fetched entries and retries, so both additions survive
+    // instead of one silently overwriting the other.
+    const newRow = { ...newEntry, id: uid(), section, addedBy: accountCode, addedAt: Date.now() };
+    await persistEntries(
+      (curEntries) => [...curEntries, newRow],
+      () => makeLogEntry("word_add", `${name} added "${newEntry.word}" (${cfg.shortLabel})`, name, accountCode)
+    );
     onCloseAdd();
   }
   async function handleDelete(id) {
     const target = entries.find((e) => e.id === id);
     const prevEntries = entries;
-    const next = entries.filter((e) => e.id !== id);
-    const logEntry = makeLogEntry("word_delete", `${name} deleted "${(target && target.word) || id}"`, name, accountCode);
-    await persistEntries(next, logEntry);
+    await persistEntries(
+      (curEntries) => curEntries.filter((e) => e.id !== id),
+      () => makeLogEntry("word_delete", `${name} deleted "${(target && target.word) || id}"`, name, accountCode)
+    );
     if (target) {
       clearTimeout(undoTimerRef.current);
       setUndoDelete({ entry: target, prevEntries });
@@ -2763,9 +2828,10 @@ function MainView({
         return;
       }
 
-      const next = [...entries, ...newEntries];
-      const logEntry = makeLogEntry("word_add", `${name} imported ${newEntries.length} word(s) via CSV (${cfg.shortLabel})`, name, accountCode);
-      await persistEntries(next, logEntry);
+      await persistEntries(
+        (curEntries) => [...curEntries, ...newEntries],
+        () => makeLogEntry("word_add", `${name} imported ${newEntries.length} word(s) via CSV (${cfg.shortLabel})`, name, accountCode)
+      );
 
       // Be explicit about anything that DIDN'T make it in, instead of just
       // reporting the success count and letting a mismatch with the file's
@@ -2784,16 +2850,17 @@ function MainView({
   }
   async function handleEdit(id, updates) {
     const target = entries.find((e) => e.id === id);
-    const next = entries.map((e) =>
-      e.id === id ? { ...e, ...updates, editedBy: accountCode, editedAt: Date.now() } : e
-    );
     const wordChanged = target && updates.word && updates.word !== target.word;
-    const logEntry = makeLogEntry(
-      "word_edit",
-      `${name} edited "${(target && target.word) || id}"${wordChanged ? ` → "${updates.word}"` : ""}`,
-      name, accountCode
+    await persistEntries(
+      (curEntries) => curEntries.map((e) =>
+        e.id === id ? { ...e, ...updates, editedBy: accountCode, editedAt: Date.now() } : e
+      ),
+      () => makeLogEntry(
+        "word_edit",
+        `${name} edited "${(target && target.word) || id}"${wordChanged ? ` → "${updates.word}"` : ""}`,
+        name, accountCode
+      )
     );
-    await persistEntries(next, logEntry);
     setEditingEntry(null);
   }
 

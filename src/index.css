@@ -209,6 +209,14 @@
   .toolbar-search-input { transition: box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease; }
   .toolbar-search-input:focus { background: var(--card) !important; }
 
+  /* On narrow / mobile screens, force the search field onto its own full-width
+     row so the results dropdown never sits beside (and gets covered by) the
+     "Add word" / "More" buttons — it always opens above everything else. */
+  @media (max-width: 640px) {
+    .toolbar-row { flex-wrap: wrap; }
+    .toolbar-search-wrap { flex: 1 1 100% !important; width: 100%; z-index: 9999 !important; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
   }

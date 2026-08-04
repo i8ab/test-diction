@@ -2658,8 +2658,8 @@ function MainView({
       </header>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "18px 20px 0" }}>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <div className="toolbar-anim" style={{ position: "relative", flex: "1 1 240px", animationDelay: "0.02s" }}>
+        <div className="toolbar-row" style={{ display: "flex", gap: 10, flexWrap: "wrap", position: "relative", zIndex: 40 }}>
+          <div className="toolbar-anim toolbar-search-wrap" style={{ position: "relative", flex: "1 1 240px", animationDelay: "0.02s", zIndex: 40 }}>
             <SearchIcon size={16} color="var(--icon-muted)" style={{ position: "absolute", insetInlineStart: 12, top: "50%", transform: "translateY(-50%)" }} />
             <input
               value={query}
@@ -2692,7 +2692,7 @@ function MainView({
             {showSuggestions && suggestions.length > 0 && (
               <ul id="search-suggestions" role="listbox" dir={section === "ar-ar" ? "rtl" : "auto"}
                 className="modal-card"
-                style={{ listStyle: "none", margin: "4px 0 0", padding: 4, position: "absolute", top: "100%", insetInlineStart: 0, insetInlineEnd: 0, background: CARD, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, boxShadow: "0 10px 24px -10px rgba(0,0,0,0.3)", zIndex: 30, maxHeight: 260, overflowY: "auto" }}>
+                style={{ listStyle: "none", margin: "4px 0 0", padding: 4, position: "absolute", top: "100%", insetInlineStart: 0, insetInlineEnd: 0, background: CARD, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, boxShadow: "0 10px 24px -10px rgba(0,0,0,0.3)", zIndex: 9999, maxHeight: 260, overflowY: "auto" }}>
                 {suggestions.map((s, i) => (
                   <li key={s.id} id={`search-suggestion-${i}`} role="option" aria-selected={i === activeIndex}
                     onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
@@ -2707,7 +2707,7 @@ function MainView({
             {showHistory && !query.trim() && searchHistory.length > 0 && (
               <div dir={section === "ar-ar" ? "rtl" : "auto"}
                 className="modal-card"
-                style={{ margin: "4px 0 0", padding: 4, position: "absolute", top: "100%", insetInlineStart: 0, insetInlineEnd: 0, background: CARD, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, boxShadow: "0 10px 24px -10px rgba(0,0,0,0.3)", zIndex: 30, maxHeight: 260, overflowY: "auto" }}>
+                style={{ margin: "4px 0 0", padding: 4, position: "absolute", top: "100%", insetInlineStart: 0, insetInlineEnd: 0, background: CARD, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, boxShadow: "0 10px 24px -10px rgba(0,0,0,0.3)", zIndex: 9999, maxHeight: 260, overflowY: "auto" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 9px 3px", fontSize: 11, color: "var(--icon-muted)", fontWeight: 600 }}>
                   <span>{tr(isAr, "Recent searches", "عمليات بحث سابقة")}</span>
                   <button onMouseDown={(e) => { e.preventDefault(); handleClearHistory(); }}

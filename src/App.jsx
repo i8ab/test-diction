@@ -177,6 +177,7 @@ export default function DictionaryApp() {
         setEntries(rec.entries);
         setAccounts(rec.accounts);
         setLogs(rec.logs);
+        setLogsLoaded(true);
         setRecordVersion(rec.version);
         saveOfflineCache(rec);
         setIsOffline(false);
@@ -440,6 +441,34 @@ export default function DictionaryApp() {
   function logEvent(action, message, actorName, actorCode) {
     persistLogs(capLogs([...logs, makeLogEntry(action, message, actorName, actorCode)]));
   }
+
+  // Admin action: wipe the activity log down to just the "first sign in"
+  // entries (keeps the account-creation history, drops everything else —
+  // word/account edits, regular sign-in/out noise, etc.).
+  function clearLogsExceptFirstSignIn() {
+    persistLogs(logs.filter((entry) => entry.action === "first_sign_in"));
+  }
+
+  // Auto-clear the activity log at the start of each new day — keeps
+  // "first sign in" entries (account-creation history) forever, but drops
+  // everything else (word/account edits, regular sign-in/out noise) once
+  // it's from a previous calendar day. Runs once per app load, right after
+  // the logs arrive from the server, and only writes back if there's
+  // actually something stale to drop.
+  const dailyLogClearRanRef = useRef(false);
+  useEffect(() => {
+    if (dailyLogClearRanRef.current || !logsLoaded) return;
+    dailyLogClearRanRef.current = true;
+    const now = new Date();
+    const isToday = (ts) => {
+      const d = new Date(ts);
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    };
+    const hasStaleEntries = logs.some((entry) => entry.action !== "first_sign_in" && !isToday(entry.at));
+    if (hasStaleEntries) {
+      persistLogs(logs.filter((entry) => entry.action === "first_sign_in" || isToday(entry.at)));
+    }
+  }, [logsLoaded, logs, persistLogs]);
 
   // Toggles whether the current signed-in account has marked a given entry
   // as studied/seen. Stored per-account (account.studied: [entryId, ...]) so
@@ -740,7 +769,7 @@ export default function DictionaryApp() {
       section={section} onChangeSection={changeSection} query={query} setQuery={setQuery}
       showAdd={showAdd} onOpenAdd={openAddModal} onCloseAdd={closeAddModal} persistEntries={persistEntries} saveError={saveError}
       onLogout={handleLogout}
-      accounts={accounts} accountCode={accountCode} logs={logs}
+      accounts={accounts} accountCode={accountCode} logs={logs} onClearLogs={clearLogsExceptFirstSignIn}
       studiedIds={studiedIds} studiedAt={studiedAt} onToggleStudied={handleToggleStudied}
       favoriteIds={favoriteIds} onToggleFavorite={handleToggleFavorite}
       srsBox={srsBox} srsDueAt={srsDueAt} quizHistory={quizHistory}

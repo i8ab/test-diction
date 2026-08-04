@@ -1,37 +1,37 @@
 import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from "react";
-import { tr } from "../lib/i18n";
-import { INK, PAPER, CARD, BRASS, errorStyle } from "../lib/theme";
-import { getSpeechRecognitionCtor, recognizeSpeech } from "../lib/speech";
-import { uid } from "../lib/quizHelpers";
+import { tr } from "../lib/config/i18n";
+import { INK, PAPER, CARD, BRASS, errorStyle } from "../lib/config/theme";
+import { getSpeechRecognitionCtor, recognizeSpeech } from "../lib/utils/speech";
+import { uid } from "../lib/utils/quizHelpers";
 import {
   SearchIcon, PlusIcon, XIcon, LoaderIcon, CheckIcon, WifiOffIcon,
   UndoIcon, ClockIcon, MicIcon, BookIcon,
-} from "./Icons";
-import { firstLetterKey, fuzzyIncludes, matchScore } from "../lib/searchUtils";
-import { normalizePairs } from "../lib/pairUtils";
-import { parseCsv, exportEntriesAsCsv } from "../lib/csvUtils";
-import { makeLogEntry } from "../lib/logs";
-import { SECTIONS } from "../lib/sections";
-import { loadSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory } from "../lib/storage";
-import EntryCard from "./EntryCard";
-import HeaderMenu from "./HeaderMenu";
-import ToolsMenu from "./ToolsMenu";
-import ReminderBanner from "./ReminderBanner";
-import EmptyState from "./EmptyState";
+} from "./common/Icons";
+import { firstLetterKey, fuzzyIncludes, matchScore } from "../lib/utils/searchUtils";
+import { normalizePairs } from "../lib/utils/pairUtils";
+import { parseCsv, exportEntriesAsCsv } from "../lib/utils/csvUtils";
+import { makeLogEntry } from "../lib/state/logs";
+import { SECTIONS } from "../lib/config/sections";
+import { loadSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory } from "../lib/state/storage";
+import EntryCard from "./common/EntryCard";
+import HeaderMenu from "./layout/HeaderMenu";
+import ToolsMenu from "./layout/ToolsMenu";
+import ReminderBanner from "./layout/ReminderBanner";
+import EmptyState from "./layout/EmptyState";
 
 // These are only ever rendered behind a boolean flag (showQuiz, showAdd,
 // etc.) — never on first paint. Loading them lazily keeps their code
 // (QuizModal alone pulls in the ~380-line quiz engine) out of the main
 // bundle, so the initial page load only ships the code actually needed
 // to show the word list.
-const QuizModal = lazy(() => import("./QuizModal"));
-const StatsModal = lazy(() => import("./StatsModal"));
-const LeaderboardModal = lazy(() => import("./LeaderboardModal"));
-const FlashcardsModal = lazy(() => import("./FlashcardsModal"));
-const AddModal = lazy(() => import("./AddModal"));
-const AccountModal = lazy(() => import("./AccountModal"));
-const AdminModal = lazy(() => import("./AdminModal"));
-const WordZoomModal = lazy(() => import("./WordZoomModal"));
+const QuizModal = lazy(() => import("./modals/QuizModal"));
+const StatsModal = lazy(() => import("./modals/StatsModal"));
+const LeaderboardModal = lazy(() => import("./modals/LeaderboardModal"));
+const FlashcardsModal = lazy(() => import("./modals/FlashcardsModal"));
+const AddModal = lazy(() => import("./modals/AddModal"));
+const AccountModal = lazy(() => import("./modals/AccountModal"));
+const AdminModal = lazy(() => import("./modals/AdminModal"));
+const WordZoomModal = lazy(() => import("./modals/WordZoomModal"));
 
 export default function MainView({
   name, isAdmin, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,

@@ -1,0 +1,296 @@
+// Full-screen auth flow: the marketing "intro" landing page, signup,
+// post-signup personal-code reveal, restoring-session spinner, and login.
+// Rendered whenever DictionaryApp is not yet in the "in" (signed-in) stage.
+import { tr } from "../lib/i18n";
+import { INK, PAPER, BRASS, labelStyle, errorStyle, primaryBtnStyle, authCardStyle, authInputStyle, authBadgeWrapStyle } from "../lib/theme";
+import { translateAdminError } from "../lib/logs";
+import {
+  SearchIcon, PlusIcon, BookIcon, LoginIcon, KeyIcon, CopyIcon, CheckIcon,
+  ChevronIcon, EditIcon, UsersIcon, SunIcon, MoonIcon, WifiOffIcon, GlobeIcon,
+  QuizIcon, StatsIcon, TrophyIcon, FlameIcon, SpeakerIcon, LoaderIcon, ZoomIcon,
+} from "./Icons";
+import { Shell, LanguageToggle } from "./Shell";
+
+function AuthScreens({
+  authStage, appIsAr, atr, theme, toggleTheme, toggleAppLang,
+  moreFeaturesOpen, setMoreFeaturesOpen, goToStage,
+  name, setName, signupError, setSignupError, signupSaving, handleSignup,
+  myCode, codeCopied, handleCopyCode,
+  codeInput, setCodeInput, personalCodeInput, setPersonalCodeInput,
+  authError, setAuthError, loggingIn, handleLogin,
+}) {
+  if (authStage === "intro") {
+    const introFeatures = [
+      { icon: SearchIcon, title: atr("Instant search", "بحث فوري"), desc: atr("Look up any word between English and Arabic in a heartbeat.", "ابحث عن أي كلمة بين الإنجليزية والعربية في لحظة.") },
+      { icon: SpeakerIcon, title: atr("Hear it spoken", "استمع للنطق"), desc: atr("Native-style pronunciation for every entry, one tap away.", "نطق واضح لكل كلمة بضغطة زر واحدة.") },
+      { icon: QuizIcon, title: atr("Practice quizzes", "اختبارات تدريبية"), desc: atr("Turn what you've studied into quick multiple-choice quizzes.", "حوّل ما درسته إلى اختبارات اختيار من متعدد سريعة.") },
+      { icon: EditIcon, title: atr("Grow the dictionary", "أضِف كلمات جديدة"), desc: atr("Add new words and definitions that everyone in the group can use.", "أضف كلمات وتعريفات جديدة يستفيد منها الجميع.") },
+      { icon: UsersIcon, title: atr("Shared with your group", "مشترك مع مجموعتك"), desc: atr("One dictionary for everyone, with each person's progress tracked separately.", "قاموس واحد للجميع، وتقدّم كل شخص محفوظ بشكل منفصل.") },
+      { icon: GlobeIcon, title: atr("Fully bilingual", "ثنائي اللغة بالكامل"), desc: atr("Switch the whole app between English and Arabic anytime.", "بدّل الموقع بالكامل بين الإنجليزية والعربية في أي وقت.") },
+      { icon: ZoomIcon, title: atr("Automatic grammar breakdown", "تحليل نحوي تلقائي"), desc: atr("Full English tense tables, Arabic verb conjugation, and adjective breakdowns — detected automatically as you type.", "جداول أزمنة إنجليزية كاملة، تصريف الفعل العربي، وتحليل الصفات — يتم اكتشافها تلقائيًا أثناء الكتابة.") },
+      { icon: TrophyIcon, title: atr("Leaderboard", "لوحة الصدارة"), desc: atr("See how you stack up against the rest of your group.", "شوف ترتيبك مقارنة بباقي أفراد مجموعتك.") },
+      { icon: StatsIcon, title: atr("Smart review reminders", "تذكيرات مراجعة ذكية"), desc: atr("Spaced-repetition scheduling brings words back right before you'd forget them.", "جدولة تكرار متباعد تعيد لك الكلمات في التوقيت المثالي قبل ما تنساها.") },
+      { icon: WifiOffIcon, title: atr("Works offline", "يعمل بدون إنترنت"), desc: atr("Your saved words stay with you even without a connection.", "كلماتك المحفوظة تفضل معاك حتى من غير اتصال بالإنترنت.") },
+    ];
+    return (
+      <div
+        dir={appIsAr ? "rtl" : "ltr"}
+        style={{ position: "relative", minHeight: "100vh", background: PAPER, backgroundImage: "radial-gradient(circle at 1px 1px, rgba(var(--border-rgb),0.06) 1px, transparent 0)", backgroundSize: "18px 18px", overflowX: "hidden" }}>
+        <div className="auth-orb" style={{ width: 420, height: 420, top: "-14%", insetInlineStart: "-10%", background: "radial-gradient(circle, var(--accent-1) 0%, transparent 70%)", animationDuration: "15s" }} />
+        <div className="auth-orb" style={{ width: 360, height: 360, top: "14%", insetInlineEnd: "-12%", background: "radial-gradient(circle, var(--accent-2) 0%, transparent 70%)", animationDuration: "17s", animationDelay: "-5s" }} />
+        <div className="auth-orb" style={{ width: 240, height: 240, bottom: "-6%", insetInlineStart: "22%", background: "radial-gradient(circle, var(--focus-rgb,25,167,206), transparent 70%)", opacity: 0.25, animationDuration: "11s", animationDelay: "-3s" }} />
+
+        <div style={{ position: "relative", zIndex: 1, maxWidth: 1080, margin: "0 auto", padding: "22px 24px 64px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "clamp(36px, 8vw, 84px)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div className="auth-badge" style={{ ...authBadgeWrapStyle, width: 38, height: 38, borderRadius: 11 }}>
+                <BookIcon size={18} color="#fff" />
+              </div>
+              <span style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 600, color: INK }}>Two Tongues</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button type="button" onClick={toggleTheme} className="lift-hover" aria-label={atr("Toggle theme", "تبديل المظهر")}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", color: "var(--icon-muted)", background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.2)" }}>
+                {theme === "dark" ? <SunIcon size={15} /> : <MoonIcon size={15} />}
+              </button>
+              <LanguageToggle isAr={appIsAr} onToggle={toggleAppLang} floating={false} />
+            </div>
+          </div>
+
+          <div className="auth-field-1" style={{ textAlign: "center", maxWidth: 680, margin: "0 auto" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: BRASS, background: "var(--accent-1-soft)", padding: "6px 14px", borderRadius: 20, marginBottom: 18 }}>
+              <GlobeIcon size={12} /> {atr("English ⇄ Arabic dictionary", "قاموس إنجليزي ⇄ عربي")}
+            </div>
+            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(30px, 6vw, 50px)", fontWeight: 600, color: INK, margin: "0 0 16px", lineHeight: 1.15 }}>
+              {atr("Learn words that stick, together.", "تعلّم كلمات تثبت في ذاكرتك… مع فريقك.")}
+            </h1>
+            <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: "clamp(14px, 2vw, 17px)", color: "var(--muted-strong)", margin: "0 auto 30px", maxWidth: 560, lineHeight: 1.65 }}>
+              {atr("A shared bilingual dictionary with pronunciation, quick quizzes and progress tracking — built for you and your study group.", "قاموس مشترك ثنائي اللغة فيه نطق واختبارات سريعة ومتابعة للتقدّم — مصمَّم لك ولمجموعتك.")}
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 12 }}>
+              <button type="button" onClick={() => { setAuthError(""); goToStage("login"); }} className="btn-shine" style={{ ...primaryBtnStyle, width: "auto", marginTop: 0, padding: "13px 28px" }}>
+                <LoginIcon size={16} /> {atr("Sign in", "تسجيل الدخول")}
+              </button>
+              <button type="button" onClick={() => { setSignupError(""); goToStage("signup"); }} className="lift-hover"
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "13px 26px", fontFamily: "'Source Sans 3', sans-serif", fontSize: 15, fontWeight: 700, color: INK, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 8, cursor: "pointer" }}>
+                <PlusIcon size={16} /> {atr("Create account", "إنشاء حساب")}
+              </button>
+            </div>
+          </div>
+
+          {/* Bento-style showcase: an asymmetric mosaic instead of a plain
+              uniform grid — two "hero" tiles get extra room to breathe while
+              the rest tile in around them, each carrying a large faint
+              ordinal numeral for a more editorial, less templated feel. */}
+          <style>{`
+            .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 122px; gap: 14px; grid-auto-flow: dense; margin-top: clamp(40px, 6vw, 68px); }
+            .bento-item { position: relative; overflow: hidden; background: var(--card); border: 1px solid rgba(var(--border-rgb),0.14); border-radius: 16px; padding: 20px; box-shadow: 0 2px 0 rgba(0,0,0,0.04), 0 16px 40px -24px rgba(var(--border-rgb),0.4); transition: transform 0.35s cubic-bezier(0.22,1,0.36,1), box-shadow 0.35s ease, border-color 0.3s ease; display: flex; flex-direction: column; justify-content: flex-end; }
+            .bento-item:hover { transform: translateY(-5px) scale(1.015); box-shadow: 0 24px 50px -20px rgba(var(--border-rgb),0.5); border-color: rgba(var(--focus-rgb),0.4); }
+            .bento-num { position: absolute; top: 6px; inset-inline-end: 12px; font-family: 'Fraunces', serif; font-size: 58px; font-weight: 600; color: var(--ink); opacity: 0.06; line-height: 1; pointer-events: none; transition: opacity 0.35s ease, transform 0.35s ease; }
+            .bento-item:hover .bento-num { opacity: 0.11; transform: scale(1.08); }
+            .bento-icon { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; background: var(--accent-1-soft); color: var(--accent-1); margin-bottom: 12px; transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+            .bento-item:hover .bento-icon { transform: rotate(-8deg) scale(1.1); }
+            .bento-big { grid-column: span 2; grid-row: span 2; }
+            .bento-big .bento-icon { width: 44px; height: 44px; border-radius: 13px; }
+            .bento-big .bento-num { font-size: 78px; }
+            .bento-wide { grid-column: span 2; grid-row: span 1; }
+            .bento-solo { grid-column: span 1; grid-row: span 1; }
+            .bento-more { grid-column: span 2; grid-row: span 1; border-style: dashed; border-width: 1.5px; align-items: center; justify-content: center; text-align: center; color: var(--muted); cursor: pointer; height: auto; }
+            .bento-more:hover { border-color: rgba(var(--focus-rgb),0.5); color: var(--ink); }
+            .bento-more .bento-more-chevron { transition: transform 0.3s cubic-bezier(0.22,1,0.36,1); margin-inline-start: 4px; transform: rotate(90deg); }
+            .bento-more.is-open .bento-more-chevron { transform: rotate(270deg); }
+            .bento-more-peek { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.35s cubic-bezier(0.22,1,0.36,1); width: 100%; }
+            .bento-more.is-open .bento-more-peek { grid-template-rows: 1fr; }
+            .bento-more-peek-inner { overflow: hidden; min-height: 0; }
+            @media (max-width: 720px) {
+              .bento-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 150px; }
+              .bento-big, .bento-wide, .bento-more { grid-column: span 2; grid-row: span 1; }
+            }
+            @media (max-width: 420px) {
+              .bento-grid { grid-template-columns: 1fr; }
+              .bento-big, .bento-wide, .bento-solo, .bento-more { grid-column: span 1; }
+            }
+          `}</style>
+          <div className="bento-grid">
+            {introFeatures.map((f, i) => {
+              const shape = [ "bento-big", "bento-wide", "bento-solo", "bento-solo", "bento-wide", "bento-solo", "bento-wide", "bento-solo", "bento-solo", "bento-wide" ][i] || "bento-solo";
+              return (
+                <div key={f.title} className={`bento-item auth-field-1 ${shape}`} style={{ animationDelay: `${0.08 + i * 0.05}s` }}>
+                  <span className="bento-num">{String(i + 1).padStart(2, "0")}</span>
+                  <div className="bento-icon"><f.icon size={shape === "bento-big" ? 20 : 18} /></div>
+                  <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: shape === "bento-big" ? 19 : 16, fontWeight: 600, color: INK, margin: "0 0 6px" }}>{f.title}</h3>
+                  <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13.5, color: "var(--muted-strong)", margin: 0, lineHeight: 1.55 }}>{f.desc}</p>
+                </div>
+              );
+            })}
+            {/* Reserved slot: room to slot in more feature tiles later — just
+                add entries to introFeatures and, optionally, a shape above.
+                Doubles as a teaser accordion: tapping it peeks at what's
+                coming next without committing a full tile to it. */}
+            <div
+              className={`bento-item bento-more auth-field-1${moreFeaturesOpen ? " is-open" : ""}`}
+              style={{ animationDelay: `${0.08 + introFeatures.length * 0.05}s` }}
+              role="button"
+              tabIndex={0}
+              aria-expanded={moreFeaturesOpen}
+              onClick={() => setMoreFeaturesOpen((o) => !o)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setMoreFeaturesOpen((o) => !o); } }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <PlusIcon size={18} style={{ opacity: 0.6 }} />
+                <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, margin: 0 }}>{atr("More features on the way", "المزيد من المميزات قريبًا")}</p>
+                <ChevronIcon size={13} className="bento-more-chevron" />
+              </div>
+              <div className="bento-more-peek">
+                <div className="bento-more-peek-inner">
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 12, marginTop: 12, borderTop: "1px dashed rgba(var(--border-rgb),0.3)", opacity: 0.75 }}>
+                    <FlameIcon size={16} />
+                    <span style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 12.5 }}>
+                      {atr("Daily streaks and study challenges", "سلاسل يومية وتحديات مذاكرة")}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (authStage === "signup") {
+    return (
+      <Shell>
+        <div className="auth-card" style={authCardStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+            <div className="auth-badge" style={authBadgeWrapStyle}>
+              <BookIcon size={24} color="#fff" />
+            </div>
+            <div>
+              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
+              <div style={{ width: 34, height: 3, borderRadius: 2, background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))", marginTop: 6, animation: "underlineGrow 0.6s ease 0.2s both" }} />
+            </div>
+          </div>
+          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 22px" }}>
+            Create your account with just your name — you'll get a personal code to sign in with.
+          </p>
+          <form onSubmit={handleSignup}>
+            <div className="auth-field-1">
+              <label style={labelStyle} htmlFor="signup-name">Your name</label>
+              <input id="signup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Omar" style={authInputStyle} autoFocus autoCapitalize="off" autoCorrect="off" />
+            </div>
+            {signupError && <div style={errorStyle} role="alert" aria-live="assertive">{signupError}</div>}
+            <button type="submit" disabled={signupSaving} className="btn-shine" style={primaryBtnStyle}>
+              {signupSaving ? <LoaderIcon size={16} /> : <PlusIcon size={16} />} Create account
+            </button>
+          </form>
+          <p className="auth-field-2" style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, color: "var(--muted-strong)", textAlign: "center", marginTop: 18 }}>
+            Already have an account?{" "}
+            <a href="#" onClick={(e) => { e.preventDefault(); setAuthError(""); goToStage("login"); }} className="link-underline" style={{ color: BRASS, fontWeight: 600, textDecoration: "none" }}>
+              Sign in
+            </a>
+          </p>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (authStage === "codeShown") {
+    return (
+      <Shell>
+        <div className="auth-card" style={authCardStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+            <div className="auth-badge" style={{ ...authBadgeWrapStyle, animation: "floatY 4.5s ease-in-out infinite, pulseGlow 2.2s ease-in-out infinite" }}>
+              <KeyIcon size={24} color="#fff" />
+            </div>
+            <div>
+              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 600, color: INK, margin: 0 }}>Your personal code</h1>
+              <div style={{ width: 34, height: 3, borderRadius: 2, background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))", marginTop: 6, animation: "underlineGrow 0.6s ease 0.2s both" }} />
+            </div>
+          </div>
+          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 18px" }}>
+            Save this code — you'll need it, along with the shared access code, every time you sign in.
+          </p>
+          <div
+            onClick={handleCopyCode}
+            title="Click to copy"
+            role="button"
+            tabIndex={0}
+            className="auth-field-1"
+            aria-label={`Your personal code is ${myCode.split("").join(" ")}. Activate to copy.`}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleCopyCode(); } }}
+            style={{ textAlign: "center", padding: "20px 10px", background: codeCopied ? "var(--success-bg)" : "var(--input-bg)", border: `1.5px dashed ${codeCopied ? "rgba(var(--success-border-rgb),0.5)" : "rgba(var(--border-rgb),0.3)"}`, borderRadius: 10, marginBottom: 8, cursor: "pointer", userSelect: "none", transition: "background 0.2s, border-color 0.2s, transform 0.2s" }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
+            <span style={{ fontFamily: "'Fraunces', serif", fontSize: 32, fontWeight: 600, letterSpacing: "0.08em", color: INK, animation: codeCopied ? "popIn 0.35s ease" : "none" }}>{myCode}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 12, color: codeCopied ? "var(--success)" : "var(--muted)", fontFamily: "'Source Sans 3', sans-serif", marginBottom: 18, minHeight: 16 }}>
+            {codeCopied ? (<><CheckIcon size={13} /> Copied</>) : (<><CopyIcon size={13} /> Click the code to copy</>)}
+          </div>
+          <button
+            onClick={() => { setCodeInput(""); setPersonalCodeInput(""); setAuthError(""); goToStage("login"); }}
+            className="btn-shine"
+            style={primaryBtnStyle}>
+            <LoginIcon size={16} />Continue to sign in
+          </button>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (authStage === "restoring") {
+    return (
+      <Shell>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--muted-strong)", animation: "fadeIn 0.4s ease" }}>
+          <LoaderIcon size={18} /><span>Signing you in…</span>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (authStage === "login") {
+    return (
+      <Shell>
+        <div className="auth-card" style={authCardStyle} dir={appIsAr ? "rtl" : "ltr"}>
+          <LanguageToggle isAr={appIsAr} onToggle={toggleAppLang} />
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+            <div className="auth-badge" style={authBadgeWrapStyle}>
+              <BookIcon size={24} color="#fff" />
+              <span style={{ position: "absolute", inset: -5, borderRadius: 19, border: "1.5px solid rgba(var(--focus-rgb),0.35)", animation: "pulseGlow 2.6s ease-in-out infinite" }} />
+            </div>
+            <div>
+              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
+              <div style={{ width: 34, height: 3, borderRadius: 2, background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))", marginTop: 6, animation: "underlineGrow 0.6s ease 0.2s both" }} />
+            </div>
+          </div>
+          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 22px" }}>
+            {atr("Enter the shared access code and your personal code to open the dictionary.", "أدخل رمز الوصول المشترك ورمزك الشخصي لفتح القاموس.")}
+          </p>
+          <form onSubmit={handleLogin}>
+            <div className="auth-field-1">
+              <label style={labelStyle} htmlFor="login-personal-code"><KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Personal code", "الرمز الشخصي")}</label>
+              <input id="login-personal-code" value={personalCodeInput} onChange={(e) => setPersonalCodeInput(e.target.value)} placeholder={atr("The code you received", "الرمز الذي حصلت عليه")} style={authInputStyle} autoFocus autoCapitalize="off" autoCorrect="off" autoComplete="off" spellCheck={false} inputMode="numeric" />
+            </div>
+            <div className="auth-field-2">
+              <label style={labelStyle} htmlFor="login-access-code"><KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Access code", "رمز الوصول")}</label>
+              <input id="login-access-code" value={codeInput} onChange={(e) => setCodeInput(e.target.value)} placeholder={atr("Enter the shared code", "أدخل الرمز المشترك")} style={authInputStyle} autoCapitalize="off" autoCorrect="off" autoComplete="off" spellCheck={false} />
+            </div>
+            {authError && <div style={errorStyle} role="alert" aria-live="assertive">{translateAdminError(authError, appIsAr)}</div>}
+            <button type="submit" disabled={loggingIn} className="btn-shine auth-field-3" style={primaryBtnStyle}>
+              {loggingIn ? <LoaderIcon size={16} /> : <LoginIcon size={16} />} {atr("Enter", "دخول")}
+            </button>
+          </form>
+          <p className="auth-field-3" style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, color: "var(--muted-strong)", textAlign: "center", marginTop: 18 }}>
+            {atr("Don't have an account?", "ليس لديك حساب؟")}{" "}
+            <a href="#" onClick={(e) => { e.preventDefault(); setSignupError(""); goToStage("signup"); }} className="link-underline" style={{ color: BRASS, fontWeight: 600, textDecoration: "none" }}>
+              {atr("Create one", "أنشئ حسابًا")}
+            </a>
+          </p>
+        </div>
+      </Shell>
+    );
+  }
+  return null;
+}
+
+export default AuthScreens;

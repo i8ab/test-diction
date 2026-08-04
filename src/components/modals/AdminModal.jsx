@@ -4,12 +4,20 @@ import { useState, useEffect, useMemo } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { translateAdminError, LOG_ACTION_META, LOG_SECTIONS } from "../../lib/state/logs";
+import { downloadFullBackup } from "../../lib/utils/backupUtils";
 import {
   XIcon, CheckIcon, LoaderIcon, PlusIcon, EditIcon, TrashIcon, LinkIcon,
-  BookIcon, ChevronIcon, CopyIcon,
+  BookIcon, ChevronIcon, CopyIcon, DownloadIcon,
 } from "../common/Icons";
 
-function AdminModal({ accounts, myAccountCode, logs, onClearLogs, onClose, onAdd, onEdit, onDelete, isAr }) {
+function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClose, onAdd, onEdit, onDelete, isAr }) {
+  const [backupDone, setBackupDone] = useState(false);
+
+  function handleDownloadBackup() {
+    downloadFullBackup({ entries, accounts, logs });
+    setBackupDone(true);
+    setTimeout(() => setBackupDone(false), 1800);
+  }
   const [mode, setMode] = useState("list"); // list | add | edit | added | log
   const [editingCode, setEditingCode] = useState(null);
   const [formName, setFormName] = useState("");
@@ -130,12 +138,18 @@ function AdminModal({ accounts, myAccountCode, logs, onClearLogs, onClose, onAdd
               <button onClick={() => { setLogFilter("all"); setMode("log"); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, color: INK, background: "none", border: "1px solid rgba(var(--border-rgb),0.25)", borderRadius: 3, cursor: "pointer" }}>
                 <BookIcon size={14} /> {tr(isAr, "Activity log", "سجل النشاط")}
               </button>
+              <button onClick={handleDownloadBackup} className="lift-hover" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, color: backupDone ? "var(--success)" : INK, background: "none", border: `1px solid ${backupDone ? "var(--success)" : "rgba(var(--border-rgb),0.25)"}`, borderRadius: 3, cursor: "pointer" }}>
+                {backupDone ? <CheckIcon size={14} /> : <DownloadIcon size={14} />} {backupDone ? tr(isAr, "Downloaded", "تم التنزيل") : tr(isAr, "Download backup", "تنزيل نسخة احتياطية")}
+              </button>
               <button onClick={startAdd} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, color: "#fff", background: BRASS, border: "none", borderRadius: 3, cursor: "pointer" }}>
                 <PlusIcon size={14} /> {tr(isAr, "Add account", "إضافة حساب")}
               </button>
             </div>
             <p style={{ fontSize: 12, color: "var(--muted)", margin: "8px 0 0" }}>
               {tr(isAr, "Anyone with this link can create an account, but they'll still need the shared access code from you to actually sign in.", "أي حد معاه الرابط ده يقدر يعمل حساب، بس لسه محتاج منك رمز الوصول المشترك عشان يقدر يسجل دخول فعلاً.")}
+            </p>
+            <p style={{ fontSize: 12, color: "var(--muted)", margin: "4px 0 0" }}>
+              {tr(isAr, "The backup file has everything — words, accounts, and the activity log. Keep it somewhere safe; it's not uploaded anywhere.", "ملف النسخة الاحتياطية فيه كل حاجة — الكلمات والحسابات وسجل النشاط. احتفظ بيه في مكان آمن؛ مش بيترفع لأي مكان.")}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
               {accounts.length === 0 && <p style={{ fontSize: 13, color: "var(--muted-strong)" }}>{tr(isAr, "No accounts yet.", "لا توجد حسابات بعد.")}</p>}

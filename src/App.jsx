@@ -29,17 +29,34 @@ async function fetchRecord({ fresh = false } = {}) {
     entries: data.entries || [],
     accounts: data.accounts || [],
     logs: data.logs || [],
+    version: data.version || 0,
   };
 }
 
-async function saveRecord(record) {
+// Thrown when the server rejects a save because someone else saved first
+// (see the `version` / optimistic-locking comment in api/jsonbin.js). Carries
+// the fresh server record so callers can resync instead of guessing.
+class SaveConflictError extends Error {
+  constructor(freshRecord) {
+    super("conflict");
+    this.name = "SaveConflictError";
+    this.fresh = freshRecord;
+  }
+}
+
+async function saveRecord(record, expectedVersion) {
   const res = await fetch("/api/jsonbin", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(record),
+    body: JSON.stringify({ ...record, expectedVersion }),
   });
+  if (res.status === 409) {
+    const data = await res.json().catch(() => null);
+    throw new SaveConflictError(data || { entries: [], accounts: [], logs: [], version: expectedVersion });
+  }
   if (!res.ok) throw new Error("save failed");
-  return true;
+  const data = await res.json().catch(() => ({}));
+  return typeof data.version === "number" ? data.version : expectedVersion + 1;
 }
 
 // Generates the personal numeric code a new account receives after signup.
@@ -986,7 +1003,13 @@ function tr(isAr, en, ar) {
    ========================================================================= */
 function csvEscape(value) {
   const str = value == null ? "" : String(value);
-  if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  // Quote whenever the field has a comma, a quote, OR any kind of line
+  // break — including a lone \r (some paste sources use old Mac-style \r
+  // only). Missing that case used to let an un-quoted \r slip through,
+  // which parseCsv (correctly) treats as a row terminator on import — so a
+  // meaning/definition containing a bare \r would silently split into two
+  // bogus rows instead of staying one field.
+  if (/[",\n\r]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
   return str;
 }
 
@@ -1523,6 +1546,11 @@ export default function DictionaryApp() {
 
   const [entries, setEntries] = useState([]);
   const [entriesLoaded, setEntriesLoaded] = useState(false);
+  // Tracks the version of the shared record we last read from the server —
+  // sent back on every save as `expectedVersion` so the server can detect
+  // (and reject) a write that would silently clobber someone else's change
+  // made in between. See the concurrency comment in api/jsonbin.js.
+  const [recordVersion, setRecordVersion] = useState(0);
   const [loadError, setLoadError] = useState("");
   const [isOffline, setIsOffline] = useState(false);
   const [offlineCachedAt, setOfflineCachedAt] = useState(null);
@@ -1647,6 +1675,7 @@ export default function DictionaryApp() {
         setEntries(rec.entries);
         setAccounts(rec.accounts);
         setLogs(rec.logs);
+        setRecordVersion(rec.version);
         saveOfflineCache(rec);
         setIsOffline(false);
         if (savedPersonalCode) {
@@ -1792,42 +1821,61 @@ export default function DictionaryApp() {
     pushHistory({ section: nextSection });
   }
 
+  // Shared conflict handler: on a version mismatch, adopt the server's
+  // fresh data (so we're not left silently diverged from what's actually
+  // saved) and surface a clear message instead of retrying blindly, since
+  // the caller's local `next` was computed against data that's now stale.
+  function handleSaveConflict(err) {
+    setEntries(err.fresh.entries || []);
+    setAccounts(err.fresh.accounts || []);
+    setLogs(err.fresh.logs || []);
+    setRecordVersion(err.fresh.version || 0);
+    setSaveError("Someone else updated the dictionary at the same time — your last change wasn't saved. The list has been refreshed; please try again.");
+  }
+
   const persistEntries = useCallback(async (next, logEntry) => {
     setEntries(next);
     const nextLogs = logEntry ? capLogs([...logs, logEntry]) : logs;
     if (logEntry) setLogs(nextLogs);
     try {
-      await saveRecord({ entries: next, accounts, logs: nextLogs });
+      const newVersion = await saveRecord({ entries: next, accounts, logs: nextLogs }, recordVersion);
+      setRecordVersion(newVersion);
       saveOfflineCache({ entries: next, accounts, logs: nextLogs });
       setSaveError("");
     } catch (e) {
-      setSaveError("Couldn't save — check your connection and try again.");
+      if (e instanceof SaveConflictError) handleSaveConflict(e);
+      else setSaveError("Couldn't save — check your connection and try again.");
     }
-  }, [accounts, logs]);
+  }, [accounts, logs, recordVersion]);
 
   const persistAccounts = useCallback(async (next, logEntry) => {
     setAccounts(next);
     const nextLogs = logEntry ? capLogs([...logs, logEntry]) : logs;
     if (logEntry) setLogs(nextLogs);
     try {
-      await saveRecord({ entries, accounts: next, logs: nextLogs });
+      const newVersion = await saveRecord({ entries, accounts: next, logs: nextLogs }, recordVersion);
+      setRecordVersion(newVersion);
       saveOfflineCache({ entries, accounts: next, logs: nextLogs });
       setSaveError("");
     } catch (e) {
-      setSaveError("Couldn't save — check your connection and try again.");
+      if (e instanceof SaveConflictError) handleSaveConflict(e);
+      else setSaveError("Couldn't save — check your connection and try again.");
     }
-  }, [entries, logs]);
+  }, [entries, logs, recordVersion]);
 
   // For events that don't touch entries/accounts (sign in/out) — still saved
   // into the same shared record so it stays in sync with everything else.
   const persistLogs = useCallback(async (next) => {
     setLogs(next);
     try {
-      await saveRecord({ entries, accounts, logs: next });
+      const newVersion = await saveRecord({ entries, accounts, logs: next }, recordVersion);
+      setRecordVersion(newVersion);
     } catch (e) {
-      // Best-effort: a failed log write shouldn't block sign-in/out.
+      // Best-effort: a failed log write shouldn't block sign-in/out. On a
+      // conflict, still resync so we don't keep hammering a stale version.
+      if (e instanceof SaveConflictError) handleSaveConflict(e);
     }
-  }, [entries, accounts]);
+  }, [entries, accounts, recordVersion]);
 
   function logEvent(action, message, actorName, actorCode) {
     persistLogs(capLogs([...logs, makeLogEntry(action, message, actorName, actorCode)]));
@@ -1912,19 +1960,29 @@ export default function DictionaryApp() {
         setAccounts(rec.accounts);
         setEntries(rec.entries);
         setLogs(rec.logs);
+        setRecordVersion(rec.version);
         return;
       }
       const code = generatePersonalCode();
       const nextAccounts = [...rec.accounts, { name: trimmed, code, role: "user", createdAt: Date.now() }];
       const nextLogs = capLogs([...(rec.logs || []), makeLogEntry("account_add", `${trimmed} created an account (self sign-up)`, trimmed, code)]);
-      await saveRecord({ entries: rec.entries, accounts: nextAccounts, logs: nextLogs });
+      const newVersion = await saveRecord({ entries: rec.entries, accounts: nextAccounts, logs: nextLogs }, rec.version);
       setEntries(rec.entries);
       setAccounts(nextAccounts);
       setLogs(nextLogs);
+      setRecordVersion(newVersion);
       setMyCode(code);
       goToStage("codeShown");
     } catch (err) {
-      setSignupError("Couldn't create the account — check your connection and try again.");
+      if (err instanceof SaveConflictError) {
+        // Extremely tight race: someone else signed up (or another change
+        // landed) in the instant between our fresh read and our write.
+        // Simplest safe move is to ask them to just try again — a second
+        // attempt will re-read fresh and almost certainly succeed.
+        setSignupError("Someone else just made a change — please try again.");
+      } else {
+        setSignupError("Couldn't create the account — check your connection and try again.");
+      }
     } finally {
       setSignupSaving(false);
     }
@@ -2439,6 +2497,18 @@ function MainView({
   const [searchHistory, setSearchHistory] = useState(() => loadSearchHistory(section));
   useEffect(() => { setSearchHistory(loadSearchHistory(section)); }, [section]);
   const [studyFilter, setStudyFilter] = useState("all"); // "all" | "studied" | "not-studied"
+  /* PAGINATION — with word lists that grow past a hundred or so entries,
+     rendering every EntryCard (each with its own DOM subtree, hover
+     handlers, speak buttons, etc.) at once is what makes the page feel
+     sluggish while scrolling. Instead of pulling in a virtualization
+     library, we render entries in capped batches ("pages") and grow the
+     batch as the user scrolls near the bottom (classic infinite-scroll),
+     or jump straight to a bigger batch when they use the A-Z sidebar to
+     jump to a letter that isn't rendered yet. This keeps the mounted node
+     count bounded regardless of how many words are in the dictionary. */
+  const PAGE_SIZE = 60;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const loadMoreRef = useRef(null);
   const [editingEntry, setEditingEntry] = useState(null);
   const [zoomEntry, setZoomEntry] = useState(null);
   const [showQuiz, setShowQuiz] = useState(false);
@@ -2537,6 +2607,8 @@ function MainView({
     }
   }
 
+  // Full grouping (all matching entries) — used for the A-Z sidebar so it
+  // always shows every letter that has words, even ones not rendered yet.
   const grouped = useMemo(() => {
     const map = {};
     for (const e of filtered) {
@@ -2548,9 +2620,73 @@ function MainView({
     return map;
   }, [filtered, section]);
 
+  // Flat, fully-sorted list in the exact order the letters render (A, B, C…
+  // each internally alphabetical) — this is what pagination slices.
+  const sortedLetters = useMemo(() => cfg.letters.filter((l) => grouped[l]), [cfg.letters, grouped]);
+  const flatSorted = useMemo(() => {
+    const out = [];
+    for (const l of sortedLetters) out.push(...grouped[l]);
+    return out;
+  }, [sortedLetters, grouped]);
+
+  // Reset how many words are rendered whenever the underlying result set
+  // changes (new search, new filter, switched section) — otherwise a
+  // previous "load more" position could hide brand-new matches.
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [query, studyFilter, section]);
+
+  // The letter → entries map actually rendered right now, capped to
+  // visibleCount words total (in flatSorted order).
+  const visibleGrouped = useMemo(() => {
+    const map = {};
+    let remaining = visibleCount;
+    for (const l of sortedLetters) {
+      if (remaining <= 0) break;
+      const slice = grouped[l].slice(0, remaining);
+      if (slice.length) map[l] = slice;
+      remaining -= slice.length;
+    }
+    return map;
+  }, [sortedLetters, grouped, visibleCount]);
+
+  const hasMore = visibleCount < flatSorted.length;
+
+  // Infinite-scroll: grow the rendered batch when the sentinel at the
+  // bottom of the list comes into view, instead of forcing a manual click.
+  useEffect(() => {
+    if (!hasMore) return;
+    const el = loadMoreRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entriesObs) => {
+      if (entriesObs[0].isIntersecting) {
+        setVisibleCount((c) => Math.min(c + PAGE_SIZE, flatSorted.length));
+      }
+    }, { rootMargin: "600px 0px" });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, flatSorted.length]);
+
   const availableLetters = useMemo(() => new Set(Object.keys(grouped)), [grouped]);
   const letterRefs = useRef({});
-  function jumpTo(letter) { const el = letterRefs.current[letter]; if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  function jumpTo(letter) {
+    // If that letter's group isn't rendered yet (still beyond the current
+    // page), grow visibleCount to include it first, then scroll once React
+    // has actually mounted it.
+    if (!visibleGrouped[letter] && grouped[letter]) {
+      let count = 0;
+      for (const l of sortedLetters) {
+        count += grouped[l].length;
+        if (l === letter) break;
+      }
+      setVisibleCount((c) => Math.max(c, count));
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const el = letterRefs.current[letter];
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }));
+      return;
+    }
+    const el = letterRefs.current[letter];
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   async function handleAdd(newEntry) {
     const next = [...entries, { ...newEntry, id: uid(), section, addedBy: accountCode, addedAt: Date.now() }];
@@ -2589,23 +2725,57 @@ function MainView({
       const rows = parseCsv(text);
       let dataRows = rows;
       if (rows.length && rows[0][0] && rows[0][0].trim().toLowerCase() === "word") dataRows = rows.slice(1);
-      const newEntries = dataRows
-        .filter((r) => r[0] && r[0].trim() && r[1] && r[1].trim())
-        .map((r) => ({
+
+      // Guard against a pathologically huge file — a many-thousand-row CSV
+      // would balloon the shared JSONBin record (there's a hard size cap on
+      // JSONBin's free tier) and make every future load/save slower for
+      // everyone. Import the first IMPORT_ROW_CAP valid rows and tell the
+      // user plainly if the file had more than that.
+      const IMPORT_ROW_CAP = 2000;
+      const truncated = dataRows.length > IMPORT_ROW_CAP;
+      if (truncated) dataRows = dataRows.slice(0, IMPORT_ROW_CAP);
+
+      const existingWords = new Set(sectionEntries.map((e) => e.word.trim().toLowerCase()));
+      let skippedInvalid = 0;
+      let skippedDuplicate = 0;
+      const seenInFile = new Set();
+      const newEntries = [];
+      for (const r of dataRows) {
+        const word = (r[0] || "").trim();
+        const meaning = (r[1] || "").trim();
+        if (!word || !meaning) { skippedInvalid++; continue; }
+        const key = word.toLowerCase();
+        if (existingWords.has(key) || seenInFile.has(key)) { skippedDuplicate++; continue; }
+        seenInFile.add(key);
+        newEntries.push({
           id: uid(), section,
-          word: r[0].trim(), meaning: r[1].trim(), definition: (r[2] || "").trim(), example: "",
+          word, meaning, definition: (r[2] || "").trim(), example: "",
           synonyms: normalizePairs((r[3] || "").split(";").map((s) => s.trim()).filter(Boolean), cfg),
           antonyms: normalizePairs((r[4] || "").split(";").map((s) => s.trim()).filter(Boolean), cfg),
           addedBy: accountCode, addedAt: Date.now(),
-        }));
+        });
+      }
+
       if (!newEntries.length) {
-        showToast(tr(isAr, "No valid rows found in that file.", "الملف ده مفيهوش صفوف صالحة."));
+        showToast(skippedDuplicate && !skippedInvalid
+          ? tr(isAr, "Every word in that file is already in your dictionary.", "كل الكلمات في الملف ده موجودة أصلاً في قاموسك.")
+          : tr(isAr, "No valid rows found in that file.", "الملف ده مفيهوش صفوف صالحة."));
         return;
       }
+
       const next = [...entries, ...newEntries];
       const logEntry = makeLogEntry("word_add", `${name} imported ${newEntries.length} word(s) via CSV (${cfg.shortLabel})`, name, accountCode);
       await persistEntries(next, logEntry);
-      showToast(tr(isAr, `Imported ${newEntries.length} word(s).`, `تم استيراد ${newEntries.length} كلمة.`));
+
+      // Be explicit about anything that DIDN'T make it in, instead of just
+      // reporting the success count and letting a mismatch with the file's
+      // row count confuse people silently.
+      const notes = [];
+      if (skippedInvalid) notes.push(tr(isAr, `${skippedInvalid} row(s) skipped (missing word/meaning)`, `${skippedInvalid} صف اتجاهل (ناقص كلمة/معنى)`));
+      if (skippedDuplicate) notes.push(tr(isAr, `${skippedDuplicate} duplicate(s) skipped`, `${skippedDuplicate} كلمة مكررة اتجاهلت`));
+      if (truncated) notes.push(tr(isAr, `only the first ${IMPORT_ROW_CAP} rows were processed`, `اتعالج بس أول ${IMPORT_ROW_CAP} صف`));
+      const suffix = notes.length ? ` (${notes.join(", ")})` : "";
+      showToast(tr(isAr, `Imported ${newEntries.length} word(s).${suffix}`, `تم استيراد ${newEntries.length} كلمة.${suffix}`));
     } catch (err) {
       showToast(tr(isAr, "Couldn't read that CSV file.", "تعذر قراءة ملف الـ CSV ده."));
     } finally {
@@ -2851,25 +3021,35 @@ function MainView({
           ) : filtered.length === 0 ? (
             <EmptyState hasQuery={!!query.trim() || studyFilter !== "all"} onAdd={onOpenAdd} accent={cfg.accent} isAr={isAr} />
           ) : (
-            cfg.letters.filter((l) => grouped[l]).map((letter) => (
-              <div key={letter} ref={(el) => (letterRefs.current[letter] = el)} style={{ marginBottom: 26 }}>
-                <div style={{ fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif", fontSize: 15, fontWeight: 700, color: cfg.accent, borderBottom: `1px solid ${cfg.accentSoft}`, paddingBottom: 4, marginBottom: 10 }}>
-                  {letter}
+            <>
+              {cfg.letters.filter((l) => visibleGrouped[l]).map((letter) => (
+                <div key={letter} ref={(el) => (letterRefs.current[letter] = el)} style={{ marginBottom: 26 }}>
+                  <div style={{ fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif", fontSize: 15, fontWeight: 700, color: cfg.accent, borderBottom: `1px solid ${cfg.accentSoft}`, paddingBottom: 4, marginBottom: 10 }}>
+                    {letter}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {visibleGrouped[letter].map((e) => (
+                      <EntryCard key={e.id} entry={e} cfg={cfg} isAdmin={isAdmin} isAr={isAr}
+                        canEdit={isAdmin || e.addedBy === accountCode}
+                        onDelete={() => handleDelete(e.id)} onEdit={() => setEditingEntry(e)}
+                        onOpenZoom={() => setZoomEntry(e)}
+                        isStudied={studiedIds.has(e.id)} onToggleStudied={() => onToggleStudied(e.id)}
+                        isFavorite={favoriteIds.has(e.id)} onToggleFavorite={() => onToggleFavorite(e.id)}
+                        addedByLabel={accountNameByCode[e.addedBy] || e.addedBy}
+                        editedByLabel={accountNameByCode[e.editedBy] || e.editedBy} />
+                    ))}
+                  </div>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {grouped[letter].map((e) => (
-                    <EntryCard key={e.id} entry={e} cfg={cfg} isAdmin={isAdmin} isAr={isAr}
-                      canEdit={isAdmin || e.addedBy === accountCode}
-                      onDelete={() => handleDelete(e.id)} onEdit={() => setEditingEntry(e)}
-                      onOpenZoom={() => setZoomEntry(e)}
-                      isStudied={studiedIds.has(e.id)} onToggleStudied={() => onToggleStudied(e.id)}
-                      isFavorite={favoriteIds.has(e.id)} onToggleFavorite={() => onToggleFavorite(e.id)}
-                      addedByLabel={accountNameByCode[e.addedBy] || e.addedBy}
-                      editedByLabel={accountNameByCode[e.editedBy] || e.editedBy} />
-                  ))}
+              ))}
+              {hasMore && (
+                <div ref={loadMoreRef} style={{ display: "flex", justifyContent: "center", padding: "10px 0 24px" }}>
+                  <button onClick={() => setVisibleCount((c) => Math.min(c + PAGE_SIZE, flatSorted.length))}
+                    style={{ padding: "9px 18px", fontSize: 13, fontWeight: 600, color: cfg.accent, background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, cursor: "pointer" }}>
+                    {tr(isAr, `Load more (${flatSorted.length - visibleCount} left)`, `تحميل المزيد (${flatSorted.length - visibleCount} متبقي)`)}
+                  </button>
                 </div>
-              </div>
-            ))
+              )}
+            </>
           )}
         </div>
       </div>

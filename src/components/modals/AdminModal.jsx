@@ -9,7 +9,7 @@ import {
   BookIcon, ChevronIcon, CopyIcon,
 } from "../common/Icons";
 
-function AdminModal({ accounts, myAccountCode, logs, onClose, onAdd, onEdit, onDelete, isAr }) {
+function AdminModal({ accounts, myAccountCode, logs, onClearLogs, onClose, onAdd, onEdit, onDelete, isAr }) {
   const [mode, setMode] = useState("list"); // list | add | edit | added | log
   const [editingCode, setEditingCode] = useState(null);
   const [formName, setFormName] = useState("");
@@ -21,6 +21,7 @@ function AdminModal({ accounts, myAccountCode, logs, onClose, onAdd, onEdit, onD
   const [confirmDeleteCode, setConfirmDeleteCode] = useState(null);
   const [codeCopied, setCodeCopied] = useState(false);
   const [logFilter, setLogFilter] = useState("all");
+  const [confirmClearLogs, setConfirmClearLogs] = useState(false);
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -93,6 +94,13 @@ function AdminModal({ accounts, myAccountCode, logs, onClose, onAdd, onEdit, onD
     }
     setInviteCopied(true);
     setTimeout(() => setInviteCopied(false), 1800);
+  }
+
+  function handleClearLogsClick() {
+    if (!confirmClearLogs) { setConfirmClearLogs(true); return; }
+    onClearLogs && onClearLogs();
+    setConfirmClearLogs(false);
+    setLogFilter("all");
   }
 
   const sortedLogs = useMemo(() => [...(logs || [])].sort((a, b) => b.at - a.at), [logs]);
@@ -209,10 +217,18 @@ function AdminModal({ accounts, myAccountCode, logs, onClose, onAdd, onEdit, onD
 
         {mode === "log" && (
           <div style={{ marginTop: 12 }}>
-            <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 10 }}>
-              <button onClick={() => setMode("list")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: "var(--icon-muted)", background: "none", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 3, cursor: "pointer" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
+              <button onClick={() => { setMode("list"); setConfirmClearLogs(false); }} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: "var(--icon-muted)", background: "none", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 3, cursor: "pointer" }}>
                 <ChevronIcon size={13} style={{ transform: `rotate(${isAr ? 0 : 180}deg)` }} /> {tr(isAr, "Back", "رجوع")}
               </button>
+              {sortedLogs.length > 0 && (
+                <button onClick={handleClearLogsClick} onBlur={() => setConfirmClearLogs(false)}
+                  style={{ padding: "6px 10px", fontSize: 12, fontWeight: 600, color: confirmClearLogs ? "#fff" : "var(--danger)", background: confirmClearLogs ? "var(--danger)" : "none", border: `1px solid var(--danger)`, borderRadius: 3, cursor: "pointer" }}>
+                  {confirmClearLogs
+                    ? tr(isAr, "Click again to confirm", "اضغط تاني للتأكيد")
+                    : tr(isAr, "Clear log (keep First Sign In)", "مسح السجل (والاحتفاظ بأول تسجيل دخول)")}
+                </button>
+              )}
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
               {LOG_SECTIONS.map((s) => {

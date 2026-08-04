@@ -11,28 +11,41 @@
 // After adding/changing env vars you must redeploy for them to take effect.
 //
 // ---------------------------------------------------------------------------
-// CONCURRENCY — optimistic locking with a `version` counter
+// CONCURRENCY — a real distributed lock (Redis) + a `version` counter
 // ---------------------------------------------------------------------------
 // The whole dictionary (entries + accounts + logs) lives in a single
 // JSONBin record, so without any guard, two people saving around the same
 // moment could silently clobber each other: A reads, B reads, B writes, A
 // writes — A's write overwrites B's change with no warning ("last write
-// wins"). To catch that instead of silently losing data:
+// wins").
+//
 //   - Every record carries a `version` integer, bumped by 1 on every PUT.
-//   - The client must send back the `version` it last read as
-//     `expectedVersion`.
+//     The client sends back the version it last read as `expectedVersion`.
 //   - Right before writing, the server re-fetches the CURRENT record from
 //     JSONBin and compares its version against `expectedVersion`. If they
 //     don't match, someone else saved in between — reject with 409 and hand
-//     back the fresh record so the client can show a "reload / merge"
-//     message instead of destroying that change.
-// Honest caveat: this closes the common case, but the read-compare-write
-// here still isn't a true atomic transaction (JSONBin has no built-in
-// compare-and-swap), so a write landing in the handful of milliseconds
-// between our re-fetch and our PUT could still race. For a small shared
-// app like this, that's an acceptable residual risk; a proper database
-// (e.g. Postgres with a real transaction, or Vercel KV) would remove it
-// completely if this ever needs to be airtight.
+//     back the fresh record so the client can reapply its change on top and
+//     retry (see persistEntries/persistAccounts in src/App.jsx).
+//
+// On its own, that read-compare-write is only an OPTIMISTIC check, not a
+// true atomic transaction — two requests landing within the same handful of
+// milliseconds could both read the same version, both pass the comparison,
+// and both write, the second silently clobbering the first. To close that
+// completely we wrap the whole read-compare-write in a real distributed
+// lock (lib/redis.js, backed by Upstash Redis — the same one used for
+// login rate-limiting in api/login.js): only one request can hold the lock
+// at a time, so no two writes can ever overlap.
+//
+// If UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN aren't configured,
+// this falls back to the version check alone (no lock) — same
+// graceful-degradation pattern as api/login.js. That's still useful (it
+// catches and reports the common case) but leaves the small residual race
+// described above. Set those two env vars (free Upstash database) to close
+// it completely.
+
+import { redisConfigured, acquireLock, releaseLock } from "../lib/redis.js";
+
+const LOCK_KEY = "twoTongues:dictWriteLock";
 
 export default async function handler(req, res) {
   const { JSONBIN_BIN_ID, JSONBIN_MASTER_KEY } = process.env;
@@ -80,38 +93,71 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Missing expectedVersion — client must send the version it last read." });
       }
 
-      // Re-fetch the freshest copy right before writing (no-cache, bypassing
-      // the CDN) so the version check is against the true current state,
-      // not a stale edge-cached response from up to ~10s ago.
-      const freshRes = await fetch(`${API_BASE}/latest`, {
-        headers: { "X-Master-Key": JSONBIN_MASTER_KEY },
-      });
-      if (!freshRes.ok) return res.status(502).json({ error: "Upstream fetch failed" });
-      const freshData = await freshRes.json();
-      const currentVersion = (freshData.record && freshData.record.version) || 0;
-
-      if (currentVersion !== body.expectedVersion) {
-        // Someone else saved since the client last read — refuse the write
-        // instead of overwriting their change, and hand back the current
-        // record so the client can refresh/retry against it.
-        return res.status(409).json({
-          error: "conflict",
-          message: "The dictionary changed since you last loaded it.",
-          entries: (freshData.record && freshData.record.entries) || [],
-          accounts: (freshData.record && freshData.record.accounts) || [],
-          logs: (freshData.record && freshData.record.logs) || [],
-          version: currentVersion,
-        });
+      // Hold the distributed lock for the entire read-compare-write below,
+      // so no other request's write can land in the gap between our fresh
+      // read and our PUT. Falls back to "no lock" if Redis isn't
+      // configured — see the concurrency comment above.
+      const useLock = redisConfigured();
+      let lockToken = null;
+      if (useLock) {
+        lockToken = await acquireLock(LOCK_KEY);
+        if (!lockToken) {
+          // Someone else held the lock the whole time we were willing to
+          // wait — tell the client it's a conflict (with a same-shaped
+          // response as a version mismatch) so its existing retry logic
+          // just re-fetches and tries again, rather than needing a
+          // separate error path.
+          const busyRes = await fetch(`${API_BASE}/latest`, { headers: { "X-Master-Key": JSONBIN_MASTER_KEY } });
+          const busyData = busyRes.ok ? await busyRes.json() : {};
+          return res.status(409).json({
+            error: "conflict",
+            message: "The dictionary is busy — please try again.",
+            entries: (busyData.record && busyData.record.entries) || [],
+            accounts: (busyData.record && busyData.record.accounts) || [],
+            logs: (busyData.record && busyData.record.logs) || [],
+            version: (busyData.record && busyData.record.version) || 0,
+          });
+        }
       }
 
-      const nextVersion = currentVersion + 1;
-      const r = await fetch(API_BASE, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_MASTER_KEY },
-        body: JSON.stringify({ entries: body.entries, accounts: body.accounts, logs: body.logs, version: nextVersion }),
-      });
-      if (!r.ok) return res.status(502).json({ error: "Upstream save failed" });
-      return res.status(200).json({ ok: true, version: nextVersion });
+      try {
+        // Re-fetch the freshest copy right before writing (no-cache,
+        // bypassing the CDN) so the version check is against the true
+        // current state, not a stale edge-cached response from up to ~10s
+        // ago. While we hold the lock, nobody else can be mid-write, so
+        // this read is guaranteed not to be immediately stale.
+        const freshRes = await fetch(`${API_BASE}/latest`, {
+          headers: { "X-Master-Key": JSONBIN_MASTER_KEY },
+        });
+        if (!freshRes.ok) return res.status(502).json({ error: "Upstream fetch failed" });
+        const freshData = await freshRes.json();
+        const currentVersion = (freshData.record && freshData.record.version) || 0;
+
+        if (currentVersion !== body.expectedVersion) {
+          // Someone else saved since the client last read — refuse the write
+          // instead of overwriting their change, and hand back the current
+          // record so the client can reapply its change and retry.
+          return res.status(409).json({
+            error: "conflict",
+            message: "The dictionary changed since you last loaded it.",
+            entries: (freshData.record && freshData.record.entries) || [],
+            accounts: (freshData.record && freshData.record.accounts) || [],
+            logs: (freshData.record && freshData.record.logs) || [],
+            version: currentVersion,
+          });
+        }
+
+        const nextVersion = currentVersion + 1;
+        const r = await fetch(API_BASE, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_MASTER_KEY },
+          body: JSON.stringify({ entries: body.entries, accounts: body.accounts, logs: body.logs, version: nextVersion }),
+        });
+        if (!r.ok) return res.status(502).json({ error: "Upstream save failed" });
+        return res.status(200).json({ ok: true, version: nextVersion });
+      } finally {
+        if (useLock && lockToken) await releaseLock(LOCK_KEY, lockToken);
+      }
     }
 
     res.setHeader("Allow", "GET, PUT");

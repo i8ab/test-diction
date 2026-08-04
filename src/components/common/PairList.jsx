@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, labelStyle, inputStyle } from "../../lib/config/theme";
 import { normalizePairs } from "../../lib/utils/pairUtils";
+import { uid } from "../../lib/utils/quizHelpers";
 import { PlusIcon, XIcon, SpeakButton } from "./Icons";
 
 function PairListEditor({ cfg, label, pairs, onChange, isAr }) {

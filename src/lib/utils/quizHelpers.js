@@ -375,6 +375,6 @@ export {
   quizRangeStart, selectQuizEntries, shuffleArray, pickDistractors,
   normalizeForTyping, isTypingCorrect, buildQuestionsForEntry, buildQuiz,
   quizQuestionLabel, SRS_LEVEL_INTERVALS_MS, SRS_BOX_LABELS,
-  srsLevelFromStats, isSrsDue, quizResultCategory, formatQuizDuration,
+  srsLevelFromStats, isSrsDue, quizResultCategory, QUIZ_RESULT_CATEGORIES, formatQuizDuration,
   dateKey, computeStreak, formatDueIn,
 };

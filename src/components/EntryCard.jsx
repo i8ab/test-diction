@@ -1,6 +1,11 @@
 // The card showing a single dictionary entry in the main word list —
 // collapsed to word + meaning, expandable to definition/examples/synonyms.
-import { useState } from "react";
+// Wrapped in React.memo below: word lists can run into the hundreds of
+// visible cards, and MainView re-renders on every search keystroke, so
+// without memoization every card would re-render on every keystroke too.
+// The callbacks are id-based (rather than pre-bound per entry) so the
+// parent can hand down stable function references that don't defeat memo.
+import { useState, memo } from "react";
 import { tr } from "../lib/i18n";
 import { INK, CARD, BRASS } from "../lib/theme";
 import { cambridgeUrl } from "../lib/wordCard";
@@ -103,7 +108,7 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
       <div style={{ display: "flex", gap: 6, flexShrink: 0, alignSelf: "flex-start" }}>
         <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={isAr} size={18} />
         <button
-          onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+          onClick={(e) => { e.stopPropagation(); onToggleFavorite(entry.id); }}
           title={isFavorite ? tr(isAr, "Remove from favorites", "إزالة من المفضلة") : tr(isAr, "Add to favorites", "إضافة للمفضلة")}
           aria-label={isFavorite ? tr(isAr, `Remove ${entry.word} from favorites`, `إزالة ${entry.word} من المفضلة`) : tr(isAr, `Add ${entry.word} to favorites`, `إضافة ${entry.word} للمفضلة`)}
           aria-pressed={isFavorite}
@@ -111,14 +116,14 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
           <StarIcon size={18} fill={isFavorite ? BRASS : "none"} />
         </button>
         <button
-          onClick={(e) => { e.stopPropagation(); onOpenZoom(); }}
+          onClick={(e) => { e.stopPropagation(); onOpenZoom(entry.id); }}
           title={tr(isAr, "Zoom", "تكبير")}
           aria-label={tr(isAr, `Zoom in on ${entry.word}`, `تكبير ${entry.word}`)}
           style={{ border: "none", background: "none", color: "var(--icon-muted)", padding: 4, cursor: "pointer", display: "flex", alignItems: "center" }}>
           <ZoomIcon size={18} />
         </button>
         <button
-          onClick={(e) => { e.stopPropagation(); onToggleStudied(); }}
+          onClick={(e) => { e.stopPropagation(); onToggleStudied(entry.id); }}
           title={isStudied ? tr(isAr, "Mark as not studied", "إلغاء وضع علامة الدراسة") : tr(isAr, "Mark as studied/seen", "وضع علامة كمدروسة")}
           aria-label={isStudied ? tr(isAr, `Mark ${entry.word} as not studied`, `إلغاء علامة الدراسة عن ${entry.word}`) : tr(isAr, `Mark ${entry.word} as studied`, `وضع علامة الدراسة على ${entry.word}`)}
           aria-pressed={isStudied}
@@ -127,14 +132,14 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
         </button>
         {canEdit && (
           <button
-            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            onClick={(e) => { e.stopPropagation(); onEdit(entry.id); }}
             title={tr(isAr, "Edit", "تعديل")} aria-label={tr(isAr, `Edit ${entry.word}`, `تعديل ${entry.word}`)}
             style={{ border: "none", background: "none", color: "var(--icon-muted)", padding: 4, cursor: "pointer", display: "flex", alignItems: "center" }}>
             <EditIcon size={16} />
           </button>
         )}
         {canEdit && (
-          <button onClick={() => (confirmDel ? onDelete() : setConfirmDel(true))} onBlur={() => setConfirmDel(false)}
+          <button onClick={() => (confirmDel ? onDelete(entry.id) : setConfirmDel(true))} onBlur={() => setConfirmDel(false)}
             title={confirmDel ? tr(isAr, "Click again to confirm", "اضغط مرة أخرى للتأكيد") : tr(isAr, "Delete", "حذف")}
             aria-label={confirmDel ? tr(isAr, `Confirm delete ${entry.word}`, `تأكيد حذف ${entry.word}`) : tr(isAr, `Delete ${entry.word}`, `حذف ${entry.word}`)}
             style={{ border: "none", background: confirmDel ? "var(--danger-border)" : "transparent", color: confirmDel ? "var(--danger)" : "var(--icon-muted)", borderRadius: 3, padding: 6, cursor: "pointer" }}>
@@ -146,4 +151,4 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
   );
 }
 
-export default EntryCard;
+export default memo(EntryCard);

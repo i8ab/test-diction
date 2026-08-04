@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from "react";
 import { tr } from "../lib/i18n";
 import { INK, PAPER, CARD, BRASS, errorStyle } from "../lib/theme";
 import { getSpeechRecognitionCtor, recognizeSpeech } from "../lib/speech";
@@ -13,19 +13,25 @@ import { parseCsv, exportEntriesAsCsv } from "../lib/csvUtils";
 import { makeLogEntry } from "../lib/logs";
 import { SECTIONS } from "../lib/sections";
 import { loadSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory } from "../lib/storage";
-import QuizModal from "./QuizModal";
-import StatsModal from "./StatsModal";
-import LeaderboardModal from "./LeaderboardModal";
-import FlashcardsModal from "./FlashcardsModal";
 import EntryCard from "./EntryCard";
-import AddModal from "./AddModal";
-import AccountModal from "./AccountModal";
-import AdminModal from "./AdminModal";
 import HeaderMenu from "./HeaderMenu";
 import ToolsMenu from "./ToolsMenu";
-import WordZoomModal from "./WordZoomModal";
 import ReminderBanner from "./ReminderBanner";
 import EmptyState from "./EmptyState";
+
+// These are only ever rendered behind a boolean flag (showQuiz, showAdd,
+// etc.) — never on first paint. Loading them lazily keeps their code
+// (QuizModal alone pulls in the ~380-line quiz engine) out of the main
+// bundle, so the initial page load only ships the code actually needed
+// to show the word list.
+const QuizModal = lazy(() => import("./QuizModal"));
+const StatsModal = lazy(() => import("./StatsModal"));
+const LeaderboardModal = lazy(() => import("./LeaderboardModal"));
+const FlashcardsModal = lazy(() => import("./FlashcardsModal"));
+const AddModal = lazy(() => import("./AddModal"));
+const AccountModal = lazy(() => import("./AccountModal"));
+const AdminModal = lazy(() => import("./AdminModal"));
+const WordZoomModal = lazy(() => import("./WordZoomModal"));
 
 export default function MainView({
   name, isAdmin, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
@@ -271,7 +277,7 @@ export default function MainView({
     );
     onCloseAdd();
   }
-  async function handleDelete(id) {
+  const handleDelete = useCallback(async (id) => {
     const target = entries.find((e) => e.id === id);
     const prevEntries = entries;
     await persistEntries(
@@ -283,7 +289,24 @@ export default function MainView({
       setUndoDelete({ entry: target, prevEntries });
       undoTimerRef.current = setTimeout(() => setUndoDelete(null), 6000);
     }
-  }
+  }, [entries, persistEntries, name, accountCode]);
+
+  // Stable (id-based) handlers for the entry list below — EntryCard is
+  // wrapped in React.memo, so these need to keep the same function
+  // identity across re-renders (e.g. every keystroke while searching) or
+  // the memoization is defeated and every visible card re-renders anyway.
+  const handleEditRequest = useCallback((id) => {
+    const target = entries.find((e) => e.id === id);
+    if (target) setEditingEntry(target);
+  }, [entries]);
+
+  const handleZoomRequest = useCallback((id) => {
+    const target = entries.find((e) => e.id === id);
+    if (target) setZoomEntry(target);
+  }, [entries]);
+
+  const handleToggleStudiedById = useCallback((id) => { onToggleStudied(id); }, [onToggleStudied]);
+  const handleToggleFavoriteById = useCallback((id) => { onToggleFavorite(id); }, [onToggleFavorite]);
   async function handleUndoDelete() {
     if (!undoDelete) return;
     clearTimeout(undoTimerRef.current);
@@ -611,10 +634,10 @@ export default function MainView({
                     {visibleGrouped[letter].map((e) => (
                       <EntryCard key={e.id} entry={e} cfg={cfg} isAdmin={isAdmin} isAr={isAr}
                         canEdit={isAdmin || e.addedBy === accountCode}
-                        onDelete={() => handleDelete(e.id)} onEdit={() => setEditingEntry(e)}
-                        onOpenZoom={() => setZoomEntry(e)}
-                        isStudied={studiedIds.has(e.id)} onToggleStudied={() => onToggleStudied(e.id)}
-                        isFavorite={favoriteIds.has(e.id)} onToggleFavorite={() => onToggleFavorite(e.id)}
+                        onDelete={handleDelete} onEdit={handleEditRequest}
+                        onOpenZoom={handleZoomRequest}
+                        isStudied={studiedIds.has(e.id)} onToggleStudied={handleToggleStudiedById}
+                        isFavorite={favoriteIds.has(e.id)} onToggleFavorite={handleToggleFavoriteById}
                         addedByLabel={accountNameByCode[e.addedBy] || e.addedBy}
                         editedByLabel={accountNameByCode[e.editedBy] || e.editedBy} />
                     ))}
@@ -634,89 +657,91 @@ export default function MainView({
         </div>
       </div>
 
-      {showAdd && <AddModal cfg={cfg} onClose={onCloseAdd} onSubmit={handleAdd} />}
-      {editingEntry && (
-        <AddModal
-          cfg={cfg}
-          initialEntry={editingEntry}
-          onClose={() => setEditingEntry(null)}
-          onSubmit={(updates) => handleEdit(editingEntry.id, updates)}
-        />
-      )}
-      {zoomEntry && (
-        <WordZoomModal entry={zoomEntry} cfg={cfg} onClose={() => setZoomEntry(null)} />
-      )}
-      {showQuiz && (
-        <QuizModal
-          entries={sectionEntries}
-          sectionLabel={cfg.shortLabel}
-          studiedIds={studiedIds}
-          studiedAt={studiedAt}
-          srsDueAt={srsDueAt}
-          sessionStart={sessionStart}
-          isAr={isAr}
-          onClose={() => setShowQuiz(false)}
-          onRecordSrsAnswer={onRecordSrsAnswer}
-          onSaveQuizResult={onSaveQuizResult}
-        />
-      )}
-      {showFlashcards && (
-        <FlashcardsModal
-          entries={sectionEntries}
-          cfg={cfg}
-          sectionLabel={cfg.shortLabel}
-          studiedIds={studiedIds}
-          favoriteIds={favoriteIds}
-          onToggleStudied={onToggleStudied}
-          isAr={isAr}
-          onClose={() => setShowFlashcards(false)}
-        />
-      )}
-      {showStats && (
-        <StatsModal
-          entries={sectionEntries}
-          sectionLabel={cfg.shortLabel}
-          studiedIds={studiedIds}
-          studiedAt={studiedAt}
-          srsBox={srsBox}
-          srsDueAt={srsDueAt}
-          quizHistory={quizHistory}
-          isAr={isAr}
-          cfg={cfg}
-          onClose={() => setShowStats(false)}
-        />
-      )}
-      {showLeaderboard && (
-        <LeaderboardModal
-          accounts={accounts}
-          sectionEntries={sectionEntries}
-          accountCode={accountCode}
-          sectionLabel={cfg.shortLabel}
-          isAr={isAr}
-          cfg={cfg}
-          onClose={() => setShowLeaderboard(false)}
-        />
-      )}
-      {showAccount && (
-        <AccountModal
-          account={accounts.find((a) => a.code === accountCode) || { name, code: accountCode, role: isAdmin ? "admin" : "user" }}
-          onClose={onCloseAccount}
-          onSave={onUpdateOwnName}
-          isAr={isAr}
-        />
-      )}
-      {showAdmin && (
-        <AdminModal
-          accounts={accounts}
-          myAccountCode={accountCode}
-          logs={logs}
-          onClose={onCloseAdmin}
-          onAdd={onAdminAddAccount}
-          onEdit={onAdminEditAccount}
-          onDelete={onAdminDeleteAccount}
-          isAr={isAr}
-        />
-      )}
+      <Suspense fallback={null}>
+        {showAdd && <AddModal cfg={cfg} onClose={onCloseAdd} onSubmit={handleAdd} />}
+        {editingEntry && (
+          <AddModal
+            cfg={cfg}
+            initialEntry={editingEntry}
+            onClose={() => setEditingEntry(null)}
+            onSubmit={(updates) => handleEdit(editingEntry.id, updates)}
+          />
+        )}
+        {zoomEntry && (
+          <WordZoomModal entry={zoomEntry} cfg={cfg} onClose={() => setZoomEntry(null)} />
+        )}
+        {showQuiz && (
+          <QuizModal
+            entries={sectionEntries}
+            sectionLabel={cfg.shortLabel}
+            studiedIds={studiedIds}
+            studiedAt={studiedAt}
+            srsDueAt={srsDueAt}
+            sessionStart={sessionStart}
+            isAr={isAr}
+            onClose={() => setShowQuiz(false)}
+            onRecordSrsAnswer={onRecordSrsAnswer}
+            onSaveQuizResult={onSaveQuizResult}
+          />
+        )}
+        {showFlashcards && (
+          <FlashcardsModal
+            entries={sectionEntries}
+            cfg={cfg}
+            sectionLabel={cfg.shortLabel}
+            studiedIds={studiedIds}
+            favoriteIds={favoriteIds}
+            onToggleStudied={onToggleStudied}
+            isAr={isAr}
+            onClose={() => setShowFlashcards(false)}
+          />
+        )}
+        {showStats && (
+          <StatsModal
+            entries={sectionEntries}
+            sectionLabel={cfg.shortLabel}
+            studiedIds={studiedIds}
+            studiedAt={studiedAt}
+            srsBox={srsBox}
+            srsDueAt={srsDueAt}
+            quizHistory={quizHistory}
+            isAr={isAr}
+            cfg={cfg}
+            onClose={() => setShowStats(false)}
+          />
+        )}
+        {showLeaderboard && (
+          <LeaderboardModal
+            accounts={accounts}
+            sectionEntries={sectionEntries}
+            accountCode={accountCode}
+            sectionLabel={cfg.shortLabel}
+            isAr={isAr}
+            cfg={cfg}
+            onClose={() => setShowLeaderboard(false)}
+          />
+        )}
+        {showAccount && (
+          <AccountModal
+            account={accounts.find((a) => a.code === accountCode) || { name, code: accountCode, role: isAdmin ? "admin" : "user" }}
+            onClose={onCloseAccount}
+            onSave={onUpdateOwnName}
+            isAr={isAr}
+          />
+        )}
+        {showAdmin && (
+          <AdminModal
+            accounts={accounts}
+            myAccountCode={accountCode}
+            logs={logs}
+            onClose={onCloseAdmin}
+            onAdd={onAdminAddAccount}
+            onEdit={onAdminEditAccount}
+            onDelete={onAdminDeleteAccount}
+            isAr={isAr}
+          />
+        )}
+      </Suspense>
       {toast && (
         <div role="status" aria-live="polite" style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "var(--success)", color: "#fff", padding: "10px 18px", borderRadius: 4, fontSize: 13, fontWeight: 600, boxShadow: "0 10px 24px -10px rgba(0,0,0,0.35)", zIndex: 60, display: "flex", alignItems: "center", gap: 7 }}>
           <CheckIcon size={14} /> {tr(isAr, toast, toast === "Account info updated." ? "تم تحديث بيانات الحساب." : toast)}

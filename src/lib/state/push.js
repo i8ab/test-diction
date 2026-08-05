@@ -10,42 +10,83 @@ const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "";
 // localStorage flag for whether the person opted into study reminders —
 // shared between the header-menu toggle and the in-list reminder banner so
 // both reflect the same on/off state.
-export const REMINDER_PREF_KEY = "twoTongues.remindersEnabled";
-export const REMINDER_MESSAGE_KEY = "twoTongues.reminderMessage";
-export const REMINDER_TITLE_KEY = "twoTongues.reminderTitle";
+// Keys are scoped per account code so two people sharing a device (or
+// switching accounts on the same browser) never inherit each other's
+// custom notification title/body or on/off preference.
+export const REMINDER_PREF_KEY = "twoTongues.remindersEnabled"; // legacy global fallback
+export const REMINDER_MESSAGE_KEY = "twoTongues.reminderMessage"; // legacy
+export const REMINDER_TITLE_KEY = "twoTongues.reminderTitle"; // legacy
+
+function prefKey(code) {
+  return code ? `twoTongues.remindersEnabled.${code}` : REMINDER_PREF_KEY;
+}
+function messageKey(code) {
+  return code ? `twoTongues.reminderMessage.${code}` : REMINDER_MESSAGE_KEY;
+}
+function titleKey(code) {
+  return code ? `twoTongues.reminderTitle.${code}` : REMINDER_TITLE_KEY;
+}
 
 const DEFAULT_TITLE = "وقت المراجعة! / Time to review!";
 const DEFAULT_BODY = "تذكير يومي بالمراجعة — يلا نراجع شوية. / Daily review reminder — time for a quick study.";
 
-export function loadReminderMessage() {
+export function loadRemindersEnabled(code) {
   try {
-    const v = localStorage.getItem(REMINDER_MESSAGE_KEY);
-    return typeof v === "string" ? v : "";
+    if (code) {
+      const v = localStorage.getItem(prefKey(code));
+      if (v === "1" || v === "0") return v === "1";
+    }
+    // No per-account value yet — do NOT fall back to another account's
+    // preference; default is off.
+    return false;
   } catch (e) {
-    return "";
+    return false;
   }
 }
 
-export function saveReminderMessage(msg) {
+export function saveRemindersEnabled(code, on) {
   try {
-    if (msg && msg.trim()) localStorage.setItem(REMINDER_MESSAGE_KEY, msg.trim());
-    else localStorage.removeItem(REMINDER_MESSAGE_KEY);
+    if (code) localStorage.setItem(prefKey(code), on ? "1" : "0");
   } catch (e) {}
 }
 
-export function loadReminderTitle() {
+export function loadReminderMessage(code) {
   try {
-    const v = localStorage.getItem(REMINDER_TITLE_KEY);
-    return typeof v === "string" ? v : "";
+    if (code) {
+      const v = localStorage.getItem(messageKey(code));
+      return typeof v === "string" ? v : "";
+    }
+    return "";
   } catch (e) {
     return "";
   }
 }
 
-export function saveReminderTitle(title) {
+export function saveReminderMessage(msg, code) {
   try {
-    if (title && title.trim()) localStorage.setItem(REMINDER_TITLE_KEY, title.trim());
-    else localStorage.removeItem(REMINDER_TITLE_KEY);
+    const key = messageKey(code);
+    if (msg && msg.trim()) localStorage.setItem(key, msg.trim());
+    else localStorage.removeItem(key);
+  } catch (e) {}
+}
+
+export function loadReminderTitle(code) {
+  try {
+    if (code) {
+      const v = localStorage.getItem(titleKey(code));
+      return typeof v === "string" ? v : "";
+    }
+    return "";
+  } catch (e) {
+    return "";
+  }
+}
+
+export function saveReminderTitle(title, code) {
+  try {
+    const key = titleKey(code);
+    if (title && title.trim()) localStorage.setItem(key, title.trim());
+    else localStorage.removeItem(key);
   } catch (e) {}
 }
 
@@ -113,8 +154,8 @@ export async function subscribeToPush(code, prefs = null) {
       if (typeof prefs.message === "string") body.message = prefs.message;
       if (typeof prefs.title === "string") body.title = prefs.title;
     } else {
-      body.message = loadReminderMessage();
-      body.title = loadReminderTitle();
+      body.message = loadReminderMessage(code);
+      body.title = loadReminderTitle(code);
     }
     const r = await fetch("/api/push-subscribe", {
       method: "POST",

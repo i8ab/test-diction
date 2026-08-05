@@ -1,23 +1,28 @@
-// Full-screen auth flow: the marketing "intro" landing page, signup,
-// post-signup personal-code reveal, restoring-session spinner, and login.
-// Rendered whenever DictionaryApp is not yet in the "in" (signed-in) stage.
+// Full-screen auth flow: intro landing, signup (name + username + password),
+// pending-approval screen, restoring-session spinner, and login
+// (username + password + shared access code).
 import { tr } from "../../lib/config/i18n";
 import { INK, PAPER, BRASS, labelStyle, errorStyle, primaryBtnStyle, authCardStyle, authInputStyle, authBadgeWrapStyle } from "../../lib/config/theme";
 import { translateAdminError } from "../../lib/state/logs";
 import {
-  SearchIcon, PlusIcon, BookIcon, LoginIcon, KeyIcon, CopyIcon, CheckIcon,
+  SearchIcon, PlusIcon, BookIcon, LoginIcon, KeyIcon, CheckIcon,
   ChevronIcon, EditIcon, UsersIcon, SunIcon, MoonIcon, WifiOffIcon, GlobeIcon,
   QuizIcon, StatsIcon, TrophyIcon, FlameIcon, SpeakerIcon, LoaderIcon, ZoomIcon,
-  LayersIcon, CalendarIcon, DownloadIcon,
+  LayersIcon, CalendarIcon, DownloadIcon, UserIcon,
 } from "../common/Icons";
 import { Shell, LanguageToggle } from "../layout/Shell";
 
 function AuthScreens({
   authStage, appIsAr, atr, theme, toggleTheme, toggleAppLang,
   moreFeaturesOpen, setMoreFeaturesOpen, goToStage,
-  name, setName, signupError, setSignupError, signupSaving, handleSignup,
-  myCode, codeCopied, handleCopyCode,
-  codeInput, setCodeInput, personalCodeInput, setPersonalCodeInput,
+  name, setName,
+  signupUsername, setSignupUsername,
+  signupPassword, setSignupPassword,
+  signupPassword2, setSignupPassword2,
+  signupError, setSignupError, signupSaving, handleSignup,
+  usernameInput, setUsernameInput,
+  passwordInput, setPasswordInput,
+  codeInput, setCodeInput,
   authError, setAuthError, loggingIn, handleLogin,
 }) {
   if (authStage === "intro") {
@@ -39,22 +44,23 @@ function AuthScreens({
     return (
       <div
         dir={appIsAr ? "rtl" : "ltr"}
-        style={{ position: "relative", minHeight: "100vh", background: PAPER, backgroundImage: "radial-gradient(circle at 1px 1px, rgba(var(--border-rgb),0.06) 1px, transparent 0)", backgroundSize: "18px 18px", overflowX: "hidden" }}>
+        className="auth-page"
+        style={{ position: "relative", minHeight: "100dvh", background: PAPER, backgroundImage: "radial-gradient(circle at 1px 1px, rgba(var(--border-rgb),0.06) 1px, transparent 0)", backgroundSize: "18px 18px", overflowX: "hidden" }}>
         <div className="auth-orb" style={{ width: 420, height: 420, top: "-14%", insetInlineStart: "-10%", background: "radial-gradient(circle, var(--accent-1) 0%, transparent 70%)", animationDuration: "15s" }} />
         <div className="auth-orb" style={{ width: 360, height: 360, top: "14%", insetInlineEnd: "-12%", background: "radial-gradient(circle, var(--accent-2) 0%, transparent 70%)", animationDuration: "17s", animationDelay: "-5s" }} />
         <div className="auth-orb" style={{ width: 240, height: 240, bottom: "-6%", insetInlineStart: "22%", background: "radial-gradient(circle, var(--focus-rgb,25,167,206), transparent 70%)", opacity: 0.25, animationDuration: "11s", animationDelay: "-3s" }} />
 
-        <div style={{ position: "relative", zIndex: 1, maxWidth: 1080, margin: "0 auto", padding: "22px 24px 64px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "clamp(36px, 8vw, 84px)" }}>
+        <div className="auth-intro-inner" style={{ position: "relative", zIndex: 1, maxWidth: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(16px, 3vw, 28px) clamp(14px, 4vw, 32px) clamp(40px, 6vw, 72px)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "clamp(28px, 6vw, 84px)", gap: 10, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div className="auth-badge" style={{ ...authBadgeWrapStyle, width: 38, height: 38, borderRadius: 11 }}>
                 <BookIcon size={18} color="#fff" />
               </div>
-              <span style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 600, color: INK }}>Two Tongues</span>
+              <span style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(16px, 2.5vw, 18px)", fontWeight: 600, color: INK }}>Two Tongues</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button type="button" onClick={toggleTheme} className="lift-hover" aria-label={atr("Toggle theme", "تبديل المظهر")}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", color: "var(--icon-muted)", background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.2)" }}>
+              <button type="button" onClick={toggleTheme} className="lift-hover touch-target" aria-label={atr("Toggle theme", "تبديل المظهر")}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: "50%", color: "var(--icon-muted)", background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.2)" }}>
                 {theme === "dark" ? <SunIcon size={15} /> : <MoonIcon size={15} />}
               </button>
               <LanguageToggle isAr={appIsAr} onToggle={toggleAppLang} floating={false} />
@@ -65,27 +71,23 @@ function AuthScreens({
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: BRASS, background: "var(--accent-1-soft)", padding: "6px 14px", borderRadius: 20, marginBottom: 18 }}>
               <GlobeIcon size={12} /> {atr("English ⇄ Arabic dictionary", "قاموس إنجليزي ⇄ عربي")}
             </div>
-            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(30px, 6vw, 50px)", fontWeight: 600, color: INK, margin: "0 0 16px", lineHeight: 1.15 }}>
+            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(28px, 5.5vw, 52px)", fontWeight: 600, color: INK, margin: "0 0 16px", lineHeight: 1.15 }}>
               {atr("Learn words that stick, together.", "تعلّم كلمات تثبت في ذاكرتك… مع فريقك.")}
             </h1>
-            <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: "clamp(14px, 2vw, 17px)", color: "var(--muted-strong)", margin: "0 auto 30px", maxWidth: 560, lineHeight: 1.65 }}>
+            <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: "clamp(14px, 2vw, 18px)", color: "var(--muted-strong)", margin: "0 auto 30px", maxWidth: 560, lineHeight: 1.65 }}>
               {atr("A shared bilingual dictionary with pronunciation, quick quizzes and progress tracking — built for you and your study group.", "قاموس مشترك ثنائي اللغة فيه نطق واختبارات سريعة ومتابعة للتقدّم — مصمَّم لك ولمجموعتك.")}
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 12 }}>
-              <button type="button" onClick={() => { setAuthError(""); goToStage("login"); }} className="btn-shine" style={{ ...primaryBtnStyle, width: "auto", marginTop: 0, padding: "13px 28px" }}>
+              <button type="button" onClick={() => { setAuthError(""); goToStage("login"); }} className="btn-shine touch-target" style={{ ...primaryBtnStyle, width: "auto", marginTop: 0, padding: "14px 28px", minHeight: 48 }}>
                 <LoginIcon size={16} /> {atr("Sign in", "تسجيل الدخول")}
               </button>
-              <button type="button" onClick={() => { setSignupError(""); goToStage("signup"); }} className="lift-hover"
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "13px 26px", fontFamily: "'Source Sans 3', sans-serif", fontSize: 15, fontWeight: 700, color: INK, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 8, cursor: "pointer" }}>
+              <button type="button" onClick={() => { setSignupError(""); goToStage("signup"); }} className="lift-hover touch-target"
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 26px", minHeight: 48, fontFamily: "'Source Sans 3', sans-serif", fontSize: 15, fontWeight: 700, color: INK, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 8, cursor: "pointer" }}>
                 <PlusIcon size={16} /> {atr("Create account", "إنشاء حساب")}
               </button>
             </div>
           </div>
 
-          {/* Bento-style showcase: an asymmetric mosaic instead of a plain
-              uniform grid — two "hero" tiles get extra room to breathe while
-              the rest tile in around them, each carrying a large faint
-              ordinal numeral for a more editorial, less templated feel. */}
           <style>{`
             .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 122px; gap: 14px; grid-auto-flow: dense; margin-top: clamp(40px, 6vw, 68px); }
             .bento-item { position: relative; overflow: hidden; background: var(--card); border: 1px solid rgba(var(--border-rgb),0.14); border-radius: 16px; padding: 20px; box-shadow: 0 2px 0 rgba(0,0,0,0.04), 0 16px 40px -24px rgba(var(--border-rgb),0.4); transition: transform 0.35s cubic-bezier(0.22,1,0.36,1), box-shadow 0.35s ease, border-color 0.3s ease; display: flex; flex-direction: column; justify-content: flex-end; }
@@ -106,13 +108,16 @@ function AuthScreens({
             .bento-more-peek { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.35s cubic-bezier(0.22,1,0.36,1); width: 100%; }
             .bento-more.is-open .bento-more-peek { grid-template-rows: 1fr; }
             .bento-more-peek-inner { overflow: hidden; min-height: 0; }
-            @media (max-width: 720px) {
-              .bento-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 150px; }
+            @media (max-width: 900px) {
+              .bento-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 140px; }
               .bento-big, .bento-wide, .bento-more { grid-column: span 2; grid-row: span 1; }
             }
-            @media (max-width: 420px) {
-              .bento-grid { grid-template-columns: 1fr; }
+            @media (max-width: 480px) {
+              .bento-grid { grid-template-columns: 1fr; grid-auto-rows: minmax(120px, auto); }
               .bento-big, .bento-wide, .bento-solo, .bento-more { grid-column: span 1; }
+            }
+            @media (min-width: 1400px) {
+              .bento-grid { grid-template-columns: repeat(4, 1fr); grid-auto-rows: 140px; gap: 18px; }
             }
           `}</style>
           <div className="bento-grid">
@@ -127,10 +132,6 @@ function AuthScreens({
                 </div>
               );
             })}
-            {/* Reserved slot: room to slot in more feature tiles later — just
-                add entries to introFeatures and, optionally, a shape above.
-                Doubles as a teaser accordion: tapping it peeks at what's
-                coming next without committing a full tile to it. */}
             <div
               className={`bento-item bento-more auth-field-1${moreFeaturesOpen ? " is-open" : ""}`}
               style={{ animationDelay: `${0.08 + introFeatures.length * 0.05}s` }}
@@ -165,33 +166,52 @@ function AuthScreens({
   if (authStage === "signup") {
     return (
       <Shell>
-        <div className="auth-card" style={authCardStyle}>
+        <div className="auth-card" style={{ ...authCardStyle, maxWidth: "min(420px, 100%)" }} dir={appIsAr ? "rtl" : "ltr"}>
+          <LanguageToggle isAr={appIsAr} onToggle={toggleAppLang} />
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
             <div className="auth-badge" style={authBadgeWrapStyle}>
               <BookIcon size={24} color="#fff" />
             </div>
             <div>
-              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
+              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(20px, 4vw, 24px)", fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
               <div style={{ width: 34, height: 3, borderRadius: 2, background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))", marginTop: 6, animation: "underlineGrow 0.6s ease 0.2s both" }} />
             </div>
           </div>
-          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 22px" }}>
-            Create your account with just your name — you'll get a personal code to sign in with.
+          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 18px" }}>
+            {atr(
+              "Pick a display name, a unique username, and a password. An admin must approve your request before you can sign in.",
+              "اختَر اسمًا ظاهرًا ويوزرنيم فريدًا وكلمة مرور. لازم الأدمن يوافق على طلبك قبل ما تقدر تسجّل دخول."
+            )}
           </p>
           <form onSubmit={handleSignup}>
             <div className="auth-field-1">
-              <label style={labelStyle} htmlFor="signup-name">Your name</label>
-              <input id="signup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Omar" style={authInputStyle} autoFocus autoCapitalize="off" autoCorrect="off" />
+              <label style={labelStyle} htmlFor="signup-name">{atr("Display name", "الاسم الظاهر")}</label>
+              <input id="signup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={atr("e.g. Omar", "مثال: عمر")} style={authInputStyle} autoFocus autoCapitalize="words" autoCorrect="off" />
             </div>
-            {signupError && <div style={errorStyle} role="alert" aria-live="assertive">{signupError}</div>}
-            <button type="submit" disabled={signupSaving} className="btn-shine" style={primaryBtnStyle}>
-              {signupSaving ? <LoaderIcon size={16} /> : <PlusIcon size={16} />} Create account
+            <div className="auth-field-2">
+              <label style={labelStyle} htmlFor="signup-username"><UserIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Username", "اسم المستخدم")}</label>
+              <input id="signup-username" value={signupUsername} onChange={(e) => setSignupUsername(e.target.value.replace(/\s/g, "").toLowerCase())} placeholder={atr("e.g. omar_23", "مثال: omar_23")} style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace", letterSpacing: "0.02em" }} autoCapitalize="off" autoCorrect="off" autoComplete="username" spellCheck={false} dir="ltr" />
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
+                {atr("3–30 chars · letters, numbers, _ and . · like Instagram", "٣–٣٠ حرف · حروف وأرقام و _ و . · زي إنستغرام")}
+              </div>
+            </div>
+            <div className="auth-field-3">
+              <label style={labelStyle} htmlFor="signup-password"><KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Password", "كلمة المرور")}</label>
+              <input id="signup-password" type="password" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} placeholder={atr("At least 6 characters", "٦ أحرف على الأقل")} style={authInputStyle} autoComplete="new-password" />
+            </div>
+            <div>
+              <label style={labelStyle} htmlFor="signup-password2">{atr("Confirm password", "تأكيد كلمة المرور")}</label>
+              <input id="signup-password2" type="password" value={signupPassword2} onChange={(e) => setSignupPassword2(e.target.value)} placeholder={atr("Repeat password", "أعد كتابة كلمة المرور")} style={authInputStyle} autoComplete="new-password" />
+            </div>
+            {signupError && <div style={errorStyle} role="alert" aria-live="assertive">{translateAdminError(signupError, appIsAr)}</div>}
+            <button type="submit" disabled={signupSaving} className="btn-shine touch-target" style={{ ...primaryBtnStyle, minHeight: 48 }}>
+              {signupSaving ? <LoaderIcon size={16} /> : <PlusIcon size={16} />} {atr("Request account", "طلب إنشاء حساب")}
             </button>
           </form>
-          <p className="auth-field-2" style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, color: "var(--muted-strong)", textAlign: "center", marginTop: 18 }}>
-            Already have an account?{" "}
+          <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, color: "var(--muted-strong)", textAlign: "center", marginTop: 18 }}>
+            {atr("Already have an account?", "عندك حساب بالفعل؟")}{" "}
             <a href="#" onClick={(e) => { e.preventDefault(); setAuthError(""); goToStage("login"); }} className="link-underline" style={{ color: BRASS, fontWeight: 600, textDecoration: "none" }}>
-              Sign in
+              {atr("Sign in", "تسجيل الدخول")}
             </a>
           </p>
         </div>
@@ -199,43 +219,32 @@ function AuthScreens({
     );
   }
 
-  if (authStage === "codeShown") {
+  if (authStage === "pendingShown") {
     return (
       <Shell>
-        <div className="auth-card" style={authCardStyle}>
+        <div className="auth-card" style={{ ...authCardStyle, maxWidth: "min(420px, 100%)" }} dir={appIsAr ? "rtl" : "ltr"}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
             <div className="auth-badge" style={{ ...authBadgeWrapStyle, animation: "floatY 4.5s ease-in-out infinite, pulseGlow 2.2s ease-in-out infinite" }}>
-              <KeyIcon size={24} color="#fff" />
+              <CheckIcon size={24} color="#fff" />
             </div>
             <div>
-              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 600, color: INK, margin: 0 }}>Your personal code</h1>
-              <div style={{ width: 34, height: 3, borderRadius: 2, background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))", marginTop: 6, animation: "underlineGrow 0.6s ease 0.2s both" }} />
+              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(18px, 4vw, 22px)", fontWeight: 600, color: INK, margin: 0 }}>
+                {atr("Request sent", "تم إرسال الطلب")}
+              </h1>
+              <div style={{ width: 34, height: 3, borderRadius: 2, background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))", marginTop: 6 }} />
             </div>
           </div>
-          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 18px" }}>
-            Save this code — you'll need it, along with the shared access code, every time you sign in.
+          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 18px", lineHeight: 1.6 }}>
+            {atr(
+              "Your account request is waiting for an admin to approve it. Once approved, sign in with your username, password, and the shared access code.",
+              "طلب حسابك في انتظار موافقة الأدمن. بعد الموافقة سجّل دخول باليوزرنيم وكلمة المرور ورمز الوصول المشترك."
+            )}
           </p>
-          <div
-            onClick={handleCopyCode}
-            title="Click to copy"
-            role="button"
-            tabIndex={0}
-            className="auth-field-1"
-            aria-label={`Your personal code is ${myCode.split("").join(" ")}. Activate to copy.`}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleCopyCode(); } }}
-            style={{ textAlign: "center", padding: "20px 10px", background: codeCopied ? "var(--success-bg)" : "var(--input-bg)", border: `1.5px dashed ${codeCopied ? "rgba(var(--success-border-rgb),0.5)" : "rgba(var(--border-rgb),0.3)"}`, borderRadius: 10, marginBottom: 8, cursor: "pointer", userSelect: "none", transition: "background 0.2s, border-color 0.2s, transform 0.2s" }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
-            <span style={{ fontFamily: "'Fraunces', serif", fontSize: 32, fontWeight: 600, letterSpacing: "0.08em", color: INK, animation: codeCopied ? "popIn 0.35s ease" : "none" }}>{myCode}</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 12, color: codeCopied ? "var(--success)" : "var(--muted)", fontFamily: "'Source Sans 3', sans-serif", marginBottom: 18, minHeight: 16 }}>
-            {codeCopied ? (<><CheckIcon size={13} /> Copied</>) : (<><CopyIcon size={13} /> Click the code to copy</>)}
-          </div>
           <button
-            onClick={() => { setCodeInput(""); setPersonalCodeInput(""); setAuthError(""); goToStage("login"); }}
-            className="btn-shine"
-            style={primaryBtnStyle}>
-            <LoginIcon size={16} />Continue to sign in
+            onClick={() => { setAuthError(""); goToStage("login"); }}
+            className="btn-shine touch-target"
+            style={{ ...primaryBtnStyle, minHeight: 48 }}>
+            <LoginIcon size={16} />{atr("Go to sign in", "الذهاب لتسجيل الدخول")}
           </button>
         </div>
       </Shell>
@@ -246,7 +255,7 @@ function AuthScreens({
     return (
       <Shell>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--muted-strong)", animation: "fadeIn 0.4s ease" }}>
-          <LoaderIcon size={18} /><span>Signing you in…</span>
+          <LoaderIcon size={18} /><span>{atr("Signing you in…", "جارٍ تسجيل الدخول…")}</span>
         </div>
       </Shell>
     );
@@ -255,7 +264,7 @@ function AuthScreens({
   if (authStage === "login") {
     return (
       <Shell>
-        <div className="auth-card" style={authCardStyle} dir={appIsAr ? "rtl" : "ltr"}>
+        <div className="auth-card" style={{ ...authCardStyle, maxWidth: "min(420px, 100%)" }} dir={appIsAr ? "rtl" : "ltr"}>
           <LanguageToggle isAr={appIsAr} onToggle={toggleAppLang} />
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
             <div className="auth-badge" style={authBadgeWrapStyle}>
@@ -263,31 +272,41 @@ function AuthScreens({
               <span style={{ position: "absolute", inset: -5, borderRadius: 19, border: "1.5px solid rgba(var(--focus-rgb),0.35)", animation: "pulseGlow 2.6s ease-in-out infinite" }} />
             </div>
             <div>
-              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
+              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(20px, 4vw, 24px)", fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
               <div style={{ width: 34, height: 3, borderRadius: 2, background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))", marginTop: 6, animation: "underlineGrow 0.6s ease 0.2s both" }} />
             </div>
           </div>
           <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 22px" }}>
-            {atr("Enter the shared access code and your personal code to open the dictionary.", "أدخل رمز الوصول المشترك ورمزك الشخصي لفتح القاموس.")}
+            {atr(
+              "Enter your username, password, and the shared access code.",
+              "أدخل اسم المستخدم وكلمة المرور ورمز الوصول المشترك."
+            )}
           </p>
           <form onSubmit={handleLogin}>
             <div className="auth-field-1">
-              <label style={labelStyle} htmlFor="login-personal-code"><KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Personal code", "الرمز الشخصي")}</label>
-              <input id="login-personal-code" value={personalCodeInput} onChange={(e) => setPersonalCodeInput(e.target.value)} placeholder={atr("The code you received", "الرمز الذي حصلت عليه")} style={authInputStyle} autoFocus autoCapitalize="off" autoCorrect="off" autoComplete="off" spellCheck={false} inputMode="numeric" />
+              <label style={labelStyle} htmlFor="login-username"><UserIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Username", "اسم المستخدم")}</label>
+              <input id="login-username" value={usernameInput} onChange={(e) => setUsernameInput(e.target.value.replace(/\s/g, "").toLowerCase())} placeholder={atr("Your username", "اسم المستخدم")} style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace" }} autoFocus autoCapitalize="off" autoCorrect="off" autoComplete="username" spellCheck={false} dir="ltr" />
             </div>
             <div className="auth-field-2">
+              <label style={labelStyle} htmlFor="login-password"><KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Password", "كلمة المرور")}</label>
+              <input id="login-password" type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} placeholder={atr("Your password", "كلمة المرور")} style={authInputStyle} autoComplete="current-password" />
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
+                {atr("Legacy accounts: use your old personal code as the password once.", "الحسابات القديمة: استخدم الرمز الشخصي القديم ككلمة مرور مرة واحدة.")}
+              </div>
+            </div>
+            <div className="auth-field-3">
               <label style={labelStyle} htmlFor="login-access-code"><KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Access code", "رمز الوصول")}</label>
-              <input id="login-access-code" value={codeInput} onChange={(e) => setCodeInput(e.target.value)} placeholder={atr("Enter the shared code", "أدخل الرمز المشترك")} style={authInputStyle} autoCapitalize="off" autoCorrect="off" autoComplete="off" spellCheck={false} />
+              <input id="login-access-code" value={codeInput} onChange={(e) => setCodeInput(e.target.value)} placeholder={atr("Shared group code", "الرمز المشترك للمجموعة")} style={authInputStyle} autoCapitalize="off" autoCorrect="off" autoComplete="off" spellCheck={false} />
             </div>
             {authError && <div style={errorStyle} role="alert" aria-live="assertive">{translateAdminError(authError, appIsAr)}</div>}
-            <button type="submit" disabled={loggingIn} className="btn-shine auth-field-3" style={primaryBtnStyle}>
+            <button type="submit" disabled={loggingIn} className="btn-shine auth-field-3 touch-target" style={{ ...primaryBtnStyle, minHeight: 48 }}>
               {loggingIn ? <LoaderIcon size={16} /> : <LoginIcon size={16} />} {atr("Enter", "دخول")}
             </button>
           </form>
           <p className="auth-field-3" style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, color: "var(--muted-strong)", textAlign: "center", marginTop: 18 }}>
             {atr("Don't have an account?", "ليس لديك حساب؟")}{" "}
             <a href="#" onClick={(e) => { e.preventDefault(); setSignupError(""); goToStage("signup"); }} className="link-underline" style={{ color: BRASS, fontWeight: 600, textDecoration: "none" }}>
-              {atr("Create one", "أنشئ حسابًا")}
+              {atr("Request one", "اطلب حسابًا")}
             </a>
           </p>
         </div>

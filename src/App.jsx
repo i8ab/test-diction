@@ -192,6 +192,8 @@ export default function DictionaryApp() {
         showToast("مفيش اشتراك محفوظ — فعّل التذكيرات ووافق على الإذن");
       } else if (data.error === "subscription_expired") {
         showToast("الاشتراك انتهى — أوقف التذكيرات وشغّلها تاني");
+      } else if (data.error === "vapid_invalid" || /unexpected response code/i.test(String(data.error || data.message || ""))) {
+        showToast("مفاتيح VAPID غلط — ولّد مفاتيح جديدة وحطها في Vercel ثم redeploy");
       } else {
         showToast(data.message || data.error || `فشل الإرسال (${r.status})`);
       }

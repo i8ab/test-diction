@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import {
   ChevronIcon, MoreIcon, TrophyIcon, StatsIcon, QuizIcon, LayersIcon,
-  DownloadIcon, UploadIcon, LoaderIcon,
+  DownloadIcon, UploadIcon, LoaderIcon, XIcon, CheckIcon,
 } from "../common/Icons";
 
 const TOOLS_MENU_ITEMS_META = { minWidth: 190, gap: 8 };
@@ -59,12 +59,39 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
     };
   }, [open, computeCoords]);
 
-  function itemClick(fn) {
-    setOpen(false);
+  // Items no longer close the menu on click — the menu only closes when the
+  // user explicitly wants it to: the X button, an outside click, or Escape.
+  // A quick "done" pulse on the icon gives feedback that the tap registered.
+  const [pulse, setPulse] = useState(null);
+  function itemClick(key, fn) {
     fn();
+    setPulse(key);
+    window.clearTimeout(itemClick._t);
+    itemClick._t = window.setTimeout(() => setPulse((p) => (p === key ? null : p)), 900);
   }
 
-  const itemStyle = { display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "10px 14px", fontSize: 13.5, fontWeight: 600, color: "var(--ink)", background: "none", border: "none", textAlign: "start", cursor: "pointer" };
+  const itemStyle = { display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px", fontSize: 13.5, fontWeight: 600, color: "var(--ink)", background: "none", border: "none", borderRadius: 9, textAlign: "start", cursor: "pointer" };
+  const iconWrapStyle = (bg) => ({ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 8, background: bg, flexShrink: 0, transition: "transform 0.2s cubic-bezier(0.34,1.56,0.64,1)" });
+
+  function MenuItem({ menuKey, icon, label, onClick, disabled, loading, tint }) {
+    const done = pulse === menuKey;
+    return (
+      <button
+        role="menuitem"
+        disabled={disabled}
+        className="tools-menu-item"
+        style={{ ...itemStyle, opacity: disabled ? 0.45 : 1, cursor: disabled ? "default" : "pointer" }}
+        onClick={() => { if (!disabled) itemClick(menuKey, onClick); }}
+      >
+        <span style={iconWrapStyle(done ? "rgba(52,199,89,0.16)" : `${tint}1c`)}>
+          {done ? <CheckIcon size={14} style={{ color: "#34c759" }} /> : loading ? <LoaderIcon size={14} style={{ color: tint }} /> : (
+            <span style={{ color: tint, display: "flex" }}>{icon}</span>
+          )}
+        </span>
+        <span style={{ flex: 1 }}>{label}</span>
+      </button>
+    );
+  }
 
   const menu = open && (
     <div
@@ -76,41 +103,44 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
         top: coords ? coords.top : -9999,
         left: coords ? coords.left : -9999,
         visibility: coords ? "visible" : "hidden",
-        minWidth: TOOLS_MENU_ITEMS_META.minWidth,
-        maxHeight: "min(320px, calc(100vh - 16px))",
-        overflowY: "auto",
-        overscrollBehavior: "contain",
+        minWidth: TOOLS_MENU_ITEMS_META.minWidth + 20,
+        maxHeight: "min(340px, calc(100vh - 16px))",
+        display: "flex",
+        flexDirection: "column",
         background: "var(--card)",
-        border: "1px solid rgba(var(--border-rgb),0.2)",
-        borderRadius: 10,
-        boxShadow: "0 14px 30px -12px rgba(0,0,0,0.35)",
+        border: "1px solid rgba(var(--border-rgb),0.14)",
+        borderRadius: 16,
+        boxShadow: "0 20px 44px -16px rgba(0,0,0,0.4), 0 2px 8px -2px rgba(0,0,0,0.15)",
         zIndex: 1000,
+        overflow: "hidden",
         animation: `${coords?.openUpward ? "scaleInUp" : "scaleIn"} 0.18s cubic-bezier(0.22,1,0.36,1) both`,
         transformOrigin: coords?.openUpward ? "bottom" : "top",
+        backdropFilter: "blur(20px)",
       }}
     >
-      <button role="menuitem" style={itemStyle} onClick={() => itemClick(onLeaderboard)}>
-        <TrophyIcon size={16} /> {tr(isAr, "Leaderboard", "الترتيب")}
-      </button>
-      <button role="menuitem" style={{ ...itemStyle, borderTop: "1px solid rgba(var(--border-rgb),0.12)" }} onClick={() => itemClick(onStats)}>
-        <StatsIcon size={16} /> {tr(isAr, "Stats", "إحصائياتي")}
-      </button>
-      <button role="menuitem" style={{ ...itemStyle, borderTop: "1px solid rgba(var(--border-rgb),0.12)" }} onClick={() => itemClick(onQuiz)}>
-        <QuizIcon size={16} /> {tr(isAr, "Quiz", "اختبار")}
-      </button>
-      <button role="menuitem" style={{ ...itemStyle, borderTop: "1px solid rgba(var(--border-rgb),0.12)" }} onClick={() => itemClick(onFlashcards)}>
-        <LayersIcon size={16} /> {tr(isAr, "Flashcards", "بطاقات تعليمية")}
-      </button>
-      <button role="menuitem" disabled={exportDisabled}
-        style={{ ...itemStyle, borderTop: "1px solid rgba(var(--border-rgb),0.12)", opacity: exportDisabled ? 0.5 : 1, cursor: exportDisabled ? "default" : "pointer" }}
-        onClick={() => { if (!exportDisabled) itemClick(onExport); }}>
-        <DownloadIcon size={16} /> {tr(isAr, "Export CSV", "تصدير CSV")}
-      </button>
-      <button role="menuitem" disabled={importing}
-        style={{ ...itemStyle, borderTop: "1px solid rgba(var(--border-rgb),0.12)", opacity: importing ? 0.5 : 1, cursor: importing ? "default" : "pointer" }}
-        onClick={() => { if (!importing) itemClick(onImport); }}>
-        {importing ? <LoaderIcon size={16} /> : <UploadIcon size={16} />} {tr(isAr, "Import CSV", "استيراد CSV")}
-      </button>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 8px", flexShrink: 0 }}>
+        <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
+          {tr(isAr, "More", "المزيد")}
+        </span>
+        <button
+          type="button"
+          aria-label={tr(isAr, "Close", "إغلاق")}
+          onClick={() => setOpen(false)}
+          className="lift-hover"
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", color: "var(--icon-muted)", background: "var(--input-bg)", border: "none", cursor: "pointer" }}
+        >
+          <XIcon size={12} />
+        </button>
+      </div>
+      <div style={{ overflowY: "auto", overscrollBehavior: "contain", padding: "0 6px 6px", display: "flex", flexDirection: "column", gap: 1 }}>
+        <MenuItem menuKey="leaderboard" icon={<TrophyIcon size={14} />} tint="#d4a017" label={tr(isAr, "Leaderboard", "الترتيب")} onClick={onLeaderboard} />
+        <MenuItem menuKey="stats" icon={<StatsIcon size={14} />} tint="#5b8def" label={tr(isAr, "Stats", "إحصائياتي")} onClick={onStats} />
+        <MenuItem menuKey="quiz" icon={<QuizIcon size={14} />} tint="#af52de" label={tr(isAr, "Quiz", "اختبار")} onClick={onQuiz} />
+        <MenuItem menuKey="flashcards" icon={<LayersIcon size={14} />} tint="#ff9f0a" label={tr(isAr, "Flashcards", "بطاقات تعليمية")} onClick={onFlashcards} />
+        <div style={{ height: 1, background: "rgba(var(--border-rgb),0.12)", margin: "5px 6px" }} />
+        <MenuItem menuKey="export" icon={<DownloadIcon size={14} />} tint="#34c759" label={tr(isAr, "Export CSV", "تصدير CSV")} onClick={onExport} disabled={exportDisabled} />
+        <MenuItem menuKey="import" icon={<UploadIcon size={14} />} tint="#34c759" label={tr(isAr, "Import CSV", "استيراد CSV")} onClick={onImport} disabled={importing} loading={importing} />
+      </div>
     </div>
   );
 

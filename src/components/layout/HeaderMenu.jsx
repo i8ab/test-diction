@@ -9,14 +9,20 @@ export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccoun
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
+  // Close instantly — no exit animation, no transition delay.
+  function closeMenu() {
+    setOpen(false);
+  }
+
   useEffect(() => {
     if (!open) return;
-    function onDocClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
-    function onKeyDown(e) { if (e.key === "Escape") setOpen(false); }
-    document.addEventListener("mousedown", onDocClick);
+    function onDocClick(e) { if (ref.current && !ref.current.contains(e.target)) closeMenu(); }
+    function onKeyDown(e) { if (e.key === "Escape") closeMenu(); }
+    // pointerdown fires earlier than click, so outside-close feels instant.
+    document.addEventListener("pointerdown", onDocClick);
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("pointerdown", onDocClick);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
@@ -45,8 +51,6 @@ export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccoun
     );
   }
 
-  const originX = isAr ? "0%" : "100%";
-
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button onClick={() => setOpen((o) => !o)} title={tr(isAr, "Menu", "القائمة")} aria-label={tr(isAr, "Menu", "القائمة")} aria-expanded={open} className="lift-hover"
@@ -56,18 +60,13 @@ export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccoun
       {open && (
         <>
           <style>{`
-            @keyframes headerMenuCircleIn {
-              from { clip-path: circle(0% at var(--origin-x) 0%); opacity: 0.5; }
-              to { clip-path: circle(141% at var(--origin-x) 0%); opacity: 1; }
-            }
-            .header-menu-item { transition: background 0.15s ease, transform 0.18s cubic-bezier(0.34,1.56,0.64,1); transform-origin: center left; }
-            [dir="rtl"] .header-menu-item { transform-origin: center right; }
-            .header-menu-item:hover:not(:disabled) { background: var(--input-bg); transform: scale(1.045); }
-            .header-menu-item:active:not(:disabled) { transform: scale(0.98); }
-            .header-menu-swatch { transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease; }
-            .header-menu-swatch:hover { transform: scale(1.25) translateY(-1px); }
+            .header-menu-item { transition: background 0.12s ease; }
+            .header-menu-item:hover:not(:disabled) { background: var(--input-bg); }
+            .header-menu-item:active:not(:disabled) { background: var(--input-bg); opacity: 0.9; }
+            .header-menu-swatch { transition: box-shadow 0.12s ease; }
           `}</style>
-          <div className="header-menu-panel" role="menu" style={{ position: "absolute", top: "calc(100% + 8px)", insetInlineEnd: 0, minWidth: 210, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.14)", borderRadius: 17, boxShadow: "0 22px 48px -18px rgba(0,0,0,0.42), 0 2px 8px -2px rgba(0,0,0,0.15)", overflow: "hidden", zIndex: 40, "--origin-x": originX, animation: "headerMenuCircleIn 0.38s cubic-bezier(0.22,1,0.36,1) both", backdropFilter: "blur(20px)" }}>
+          {/* No entrance/exit animation — panel appears and disappears instantly for a snappy close on X. */}
+          <div className="header-menu-panel" role="menu" style={{ position: "absolute", top: "calc(100% + 8px)", insetInlineEnd: 0, minWidth: 210, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.14)", borderRadius: 17, boxShadow: "0 22px 48px -18px rgba(0,0,0,0.42), 0 2px 8px -2px rgba(0,0,0,0.15)", overflow: "hidden", zIndex: 40 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 8px" }}>
               <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
                 {tr(isAr, "Menu", "القائمة")}
@@ -75,9 +74,8 @@ export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccoun
               <button
                 type="button"
                 aria-label={tr(isAr, "Close", "إغلاق")}
-                onClick={() => setOpen(false)}
-                className="lift-hover"
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", color: "var(--icon-muted)", background: "var(--input-bg)", border: "none", cursor: "pointer" }}
+                onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); closeMenu(); }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", color: "var(--icon-muted)", background: "var(--input-bg)", border: "none", cursor: "pointer", transition: "none" }}
               >
                 <XIcon size={12} />
               </button>
@@ -95,7 +93,6 @@ export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccoun
                   icon={remindersOn ? <BellIcon size={14} /> : <BellOffIcon size={14} />}
                   label={remindersOn ? tr(isAr, "Reminders: On", "التذكيرات: مفعّلة") : tr(isAr, "Reminders: Off", "التذكيرات: متوقفة")}
                   onClick={remindersOn ? onDisableReminders : onEnableReminders}
-                  disabled={remindersBusy}
                 />
               )}
               {onChangeAccent && (

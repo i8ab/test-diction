@@ -36,6 +36,27 @@ const AdminModal = lazy(() => import("./modals/AdminModal"));
 const WordZoomModal = lazy(() => import("./modals/WordZoomModal"));
 const TimerPage = lazy(() => import("./timer/TimerPage"));
 
+
+const TIMER_VIEW_KEY = "twoTongues.timerView";
+
+function loadTimerView() {
+  try {
+    const raw = localStorage.getItem(TIMER_VIEW_KEY);
+    if (!raw) return { open: false, bubble: false };
+    const p = JSON.parse(raw);
+    return { open: !!p.open, bubble: !!p.bubble };
+  } catch (e) {
+    return { open: false, bubble: false };
+  }
+}
+
+function saveTimerView(open, bubble) {
+  try {
+    if (!open) localStorage.removeItem(TIMER_VIEW_KEY);
+    else localStorage.setItem(TIMER_VIEW_KEY, JSON.stringify({ open: true, bubble: !!bubble }));
+  } catch (e) {}
+}
+
 export default function MainView({
   name, isAdmin, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
   showAdd, onOpenAdd, onCloseAdd, persistEntries, saveError, onLogout,
@@ -110,8 +131,13 @@ export default function MainView({
   const [showFlashcards, setShowFlashcards] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [showTimer, setShowTimer] = useState(false);
-  const [timerBubble, setTimerBubble] = useState(false);
+  const [showTimer, setShowTimer] = useState(() => loadTimerView().open);
+  const [timerBubble, setTimerBubble] = useState(() => loadTimerView().bubble);
+
+  // Persist timer page across refresh until the user closes it themselves.
+  useEffect(() => {
+    saveTimerView(showTimer, timerBubble);
+  }, [showTimer, timerBubble]);
   const [undoDelete, setUndoDelete] = useState(null); // { entry, prevEntries } — cleared after UNDO_DELETE_MS or on undo
   const undoTimerRef = useRef(null);
   const importInputRef = useRef(null);
@@ -553,7 +579,7 @@ export default function MainView({
               onStats={() => setShowStats(true)}
               onQuiz={() => setShowQuiz(true)}
               onFlashcards={() => setShowFlashcards(true)}
-              onTimer={() => setShowTimer(true)}
+              onTimer={() => { setTimerBubble(false); setShowTimer(true); }}
               onExport={() => exportEntriesAsCsv(filtered.length ? filtered : sectionEntries, cfg, cfg.shortLabel)}
               exportDisabled={sectionEntries.length === 0}
               onImport={() => importInputRef.current && importInputRef.current.click()}
@@ -794,6 +820,7 @@ export default function MainView({
       <Suspense fallback={null}>
         <TimerPage
           isAr={isAr}
+          initialBubble={timerBubble}
           onClose={() => { setShowTimer(false); setTimerBubble(false); }}
           onBubbleChange={setTimerBubble}
         />

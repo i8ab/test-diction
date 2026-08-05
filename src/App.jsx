@@ -10,7 +10,7 @@ import {
 import { SRS_LEVEL_INTERVALS_MS, srsLevelFromStats } from "./lib/utils/quizHelpers";
 import {
   pushSupported, getPushStatus, subscribeToPush, unsubscribeFromPush, savePushPrefs,
-  REMINDER_PREF_KEY, loadReminderIntervalHours, saveReminderIntervalHours,
+  REMINDER_PREF_KEY,
   loadReminderMessage, saveReminderMessage, loadReminderTitle, saveReminderTitle,
   buildReminderPayload,
 } from "./lib/state/push";
@@ -114,7 +114,6 @@ export default function DictionaryApp() {
     try { return localStorage.getItem(REMINDER_PREF_KEY) === "1"; } catch (e) { return false; }
   });
   const [remindersBusy, setRemindersBusy] = useState(false);
-  const [reminderIntervalHours, setReminderIntervalHours] = useState(() => loadReminderIntervalHours());
   const [reminderTitle, setReminderTitle] = useState(() => loadReminderTitle());
   const [reminderMessage, setReminderMessage] = useState(() => loadReminderMessage());
   const prefsSaveTimerRef = useRef(null);
@@ -129,28 +128,21 @@ export default function DictionaryApp() {
 
   function getReminderPrefs() {
     return {
-      intervalHours: reminderIntervalHours,
       title: reminderTitle,
       message: reminderMessage,
     };
   }
 
-  function handleChangeReminderInterval(hours) {
-    setReminderIntervalHours(hours);
-    saveReminderIntervalHours(hours);
-    schedulePrefsSave({ intervalHours: hours, title: reminderTitle, message: reminderMessage });
-  }
-
   function handleChangeReminderTitle(title) {
     setReminderTitle(title);
     saveReminderTitle(title);
-    schedulePrefsSave({ intervalHours: reminderIntervalHours, title, message: reminderMessage });
+    schedulePrefsSave({ title, message: reminderMessage });
   }
 
   function handleChangeReminderMessage(message) {
     setReminderMessage(message);
     saveReminderMessage(message);
-    schedulePrefsSave({ intervalHours: reminderIntervalHours, title: reminderTitle, message });
+    schedulePrefsSave({ title: reminderTitle, message });
   }
 
 
@@ -236,7 +228,7 @@ export default function DictionaryApp() {
       });
       const data = await r.json().catch(() => ({}));
       if (r.ok) {
-        showToast("اتبعت إشعار بالشكل النهائي — شوف شريط الإشعارات ✓");
+        // Success: the OS notification itself is the feedback — no in-app toast.
       } else if (data.error === "no_subscription") {
         showToast("مفيش اشتراك محفوظ — فعّل التذكيرات ووافق على الإذن");
       } else if (data.error === "subscription_expired") {
@@ -972,7 +964,6 @@ export default function DictionaryApp() {
       appIsAr={appIsAr} onToggleAppLang={toggleAppLang}
       sessionStart={sessionStartRef.current}
       remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={enableReminders} onDisableReminders={disableReminders} onTestReminder={testReminderPush}
-      reminderIntervalHours={reminderIntervalHours} onChangeReminderInterval={handleChangeReminderInterval}
       reminderTitle={reminderTitle} onChangeReminderTitle={handleChangeReminderTitle}
       reminderMessage={reminderMessage} onChangeReminderMessage={handleChangeReminderMessage}
     />

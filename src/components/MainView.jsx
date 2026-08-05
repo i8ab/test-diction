@@ -45,7 +45,6 @@ export default function MainView({
   appIsAr, onToggleAppLang,
   sessionStart,
   remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
-  reminderIntervalHours, onChangeReminderInterval,
   reminderTitle, onChangeReminderTitle,
   reminderMessage, onChangeReminderMessage,
 }) {
@@ -433,7 +432,6 @@ export default function MainView({
                 onOpenAccount={onOpenAccount} onOpenAdmin={onOpenAdmin} onLogout={onLogout} isAr={appIsAr}
                 accentTheme={accentTheme} onChangeAccent={onChangeAccent}
                 remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={onEnableReminders} onDisableReminders={onDisableReminders} onTestReminder={onTestReminder}
-                reminderIntervalHours={reminderIntervalHours} onChangeReminderInterval={onChangeReminderInterval}
                 reminderTitle={reminderTitle} onChangeReminderTitle={onChangeReminderTitle}
                 reminderMessage={reminderMessage} onChangeReminderMessage={onChangeReminderMessage} />
             </div>
@@ -571,7 +569,7 @@ export default function MainView({
           </div>
         )}
         <WordOfTheDay entries={sectionEntries} section={section} cfg={cfg} isAr={isAr} onOpenZoom={(id) => setZoomEntry(sectionEntries.find((e) => e.id === id) || null)} />
-        <ReminderBanner studiedAt={studiedAt} isAr={isAr} cfg={cfg} remindersOn={remindersOn} reminderIntervalHours={reminderIntervalHours} reminderTitle={reminderTitle} reminderMessage={reminderMessage} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />
+        <ReminderBanner studiedAt={studiedAt} isAr={isAr} cfg={cfg} remindersOn={remindersOn} reminderTitle={reminderTitle} reminderMessage={reminderMessage} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />
         {isAdmin && <BackupReminderBanner isAr={isAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
         <div style={{ marginTop: 12, background: CARD, border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 10, padding: "12px 14px" }}>
           <div dir={isAr ? "rtl" : "ltr"} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>

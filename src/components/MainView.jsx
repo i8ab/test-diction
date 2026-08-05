@@ -419,6 +419,16 @@ export default function MainView({
     setEditingEntry(null);
   }
 
+  // Timer is a full independent page -- do not keep the dictionary underneath
+  // (otherwise it peeks through on mobile when the settings panel is open).
+  if (showTimer) {
+    return (
+      <Suspense fallback={null}>
+        <TimerPage isAr={isAr} onClose={() => setShowTimer(false)} />
+      </Suspense>
+    );
+  }
+
   return (
     <div dir={cfg.dir} style={{ minHeight: "100vh", background: PAPER, fontFamily: "'Source Sans 3', sans-serif" }}>
       <header style={{ borderBottom: "1px solid rgba(var(--border-rgb),0.15)", background: PAPER, position: "sticky", top: 0, zIndex: 1000 }}>
@@ -746,12 +756,6 @@ export default function MainView({
             isAr={isAr}
             cfg={cfg}
             onClose={() => setShowLeaderboard(false)}
-          />
-        )}
-        {showTimer && (
-          <TimerPage
-            isAr={isAr}
-            onClose={() => setShowTimer(false)}
           />
         )}
         {showAccount && (

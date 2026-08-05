@@ -35,8 +35,13 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
   useEffect(() => {
     function onKeyDown(e) {
       if (e.key !== "Escape") return;
-      if (mode !== "list") setMode("list");
-      else onClose();
+      if (mode !== "list") {
+        setError("");
+        setConfirmClearLogs(false);
+        setMode("list");
+      } else {
+        onClose();
+      }
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
@@ -47,6 +52,21 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
   }
   function startEdit(account) {
     setEditingCode(account.code); setFormName(account.name); setFormUsername(account.username || ""); setFormRole(account.role === "admin" ? "admin" : "user"); setError(""); setMode("edit");
+  }
+
+  // Nested navigation: leaving a sub-screen returns to the account list
+  // instead of closing the whole admin panel. Only the list view closes.
+  function goBack() {
+    setError("");
+    setConfirmClearLogs(false);
+    setConfirmDeleteCode(null);
+    if (mode === "list") onClose();
+    else setMode("list");
+  }
+
+  function requestClose() {
+    // Backdrop / explicit close from list only. From a sub-view, step back.
+    goBack();
   }
 
   async function submitAdd(e) {
@@ -123,11 +143,11 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
     : tr(isAr, "Edit account", "تعديل الحساب");
 
   return (
-    <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 2000 }}>
-      <div onClick={(e) => e.stopPropagation()} className="modal-card" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title" style={{ width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto", background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
+    <div onClick={requestClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 2000 }}>
+      <div onClick={(e) => e.stopPropagation()} className="modal-card" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title" style={{ width: "100%", maxWidth: "min(520px, 100%)", maxHeight: "min(90dvh, 900px)", overflowY: "auto", background: CARD, borderRadius: 12, padding: "clamp(14px, 3vw, 24px)", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <h2 id="admin-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: INK, margin: 0 }}>{title}</h2>
-          <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}><XIcon size={20} /></button>
+          <button onClick={goBack} aria-label={mode === "list" ? tr(isAr, "Close", "إغلاق") : tr(isAr, "Back", "رجوع")} title={mode === "list" ? tr(isAr, "Close", "إغلاق") : tr(isAr, "Back", "رجوع")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", minWidth: 36, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center" }}><XIcon size={20} /></button>
         </div>
 
         {mode === "list" && (

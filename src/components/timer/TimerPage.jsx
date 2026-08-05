@@ -243,7 +243,7 @@ function createAmbientNode(ctx, ambientId, volume) {
  * backgrounds, free duration (no hard limits), and a mini floating window
  * when the user leaves the tab (Document PiP or popup fallback).
  */
-export default function TimerPage({ onClose, isAr, onBubbleChange }) {
+export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble = false }) {
   const [prefs, setPrefs] = useState(loadPrefs);
   const [hours, setHours] = useState(0);
   const [mins, setMins] = useState(25);
@@ -257,7 +257,7 @@ export default function TimerPage({ onClose, isAr, onBubbleChange }) {
   const [errorMsg, setErrorMsg] = useState("");
   // "full" = full-page timer UI; "bubble" = in-app floating mini timer
   // (used on phones instead of a broken about:blank tab from window.open).
-  const [viewMode, setViewMode] = useState("full");
+  const [viewMode, setViewMode] = useState(initialBubble ? "bubble" : "full");
   const [bubblePos, setBubblePos] = useState({ x: null, y: null }); // null = default bottom-end
   const dragRef = useRef(null);
 
@@ -417,6 +417,12 @@ export default function TimerPage({ onClose, isAr, onBubbleChange }) {
   }, []);
 
   useEffect(() => () => { try { ambientRef.current && ambientRef.current.stop(); } catch {} }, []);
+
+  // Keep parent in sync after refresh restore (bubble vs full page).
+  useEffect(() => {
+    try { onBubbleChange && onBubbleChange(viewMode === "bubble"); } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // On desktop only: try a real floating window when the tab is hidden.
   // On phones, window.open becomes a full blank tab (see screenshot) — so we

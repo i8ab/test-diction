@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from "react";
 import { tr } from "../lib/config/i18n";
 import { INK, PAPER, CARD, BRASS, errorStyle } from "../lib/config/theme";
-import { getSpeechRecognitionCtor, recognizeSpeech } from "../lib/utils/speech";
+import { getSpeechRecognitionCtor, recognizeSpeech, loadArDialect, startMicLevelMeter } from "../lib/utils/speech";
 import { uid } from "../lib/utils/quizHelpers";
 import {
   SearchIcon, PlusIcon, XIcon, LoaderIcon, CheckIcon, WifiOffIcon,
@@ -60,19 +60,23 @@ export default function MainView({
   // it as "listening" (instead of flipping the flag at click time) fixes
   // attempts getting dropped because the user spoke a moment too early.
   const [voiceMicState, setVoiceMicState] = useState("idle"); // idle | preparing | listening
+  const [voiceMicLevel, setVoiceMicLevel] = useState(0);
   const voiceListening = voiceMicState !== "idle";
   const speechSupported = useMemo(() => !!getSpeechRecognitionCtor(), []);
   const handleVoiceSearch = useCallback(async () => {
     if (!speechSupported || voiceListening) return;
     setVoiceMicState("preparing");
+    const stopMeter = startMicLevelMeter(setVoiceMicLevel);
     try {
-      const lang = isAr ? "ar-EG" : "en-US";
+      const lang = isAr ? loadArDialect() : "en-US";
       const text = await recognizeSpeech(lang, { onStart: () => setVoiceMicState("listening") });
       setQuery(text);
       setShowSuggestions(true);
     } catch (e) {
       showToast(tr(isAr, "Didn't catch that — try again.", "معرفتش أسمع صح — جرّب تاني."));
     } finally {
+      stopMeter();
+      setVoiceMicLevel(0);
       setVoiceMicState("idle");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -468,8 +472,8 @@ export default function MainView({
               <button type="button" onClick={handleVoiceSearch} disabled={voiceListening}
                 title={voiceMicState === "listening" ? tr(isAr, "Listening — speak now", "بسمع دلوقتي — اتكلم") : tr(isAr, "Search by voice", "بحث صوتي")}
                 aria-label={tr(isAr, "Search by voice", "بحث صوتي")}
-                className={voiceMicState === "listening" ? "voice-mic-active" : undefined}
-                style={{ position: "absolute", insetInlineEnd: 8, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, border: "none", background: "none", color: voiceListening ? cfg.accent : "var(--icon-muted)", cursor: voiceListening ? "default" : "pointer", padding: 0 }}>
+                className={voiceMicState === "preparing" ? "voice-mic-active" : undefined}
+                style={{ position: "absolute", insetInlineEnd: 8, top: "50%", transform: `translateY(-50%) scale(${voiceMicState === "listening" ? 1 + voiceMicLevel * 0.35 : 1})`, display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, border: "none", background: "none", color: voiceListening ? cfg.accent : "var(--icon-muted)", cursor: voiceListening ? "default" : "pointer", padding: 0, transition: "transform 80ms linear" }}>
                 <MicIcon size={15} />
               </button>
             )}

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import {
   MoreIcon, XIcon, TrophyIcon, StatsIcon, QuizIcon, LayersIcon,
-  DownloadIcon, UploadIcon, LoaderIcon,
+  DownloadIcon, UploadIcon, LoaderIcon, ClockIcon,
 } from "../common/Icons";
 
 // A radial (wheel) "more" menu: items fan out in an arc around the trigger
@@ -20,7 +20,7 @@ function polar(cx, cy, r, deg) {
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFlashcards, onExport, exportDisabled, onImport, importing, isAr }) {
+export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFlashcards, onTimer, onExport, exportDisabled, onImport, importing, isAr }) {
   const [open, setOpen] = useState(false);
   const [center, setCenter] = useState(null); // { x, y, openUpward } in viewport (fixed) coordinates
   const [hoverKey, setHoverKey] = useState(null);
@@ -74,6 +74,7 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
     { key: "stats", icon: <StatsIcon size={18} />, tint: "#5b8def", label: tr(isAr, "Stats", "إحصائياتي"), onClick: onStats },
     { key: "quiz", icon: <QuizIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quiz", "اختبار"), onClick: onQuiz },
     { key: "flashcards", icon: <LayersIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Flashcards", "بطاقات تعليمية"), onClick: onFlashcards },
+    { key: "timer", icon: <ClockIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Timer", "مؤقّت"), onClick: onTimer },
     { key: "export", icon: <DownloadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Export CSV", "تصدير CSV"), onClick: onExport, disabled: exportDisabled },
     { key: "import", icon: importing ? <LoaderIcon size={18} /> : <UploadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Import CSV", "استيراد CSV"), onClick: onImport, disabled: importing },
   ];

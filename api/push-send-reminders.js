@@ -38,13 +38,44 @@ async function fetchRecord(req) {
   return r.json();
 }
 
+// Drops activity-log entries (word/account edits, regular sign-in/out
+// noise) once they're from a previous calendar day — keeps "first sign in"
+// entries (account-creation history) forever. This used to run client-side
+// on every app load, which meant every open tab/device tried to write at
+// once on a new day and could trip each other's version-conflict check for
+// no real reason. Running it here instead means it writes AT MOST once a
+// day, from a single place, alongside the existing daily reminder cron —
+// so it never races another device's save.
+async function clearStaleLogs(req, record) {
+  const now = new Date();
+  const isToday = (ts) => {
+    const d = new Date(ts);
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  };
+  const logs = record.logs || [];
+  const hasStale = logs.some((entry) => entry.action !== "first_sign_in" && !isToday(entry.at));
+  if (!hasStale) return { cleared: false };
+
+  const proto = req.headers["x-forwarded-proto"] || "https";
+  const host = req.headers.host;
+  const nextLogs = logs.filter((entry) => entry.action === "first_sign_in" || isToday(entry.at));
+  const r = await fetch(`${proto}://${host}/api/jsonbin`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      entries: record.entries || [],
+      accounts: record.accounts || [],
+      logs: nextLogs,
+      expectedVersion: record.version || 0,
+    }),
+  });
+  // A 409 here just means some device saved something in the tiny window
+  // between our GET and this PUT — harmless, we'll just try again on
+  // tomorrow's cron run instead of retrying immediately.
+  return { cleared: r.ok };
+}
+
 export default async function handler(req, res) {
-  if (!redisConfigured()) {
-    return res.status(501).json({ error: "Push requires Redis to be configured." });
-  }
-  if (!vapidConfigured()) {
-    return res.status(501).json({ error: "Push requires VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT to be configured." });
-  }
   if (process.env.CRON_SECRET) {
     const auth = req.headers.authorization || "";
     if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -52,11 +83,32 @@ export default async function handler(req, res) {
     }
   }
 
+  // Log cleanup doesn't need Redis/VAPID, so it runs regardless of whether
+  // push notifications are configured — this cron is the one daily trigger
+  // both features share. The same initial read is reused for the reminder
+  // loop below so this handler only fetches the shared record once.
+  let logsCleared = false;
+  let record = null;
+  try {
+    record = await fetchRecord(req);
+    const result = await clearStaleLogs(req, record);
+    logsCleared = result.cleared;
+  } catch (e) {
+    // Best-effort — don't let a log-cleanup failure block reminders below.
+  }
+
+  if (!redisConfigured()) {
+    return res.status(200).json({ sent: 0, skipped: 0, expired: 0, logsCleared, pushSkipped: "Redis not configured." });
+  }
+  if (!vapidConfigured()) {
+    return res.status(200).json({ sent: 0, skipped: 0, expired: 0, logsCleared, pushSkipped: "VAPID keys not configured." });
+  }
+
   try {
     const codes = (await redisCommand("SMEMBERS", CODES_SET_KEY)) || [];
-    if (!codes.length) return res.status(200).json({ sent: 0, skipped: 0, expired: 0 });
+    if (!codes.length) return res.status(200).json({ sent: 0, skipped: 0, expired: 0, logsCleared });
 
-    const record = await fetchRecord(req);
+    if (!record) record = await fetchRecord(req);
     const accounts = record.accounts || [];
     const today = todayKey();
 
@@ -100,7 +152,7 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ sent, skipped, expired });
+    return res.status(200).json({ sent, skipped, expired, logsCleared });
   } catch (e) {
     return res.status(500).json({ error: "Failed sending reminders." });
   }

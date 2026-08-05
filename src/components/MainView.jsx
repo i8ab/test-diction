@@ -111,6 +111,7 @@ export default function MainView({
   const [showStats, setShowStats] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showTimer, setShowTimer] = useState(false);
+  const [timerBubble, setTimerBubble] = useState(false);
   const [undoDelete, setUndoDelete] = useState(null); // { entry, prevEntries } — cleared after UNDO_DELETE_MS or on undo
   const undoTimerRef = useRef(null);
   const importInputRef = useRef(null);
@@ -419,18 +420,19 @@ export default function MainView({
     setEditingEntry(null);
   }
 
-  // Timer is a full independent page -- do not keep the dictionary underneath
-  // (otherwise it peeks through on mobile when the settings panel is open).
-  if (showTimer) {
-    return (
-      <Suspense fallback={null}>
-        <TimerPage isAr={isAr} onClose={() => setShowTimer(false)} />
-      </Suspense>
-    );
-  }
-
   return (
-    <div dir={cfg.dir} style={{ minHeight: "100vh", background: PAPER, fontFamily: "'Source Sans 3', sans-serif" }}>
+    <>
+    {/* Hide dictionary while the full timer page is open; show it again under the floating bubble. */}
+    <div
+      dir={cfg.dir}
+      style={{
+        minHeight: "100vh",
+        background: PAPER,
+        fontFamily: "'Source Sans 3', sans-serif",
+        display: showTimer && !timerBubble ? "none" : undefined,
+      }}
+      aria-hidden={showTimer && !timerBubble ? true : undefined}
+    >
       <header style={{ borderBottom: "1px solid rgba(var(--border-rgb),0.15)", background: PAPER, position: "sticky", top: 0, zIndex: 1000 }}>
         <div style={{ maxWidth: 900, margin: "0 auto", padding: "18px 20px 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
@@ -787,6 +789,17 @@ export default function MainView({
         </div>
       )}
     </div>
+
+    {showTimer && (
+      <Suspense fallback={null}>
+        <TimerPage
+          isAr={isAr}
+          onClose={() => { setShowTimer(false); setTimerBubble(false); }}
+          onBubbleChange={setTimerBubble}
+        />
+      </Suspense>
+    )}
+    </>
   );
 }
 

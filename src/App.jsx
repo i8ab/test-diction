@@ -8,7 +8,12 @@ import {
   generatePersonalCode, detectDeviceIsAr, hasInviteParam,
 } from "./lib/state/storage";
 import { SRS_LEVEL_INTERVALS_MS, srsLevelFromStats } from "./lib/utils/quizHelpers";
-import { pushSupported, getPushStatus, subscribeToPush, unsubscribeFromPush, REMINDER_PREF_KEY } from "./lib/state/push";
+import {
+  pushSupported, getPushStatus, subscribeToPush, unsubscribeFromPush, savePushPrefs,
+  REMINDER_PREF_KEY, loadReminderIntervalHours, saveReminderIntervalHours,
+  loadReminderMessage, saveReminderMessage, loadReminderTitle, saveReminderTitle,
+  buildReminderPayload,
+} from "./lib/state/push";
 import { capLogs, makeLogEntry } from "./lib/state/logs";
 import { LoaderIcon } from "./components/common/Icons";
 import { Shell } from "./components/layout/Shell";
@@ -109,6 +114,45 @@ export default function DictionaryApp() {
     try { return localStorage.getItem(REMINDER_PREF_KEY) === "1"; } catch (e) { return false; }
   });
   const [remindersBusy, setRemindersBusy] = useState(false);
+  const [reminderIntervalHours, setReminderIntervalHours] = useState(() => loadReminderIntervalHours());
+  const [reminderTitle, setReminderTitle] = useState(() => loadReminderTitle());
+  const [reminderMessage, setReminderMessage] = useState(() => loadReminderMessage());
+  const prefsSaveTimerRef = useRef(null);
+
+  function schedulePrefsSave(next) {
+    if (prefsSaveTimerRef.current) clearTimeout(prefsSaveTimerRef.current);
+    prefsSaveTimerRef.current = setTimeout(() => {
+      if (!accountCode || !remindersOn) return;
+      savePushPrefs(accountCode, next).catch(() => {});
+    }, 700);
+  }
+
+  function getReminderPrefs() {
+    return {
+      intervalHours: reminderIntervalHours,
+      title: reminderTitle,
+      message: reminderMessage,
+    };
+  }
+
+  function handleChangeReminderInterval(hours) {
+    setReminderIntervalHours(hours);
+    saveReminderIntervalHours(hours);
+    schedulePrefsSave({ intervalHours: hours, title: reminderTitle, message: reminderMessage });
+  }
+
+  function handleChangeReminderTitle(title) {
+    setReminderTitle(title);
+    saveReminderTitle(title);
+    schedulePrefsSave({ intervalHours: reminderIntervalHours, title, message: reminderMessage });
+  }
+
+  function handleChangeReminderMessage(message) {
+    setReminderMessage(message);
+    saveReminderMessage(message);
+    schedulePrefsSave({ intervalHours: reminderIntervalHours, title: reminderTitle, message });
+  }
+
 
   // On load, if the person previously opted in AND permission is still
   // granted but the subscription was somehow lost (e.g. cleared site
@@ -117,7 +161,7 @@ export default function DictionaryApp() {
     (async () => {
       if (!remindersOn || !accountCode || !pushSupported()) return;
       const status = await getPushStatus();
-      if (status === "granted") await subscribeToPush(accountCode);
+      if (status === "granted") await subscribeToPush(accountCode, getReminderPrefs());
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountCode]);
@@ -132,7 +176,7 @@ export default function DictionaryApp() {
     setRemindersBusy(true);
     try {
       if (pushSupported() && accountCode) {
-        const result = await subscribeToPush(accountCode);
+        const result = await subscribeToPush(accountCode, getReminderPrefs());
         if (!result.ok) {
           setRemindersOn(false);
           try { localStorage.removeItem(REMINDER_PREF_KEY); } catch (e) {}
@@ -161,8 +205,9 @@ export default function DictionaryApp() {
     }
   }
 
-  // TEMPORARY — test push now. Remove after verifying notifications work
-  // (also remove api/push-test.js, the HeaderMenu button, and the vite route).
+  // Test push — sends the FINAL notification shape (custom title/body the
+  // user typed, or the default if empty) so they can preview exactly what
+  // the real reminder will look like.
   async function testReminderPush() {
     if (!accountCode) {
       showToast("سجّل الدخول أولاً / Sign in first");
@@ -170,7 +215,7 @@ export default function DictionaryApp() {
     }
     try {
       if (pushSupported()) {
-        const sub = await subscribeToPush(accountCode);
+        const sub = await subscribeToPush(accountCode, getReminderPrefs());
         if (!sub.ok) {
           showToast(sub.error === "denied"
             ? "الإذن مرفوض — فعّل الإشعارات من إعدادات المتصفح"
@@ -180,14 +225,18 @@ export default function DictionaryApp() {
         setRemindersOn(true);
         try { localStorage.setItem(REMINDER_PREF_KEY, "1"); } catch (e) {}
       }
+      const payload = buildReminderPayload({
+        title: reminderTitle,
+        body: reminderMessage,
+      });
       const r = await fetch("/api/push-test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: accountCode }),
+        body: JSON.stringify({ code: accountCode, title: payload.title, body: payload.body }),
       });
       const data = await r.json().catch(() => ({}));
       if (r.ok) {
-        showToast("اتبعت إشعار تجريبي — شوف شريط الإشعارات ✓");
+        showToast("اتبعت إشعار بالشكل النهائي — شوف شريط الإشعارات ✓");
       } else if (data.error === "no_subscription") {
         showToast("مفيش اشتراك محفوظ — فعّل التذكيرات ووافق على الإذن");
       } else if (data.error === "subscription_expired") {
@@ -923,6 +972,9 @@ export default function DictionaryApp() {
       appIsAr={appIsAr} onToggleAppLang={toggleAppLang}
       sessionStart={sessionStartRef.current}
       remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={enableReminders} onDisableReminders={disableReminders} onTestReminder={testReminderPush}
+      reminderIntervalHours={reminderIntervalHours} onChangeReminderInterval={handleChangeReminderInterval}
+      reminderTitle={reminderTitle} onChangeReminderTitle={handleChangeReminderTitle}
+      reminderMessage={reminderMessage} onChangeReminderMessage={handleChangeReminderMessage}
     />
   );
 }

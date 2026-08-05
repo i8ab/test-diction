@@ -13,7 +13,7 @@ import {
 import { SRS_LEVEL_INTERVALS_MS, srsLevelFromStats } from "./lib/utils/quizHelpers";
 import {
   pushSupported, getPushStatus, subscribeToPush, unsubscribeFromPush, savePushPrefs,
-  REMINDER_PREF_KEY,
+  loadRemindersEnabled, saveRemindersEnabled,
   loadReminderMessage, saveReminderMessage, loadReminderTitle, saveReminderTitle,
   buildReminderPayload,
 } from "./lib/state/push";
@@ -116,13 +116,25 @@ export default function DictionaryApp() {
      ReminderBanner) so the on/off control can live in the top header menu
      too, and both stay in sync no matter which one the person used.
      ======================================================================= */
-  const [remindersOn, setRemindersOn] = useState(() => {
-    try { return localStorage.getItem(REMINDER_PREF_KEY) === "1"; } catch (e) { return false; }
-  });
+  const [remindersOn, setRemindersOn] = useState(false);
   const [remindersBusy, setRemindersBusy] = useState(false);
-  const [reminderTitle, setReminderTitle] = useState(() => loadReminderTitle());
-  const [reminderMessage, setReminderMessage] = useState(() => loadReminderMessage());
+  const [reminderTitle, setReminderTitle] = useState("");
+  const [reminderMessage, setReminderMessage] = useState("");
   const prefsSaveTimerRef = useRef(null);
+
+  // Reload this account's own notification prefs whenever the signed-in
+  // account changes — never reuse another account's title/body/on-state.
+  useEffect(() => {
+    if (!accountCode) {
+      setRemindersOn(false);
+      setReminderTitle("");
+      setReminderMessage("");
+      return;
+    }
+    setRemindersOn(loadRemindersEnabled(accountCode));
+    setReminderTitle(loadReminderTitle(accountCode));
+    setReminderMessage(loadReminderMessage(accountCode));
+  }, [accountCode]);
 
   function schedulePrefsSave(next) {
     if (prefsSaveTimerRef.current) clearTimeout(prefsSaveTimerRef.current);
@@ -141,13 +153,13 @@ export default function DictionaryApp() {
 
   function handleChangeReminderTitle(title) {
     setReminderTitle(title);
-    saveReminderTitle(title);
+    if (accountCode) saveReminderTitle(title, accountCode);
     schedulePrefsSave({ title, message: reminderMessage });
   }
 
   function handleChangeReminderMessage(message) {
     setReminderMessage(message);
-    saveReminderMessage(message);
+    if (accountCode) saveReminderMessage(message, accountCode);
     schedulePrefsSave({ title: reminderTitle, message });
   }
 
@@ -170,32 +182,32 @@ export default function DictionaryApp() {
   async function enableReminders() {
     if (remindersBusy) return;
     setRemindersOn(true);
-    try { localStorage.setItem(REMINDER_PREF_KEY, "1"); } catch (e) {}
+    if (accountCode) saveRemindersEnabled(accountCode, true);
     setRemindersBusy(true);
     try {
       if (pushSupported() && accountCode) {
         const result = await subscribeToPush(accountCode, getReminderPrefs());
         if (!result.ok) {
           setRemindersOn(false);
-          try { localStorage.removeItem(REMINDER_PREF_KEY); } catch (e) {}
+          if (accountCode) saveRemindersEnabled(accountCode, false);
         }
       } else if (typeof Notification !== "undefined" && Notification.permission !== "granted") {
         const perm = await Notification.requestPermission();
         if (perm !== "granted") {
           setRemindersOn(false);
-          try { localStorage.removeItem(REMINDER_PREF_KEY); } catch (e) {}
+          if (accountCode) saveRemindersEnabled(accountCode, false);
         }
       }
     } catch (e) {
       setRemindersOn(false);
-      try { localStorage.removeItem(REMINDER_PREF_KEY); } catch (err) {}
+      if (accountCode) saveRemindersEnabled(accountCode, false);
     }
     setRemindersBusy(false);
   }
 
   async function disableReminders() {
     setRemindersOn(false);
-    try { localStorage.removeItem(REMINDER_PREF_KEY); } catch (e) {}
+    if (accountCode) saveRemindersEnabled(accountCode, false);
     setRemindersBusy(false);
     // Unsubscribe in the background — UI is already off, no lag.
     if (accountCode) {
@@ -221,7 +233,7 @@ export default function DictionaryApp() {
           return;
         }
         setRemindersOn(true);
-        try { localStorage.setItem(REMINDER_PREF_KEY, "1"); } catch (e) {}
+        if (accountCode) saveRemindersEnabled(accountCode, true);
       }
       const payload = buildReminderPayload({
         title: reminderTitle,

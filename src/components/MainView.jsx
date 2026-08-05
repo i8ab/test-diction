@@ -484,7 +484,7 @@ export default function MainView({
               const active = key === section;
               return (
                 <button key={key} onClick={() => onChangeSection(key)}
-                  className="touch-target section-tab" style={{ padding: "10px 16px", minHeight: 44, fontSize: "clamp(13px, 2.5vw, 14px)", fontWeight: 600, color: active ? s.accent : "var(--icon-muted)", background: active ? CARD : "transparent", border: "1px solid rgba(var(--border-rgb),0.15)", borderBottom: active ? `1px solid ${CARD}` : "1px solid rgba(var(--border-rgb),0.15)", borderRadius: "8px 8px 0 0", marginBottom: -1, cursor: "pointer", transform: active ? "translateY(-1px)" : "none" }}>
+                  className="section-tab" style={{ padding: "9px 16px", fontSize: 14, fontWeight: 600, color: active ? s.accent : "var(--icon-muted)", background: active ? CARD : "transparent", border: "1px solid rgba(var(--border-rgb),0.15)", borderBottom: active ? `1px solid ${CARD}` : "1px solid rgba(var(--border-rgb),0.15)", borderRadius: "8px 8px 0 0", marginBottom: -1, cursor: "pointer", transform: active ? "translateY(-1px)" : "none" }}>
                   {s.shortLabel}
                 </button>
               );
@@ -675,8 +675,8 @@ export default function MainView({
           {cfg.letters.map((l) => {
             const has = availableLetters.has(l);
             return (
-              <button key={l} disabled={!has} onClick={() => jumpTo(l)} className="letter-rail-btn touch-target"
-                style={{ fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif", fontSize: 13, padding: "4px 0", minHeight: 28, border: "none", background: "none", color: has ? cfg.accent : "rgba(var(--border-rgb),0.2)", fontWeight: has ? 700 : 400, cursor: has ? "pointer" : "default", textAlign: "center" }}>
+              <button key={l} disabled={!has} onClick={() => jumpTo(l)} className="letter-rail-btn"
+                style={{ fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif", fontSize: 13, padding: "2px 0", border: "none", background: "none", color: has ? cfg.accent : "rgba(var(--border-rgb),0.2)", fontWeight: has ? 700 : 400, cursor: has ? "pointer" : "default", textAlign: "center" }}>
                 {l}
               </button>
             );

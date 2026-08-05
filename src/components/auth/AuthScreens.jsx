@@ -8,6 +8,7 @@ import {
   SearchIcon, PlusIcon, BookIcon, LoginIcon, KeyIcon, CopyIcon, CheckIcon,
   ChevronIcon, EditIcon, UsersIcon, SunIcon, MoonIcon, WifiOffIcon, GlobeIcon,
   QuizIcon, StatsIcon, TrophyIcon, FlameIcon, SpeakerIcon, LoaderIcon, ZoomIcon,
+  LayersIcon, CalendarIcon, DownloadIcon,
 } from "../common/Icons";
 import { Shell, LanguageToggle } from "../layout/Shell";
 
@@ -31,6 +32,9 @@ function AuthScreens({
       { icon: TrophyIcon, title: atr("Leaderboard", "لوحة الصدارة"), desc: atr("See how you stack up against the rest of your group.", "شوف ترتيبك مقارنة بباقي أفراد مجموعتك.") },
       { icon: StatsIcon, title: atr("Smart review reminders", "تذكيرات مراجعة ذكية"), desc: atr("Spaced-repetition scheduling brings words back right before you'd forget them.", "جدولة تكرار متباعد تعيد لك الكلمات في التوقيت المثالي قبل ما تنساها.") },
       { icon: WifiOffIcon, title: atr("Works offline", "يعمل بدون إنترنت"), desc: atr("Your saved words stay with you even without a connection.", "كلماتك المحفوظة تفضل معاك حتى من غير اتصال بالإنترنت.") },
+      { icon: LayersIcon, title: atr("Flashcards mode", "وضع البطاقات التعليمية"), desc: atr("Flip through your words as flashcards for quick, focused review sessions.", "قلّب كلماتك كبطاقات تعليمية لمراجعة سريعة ومركزة.") },
+      { icon: CalendarIcon, title: atr("Word of the day", "كلمة اليوم"), desc: atr("A fresh word from your dictionary highlighted for you every single day.", "كلمة جديدة من قاموسك تُعرض لك كل يوم.") },
+      { icon: DownloadIcon, title: atr("Backup & CSV import/export", "نسخ احتياطي واستيراد/تصدير CSV"), desc: atr("Export your whole dictionary to CSV, or import one — your data is always yours to keep.", "صدّر قاموسك بالكامل كملف CSV أو استورد واحدًا — بياناتك ملكك دائمًا.") },
     ];
     return (
       <div

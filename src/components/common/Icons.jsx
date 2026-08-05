@@ -49,6 +49,8 @@ const UndoIcon = (p) => <Icon {...p} path={<><path d="M3 7v6h6"/><path d="M3 13a
 const LinkIcon = (p) => <Icon {...p} path={<><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></>} />;
 const ClockIcon = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></>} />;
 const MicIcon = (p) => <Icon {...p} path={<><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></>} />;
+const BellIcon = (p) => <Icon {...p} path={<><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></>} />;
+const BellOffIcon = (p) => <Icon {...p} path={<><path d="M8.7 3A6 6 0 0 1 18 8c0 2.1.4 3.7.9 5"/><path d="M17.7 17H3s3-2 3-9c0-.5 0-1 .1-1.5"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><line x1="2" y1="2" x2="22" y2="22"/></>} />;
 const PaletteIcon = (p) => <Icon {...p} path={<><path d="M12 2a10 10 0 1 0 0 20 2.5 2.5 0 0 0 2-4 2 2 0 0 1 2-2h1a3 3 0 0 0 3-3c0-6-3.5-11-8-11Z"/><circle cx="7" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="10" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="14" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="17" cy="10" r="1.2" fill="currentColor" stroke="none"/></>} />;
 const LayersIcon = (p) => <Icon {...p} path={<><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></>} />;
 const ShareIcon = (p) => <Icon {...p} path={<><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/></>} />;
@@ -109,6 +111,8 @@ export {
   LinkIcon,
   ClockIcon,
   MicIcon,
+  BellIcon,
+  BellOffIcon,
   PaletteIcon,
   LayersIcon,
   ShareIcon,

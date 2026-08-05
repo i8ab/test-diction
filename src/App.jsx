@@ -470,26 +470,14 @@ export default function DictionaryApp() {
     persistLogs(logs.filter((entry) => entry.action === "first_sign_in"));
   }
 
-  // Auto-clear the activity log at the start of each new day — keeps
-  // "first sign in" entries (account-creation history) forever, but drops
-  // everything else (word/account edits, regular sign-in/out noise) once
-  // it's from a previous calendar day. Runs once per app load, right after
-  // the logs arrive from the server, and only writes back if there's
-  // actually something stale to drop.
-  const dailyLogClearRanRef = useRef(false);
-  useEffect(() => {
-    if (dailyLogClearRanRef.current || !logsLoaded) return;
-    dailyLogClearRanRef.current = true;
-    const now = new Date();
-    const isToday = (ts) => {
-      const d = new Date(ts);
-      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-    };
-    const hasStaleEntries = logs.some((entry) => entry.action !== "first_sign_in" && !isToday(entry.at));
-    if (hasStaleEntries) {
-      persistLogs(logs.filter((entry) => entry.action === "first_sign_in" || isToday(entry.at)));
-    }
-  }, [logsLoaded, logs, persistLogs]);
+  // Auto-clearing stale log entries used to run once per app load, right
+  // after the logs arrived from the server — but that meant EVERY device/
+  // tab that opened the app on a new day tried to write at once, which is
+  // exactly the kind of near-simultaneous save that trips the version
+  // conflict warning (see handleSaveConflict) even though nobody actually
+  // touched anything. That cleanup now runs server-side, once a day, from
+  // the existing daily cron (see the tail of api/push-send-reminders.js) —
+  // so it only ever writes once, not once per open tab.
 
   // Toggles whether the current signed-in account has marked a given entry
   // as studied/seen. Stored per-account (account.studied: [entryId, ...]) so

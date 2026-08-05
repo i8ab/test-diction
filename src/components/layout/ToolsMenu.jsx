@@ -6,26 +6,47 @@ import {
   DownloadIcon, UploadIcon, LoaderIcon, ClockIcon,
 } from "../common/Icons";
 
-// A radial (wheel) "more" menu: items fan out in an arc around the trigger
-// button instead of dropping down as a list. Positioned in a fixed-position
-// portal so it can escape any clipping ancestor, same approach the old
-// dropdown used — just placed with polar coordinates instead of a rectangle.
+// Desktop: radial wheel around the trigger.
+// Mobile / narrow screens: bottom sheet list — readable, tappable, no overlap.
 const HUB_SIZE = 40;
 const SATELLITE_SIZE = 46;
 const RADIUS = 96;
-const ARC_SPAN = 140; // degrees covered by the fan
+const ARC_SPAN = 140;
 
 function polar(cx, cy, r, deg) {
   const rad = (deg * Math.PI) / 180;
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFlashcards, onTimer, onExport, exportDisabled, onImport, importing, isAr }) {
+function useIsCompact() {
+  const [compact, setCompact] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 768px)").matches : false
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 768px)");
+    const onChange = () => setCompact(mq.matches);
+    onChange();
+    mq.addEventListener?.("change", onChange);
+    mq.addListener?.(onChange); // older Safari
+    return () => {
+      mq.removeEventListener?.("change", onChange);
+      mq.removeListener?.(onChange);
+    };
+  }, []);
+  return compact;
+}
+
+export default function ToolsMenu({
+  accent, onLeaderboard, onStats, onQuiz, onFlashcards, onTimer,
+  onExport, exportDisabled, onImport, importing, isAr,
+}) {
   const [open, setOpen] = useState(false);
-  const [center, setCenter] = useState(null); // { x, y, openUpward } in viewport (fixed) coordinates
+  const [center, setCenter] = useState(null);
   const [hoverKey, setHoverKey] = useState(null);
   const btnRef = useRef(null);
   const menuRef = useRef(null);
+  const isCompact = useIsCompact();
 
   const computeCenter = useCallback(() => {
     const btn = btnRef.current;
@@ -35,10 +56,9 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
     const cy = rect.top + rect.height / 2;
     const spaceBelow = window.innerHeight - rect.bottom;
     const openUpward = spaceBelow < RADIUS + SATELLITE_SIZE;
-    setCenter({ x: cx, y: cy, openUpward });
+    setCenter({ x: cx, y: cy, openUpward, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width });
   }, []);
 
-  // Close instantly — no exit animation, no transition delay.
   function closeMenu() {
     setOpen(false);
   }
@@ -54,7 +74,6 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
     function onKeyDown(e) { if (e.key === "Escape") closeMenu(); }
     window.addEventListener("scroll", computeCenter, true);
     window.addEventListener("resize", computeCenter);
-    // pointerdown fires earlier than click → outside-close feels instant
     document.addEventListener("pointerdown", onDocClick);
     document.addEventListener("keydown", onKeyDown);
     return () => {
@@ -65,9 +84,12 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
     };
   }, [open, computeCenter]);
 
-  // Items no longer close the menu on click — the menu only closes when the
-  // user explicitly wants it to: the hub button, an outside click, or Escape.
-  function itemClick(fn) { fn(); }
+  // On mobile list: close after choosing an action. On desktop wheel: keep open
+  // so power users can fire several tools without reopening.
+  function itemClick(fn) {
+    fn();
+    if (isCompact) closeMenu();
+  }
 
   const items = [
     { key: "leaderboard", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Leaderboard", "الترتيب"), onClick: onLeaderboard },
@@ -83,14 +105,106 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
   const startAngle = center?.openUpward ? 270 - ARC_SPAN / 2 : 90 - ARC_SPAN / 2;
   const step = n > 1 ? ARC_SPAN / (n - 1) : 0;
 
-  const menu = open && center && (
+  // ---------- Mobile: bottom sheet list ----------
+  const compactMenu = open && (
+    <div style={{ position: "fixed", inset: 0, zIndex: 1200, pointerEvents: "auto" }}>
+      {/* Dim backdrop */}
+      <div
+        onPointerDown={(e) => { e.preventDefault(); closeMenu(); }}
+        style={{
+          position: "absolute", inset: 0,
+          background: "rgba(0,0,0,0.45)",
+          backdropFilter: "blur(2px)",
+          WebkitBackdropFilter: "blur(2px)",
+        }}
+      />
+      <div
+        ref={menuRef}
+        role="menu"
+        dir={isAr ? "rtl" : "ltr"}
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          maxHeight: "min(72dvh, 520px)",
+          background: "var(--card)",
+          borderRadius: "18px 18px 0 0",
+          boxShadow: "0 -12px 40px -12px rgba(0,0,0,0.45)",
+          padding: "10px 12px calc(12px + env(safe-area-inset-bottom, 0px))",
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          overflowY: "auto",
+          overscrollBehavior: "contain",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 4px 10px" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+            {tr(isAr, "More", "المزيد")}
+          </span>
+          <button
+            type="button"
+            aria-label={tr(isAr, "Close", "إغلاق")}
+            onClick={closeMenu}
+            style={{
+              width: 36, height: 36, borderRadius: "50%", border: "none",
+              background: "var(--input-bg)", color: "var(--icon-muted)",
+              display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+            }}
+          >
+            <XIcon size={16} />
+          </button>
+        </div>
+        {items.map((it) => (
+          <button
+            key={it.key}
+            type="button"
+            role="menuitem"
+            disabled={it.disabled}
+            onClick={() => { if (!it.disabled) itemClick(it.onClick); }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              width: "100%",
+              minHeight: 48,
+              padding: "10px 12px",
+              border: "none",
+              borderRadius: 12,
+              background: "transparent",
+              color: "var(--ink)",
+              fontSize: 15,
+              fontWeight: 600,
+              textAlign: "start",
+              cursor: it.disabled ? "default" : "pointer",
+              opacity: it.disabled ? 0.45 : 1,
+              fontFamily: "inherit",
+            }}
+          >
+            <span
+              style={{
+                width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                background: `${it.tint}1a`, color: it.tint,
+              }}
+            >
+              {it.icon}
+            </span>
+            <span style={{ flex: 1 }}>{it.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  // ---------- Desktop: radial wheel ----------
+  const wheelMenu = open && center && (
     <div ref={menuRef} role="menu" style={{ position: "fixed", inset: 0, zIndex: 1000, pointerEvents: "none" }}>
       <style>{`
-        /* No entrance/exit animations — open and close are instant. */
         .tools-wheel-item:hover:not(:disabled) { transform: scale(1.12); box-shadow: 0 12px 26px -8px rgba(0,0,0,0.5); }
         .tools-wheel-item:active:not(:disabled) { transform: scale(1.02); }
       `}</style>
-      {/* Soft glow ring behind the hub, purely decorative */}
       <div
         style={{
           position: "absolute",
@@ -163,7 +277,6 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
           </div>
         );
       })}
-      {/* Hub close (X): pointerdown closes instantly — no animation. */}
       <button
         type="button"
         aria-label={tr(isAr, "Close", "إغلاق")}
@@ -193,8 +306,10 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
     </div>
   );
 
+  const portalMenu = isCompact ? compactMenu : wheelMenu;
+
   return (
-    <div className="toolbar-anim" style={{ position: "relative", animationDelay: "0.06s" }}>
+    <div className="toolbar-anim" style={{ position: "relative", animationDelay: "0.06s", flexShrink: 0 }}>
       <button
         ref={btnRef}
         onClick={() => setOpen((o) => !o)}
@@ -211,13 +326,15 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
           border: `1px solid ${accent}40`,
           cursor: "pointer",
           transition: "none",
-          opacity: open ? 0 : 1,
-          pointerEvents: open ? "none" : "auto",
+          // On compact we keep the trigger visible (sheet opens from bottom).
+          // On desktop the hub X replaces it while open.
+          opacity: open && !isCompact ? 0 : 1,
+          pointerEvents: open && !isCompact ? "none" : "auto",
         }}
       >
-        <MoreIcon size={18} />
+        {open && isCompact ? <XIcon size={16} /> : <MoreIcon size={18} />}
       </button>
-      {open && typeof document !== "undefined" ? createPortal(menu, document.body) : null}
+      {open && typeof document !== "undefined" ? createPortal(portalMenu, document.body) : null}
     </div>
   );
 }

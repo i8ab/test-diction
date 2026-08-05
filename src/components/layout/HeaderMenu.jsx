@@ -2,10 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
 import { ACCENT_THEMES } from "../../lib/state/storage";
 import {
-  UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon,
+  UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon,
 } from "../common/Icons";
 
-export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin, onLogout, isAr, accentTheme, onChangeAccent }) {
+export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin, onLogout, isAr, accentTheme, onChangeAccent, remindersOn, remindersBusy, onEnableReminders, onDisableReminders }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -40,6 +40,13 @@ export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccoun
             {theme === "dark" ? <SunIcon size={15} /> : <MoonIcon size={15} />}
             {theme === "dark" ? tr(isAr, "Light Mode", "الوضع الفاتح") : tr(isAr, "Dark Mode", "الوضع الداكن")}
           </button>
+          {(onEnableReminders || onDisableReminders) && (
+            <button role="menuitem" disabled={remindersBusy} style={{ ...itemStyle, borderTop: "1px solid rgba(var(--border-rgb),0.12)", opacity: remindersBusy ? 0.6 : 1, cursor: remindersBusy ? "default" : "pointer" }}
+              onClick={() => { if (remindersBusy) return; itemClick(remindersOn ? onDisableReminders : onEnableReminders); }}>
+              {remindersOn ? <BellIcon size={15} /> : <BellOffIcon size={15} />}
+              {remindersOn ? tr(isAr, "Reminders: On", "التذكيرات: مفعّلة") : tr(isAr, "Reminders: Off", "التذكيرات: متوقفة")}
+            </button>
+          )}
           {onChangeAccent && (
             <div style={{ padding: "9px 14px", borderTop: "1px solid rgba(var(--border-rgb),0.12)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, color: "var(--icon-muted)", marginBottom: 7 }}>

@@ -5,7 +5,6 @@ import react from "@vitejs/plugin-react";
 import loginHandler from "./api/login.js";
 import jsonbinHandler from "./api/jsonbin.js";
 import pushSubscribeHandler from "./api/push-subscribe.js";
-import pushTestHandler from "./api/push-test.js";
 import ttsHandler from "./api/tts.js";
 
 // Always resolve to the folder this config file lives in, not
@@ -55,6 +54,7 @@ function vercelApiDevPlugin(env) {
             } else if (req.url.startsWith("/api/push-subscribe")) {
               await pushSubscribeHandler(req, res);
             } else if (req.url.startsWith("/api/push-test")) {
+              const { default: pushTestHandler } = await import("./api/push-test.js");
               await pushTestHandler(req, res);
             } else {
               await ttsHandler(req, res);

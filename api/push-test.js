@@ -58,12 +58,17 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
     if (result.expired) {
-      await redisCommand("DEL", `${SUB_PREFIX}${code}`);
-      await redisCommand("SREM", "twoTongues:push:codes", code);
+      try {
+        await redisCommand("DEL", `${SUB_PREFIX}${code}`);
+        await redisCommand("SREM", "twoTongues:push:codes", code);
+      } catch (_) { /* ignore */ }
       return res.status(410).json({ error: "subscription_expired", message: "Subscription expired — turn reminders Off then On again." });
     }
-    return res.status(502).json({ error: result.error || "send_failed" });
+    return res.status(502).json({
+      error: result.error || "send_failed",
+      message: result.message || result.error || "send_failed",
+    });
   } catch (e) {
-    return res.status(500).json({ error: "Server error sending test push." });
+    return res.status(500).json({ error: "Server error sending test push.", message: String((e && e.message) || e) });
   }
 }

@@ -308,3 +308,26 @@
     filter: none;
   }
 }
+
+
+/* Toolbar: keep search + actions readable on narrow screens */
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+@media (max-width: 640px) {
+  .toolbar-row {
+    align-items: stretch;
+  }
+  .toolbar-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .toolbar-actions > button.btn-shine {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 44px;
+  }
+}

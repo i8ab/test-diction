@@ -44,6 +44,7 @@ export default function MainView({
   toast, showToast, theme, onToggleTheme, accentTheme, onChangeAccent,
   appIsAr, onToggleAppLang,
   sessionStart,
+  remindersOn, remindersBusy, onEnableReminders, onDisableReminders,
 }) {
   const cfg = SECTIONS[section];
   const isAr = section === "ar-ar";
@@ -427,7 +428,8 @@ export default function MainView({
               <div style={{ fontSize: 13, color: "var(--muted-strong)" }}><strong style={{ color: INK }}>{name}</strong></div>
               <HeaderMenu theme={theme} onToggleTheme={onToggleTheme} isAdmin={isAdmin}
                 onOpenAccount={onOpenAccount} onOpenAdmin={onOpenAdmin} onLogout={onLogout} isAr={appIsAr}
-                accentTheme={accentTheme} onChangeAccent={onChangeAccent} />
+                accentTheme={accentTheme} onChangeAccent={onChangeAccent}
+                remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={onEnableReminders} onDisableReminders={onDisableReminders} />
             </div>
           </div>
           <div style={{ display: "flex", gap: 4, marginTop: 16 }}>
@@ -563,7 +565,7 @@ export default function MainView({
           </div>
         )}
         <WordOfTheDay entries={sectionEntries} section={section} cfg={cfg} isAr={isAr} onOpenZoom={(id) => setZoomEntry(sectionEntries.find((e) => e.id === id) || null)} />
-        <ReminderBanner studiedAt={studiedAt} isAr={isAr} cfg={cfg} accountCode={accountCode} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />
+        <ReminderBanner studiedAt={studiedAt} isAr={isAr} cfg={cfg} remindersOn={remindersOn} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />
         {isAdmin && <BackupReminderBanner isAr={isAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
         <div style={{ marginTop: 12, background: CARD, border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 10, padding: "12px 14px" }}>
           <div dir={isAr ? "rtl" : "ltr"} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>

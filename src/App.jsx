@@ -8,6 +8,7 @@ import {
   generatePersonalCode, detectDeviceIsAr, hasInviteParam,
 } from "./lib/state/storage";
 import { SRS_LEVEL_INTERVALS_MS, srsLevelFromStats } from "./lib/utils/quizHelpers";
+import { pushSupported, getPushStatus, subscribeToPush, unsubscribeFromPush, REMINDER_PREF_KEY } from "./lib/state/push";
 import { capLogs, makeLogEntry } from "./lib/state/logs";
 import { LoaderIcon } from "./components/common/Icons";
 import { Shell } from "./components/layout/Shell";
@@ -97,6 +98,54 @@ export default function DictionaryApp() {
 
   function toggleTheme() {
     setTheme((t) => (t === "dark" ? "light" : "dark"));
+  }
+
+  /* =======================================================================
+     STUDY REMINDERS — lifted up here (instead of living only inside
+     ReminderBanner) so the on/off control can live in the top header menu
+     too, and both stay in sync no matter which one the person used.
+     ======================================================================= */
+  const [remindersOn, setRemindersOn] = useState(() => {
+    try { return localStorage.getItem(REMINDER_PREF_KEY) === "1"; } catch (e) { return false; }
+  });
+  const [remindersBusy, setRemindersBusy] = useState(false);
+
+  // On load, if the person previously opted in AND permission is still
+  // granted but the subscription was somehow lost (e.g. cleared site
+  // data), re-subscribe quietly so reminders keep working.
+  useEffect(() => {
+    (async () => {
+      if (!remindersOn || !accountCode || !pushSupported()) return;
+      const status = await getPushStatus();
+      if (status === "granted") await subscribeToPush(accountCode);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountCode]);
+
+  async function enableReminders() {
+    setRemindersBusy(true);
+    try {
+      if (pushSupported() && accountCode) {
+        const result = await subscribeToPush(accountCode);
+        if (!result.ok) { setRemindersBusy(false); return; }
+      } else if (typeof Notification !== "undefined" && Notification.permission !== "granted") {
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") { setRemindersBusy(false); return; }
+      }
+      setRemindersOn(true);
+      try { localStorage.setItem(REMINDER_PREF_KEY, "1"); } catch (e) {}
+    } catch (e) { /* ignore — nothing to enable if this failed */ }
+    setRemindersBusy(false);
+  }
+
+  async function disableReminders() {
+    setRemindersBusy(true);
+    try {
+      if (accountCode) await unsubscribeFromPush(accountCode);
+    } catch (e) { /* ignore — still clear the local flag below */ }
+    setRemindersOn(false);
+    try { localStorage.removeItem(REMINDER_PREF_KEY); } catch (e) {}
+    setRemindersBusy(false);
   }
 
   function showToast(message) {
@@ -819,6 +868,7 @@ export default function DictionaryApp() {
       accentTheme={accentTheme} onChangeAccent={setAccentTheme}
       appIsAr={appIsAr} onToggleAppLang={toggleAppLang}
       sessionStart={sessionStartRef.current}
+      remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={enableReminders} onDisableReminders={disableReminders}
     />
   );
 }

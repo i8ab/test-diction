@@ -113,23 +113,52 @@ function getSpeechRecognitionCtor() {
 // Runs one voice-search capture. `lang` is a BCP-47 tag ("ar-EG"/"en-US").
 // Resolves with the recognized text, or rejects on error/no-match — callers
 // should catch and show a toast rather than let this throw uncaught.
-function recognizeSpeech(lang) {
+//
+// `opts.onStart` fires exactly when the recognizer is actually armed and
+// picking up audio (the browser's `onstart` event) — NOT when this function
+// is first called. There's a real gap between the two: `rec.start()` has to
+// ask for mic permission (first time) and spin up the OS audio pipeline,
+// which can take anywhere from ~100ms to over a second. If a caller flips
+// its "Listening…" UI on immediately at call time, the user often starts
+// talking right into that gap and the first word(s) — sometimes the whole
+// utterance — never reach the recognizer at all, which is exactly the
+// "I'm talking and it's not hearing me" symptom. Callers should wait for
+// onStart before telling the user to speak.
+//
+// `opts.retriesOnNoSpeech` (default 1) silently restarts once if the
+// browser reports "no-speech" (nothing detected before its own internal
+// silence timeout — commonly because the user was still reacting to the UI
+// switching to "Listening…" a beat earlier) instead of surfacing an error
+// for what the user will experience as "it just didn't work that time".
+function recognizeSpeech(lang, opts) {
+  const { onStart, retriesOnNoSpeech = 1 } = opts || {};
   return new Promise((resolve, reject) => {
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) { reject(new Error("unsupported")); return; }
-    const rec = new Ctor();
-    rec.lang = lang;
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-    let settled = false;
-    rec.onresult = (e) => {
-      settled = true;
-      const text = e.results && e.results[0] && e.results[0][0] && e.results[0][0].transcript;
-      if (text) resolve(text.trim()); else reject(new Error("empty"));
-    };
-    rec.onerror = (e) => { if (!settled) { settled = true; reject(new Error(e.error || "recognition failed")); } };
-    rec.onend = () => { if (!settled) reject(new Error("no match")); };
-    try { rec.start(); } catch (e) { reject(e); }
+
+    function attempt(retriesLeft) {
+      const rec = new Ctor();
+      rec.lang = lang;
+      rec.interimResults = false;
+      rec.maxAlternatives = 1;
+      let settled = false;
+      rec.onstart = () => { onStart && onStart(); };
+      rec.onresult = (e) => {
+        settled = true;
+        const text = e.results && e.results[0] && e.results[0][0] && e.results[0][0].transcript;
+        if (text) resolve(text.trim()); else reject(new Error("empty"));
+      };
+      rec.onerror = (e) => {
+        if (settled) return;
+        settled = true;
+        if (e.error === "no-speech" && retriesLeft > 0) { attempt(retriesLeft - 1); return; }
+        reject(new Error(e.error || "recognition failed"));
+      };
+      rec.onend = () => { if (!settled) reject(new Error("no match")); };
+      try { rec.start(); } catch (e) { if (!settled) { settled = true; reject(e); } }
+    }
+
+    attempt(retriesOnNoSpeech);
   });
 }
 
@@ -161,8 +190,8 @@ function normalizeForCompare(s) {
 // Scores a spoken attempt against the target word: 100 = exact match,
 // scaling down with edit distance relative to the word's length, floored
 // at 0. `lang` is a BCP-47 tag ("ar-EG"/"en-US"), matching recognizeSpeech.
-async function scorePronunciation(targetWord, lang) {
-  const transcript = await recognizeSpeech(lang);
+async function scorePronunciation(targetWord, lang, onStart) {
+  const transcript = await recognizeSpeech(lang, { onStart });
   const target = normalizeForCompare(targetWord);
   const said = normalizeForCompare(transcript);
   if (!target) return { transcript, score: 0, passed: false };

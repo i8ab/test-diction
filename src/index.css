@@ -225,3 +225,135 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
   }
+
+
+/* ================= Responsive layout (phone → tablet → PC → TV) ================= */
+:root {
+  --app-max: 900px;
+  --touch-min: 40px;
+}
+@media (min-width: 1100px) {
+  :root { --app-max: 1040px; }
+}
+@media (min-width: 1400px) {
+  :root { --app-max: 1180px; }
+}
+@media (min-width: 1800px) {
+  :root { --app-max: 1320px; }
+}
+
+.app-container {
+  width: 100%;
+  max-width: var(--app-max);
+  box-sizing: border-box;
+}
+
+/* Touch-friendly targets on all interactive controls */
+.touch-target {
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+}
+button.touch-target,
+a.touch-target {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Auth cards & modals scale on small screens */
+.auth-card {
+  width: 100%;
+  max-width: min(420px, 100%);
+  box-sizing: border-box;
+}
+.responsive-modal {
+  width: 100%;
+  max-width: min(480px, 100%);
+}
+
+/* Main dictionary row: letter rail + list */
+.app-main-row {
+  flex-wrap: nowrap;
+}
+@media (max-width: 640px) {
+  .app-main-row {
+    flex-direction: column;
+    gap: 12px !important;
+  }
+  .app-main-row > aside,
+  .app-main-row > nav {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    width: 100% !important;
+    max-width: 100% !important;
+    gap: 4px 6px;
+    justify-content: center;
+    position: sticky;
+    top: 64px;
+    z-index: 20;
+    background: var(--paper);
+    padding: 6px 0 8px;
+  }
+  header .section-tab {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    font-size: 15px;
+  }
+  .toolbar-row button {
+    min-height: 44px;
+  }
+}
+
+/* Large TV / desktop: slightly larger type & spacing */
+@media (min-width: 1400px) {
+  body {
+    font-size: 16.5px;
+  }
+  .toolbar-search-input {
+    font-size: 16px !important;
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+  }
+}
+
+/* Safe areas (notched phones / landscape tablets) */
+html, body {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Reduce hover lift on pure touch devices */
+@media (hover: none) {
+  button:not(:disabled):hover {
+    transform: none;
+    filter: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .letter-rail {
+    flex: 0 0 auto !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    position: relative !important;
+    top: auto !important;
+    gap: 2px 4px !important;
+    justify-content: center;
+    padding: 4px 0 8px;
+    border-bottom: 1px solid rgba(var(--border-rgb),0.12);
+    margin-bottom: 4px;
+  }
+  .letter-rail-btn {
+    min-width: 28px !important;
+    min-height: 32px !important;
+    padding: 4px 6px !important;
+  }
+}

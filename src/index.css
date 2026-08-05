@@ -200,6 +200,10 @@
   .lift-hover { transition: transform 0.2s cubic-bezier(0.22,1,0.36,1), box-shadow 0.2s ease, border-color 0.2s ease; }
   .lift-hover:hover { transform: translateY(-3px); box-shadow: 0 14px 30px -16px rgba(0,0,0,0.35); }
 
+  .tools-menu-item { transition: background 0.15s ease; }
+  .tools-menu-item:hover:not(:disabled) { background: var(--input-bg); }
+  .tools-menu-item:active:not(:disabled) span:first-child { transform: scale(0.9); }
+
   .link-underline { position: relative; }
   .link-underline::after { content: ""; position: absolute; left: 0; bottom: -2px; height: 1px; width: 0; background: currentColor; transition: width 0.25s ease; }
   .link-underline:hover::after { width: 100%; }

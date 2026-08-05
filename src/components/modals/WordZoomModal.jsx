@@ -3,7 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD } from "../../lib/config/theme";
 import { cambridgeUrl, shareWordCard } from "../../lib/utils/wordCard";
 import { detectDir, detectFont } from "../../lib/utils/searchUtils";
-import { getSpeechRecognitionCtor, scorePronunciation } from "../../lib/utils/speech";
+import { getSpeechRecognitionCtor, scorePronunciation, AR_DIALECTS, loadArDialect, saveArDialect, startMicLevelMeter } from "../../lib/utils/speech";
 import { LoaderIcon, ShareIcon, SpeakButton, XIcon, MicIcon } from "../common/Icons";
 import { PairListDisplay } from "../common/PairList";
 
@@ -26,21 +26,26 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
   // single "listening" flag flipped at click time) is what fixes attempts
   // being missed because the person started talking a beat too early.
   const [micState, setMicState] = useState("idle"); // idle | preparing | listening
+  const [micLevel, setMicLevel] = useState(0); // 0..1, live mic volume while listening
   const [pronResult, setPronResult] = useState(null); // { transcript, score, passed } | null
   const [pronError, setPronError] = useState("");
+  const [arDialect, setArDialect] = useState(loadArDialect);
 
   async function handlePracticePronunciation() {
     if (micState !== "idle") return;
     setMicState("preparing");
     setPronError("");
     setPronResult(null);
+    const stopMeter = startMicLevelMeter(setMicLevel);
     try {
-      const lang = cfg.wordDir === "rtl" ? "ar-EG" : "en-US";
+      const lang = cfg.wordDir === "rtl" ? arDialect : "en-US";
       const result = await scorePronunciation(entry.word, lang, () => setMicState("listening"));
       setPronResult(result);
     } catch (e) {
       setPronError(tr(isAr, "Didn't catch that — try again.", "معرفتش أسمع صح — جرّب تاني."));
     } finally {
+      stopMeter();
+      setMicLevel(0);
       setMicState("idle");
     }
   }
@@ -84,6 +89,13 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
         </div>
         {speechSupported && (
           <div style={{ marginTop: 18 }}>
+            {cfg.wordDir === "rtl" && (
+              <select value={arDialect} onChange={(e) => { setArDialect(e.target.value); saveArDialect(e.target.value); }}
+                disabled={micState !== "idle"} aria-label={tr(isAr, "Dialect for voice recognition", "لهجة التعرف الصوتي")}
+                style={{ display: "block", margin: "0 auto 8px", fontSize: 12, padding: "3px 6px", borderRadius: 6, border: "1px solid rgba(var(--border-rgb),0.25)", background: "var(--input-bg)", color: "var(--muted-strong)" }}>
+                {AR_DIALECTS.map((d) => <option key={d.code} value={d.code}>{tr(isAr, d.en, d.ar)}</option>)}
+              </select>
+            )}
             <button type="button" onClick={handlePracticePronunciation} disabled={micState !== "idle"}
               style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 16px", fontSize: 13, fontWeight: 700, color: "#fff", background: micState !== "idle" ? "var(--muted)" : cfg.accent, border: "none", borderRadius: 20, cursor: micState !== "idle" ? "default" : "pointer" }}>
               <MicIcon size={14} />
@@ -93,15 +105,40 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
                 ? tr(isAr, "One sec…", "لحظة واحدة…")
                 : tr(isAr, "Practice pronunciation", "تمرين النطق")}
             </button>
+            {micState === "listening" && (
+              <div aria-hidden="true" style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 3, height: 18, marginTop: 8 }}>
+                {[0.6, 1, 0.8, 1, 0.7].map((mult, i) => (
+                  <div key={i} style={{
+                    width: 4, borderRadius: 2, background: cfg.accent,
+                    height: Math.max(3, micLevel * 18 * mult),
+                    transition: "height 80ms linear",
+                  }} />
+                ))}
+              </div>
+            )}
             {pronResult && (
               <div style={{ marginTop: 10, fontSize: 13, color: pronResult.passed ? "var(--success)" : "var(--muted-strong)" }}>
                 {tr(isAr, `You said "${pronResult.transcript}" — ${pronResult.score}% match`, `قلت "${pronResult.transcript}" — تطابق ${pronResult.score}%`)}
                 {pronResult.passed
                   ? ` ✓ ${tr(isAr, "Nice!", "تمام!")}`
                   : ` — ${tr(isAr, "try again for a closer match.", "جرّب تاني عشان تقرّب أكتر.")}`}
+                {!pronResult.passed && (
+                  <button type="button" onClick={handlePracticePronunciation} disabled={micState !== "idle"}
+                    style={{ display: "block", margin: "6px auto 0", border: "none", background: "none", color: cfg.accent, fontSize: 12, fontWeight: 700, cursor: micState !== "idle" ? "default" : "pointer", textDecoration: "underline" }}>
+                    {tr(isAr, "Try again", "جرّب تاني")}
+                  </button>
+                )}
               </div>
             )}
-            {pronError && <div style={{ marginTop: 10, fontSize: 13, color: "var(--muted)" }}>{pronError}</div>}
+            {pronError && (
+              <div style={{ marginTop: 10, fontSize: 13, color: "var(--muted)" }}>
+                {pronError}
+                <button type="button" onClick={handlePracticePronunciation} disabled={micState !== "idle"}
+                  style={{ display: "block", margin: "6px auto 0", border: "none", background: "none", color: cfg.accent, fontSize: 12, fontWeight: 700, cursor: micState !== "idle" ? "default" : "pointer", textDecoration: "underline" }}>
+                  {tr(isAr, "Try again", "جرّب تاني")}
+                </button>
+              </div>
+            )}
           </div>
         )}
         {cfg.wordDir === "ltr" && (

@@ -5,7 +5,7 @@ import {
   UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon,
 } from "../common/Icons";
 
-export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin, onLogout, isAr, accentTheme, onChangeAccent, remindersOn, remindersBusy, onEnableReminders, onDisableReminders }) {
+export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin, onLogout, isAr, accentTheme, onChangeAccent, remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -93,6 +93,15 @@ export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccoun
                   icon={remindersOn ? <BellIcon size={14} /> : <BellOffIcon size={14} />}
                   label={remindersOn ? tr(isAr, "Reminders: On", "التذكيرات: مفعّلة") : tr(isAr, "Reminders: Off", "التذكيرات: متوقفة")}
                   onClick={remindersOn ? onDisableReminders : onEnableReminders}
+                />
+              )}
+              {/* TEMPORARY test button — remove with api/push-test.js after testing */}
+              {onTestReminder && (
+                <Row
+                  tint="#ff9f0a"
+                  icon={<BellIcon size={14} />}
+                  label={tr(isAr, "Send test notification", "ابعت إشعار تجريبي")}
+                  onClick={onTestReminder}
                 />
               )}
               {onChangeAccent && (

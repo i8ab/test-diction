@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
 import { ACCENT_THEMES } from "../../lib/state/storage";
-import { REMINDER_INTERVAL_OPTIONS } from "../../lib/state/push";
 import {
   UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon,
 } from "../common/Icons";
@@ -10,7 +9,6 @@ export default function HeaderMenu({
   theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin, onLogout, isAr,
   accentTheme, onChangeAccent,
   remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
-  reminderIntervalHours, onChangeReminderInterval,
   reminderTitle, onChangeReminderTitle,
   reminderMessage, onChangeReminderMessage,
 }) {
@@ -146,18 +144,10 @@ export default function HeaderMenu({
                         </span>
                       </button>
 
-                      {/* Interval */}
-                      <div>
-                        <label style={fieldLabel}>{tr(isAr, "Remind me every", "ذكّرني كل")}</label>
-                        <select
-                          value={reminderIntervalHours || 24}
-                          onChange={(e) => onChangeReminderInterval && onChangeReminderInterval(Number(e.target.value))}
-                          style={fieldInput}
-                        >
-                          {REMINDER_INTERVAL_OPTIONS.map((o) => (
-                            <option key={o.hours} value={o.hours}>{tr(isAr, o.en, o.ar)}</option>
-                          ))}
-                        </select>
+                      <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.4, padding: "0 2px" }}>
+                        {tr(isAr,
+                          "Daily reminder at 5:00 AM (Egypt time), even if you studied.",
+                          "تذكير يومي الساعة 5:00 صباحًا (توقيت مصر)، حتى لو ذاكرت.")}
                       </div>
 
                       {/* Custom title */}

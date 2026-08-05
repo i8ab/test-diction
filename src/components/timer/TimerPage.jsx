@@ -243,7 +243,7 @@ function createAmbientNode(ctx, ambientId, volume) {
  * backgrounds, free duration (no hard limits), and a mini floating window
  * when the user leaves the tab (Document PiP or popup fallback).
  */
-export default function TimerPage({ onClose, isAr }) {
+export default function TimerPage({ onClose, isAr, onBubbleChange }) {
   const [prefs, setPrefs] = useState(loadPrefs);
   const [hours, setHours] = useState(0);
   const [mins, setMins] = useState(25);
@@ -425,12 +425,39 @@ export default function TimerPage({ onClose, isAr }) {
     function onVis() {
       if (document.visibilityState !== "hidden") return;
       if (!runningRef.current) return;
-      if (isMobileLike()) return;
-      controlsRef.current.openMini();
+      // Minimize to bubble so timer UI remains when user comes back.
+      controlsRef.current.goBubble && controlsRef.current.goBubble();
+      if (!isMobileLike()) {
+        // Desktop: try always-on-top PiP over other windows.
+        const fn = controlsRef.current.openDesktopPip;
+        if (fn) fn().catch(() => {});
+      }
     }
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
+
+  // Keep the screen awake while the timer is running (helps on phones).
+  useEffect(() => {
+    let lock = null;
+    async function request() {
+      try {
+        if (!running) return;
+        if (!("wakeLock" in navigator)) return;
+        lock = await navigator.wakeLock.request("screen");
+        lock.addEventListener("release", () => {});
+      } catch {}
+    }
+    request();
+    function onVis() {
+      if (document.visibilityState === "visible" && runningRef.current) request();
+    }
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      try { lock && lock.release(); } catch {}
+    };
+  }, [running]);
 
 
   function stopAmbient() {
@@ -599,105 +626,122 @@ export default function TimerPage({ onClose, isAr }) {
     setViewMode("bubble");
     setPipOpen(true);
     setErrorMsg("");
+    try { onBubbleChange && onBubbleChange(true); } catch {}
   }
 
   function expandFromBubble() {
     setViewMode("full");
     setPipOpen(false);
+    try { onBubbleChange && onBubbleChange(false); } catch {}
   }
 
   function handleClose() {
-    // While running on mobile, minimize to bubble instead of killing the timer.
+    // X while running -> minimize to bubble (dictionary comes back underneath).
+    // X while stopped -> leave timer entirely and return to dictionary.
     if (runningRef.current || running) {
       goBubble();
+      // On desktop also try a real always-on-top PiP window.
+      if (!isMobileLike()) {
+        openDesktopPip().catch(() => {});
+      }
       return;
     }
+    try { onBubbleChange && onBubbleChange(false); } catch {}
     onClose();
   }
 
+  async function openDesktopPip() {
+    if (typeof window === "undefined") return false;
+    if (!window.documentPictureInPicture) return false;
+    if (window.documentPictureInPicture.window) return true; // already open
+    try {
+      const pip = await window.documentPictureInPicture.requestWindow({
+        width: 320,
+        height: 200,
+      });
+      pipWinRef.current = pip;
+      setPipOpen(true);
+      const doc = pip.document;
+      doc.head.innerHTML = "";
+      doc.body.innerHTML = "";
+      const style = doc.createElement("style");
+      const bg = prefs.customBg ? "#111" : ((BG_PRESETS.find((b) => b.id === prefs.bgId) || BG_PRESETS[0]).value);
+      style.textContent = `
+        *{box-sizing:border-box;margin:0;padding:0}
+        html,body{height:100%;overflow:hidden;font-family:${fontCss}}
+        body{display:flex;flex-direction:column;align-items:center;justify-content:center;
+          min-height:100%;background:${bg};color:${prefs.textColor};user-select:none}
+        #t{font-size:clamp(28px,14vw,64px);font-weight:700;font-variant-numeric:tabular-nums;
+          text-shadow:0 2px 20px rgba(0,0,0,0.35)}
+        #row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;justify-content:center}
+        button{border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;
+          cursor:pointer;background:rgba(255,255,255,0.18);color:inherit}
+      `;
+      doc.head.appendChild(style);
+      const tEl = doc.createElement("div");
+      tEl.id = "t";
+      tEl.textContent = displayText;
+      doc.body.appendChild(tEl);
+      const row = doc.createElement("div");
+      row.id = "row";
+      const pauseBtn = doc.createElement("button");
+      pauseBtn.textContent = runningRef.current ? tr(isAr, "Pause", "إيقاف") : tr(isAr, "Resume", "متابعة");
+      pauseBtn.onclick = () => {
+        channelRef.current?.postMessage({ type: "control", action: runningRef.current ? "pause" : "resume" });
+      };
+      const resetBtn = doc.createElement("button");
+      resetBtn.textContent = tr(isAr, "Reset", "إعادة");
+      resetBtn.onclick = () => channelRef.current?.postMessage({ type: "control", action: "reset" });
+      row.appendChild(pauseBtn);
+      row.appendChild(resetBtn);
+      doc.body.appendChild(row);
+
+      const ch = new BroadcastChannel(CHANNEL_NAME);
+      ch.onmessage = (ev) => {
+        const m = ev.data;
+        if (!m || m.type !== "state") return;
+        if (m.display) tEl.textContent = m.display;
+        pauseBtn.textContent = m.running
+          ? tr(isAr, "Pause", "إيقاف")
+          : tr(isAr, "Resume", "متابعة");
+      };
+      pip.addEventListener("pagehide", () => {
+        try { ch.close(); } catch {}
+        pipWinRef.current = null;
+        setPipOpen(false);
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   async function openMiniWindow() {
-    // Phones: in-app floating bubble (window.open → full about:blank tab).
+    // Always keep the in-app bubble so the timer stays over the dictionary.
+    goBubble();
+
+    // Phones cannot float a web UI over other apps — OS / browser limitation.
     if (isMobileLike()) {
-      goBubble();
+      setErrorMsg(tr(
+        isAr,
+        "On phones the bubble stays inside this app. Websites cannot float over other apps or outside the browser.",
+        "على الموبايل الفقاعة تفضل جوه التطبيق. المواقع متقدرش تطفو فوق تطبيقات تانية أو بره المتصفح — قيد من النظام."
+      ));
       return;
     }
 
-    // Prefer Document Picture-in-Picture when available (Chrome desktop).
-    if (window.documentPictureInPicture && !window.documentPictureInPicture.window) {
-      try {
-        const pip = await window.documentPictureInPicture.requestWindow({
-          width: 320,
-          height: 200,
-        });
-        pipWinRef.current = pip;
-        setPipOpen(true);
-        const doc = pip.document;
-        doc.head.innerHTML = "";
-        doc.body.innerHTML = "";
-        const style = doc.createElement("style");
-        style.textContent = `
-          *{box-sizing:border-box;margin:0;padding:0}
-          html,body{height:100%;overflow:hidden;font-family:${fontCss}}
-          body{display:flex;flex-direction:column;align-items:center;justify-content:center;
-            background:${prefs.customBg ? "#111" : ((BG_PRESETS.find((b) => b.id === prefs.bgId) || BG_PRESETS[0]).value)};
-            color:${prefs.textColor};user-select:none}
-          #t{font-size:clamp(28px,14vw,64px);font-weight:700;font-variant-numeric:tabular-nums;
-            text-shadow:0 2px 20px rgba(0,0,0,0.35)}
-          #row{display:flex;gap:8px;margin-top:14px}
-          button{border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;
-            cursor:pointer;background:rgba(255,255,255,0.18);color:inherit}
-        `;
-        doc.head.appendChild(style);
-        const tEl = doc.createElement("div");
-        tEl.id = "t";
-        tEl.textContent = displayText;
-        doc.body.appendChild(tEl);
-        const row = doc.createElement("div");
-        row.id = "row";
-        const pauseBtn = doc.createElement("button");
-        pauseBtn.textContent = running ? tr(isAr, "Pause", "إيقاف") : tr(isAr, "Resume", "متابعة");
-        pauseBtn.onclick = () => {
-          channelRef.current?.postMessage({ type: "control", action: runningRef.current ? "pause" : "resume" });
-        };
-        const resetBtn = doc.createElement("button");
-        resetBtn.textContent = tr(isAr, "Reset", "إعادة");
-        resetBtn.onclick = () => channelRef.current?.postMessage({ type: "control", action: "reset" });
-        row.appendChild(pauseBtn);
-        row.appendChild(resetBtn);
-        doc.body.appendChild(row);
+    // Desktop: always-on-top Document Picture-in-Picture when supported (Chrome).
+    const ok = await openDesktopPip();
+    if (ok) return;
 
-        const ch = new BroadcastChannel(CHANNEL_NAME);
-        ch.onmessage = (ev) => {
-          const m = ev.data;
-          if (!m || m.type !== "state") return;
-          if (m.display) tEl.textContent = m.display;
-          pauseBtn.textContent = m.running
-            ? tr(isAr, "Pause", "إيقاف")
-            : tr(isAr, "Resume", "متابعة");
-        };
-        pip.addEventListener("pagehide", () => {
-          try { ch.close(); } catch {}
-          pipWinRef.current = null;
-          setPipOpen(false);
-        });
-        return;
-      } catch (e) {
-        // fall through
-      }
-    }
-
-    // Desktop popup fallback — never use this path on mobile.
+    // Last resort: small popup (may be blocked).
     try {
       const w = window.open(
         "",
         "twoTonguesTimer",
         "width=360,height=240,menubar=no,toolbar=no,location=no,status=no,resizable=yes"
       );
-      if (!w) {
-        // Popup blocked → in-app bubble instead of failing.
-        goBubble();
-        return;
-      }
+      if (!w) return;
       pipWinRef.current = w;
       setPipOpen(true);
       w.document.open();
@@ -707,13 +751,11 @@ export default function TimerPage({ onClose, isAr }) {
         pipWinRef.current = null;
         setPipOpen(false);
       });
-    } catch {
-      goBubble();
-    }
+    } catch {}
   }
 
   // Keep control refs current for BroadcastChannel + visibility handlers.
-  controlsRef.current = { start, pause, reset, openMini: openMiniWindow };
+  controlsRef.current = { start, pause, reset, openMini: openMiniWindow, goBubble, openDesktopPip };
   runningRef.current = running;
 
   const panelBg = isLightBg ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.1)";
@@ -1341,8 +1383,8 @@ export default function TimerPage({ onClose, isAr }) {
             <p style={{ fontSize: 12, opacity: 0.65, lineHeight: 1.5, margin: 0 }}>
               {tr(
                 isAr,
-                "Tip: on phones, “Mini” shows a floating bubble inside the app (you can drag it). On desktop it opens a small system window. Closing while the timer runs minimizes to the bubble instead of stopping it.",
-                "نصيحة: على الموبايل، «مصغّر» يعرض فقاعة عائمة داخل التطبيق (تقدر تسحبها). على الكمبيوتر تفتح نافذة نظام صغيرة. الإغلاق أثناء التشغيل يصغّر للفقاعة بدل ما يوقف المؤقّت."
+                "Tip: X while the timer is running minimizes to a bubble over the dictionary (does not stop it). On desktop, Chrome can also open an always-on-top window. Phones cannot show a website over other apps — that is an OS limit.",
+                "نصيحة: زر X أثناء التشغيل يصغّر لفقاعة فوق الديكشنري (من غير ما يوقف المؤقّت). على الكمبيوتر Chrome يقدر يفتح نافذة فوق التطبيقات. الموبايل لا يسمح لموقع يظهر فوق تطبيقات تانية — قيد من النظام."
               )}
             </p>
           </div>

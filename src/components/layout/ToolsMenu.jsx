@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import {
-  ChevronIcon, TrophyIcon, StatsIcon, QuizIcon, LayersIcon,
+  MoreIcon, TrophyIcon, StatsIcon, QuizIcon, LayersIcon,
   DownloadIcon, UploadIcon, LoaderIcon, XIcon,
 } from "../common/Icons";
 
@@ -134,7 +134,7 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
           <XIcon size={12} />
         </button>
       </div>
-      <div style={{ overflowY: "auto", overscrollBehavior: "contain", padding: "0 6px 6px", display: "flex", flexDirection: "column", gap: 1 }}>
+      <div style={{ overflowY: "auto", overflowX: "hidden", overscrollBehavior: "contain", padding: "0 6px 6px", display: "flex", flexDirection: "column", gap: 1 }}>
         <MenuItem menuKey="leaderboard" icon={<TrophyIcon size={14} />} tint="#d4a017" label={tr(isAr, "Leaderboard", "الترتيب")} onClick={onLeaderboard} />
         <MenuItem menuKey="stats" icon={<StatsIcon size={14} />} tint="#5b8def" label={tr(isAr, "Stats", "إحصائياتي")} onClick={onStats} />
         <MenuItem menuKey="quiz" icon={<QuizIcon size={14} />} tint="#af52de" label={tr(isAr, "Quiz", "اختبار")} onClick={onQuiz} />
@@ -151,14 +151,14 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
       <button
         ref={btnRef}
         onClick={() => setOpen((o) => !o)}
+        title={tr(isAr, "More", "المزيد")}
         aria-label={tr(isAr, "More actions", "المزيد")}
         aria-expanded={open}
         aria-haspopup="menu"
         className="lift-hover"
-        style={{ display: "flex", alignItems: "center", gap: 7, height: "100%", padding: "10px 16px", fontSize: 14, fontWeight: 600, color: accent, background: "var(--card)", border: `1px solid ${accent}40`, borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap" }}
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, color: accent, background: "var(--card)", border: `1px solid ${accent}40`, borderRadius: "50%", cursor: "pointer" }}
       >
-        {tr(isAr, "More", "المزيد")}
-        <ChevronIcon size={13} style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s ease" }} />
+        <MoreIcon size={18} />
       </button>
       {open && typeof document !== "undefined" ? createPortal(menu, document.body) : null}
     </div>

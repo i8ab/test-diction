@@ -82,7 +82,7 @@ export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccoun
                 <XIcon size={12} />
               </button>
             </div>
-            <div style={{ overflowY: "auto", maxHeight: "min(360px, calc(100vh - 100px))", overscrollBehavior: "contain", padding: "0 6px 6px", display: "flex", flexDirection: "column", gap: 1 }}>
+            <div style={{ overflowY: "auto", overflowX: "hidden", maxHeight: "min(360px, calc(100vh - 100px))", overscrollBehavior: "contain", padding: "0 6px 6px", display: "flex", flexDirection: "column", gap: 1 }}>
               <Row
                 tint="#f5a623"
                 icon={theme === "dark" ? <SunIcon size={14} /> : <MoonIcon size={14} />}

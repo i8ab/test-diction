@@ -10,7 +10,7 @@
 //   code: "<personal code>",
 //   subscription?: <PushSubscription JSON>,  // omit when prefsOnly: true
 //   prefsOnly?: boolean,
-//   intervalHours?: number,   // hours between reminders (default 24)
+//   intervalDays?: number,    // days without study before reminder (default 1)
 //   message?: string,         // custom notification body
 //   title?: string,           // custom notification title
 // }
@@ -24,19 +24,23 @@ const CODES_SET_KEY = "twoTongues:push:codes"; // Redis SET of every code with a
 // (Upstash's free REST API has no cheap "list keys by prefix", so this set
 // is what api/push-send-reminders.js iterates over instead of scanning.)
 
-const ALLOWED_INTERVALS = new Set([6, 12, 24, 48, 72]);
+const ALLOWED_DAYS = new Set([1, 2, 3, 5, 7]);
 
 function normalizePrefs(body) {
-  let intervalHours = 24;
-  if (typeof body.intervalHours === "number" && ALLOWED_INTERVALS.has(body.intervalHours)) {
-    intervalHours = body.intervalHours;
-  } else if (typeof body.intervalHours === "string") {
-    const n = Number(body.intervalHours);
-    if (ALLOWED_INTERVALS.has(n)) intervalHours = n;
+  let intervalDays = 1;
+  // Prefer explicit intervalDays; fall back to legacy intervalHours (÷24).
+  if (typeof body.intervalDays === "number" && ALLOWED_DAYS.has(body.intervalDays)) {
+    intervalDays = body.intervalDays;
+  } else if (typeof body.intervalDays === "string") {
+    const n = Number(body.intervalDays);
+    if (ALLOWED_DAYS.has(n)) intervalDays = n;
+  } else if (typeof body.intervalHours === "number") {
+    const d = Math.max(1, Math.round(body.intervalHours / 24));
+    if (ALLOWED_DAYS.has(d)) intervalDays = d;
   }
   const message = typeof body.message === "string" ? body.message.trim().slice(0, 300) : "";
   const title = typeof body.title === "string" ? body.title.trim().slice(0, 120) : "";
-  return { intervalHours, message, title };
+  return { intervalDays, message, title };
 }
 
 export default async function handler(req, res) {

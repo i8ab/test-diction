@@ -2,147 +2,197 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import {
-  MoreIcon, TrophyIcon, StatsIcon, QuizIcon, LayersIcon,
-  DownloadIcon, UploadIcon, LoaderIcon, XIcon,
+  MoreIcon, XIcon, TrophyIcon, StatsIcon, QuizIcon, LayersIcon,
+  DownloadIcon, UploadIcon, LoaderIcon,
 } from "../common/Icons";
 
-const TOOLS_MENU_ITEMS_META = { minWidth: 190, gap: 8 };
+// A radial (wheel) "more" menu: items fan out in an arc around the trigger
+// button instead of dropping down as a list. Positioned in a fixed-position
+// portal so it can escape any clipping ancestor, same approach the old
+// dropdown used — just placed with polar coordinates instead of a rectangle.
+const HUB_SIZE = 40;
+const SATELLITE_SIZE = 46;
+const RADIUS = 96;
+const ARC_SPAN = 140; // degrees covered by the fan
+
+function polar(cx, cy, r, deg) {
+  const rad = (deg * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
 
 export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFlashcards, onExport, exportDisabled, onImport, importing, isAr }) {
   const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState(null); // { left, top, openUpward } in viewport (fixed) coordinates
+  const [center, setCenter] = useState(null); // { x, y, openUpward } in viewport (fixed) coordinates
+  const [hoverKey, setHoverKey] = useState(null);
   const btnRef = useRef(null);
   const menuRef = useRef(null);
 
-  const computeCoords = useCallback(() => {
+  const computeCenter = useCallback(() => {
     const btn = btnRef.current;
     if (!btn) return;
     const rect = btn.getBoundingClientRect();
-    const menuHeight = menuRef.current ? menuRef.current.offsetHeight : 260;
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
     const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
-    const openUpward = spaceBelow < menuHeight + TOOLS_MENU_ITEMS_META.gap && spaceAbove > spaceBelow;
-    const top = openUpward
-      ? Math.max(8, rect.top - menuHeight - TOOLS_MENU_ITEMS_META.gap)
-      : rect.bottom + TOOLS_MENU_ITEMS_META.gap;
-    const left = isAr
-      ? rect.left
-      : Math.min(rect.right - TOOLS_MENU_ITEMS_META.minWidth, window.innerWidth - TOOLS_MENU_ITEMS_META.minWidth - 8);
-    setCoords({ left: Math.max(8, left), top, openUpward });
-  }, [isAr]);
+    const openUpward = spaceBelow < RADIUS + SATELLITE_SIZE;
+    setCenter({ x: cx, y: cy, openUpward });
+  }, []);
 
-  // Recompute position the instant it opens, then keep it pinned to the
-  // button while the page scrolls or the window resizes — since the menu
-  // is rendered in a portal at document.body, it's positioned purely from
-  // real screen coordinates and can't be clipped by any parent's overflow,
-  // transform, or z-index stacking, wherever this button ends up on the page.
   useEffect(() => {
     if (!open) return;
-    computeCoords();
-    const raf = requestAnimationFrame(computeCoords); // one more pass once menu height is known
+    computeCenter();
     function onDocClick(e) {
       if (btnRef.current?.contains(e.target)) return;
       if (menuRef.current?.contains(e.target)) return;
       setOpen(false);
     }
     function onKeyDown(e) { if (e.key === "Escape") setOpen(false); }
-    window.addEventListener("scroll", computeCoords, true);
-    window.addEventListener("resize", computeCoords);
+    window.addEventListener("scroll", computeCenter, true);
+    window.addEventListener("resize", computeCenter);
     document.addEventListener("mousedown", onDocClick);
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("scroll", computeCoords, true);
-      window.removeEventListener("resize", computeCoords);
+      window.removeEventListener("scroll", computeCenter, true);
+      window.removeEventListener("resize", computeCenter);
       document.removeEventListener("mousedown", onDocClick);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open, computeCoords]);
+  }, [open, computeCenter]);
 
   // Items no longer close the menu on click — the menu only closes when the
-  // user explicitly wants it to: the X button, an outside click, or Escape.
+  // user explicitly wants it to: the hub button, an outside click, or Escape.
   function itemClick(fn) { fn(); }
 
-  const itemStyle = { display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px", fontSize: 13.5, fontWeight: 600, color: "var(--ink)", background: "none", border: "none", borderRadius: 9, textAlign: "start", cursor: "pointer" };
-  const iconWrapStyle = (bg) => ({ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 8, background: bg, flexShrink: 0, transition: "transform 0.2s cubic-bezier(0.34,1.56,0.64,1)" });
+  const items = [
+    { key: "leaderboard", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Leaderboard", "الترتيب"), onClick: onLeaderboard },
+    { key: "stats", icon: <StatsIcon size={18} />, tint: "#5b8def", label: tr(isAr, "Stats", "إحصائياتي"), onClick: onStats },
+    { key: "quiz", icon: <QuizIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quiz", "اختبار"), onClick: onQuiz },
+    { key: "flashcards", icon: <LayersIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Flashcards", "بطاقات تعليمية"), onClick: onFlashcards },
+    { key: "export", icon: <DownloadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Export CSV", "تصدير CSV"), onClick: onExport, disabled: exportDisabled },
+    { key: "import", icon: importing ? <LoaderIcon size={18} /> : <UploadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Import CSV", "استيراد CSV"), onClick: onImport, disabled: importing },
+  ];
 
-  function MenuItem({ menuKey, icon, label, onClick, disabled, loading, tint }) {
-    return (
-      <button
-        role="menuitem"
-        disabled={disabled}
-        className="tools-menu-item"
-        style={{ ...itemStyle, opacity: disabled ? 0.45 : 1, cursor: disabled ? "default" : "pointer" }}
-        onClick={() => { if (!disabled) itemClick(onClick); }}
-      >
-        <span style={iconWrapStyle(`${tint}1c`)}>
-          {loading ? <LoaderIcon size={14} style={{ color: tint }} /> : (
-            <span style={{ color: tint, display: "flex" }}>{icon}</span>
-          )}
-        </span>
-        <span style={{ flex: 1 }}>{label}</span>
-      </button>
-    );
-  }
+  const n = items.length;
+  const startAngle = center?.openUpward ? 270 - ARC_SPAN / 2 : 90 - ARC_SPAN / 2;
+  const step = n > 1 ? ARC_SPAN / (n - 1) : 0;
 
-  const originX = isAr ? "0%" : "100%";
-  const originY = coords?.openUpward ? "100%" : "0%";
-
-  const menu = open && (
-    <div
-      ref={menuRef}
-      role="menu"
-      dir={isAr ? "rtl" : "ltr"}
-      style={{
-        position: "fixed",
-        top: coords ? coords.top : -9999,
-        left: coords ? coords.left : -9999,
-        visibility: coords ? "visible" : "hidden",
-        minWidth: TOOLS_MENU_ITEMS_META.minWidth + 20,
-        maxHeight: "min(340px, calc(100vh - 16px))",
-        display: "flex",
-        flexDirection: "column",
-        background: "var(--card)",
-        border: "1px solid rgba(var(--border-rgb),0.14)",
-        borderRadius: 16,
-        boxShadow: "0 20px 44px -16px rgba(0,0,0,0.4), 0 2px 8px -2px rgba(0,0,0,0.15)",
-        zIndex: 1000,
-        overflow: "hidden",
-        "--origin-x": originX,
-        "--origin-y": originY,
-        animation: "toolsMenuCircleIn 0.38s cubic-bezier(0.22,1,0.36,1) both",
-        backdropFilter: "blur(20px)",
-      }}
-    >
+  const menu = open && center && (
+    <div ref={menuRef} role="menu" style={{ position: "fixed", inset: 0, zIndex: 1000, pointerEvents: "none" }}>
       <style>{`
-        @keyframes toolsMenuCircleIn {
-          from { clip-path: circle(0% at var(--origin-x) var(--origin-y)); opacity: 0.5; }
-          to { clip-path: circle(141% at var(--origin-x) var(--origin-y)); opacity: 1; }
-        }
+        @keyframes toolsWheelRing { from { transform: scale(0.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes toolsWheelPop { from { transform: scale(0.2) translate(var(--hx,0), var(--hy,0)); opacity: 0; } to { transform: scale(1) translate(0, 0); opacity: 1; } }
+        .tools-wheel-hub { animation: toolsWheelRing 0.3s cubic-bezier(0.34,1.56,0.64,1) both; }
+        .tools-wheel-item { transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.22s ease, border-color 0.22s ease; }
+        .tools-wheel-item:hover:not(:disabled) { transform: scale(1.22); box-shadow: 0 12px 26px -8px rgba(0,0,0,0.5); }
+        .tools-wheel-item:active:not(:disabled) { transform: scale(1.05); }
+        .tools-wheel-label { transition: opacity 0.15s ease, transform 0.15s ease; }
       `}</style>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 8px", flexShrink: 0 }}>
-        <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
-          {tr(isAr, "More", "المزيد")}
-        </span>
-        <button
-          type="button"
-          aria-label={tr(isAr, "Close", "إغلاق")}
-          onClick={() => setOpen(false)}
-          className="lift-hover"
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", color: "var(--icon-muted)", background: "var(--input-bg)", border: "none", cursor: "pointer" }}
-        >
-          <XIcon size={12} />
-        </button>
-      </div>
-      <div style={{ overflowY: "auto", overflowX: "hidden", overscrollBehavior: "contain", padding: "0 6px 6px", display: "flex", flexDirection: "column", gap: 1 }}>
-        <MenuItem menuKey="leaderboard" icon={<TrophyIcon size={14} />} tint="#d4a017" label={tr(isAr, "Leaderboard", "الترتيب")} onClick={onLeaderboard} />
-        <MenuItem menuKey="stats" icon={<StatsIcon size={14} />} tint="#5b8def" label={tr(isAr, "Stats", "إحصائياتي")} onClick={onStats} />
-        <MenuItem menuKey="quiz" icon={<QuizIcon size={14} />} tint="#af52de" label={tr(isAr, "Quiz", "اختبار")} onClick={onQuiz} />
-        <MenuItem menuKey="flashcards" icon={<LayersIcon size={14} />} tint="#ff9f0a" label={tr(isAr, "Flashcards", "بطاقات تعليمية")} onClick={onFlashcards} />
-        <div style={{ height: 1, background: "rgba(var(--border-rgb),0.12)", margin: "5px 6px" }} />
-        <MenuItem menuKey="export" icon={<DownloadIcon size={14} />} tint="#34c759" label={tr(isAr, "Export CSV", "تصدير CSV")} onClick={onExport} disabled={exportDisabled} />
-        <MenuItem menuKey="import" icon={<UploadIcon size={14} />} tint="#34c759" label={tr(isAr, "Import CSV", "استيراد CSV")} onClick={onImport} disabled={importing} loading={importing} />
-      </div>
+      {/* Soft glow ring behind the hub, purely decorative, echoes the wheel look */}
+      <div
+        className="tools-wheel-hub"
+        style={{
+          position: "absolute",
+          left: center.x - (RADIUS + SATELLITE_SIZE / 2),
+          top: center.y - (RADIUS + SATELLITE_SIZE / 2),
+          width: (RADIUS + SATELLITE_SIZE / 2) * 2,
+          height: (RADIUS + SATELLITE_SIZE / 2) * 2,
+          borderRadius: "50%",
+          background: `radial-gradient(circle, ${accent}14 0%, transparent 70%)`,
+          border: `1px solid ${accent}22`,
+          pointerEvents: "none",
+        }}
+      />
+      {items.map((it, i) => {
+        const angle = startAngle + step * i;
+        const { x, y } = polar(center.x, center.y, RADIUS, angle);
+        const hx = center.x - x, hy = center.y - y; // pop out from the hub's position
+        const hovered = hoverKey === it.key;
+        return (
+          <div key={it.key} style={{ position: "absolute", left: x, top: y, transform: "translate(-50%, -50%)", pointerEvents: "auto" }}>
+            <button
+              type="button"
+              role="menuitem"
+              aria-label={it.label}
+              disabled={it.disabled}
+              className="tools-wheel-item"
+              onMouseEnter={() => setHoverKey(it.key)}
+              onMouseLeave={() => setHoverKey((k) => (k === it.key ? null : k))}
+              onFocus={() => setHoverKey(it.key)}
+              onBlur={() => setHoverKey((k) => (k === it.key ? null : k))}
+              onClick={() => { if (!it.disabled) itemClick(it.onClick); }}
+              style={{
+                width: SATELLITE_SIZE,
+                height: SATELLITE_SIZE,
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "var(--card)",
+                border: `1.5px solid ${hovered ? it.tint : "rgba(var(--border-rgb),0.22)"}`,
+                color: it.tint,
+                opacity: it.disabled ? 0.4 : 1,
+                cursor: it.disabled ? "default" : "pointer",
+                boxShadow: "0 10px 22px -10px rgba(0,0,0,0.45)",
+                animation: `toolsWheelPop 0.32s cubic-bezier(0.22,1,0.36,1) both`,
+                animationDelay: `${i * 0.03}s`,
+                "--hx": `${hx}px`,
+                "--hy": `${hy}px`,
+              }}
+            >
+              {it.icon}
+            </button>
+            <span
+              className="tools-wheel-label"
+              style={{
+                position: "absolute",
+                top: "50%",
+                insetInlineStart: "calc(100% + 8px)",
+                transform: "translateY(-50%)",
+                whiteSpace: "nowrap",
+                fontSize: 12,
+                fontWeight: 700,
+                color: "var(--ink)",
+                background: "var(--card)",
+                border: "1px solid rgba(var(--border-rgb),0.16)",
+                borderRadius: 8,
+                padding: "4px 9px",
+                boxShadow: "0 8px 20px -10px rgba(0,0,0,0.4)",
+                opacity: hovered ? 1 : 0,
+                pointerEvents: "none",
+              }}
+            >
+              {it.label}
+            </span>
+          </div>
+        );
+      })}
+      {/* Hub itself: a close button sitting where the trigger is, so tapping
+          the center — same spot the user just tapped to open it — closes it. */}
+      <button
+        type="button"
+        aria-label={tr(isAr, "Close", "إغلاق")}
+        onClick={() => setOpen(false)}
+        style={{
+          position: "absolute",
+          left: center.x,
+          top: center.y,
+          transform: "translate(-50%, -50%)",
+          width: HUB_SIZE,
+          height: HUB_SIZE,
+          borderRadius: "50%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: accent,
+          color: "#fff",
+          border: "none",
+          cursor: "pointer",
+          boxShadow: `0 8px 20px -6px ${accent}88`,
+          pointerEvents: "auto",
+        }}
+      >
+        <XIcon size={16} />
+      </button>
     </div>
   );
 
@@ -156,7 +206,17 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
         aria-expanded={open}
         aria-haspopup="menu"
         className="lift-hover"
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, color: accent, background: "var(--card)", border: `1px solid ${accent}40`, borderRadius: "50%", cursor: "pointer" }}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          width: HUB_SIZE, height: HUB_SIZE, borderRadius: "50%",
+          color: open ? "#fff" : accent,
+          background: open ? accent : "var(--card)",
+          border: `1px solid ${accent}40`,
+          cursor: "pointer",
+          transition: "background 0.2s ease, color 0.2s ease",
+          opacity: open ? 0 : 1,
+          pointerEvents: open ? "none" : "auto",
+        }}
       >
         <MoreIcon size={18} />
       </button>

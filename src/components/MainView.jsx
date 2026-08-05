@@ -573,7 +573,8 @@ export default function MainView({
             )}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={onOpenAdd} className="btn-shine lift-hover toolbar-anim" style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: "#fff", background: cfg.accent, border: "none", borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap", animationDelay: "0.04s" }}>
+            <div className="toolbar-actions toolbar-anim" style={{ animationDelay: "0.04s" }}>
+            <button onClick={onOpenAdd} className="btn-shine lift-hover" style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: "#fff", background: cfg.accent, border: "none", borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
               <PlusIcon size={16} /> {tr(isAr, "Add word", "إضافة كلمة")}
             </button>
             <ToolsMenu
@@ -589,6 +590,7 @@ export default function MainView({
               importing={importing}
               isAr={isAr}
             />
+            </div>
             <input
               ref={importInputRef}
               type="file"

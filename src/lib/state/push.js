@@ -11,34 +11,11 @@ const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "";
 // shared between the header-menu toggle and the in-list reminder banner so
 // both reflect the same on/off state.
 export const REMINDER_PREF_KEY = "twoTongues.remindersEnabled";
-export const REMINDER_INTERVAL_KEY = "twoTongues.reminderIntervalHours";
 export const REMINDER_MESSAGE_KEY = "twoTongues.reminderMessage";
 export const REMINDER_TITLE_KEY = "twoTongues.reminderTitle";
 
-// Preset intervals the user can pick from (hours between study reminders).
-export const REMINDER_INTERVAL_OPTIONS = [
-  { hours: 6, en: "Every 6 hours", ar: "كل 6 ساعات" },
-  { hours: 12, en: "Every 12 hours", ar: "كل 12 ساعة" },
-  { hours: 24, en: "Every day (24h)", ar: "كل يوم (24 ساعة)" },
-  { hours: 48, en: "Every 2 days", ar: "كل يومين" },
-  { hours: 72, en: "Every 3 days", ar: "كل 3 أيام" },
-];
-
-const DEFAULT_INTERVAL_HOURS = 24;
 const DEFAULT_TITLE = "وقت المراجعة! / Time to review!";
-const DEFAULT_BODY = "عدّى وقت من غير ما تراجع — يلا نراجع شوية. / It's been a while since you studied — time for a quick review.";
-
-export function loadReminderIntervalHours() {
-  try {
-    const n = Number(localStorage.getItem(REMINDER_INTERVAL_KEY));
-    if (Number.isFinite(n) && REMINDER_INTERVAL_OPTIONS.some((o) => o.hours === n)) return n;
-  } catch (e) { /* ignore */ }
-  return DEFAULT_INTERVAL_HOURS;
-}
-
-export function saveReminderIntervalHours(hours) {
-  try { localStorage.setItem(REMINDER_INTERVAL_KEY, String(hours)); } catch (e) {}
-}
+const DEFAULT_BODY = "تذكير يومي بالمراجعة — يلا نراجع شوية. / Daily review reminder — time for a quick study.";
 
 export function loadReminderMessage() {
   try {
@@ -133,13 +110,9 @@ export async function subscribeToPush(code, prefs = null) {
       subscription: subscription.toJSON(),
     };
     if (prefs && typeof prefs === "object") {
-      if (typeof prefs.intervalHours === "number") body.intervalHours = prefs.intervalHours;
       if (typeof prefs.message === "string") body.message = prefs.message;
       if (typeof prefs.title === "string") body.title = prefs.title;
     } else {
-      // Fall back to whatever is saved locally so a plain re-subscribe still
-      // refreshes the server-side prefs.
-      body.intervalHours = loadReminderIntervalHours();
       body.message = loadReminderMessage();
       body.title = loadReminderTitle();
     }
@@ -165,7 +138,6 @@ export async function savePushPrefs(code, prefs) {
       body: JSON.stringify({
         code,
         prefsOnly: true,
-        intervalHours: prefs.intervalHours,
         message: prefs.message || "",
         title: prefs.title || "",
       }),

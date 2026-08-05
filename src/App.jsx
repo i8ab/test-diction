@@ -7,6 +7,9 @@ import {
   saveOfflineCache, loadOfflineCache, loadSavedTheme, savePersonalCode, loadPersonalCode, clearPersonalCode,
   generatePersonalCode, detectDeviceIsAr, hasInviteParam,
 } from "./lib/state/storage";
+import {
+  validateUsername, validatePassword, hashPassword, verifyPassword, migrateAccounts, normalizeUsername,
+} from "./lib/utils/authUtils";
 import { SRS_LEVEL_INTERVALS_MS, srsLevelFromStats } from "./lib/utils/quizHelpers";
 import {
   pushSupported, getPushStatus, subscribeToPush, unsubscribeFromPush, savePushPrefs,
@@ -29,18 +32,21 @@ export default function DictionaryApp() {
   const sessionStartRef = useRef(Date.now());
   const [authStage, setAuthStage] = useState(
     savedPersonalCode ? "restoring" : hasInviteParam() ? "signup" : "intro"
-  ); // intro | signup | codeShown | login | restoring | in
+  ); // intro | signup | pendingShown | login | restoring | in
   const [name, setName] = useState("");
   const [codeInput, setCodeInput] = useState("");
-  const [personalCodeInput, setPersonalCodeInput] = useState("");
+  const [usernameInput, setUsernameInput] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [signupUsername, setSignupUsername] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupPassword2, setSignupPassword2] = useState("");
   const [authError, setAuthError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
   const [signupError, setSignupError] = useState("");
   const [signupSaving, setSignupSaving] = useState(false);
-  const [myCode, setMyCode] = useState("");
-  const [codeCopied, setCodeCopied] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [moreFeaturesOpen, setMoreFeaturesOpen] = useState(false);
+  const migrationDoneRef = useRef(false);
 
   // App-wide language toggle — starts out matching the device's system
   // language, but the switch in the header (and on the login screen) lets
@@ -314,10 +320,32 @@ export default function DictionaryApp() {
     window.history.replaceState({ authStage: stage, showAdd: false, showAccount: false, showAdmin: false, section: "en-ar" }, "");
   }
 
+  // One-time migration: assign usernames to legacy accounts that only had a
+  // name + personal code, and mark them active so they keep working.
+  async function ensureMigratedAccounts(rec) {
+    const { accounts: migrated, changed } = migrateAccounts(rec.accounts || []);
+    if (!changed || migrationDoneRef.current) {
+      return { ...rec, accounts: migrated };
+    }
+    migrationDoneRef.current = true;
+    try {
+      const newVersion = await saveRecord(
+        { entries: rec.entries || [], accounts: migrated, logs: rec.logs || [] },
+        rec.version || 0
+      );
+      return { ...rec, accounts: migrated, version: newVersion };
+    } catch (e) {
+      // Conflict or offline — still use migrated in-memory so the UI works;
+      // next successful save will persist usernames.
+      return { ...rec, accounts: migrated };
+    }
+  }
+
   useEffect(() => {
     (async () => {
       try {
         let rec = await fetchRecord();
+        rec = await ensureMigratedAccounts(rec);
         setEntries(rec.entries);
         setAccounts(rec.accounts);
         setLogs(rec.logs);
@@ -328,14 +356,8 @@ export default function DictionaryApp() {
         if (savedPersonalCode) {
           let account = rec.accounts.find((a) => a.code === savedPersonalCode);
           if (!account) {
-            // The plain GET above can be served from a short-lived CDN cache
-            // (see the Cache-Control comment in api/jsonbin.js) taken just
-            // before this account was created or last saved — e.g. right
-            // after signing up and immediately refreshing. Don't sign the
-            // person out over what might just be stale data; re-check
-            // against a cache-busted read before giving up.
             try {
-              const freshRec = await fetchRecord({ fresh: true });
+              const freshRec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
               rec = freshRec;
               setEntries(freshRec.entries);
               setAccounts(freshRec.accounts);
@@ -343,12 +365,9 @@ export default function DictionaryApp() {
               setRecordVersion(freshRec.version);
               saveOfflineCache(freshRec);
               account = freshRec.accounts.find((a) => a.code === savedPersonalCode);
-            } catch (e2) {
-              // fresh re-check failed (offline mid-load, etc.) — fall through
-              // to the "not found" branch below as before.
-            }
+            } catch (e2) { /* fall through */ }
           }
-          if (account) {
+          if (account && account.status !== "pending" && account.status !== "rejected") {
             setName(account.name);
             setIsAdmin(account.role === "admin");
             setAccountCode(account.code);
@@ -361,19 +380,17 @@ export default function DictionaryApp() {
           }
         }
       } catch (e) {
-        // No network (or the API is down) — fall back to whatever we last
-        // cached locally so the app still opens with the words in it,
-        // read-only, instead of a dead error screen.
         const cached = loadOfflineCache();
         if (cached && cached.entries.length) {
+          const { accounts: migrated } = migrateAccounts(cached.accounts || []);
           setEntries(cached.entries);
-          setAccounts(cached.accounts);
+          setAccounts(migrated);
           setLogs(cached.logs);
           setIsOffline(true);
           setOfflineCachedAt(cached.cachedAt);
           if (savedPersonalCode) {
-            const account = cached.accounts.find((a) => a.code === savedPersonalCode);
-            if (account) {
+            const account = migrated.find((a) => a.code === savedPersonalCode);
+            if (account && account.status !== "pending" && account.status !== "rejected") {
               setName(account.name);
               setIsAdmin(account.role === "admin");
               setAccountCode(account.code);
@@ -696,17 +713,26 @@ export default function DictionaryApp() {
   async function handleSignup(e) {
     e.preventDefault();
     setSignupError("");
-    const trimmed = name.trim();
-    if (!trimmed) { setSignupError("Enter your name."); return; }
+    const trimmedName = name.trim();
+    if (!trimmedName) { setSignupError("Enter a name."); return; }
+
+    const uCheck = validateUsername(signupUsername);
+    if (!uCheck.ok) { setSignupError(uCheck.error); return; }
+    const pCheck = validatePassword(signupPassword);
+    if (!pCheck.ok) { setSignupError(pCheck.error); return; }
+    if (signupPassword !== signupPassword2) {
+      setSignupError("Passwords do not match.");
+      return;
+    }
 
     setSignupSaving(true);
     try {
-      // Re-fetch the freshest account list right before checking/creating, so a
-      // name taken moments ago by someone else (on any device) is still caught.
-      const rec = await fetchRecord({ fresh: true });
-      const clash = rec.accounts.some((a) => a.name.toLowerCase() === trimmed.toLowerCase());
+      const rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
+      const clash = (rec.accounts || []).some(
+        (a) => normalizeUsername(a.username) === uCheck.username
+      );
       if (clash) {
-        setSignupError("An account with this name already exists. Use another name, or sign in if it's yours.");
+        setSignupError("That username is already taken. Pick another.");
         setAccounts(rec.accounts);
         setEntries(rec.entries);
         setLogs(rec.logs);
@@ -714,21 +740,41 @@ export default function DictionaryApp() {
         return;
       }
       const code = generatePersonalCode();
-      const nextAccounts = [...rec.accounts, { name: trimmed, code, role: "user", createdAt: Date.now() }];
-      const nextLogs = capLogs([...(rec.logs || []), makeLogEntry("account_add", `${trimmed} created an account (self sign-up)`, trimmed, code)]);
-      const newVersion = await saveRecord({ entries: rec.entries, accounts: nextAccounts, logs: nextLogs }, rec.version);
+      const passwordHash = await hashPassword(pCheck.password, code);
+      const nextAccounts = [
+        ...(rec.accounts || []),
+        {
+          name: trimmedName,
+          username: uCheck.username,
+          passwordHash,
+          code,
+          role: "user",
+          status: "pending",
+          createdAt: Date.now(),
+        },
+      ];
+      const nextLogs = capLogs([
+        ...(rec.logs || []),
+        makeLogEntry(
+          "account_add",
+          `${trimmedName} (@${uCheck.username}) requested an account`,
+          trimmedName,
+          code
+        ),
+      ]);
+      const newVersion = await saveRecord(
+        { entries: rec.entries, accounts: nextAccounts, logs: nextLogs },
+        rec.version
+      );
       setEntries(rec.entries);
       setAccounts(nextAccounts);
       setLogs(nextLogs);
       setRecordVersion(newVersion);
-      setMyCode(code);
-      goToStage("codeShown");
+      setSignupPassword("");
+      setSignupPassword2("");
+      goToStage("pendingShown");
     } catch (err) {
       if (err instanceof SaveConflictError) {
-        // Extremely tight race: someone else signed up (or another change
-        // landed) in the instant between our fresh read and our write.
-        // Simplest safe move is to ask them to just try again — a second
-        // attempt will re-read fresh and almost certainly succeed.
         setSignupError("Someone else just made a change — please try again.");
       } else {
         setSignupError("Couldn't create the account — check your connection and try again.");
@@ -738,64 +784,84 @@ export default function DictionaryApp() {
     }
   }
 
-  async function handleCopyCode() {
-    try {
-      await navigator.clipboard.writeText(myCode);
-    } catch (err) {
-      // Fallback for browsers/contexts without clipboard API access.
-      const ta = document.createElement("textarea");
-      ta.value = myCode;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand("copy"); } catch (e2) {}
-      document.body.removeChild(ta);
-    }
-    setCodeCopied(true);
-    setTimeout(() => setCodeCopied(false), 1800);
-  }
-
   async function handleLogin(e) {
     e.preventDefault();
     setAuthError("");
 
-    const code = codeInput.trim();
-    if (!code) { setAuthError("Enter the access code."); return; }
-
+    const accessCode = codeInput.trim();
+    if (!accessCode) { setAuthError("Enter the access code."); return; }
     if (!accountsLoaded) { setAuthError("Still loading — please try again in a moment."); return; }
-    const trimmedPersonal = personalCodeInput.trim();
-    if (!trimmedPersonal) { setAuthError("Enter your personal code."); return; }
+
+    const uCheck = validateUsername(usernameInput);
+    if (!uCheck.ok) { setAuthError(uCheck.error); return; }
+    if (!passwordInput) { setAuthError("Enter your password."); return; }
+
     let curAccounts = accounts;
-    let account = curAccounts.find((a) => a.code === trimmedPersonal);
+    let account = curAccounts.find((a) => normalizeUsername(a.username) === uCheck.username);
     if (!account) {
-      // Not found in what we currently have in memory — this can legitimately
-      // happen right after signing up: the initial page load (or a fresh
-      // reload right after signup) may have read a short-lived CDN-cached
-      // copy of /api/jsonbin (see the Cache-Control comment in that file)
-      // taken a few seconds before the new account was created. Re-fetch
-      // bypassing that cache before concluding the code is really invalid.
       try {
-        const rec = await fetchRecord({ fresh: true });
+        const rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
         curAccounts = rec.accounts;
         setAccounts(rec.accounts);
         setEntries(rec.entries);
         setLogs(rec.logs);
         setRecordVersion(rec.version);
-        account = curAccounts.find((a) => a.code === trimmedPersonal);
-      } catch (e) {
-        // No network — fall through, the "not found" error below still applies.
-      }
+        account = curAccounts.find((a) => normalizeUsername(a.username) === uCheck.username);
+      } catch (e) { /* fall through */ }
     }
-    if (!account) { setAuthError("That personal code doesn't match any account."); return; }
+    if (!account) { setAuthError("That username doesn't match any account."); return; }
+    if (account.status === "pending") {
+      setAuthError("Your account is still waiting for admin approval.");
+      return;
+    }
+    if (account.status === "rejected") {
+      setAuthError("Your account request was declined. Contact an admin.");
+      return;
+    }
 
     setLoggingIn(true);
+    let passwordOk = false;
+    try {
+      if (account.passwordHash) {
+        passwordOk = await verifyPassword(passwordInput, account.code, account.passwordHash);
+      } else {
+        // Legacy account: accept the old personal code as a one-time password.
+        passwordOk = passwordInput.trim() === String(account.code);
+        if (passwordOk) {
+          const newHash = await hashPassword(passwordInput, account.code);
+          curAccounts = curAccounts.map((a) =>
+            a.code === account.code ? { ...a, passwordHash: newHash } : a
+          );
+          account = curAccounts.find((a) => a.code === account.code);
+          try {
+            const newVersion = await saveRecord(
+              { entries, accounts: curAccounts, logs },
+              recordVersion
+            );
+            setAccounts(curAccounts);
+            setRecordVersion(newVersion);
+          } catch (e) {
+            setAccounts(curAccounts);
+          }
+        }
+      }
+    } catch (err) {
+      setLoggingIn(false);
+      setAuthError("Couldn't verify the password — try again.");
+      return;
+    }
+    if (!passwordOk) {
+      setLoggingIn(false);
+      setAuthError("Wrong password.");
+      return;
+    }
+
     let verified;
     try {
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code: accessCode }),
       });
       verified = await res.json();
     } catch (err) {
@@ -813,20 +879,22 @@ export default function DictionaryApp() {
     setIsAdmin(account.role === "admin");
     setAccountCode(account.code);
     savePersonalCode(account.code);
+    setPasswordInput("");
 
-    // The very first successful sign-in for an account gets its own log
-    // action ("first_sign_in") so admins can tell brand-new users apart
-    // from returning ones in the activity log. Admin accounts' own sign-ins
-    // aren't logged at all — only regular users' sign in/out show up here.
     if (account.role !== "admin") {
       const isFirstSignIn = !account.firstSignInAt;
       const logEntry = makeLogEntry(
         isFirstSignIn ? "first_sign_in" : "sign_in",
-        isFirstSignIn ? `${account.name} signed in for the first time` : `${account.name} signed in`,
-        account.name, account.code
+        isFirstSignIn
+          ? `${account.name} (@${account.username}) signed in for the first time`
+          : `${account.name} (@${account.username}) signed in`,
+        account.name,
+        account.code
       );
       if (isFirstSignIn) {
-        const nextAccounts = curAccounts.map((a) => (a.code === account.code ? { ...a, firstSignInAt: Date.now() } : a));
+        const nextAccounts = curAccounts.map((a) =>
+          a.code === account.code ? { ...a, firstSignInAt: Date.now() } : a
+        );
         await persistAccounts(nextAccounts, logEntry);
       } else {
         await persistLogs(capLogs([...logs, logEntry]));
@@ -844,7 +912,8 @@ export default function DictionaryApp() {
     setIsAdmin(false);
     setAccountCode("");
     setCodeInput("");
-    setPersonalCodeInput("");
+    setUsernameInput("");
+    setPasswordInput("");
     setAuthError("");
     setShowAdd(false);
     setShowAccount(false);
@@ -852,60 +921,141 @@ export default function DictionaryApp() {
     goToStage("login");
   }
 
-  // Self-service: the signed-in person renaming themselves from "My account".
-  async function handleUpdateOwnName(newName) {
-    const trimmed = newName.trim();
+  async function handleUpdateOwnAccount({ name: newName, password: newPassword }) {
+    const trimmed = (newName || "").trim();
     if (!trimmed) return { error: "Enter your name." };
-    const clash = accounts.some((a) => a.code !== accountCode && a.name.toLowerCase() === trimmed.toLowerCase());
-    if (clash) return { error: "That name is already taken." };
+    const updates = { name: trimmed };
+    if (newPassword) {
+      const pCheck = validatePassword(newPassword);
+      if (!pCheck.ok) return { error: pCheck.error };
+      updates.passwordHash = await hashPassword(pCheck.password, accountCode);
+    }
     const oldName = name;
-    const nextAccounts = accounts.map((a) => (a.code === accountCode ? { ...a, name: trimmed } : a));
-    const logEntry = makeLogEntry("account_edit", `${oldName} renamed their own account to "${trimmed}"`, trimmed, accountCode);
+    const nextAccounts = accounts.map((a) =>
+      a.code === accountCode ? { ...a, ...updates } : a
+    );
+    const logEntry = makeLogEntry(
+      "account_edit",
+      newPassword
+        ? `${oldName} updated their account (name/password)`
+        : `${oldName} renamed their own account to "${trimmed}"`,
+      trimmed,
+      accountCode
+    );
     await persistAccounts(nextAccounts, logEntry);
     setName(trimmed);
-    showToast("Account info updated.");
+    showToast(appIsAr ? "تم تحديث الحساب." : "Account info updated.");
     return { ok: true };
   }
 
-  // Admin panel: create a new account with a freshly generated personal code.
-  async function handleAdminAddAccount(newName, role) {
-    const trimmed = newName.trim();
-    if (!trimmed) return { error: "Enter a name." };
-    const clash = accounts.some((a) => a.name.toLowerCase() === trimmed.toLowerCase());
-    if (clash) return { error: "An account with this name already exists." };
-    const code = generatePersonalCode();
-    const nextRole = role === "admin" ? "admin" : "user";
-    const nextAccounts = [...accounts, { name: trimmed, code, role: nextRole, createdAt: Date.now() }];
-    const logEntry = makeLogEntry("account_add", `${name} added account "${trimmed}" (${nextRole === "admin" ? "Admin" : "User"})`, name, accountCode);
+  async function handleApproveRequest(targetCode) {
+    const target = accounts.find((a) => a.code === targetCode);
+    if (!target || target.status !== "pending") return { error: "Request not found." };
+    const nextAccounts = accounts.map((a) =>
+      a.code === targetCode ? { ...a, status: "active" } : a
+    );
+    const logEntry = makeLogEntry(
+      "account_edit",
+      `${name} approved @${target.username || target.name}`,
+      name,
+      accountCode
+    );
     await persistAccounts(nextAccounts, logEntry);
-    return { ok: true, code };
+    showToast(appIsAr ? "تمت الموافقة على الطلب." : "Request approved.");
+    return { ok: true };
   }
 
-  // Admin panel: edit another (or your own) account's name/role.
+  async function handleRejectRequest(targetCode) {
+    const target = accounts.find((a) => a.code === targetCode);
+    if (!target || target.status !== "pending") return { error: "Request not found." };
+    const nextAccounts = accounts.filter((a) => a.code !== targetCode);
+    const logEntry = makeLogEntry(
+      "account_delete",
+      `${name} rejected request from @${target.username || target.name}`,
+      name,
+      accountCode
+    );
+    await persistAccounts(nextAccounts, logEntry);
+    showToast(appIsAr ? "تم رفض الطلب." : "Request rejected.");
+    return { ok: true };
+  }
+
+  async function handleAdminAddAccount(newName, role, username) {
+    const trimmed = (newName || "").trim();
+    if (!trimmed) return { error: "Enter a name." };
+    const uCheck = validateUsername(username || "");
+    if (!uCheck.ok) return { error: uCheck.error };
+    if (accounts.some((a) => normalizeUsername(a.username) === uCheck.username)) {
+      return { error: "That username is already taken." };
+    }
+    const code = generatePersonalCode();
+    const nextRole = role === "admin" ? "admin" : "user";
+    const passwordHash = await hashPassword(code, code);
+    const nextAccounts = [
+      ...accounts,
+      {
+        name: trimmed,
+        username: uCheck.username,
+        passwordHash,
+        code,
+        role: nextRole,
+        status: "active",
+        createdAt: Date.now(),
+      },
+    ];
+    const logEntry = makeLogEntry(
+      "account_add",
+      `${name} added account "${trimmed}" (@${uCheck.username}, ${nextRole === "admin" ? "Admin" : "User"})`,
+      name,
+      accountCode
+    );
+    await persistAccounts(nextAccounts, logEntry);
+    return { ok: true, code, username: uCheck.username };
+  }
+
   async function handleAdminEditAccount(targetCode, updates) {
     const trimmedName = (updates.name || "").trim();
     if (!trimmedName) return { error: "Enter a name." };
-    const clash = accounts.some((a) => a.code !== targetCode && a.name.toLowerCase() === trimmedName.toLowerCase());
-    if (clash) return { error: "That name is already taken." };
     const nextRole = updates.role === "admin" ? "admin" : "user";
+    let nextUsername;
+    if (updates.username != null) {
+      const uCheck = validateUsername(updates.username);
+      if (!uCheck.ok) return { error: uCheck.error };
+      if (
+        accounts.some(
+          (a) => a.code !== targetCode && normalizeUsername(a.username) === uCheck.username
+        )
+      ) {
+        return { error: "That username is already taken." };
+      }
+      nextUsername = uCheck.username;
+    }
     const target = accounts.find((a) => a.code === targetCode);
-    const nextAccounts = accounts.map((a) => (a.code === targetCode ? { ...a, name: trimmedName, role: nextRole } : a));
+    const nextAccounts = accounts.map((a) => {
+      if (a.code !== targetCode) return a;
+      const patch = {
+        name: trimmedName,
+        role: nextRole,
+        status: a.status === "pending" ? "active" : a.status || "active",
+      };
+      if (nextUsername) patch.username = nextUsername;
+      return { ...a, ...patch };
+    });
     const logEntry = makeLogEntry(
       "account_edit",
       `${name} edited account "${(target && target.name) || targetCode}" → name: "${trimmedName}", role: ${nextRole === "admin" ? "Admin" : "User"}`,
-      name, accountCode
+      name,
+      accountCode
     );
     await persistAccounts(nextAccounts, logEntry);
     if (targetCode === accountCode) {
-      // Editing your own account updates what's shown immediately, including
-      // losing admin-panel access right away if you demoted yourself.
       setName(trimmedName);
       setIsAdmin(nextRole === "admin");
     }
     return { ok: true };
   }
 
-  // Admin panel: remove an account. If an admin removes their own account,
+    // Admin panel: remove an account. If an admin removes their own account,
   // sign them out immediately rather than leaving them in a stale session.
   async function handleAdminDeleteAccount(targetCode) {
     const target = accounts.find((a) => a.code === targetCode);
@@ -923,9 +1073,14 @@ export default function DictionaryApp() {
       <AuthScreens
         authStage={authStage} appIsAr={appIsAr} atr={atr} theme={theme} toggleTheme={toggleTheme} toggleAppLang={toggleAppLang}
         moreFeaturesOpen={moreFeaturesOpen} setMoreFeaturesOpen={setMoreFeaturesOpen} goToStage={goToStage}
-        name={name} setName={setName} signupError={signupError} setSignupError={setSignupError} signupSaving={signupSaving} handleSignup={handleSignup}
-        myCode={myCode} codeCopied={codeCopied} handleCopyCode={handleCopyCode}
-        codeInput={codeInput} setCodeInput={setCodeInput} personalCodeInput={personalCodeInput} setPersonalCodeInput={setPersonalCodeInput}
+        name={name} setName={setName}
+        signupUsername={signupUsername} setSignupUsername={setSignupUsername}
+        signupPassword={signupPassword} setSignupPassword={setSignupPassword}
+        signupPassword2={signupPassword2} setSignupPassword2={setSignupPassword2}
+        signupError={signupError} setSignupError={setSignupError} signupSaving={signupSaving} handleSignup={handleSignup}
+        usernameInput={usernameInput} setUsernameInput={setUsernameInput}
+        passwordInput={passwordInput} setPasswordInput={setPasswordInput}
+        codeInput={codeInput} setCodeInput={setCodeInput}
         authError={authError} setAuthError={setAuthError} loggingIn={loggingIn} handleLogin={handleLogin}
       />
     );
@@ -955,9 +1110,10 @@ export default function DictionaryApp() {
       favoriteIds={favoriteIds} onToggleFavorite={handleToggleFavorite}
       srsBox={srsBox} srsDueAt={srsDueAt} quizHistory={quizHistory}
       onRecordSrsAnswer={handleRecordSrsAnswer} onSaveQuizResult={handleSaveQuizResult}
-      showAccount={showAccount} onOpenAccount={openAccountModal} onCloseAccount={closeAccountModal} onUpdateOwnName={handleUpdateOwnName}
+      showAccount={showAccount} onOpenAccount={openAccountModal} onCloseAccount={closeAccountModal} onUpdateOwnAccount={handleUpdateOwnAccount}
       showAdmin={showAdmin} onOpenAdmin={openAdminModal} onCloseAdmin={closeAdminModal}
       onAdminAddAccount={handleAdminAddAccount} onAdminEditAccount={handleAdminEditAccount} onAdminDeleteAccount={handleAdminDeleteAccount}
+      onApproveRequest={handleApproveRequest} onRejectRequest={handleRejectRequest}
       toast={toast} showToast={showToast}
       theme={theme} onToggleTheme={toggleTheme}
       accentTheme={accentTheme} onChangeAccent={setAccentTheme}

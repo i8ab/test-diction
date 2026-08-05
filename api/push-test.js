@@ -1,13 +1,22 @@
-// TEMPORARY test endpoint — send one push to the caller's subscription now.
-// Remove this file (and the menu button / App.jsx handler / vite route) after testing.
+// Test endpoint — send one push to the caller's subscription now, using the
+// same final payload shape the real reminder cron would send (custom title/
+// body from Redis prefs, or values the client passes in the body).
 //
-// POST body: { code: "<personal account code>" }
+// POST body: {
+//   code: "<personal account code>",
+//   title?: string,   // optional override (e.g. live preview before saving)
+//   body?: string,    // optional override
+// }
 // Requires Redis + VAPID env vars, same as the daily cron.
 
 import { redisConfigured, redisCommand } from "../lib/redis.js";
 import { sendPush, vapidConfigured } from "../lib/webpush.js";
 
 const SUB_PREFIX = "twoTongues:push:sub:";
+const PREFS_PREFIX = "twoTongues:push:prefs:";
+
+const DEFAULT_TITLE = "وقت المراجعة! / Time to review!";
+const DEFAULT_BODY = "عدّى وقت من غير ما تراجع — يلا نراجع شوية. / It's been a while since you studied — time for a quick review.";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -47,15 +56,28 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Invalid stored subscription." });
     }
 
+    // Prefer explicit title/body from the client (live preview of what they
+    // typed), then fall back to saved Redis prefs, then defaults.
+    let prefs = {};
+    try {
+      const prefsRaw = await redisCommand("GET", `${PREFS_PREFIX}${code}`);
+      if (prefsRaw) prefs = typeof prefsRaw === "string" ? JSON.parse(prefsRaw) : prefsRaw;
+    } catch (_) { /* ignore */ }
+
+    const clientTitle = body && typeof body.title === "string" ? body.title.trim() : "";
+    const clientBody = body && typeof body.body === "string" ? body.body.trim() : "";
+    const title = clientTitle || (prefs && prefs.title) || DEFAULT_TITLE;
+    const notifBody = clientBody || (prefs && prefs.message) || DEFAULT_BODY;
+
     const payload = {
-      title: "تجربة إشعار / Test notification",
-      body: "لو وصلك ده، الإشعارات شغالة ✓ / If you got this, push works ✓",
+      title,
+      body: notifBody,
       url: "/",
     };
 
     const result = await sendPush(subscription, payload);
     if (result.ok) {
-      return res.status(200).json({ ok: true });
+      return res.status(200).json({ ok: true, payload });
     }
     if (result.expired) {
       try {

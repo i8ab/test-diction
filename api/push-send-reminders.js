@@ -1,11 +1,13 @@
-// Called once a day by Vercel Cron (see vercel.json) to send a REAL push
+// Called on a schedule by Vercel Cron (see vercel.json) to send a REAL push
 // notification (arrives even if the browser/tab is closed, unlike the old
 // in-app-only Notification in ReminderBanner.jsx) to every account that:
 //   - has an active push subscription (api/push-subscribe.js), AND
-//   - hasn't studied anything in the last 24h+ (same rule ReminderBanner
-//     already uses client-side, just re-checked here server-side), AND
-//   - hasn't already been sent a reminder today (dedup key, in case the
-//     cron is ever triggered twice in the same day).
+//   - hasn't studied anything within their chosen interval (default 24h), AND
+//   - hasn't already been sent a reminder within that same interval (dedup).
+//
+// Per-account prefs (intervalHours, custom title/message) live in Redis under
+// twoTongues:push:prefs:<code> — set via api/push-subscribe.js when the user
+// enables reminders or changes Notification settings in the header menu.
 //
 // Protect this endpoint so randoms on the internet can't trigger mass
 // notifications: set CRON_SECRET in Vercel env vars, and Vercel's Cron
@@ -20,17 +22,25 @@ import { sendPush, vapidConfigured } from "../lib/webpush.js";
 
 const CODES_SET_KEY = "twoTongues:push:codes";
 const SUB_PREFIX = "twoTongues:push:sub:";
-const NOTIFIED_PREFIX = "twoTongues:push:notifiedOn:"; // + code -> "YYYY-MM-DD", TTL'd
-const NOTIFIED_TTL_SECONDS = 60 * 60 * 30; // 30h, comfortably covers one day + clock drift
-const DAY_MS = 24 * 60 * 60 * 1000;
+const PREFS_PREFIX = "twoTongues:push:prefs:";
+const NOTIFIED_PREFIX = "twoTongues:push:notifiedAt:"; // + code -> unix ms string, TTL'd
+const HOUR_MS = 60 * 60 * 1000;
+const DEFAULT_INTERVAL_HOURS = 24;
+const ALLOWED_INTERVALS = new Set([6, 12, 24, 48, 72]);
 
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
-}
+const DEFAULT_TITLE = "وقت المراجعة! / Time to review!";
+const DEFAULT_BODY_TEMPLATE = (hoursSince) => {
+  if (hoursSince >= 48) {
+    const days = Math.floor(hoursSince / 24);
+    return `عدّى ${days} يوم من غير ما تراجع. / It's been ${days} day${days === 1 ? "" : "s"} since you studied.`;
+  }
+  if (hoursSince >= 24) {
+    return `عدّى يوم من غير ما تراجع. / It's been a day since you studied.`;
+  }
+  return `عدّى ${hoursSince} ساعة من غير ما تراجع. / It's been ${hoursSince} hour${hoursSince === 1 ? "" : "s"} since you studied.`;
+};
 
 async function fetchRecord(req) {
-  // Reuse api/jsonbin.js rather than re-implementing the JSONBin call here,
-  // so there is exactly one place that knows how to read the shared record.
   const proto = req.headers["x-forwarded-proto"] || "https";
   const host = req.headers.host;
   const r = await fetch(`${proto}://${host}/api/jsonbin`);
@@ -38,14 +48,6 @@ async function fetchRecord(req) {
   return r.json();
 }
 
-// Drops activity-log entries (word/account edits, regular sign-in/out
-// noise) once they're from a previous calendar day — keeps "first sign in"
-// entries (account-creation history) forever. This used to run client-side
-// on every app load, which meant every open tab/device tried to write at
-// once on a new day and could trip each other's version-conflict check for
-// no real reason. Running it here instead means it writes AT MOST once a
-// day, from a single place, alongside the existing daily reminder cron —
-// so it never races another device's save.
 async function clearStaleLogs(req, record) {
   const now = new Date();
   const isToday = (ts) => {
@@ -69,10 +71,23 @@ async function clearStaleLogs(req, record) {
       expectedVersion: record.version || 0,
     }),
   });
-  // A 409 here just means some device saved something in the tiny window
-  // between our GET and this PUT — harmless, we'll just try again on
-  // tomorrow's cron run instead of retrying immediately.
   return { cleared: r.ok };
+}
+
+async function loadPrefs(code) {
+  try {
+    const raw = await redisCommand("GET", `${PREFS_PREFIX}${code}`);
+    if (!raw) return { intervalHours: DEFAULT_INTERVAL_HOURS, message: "", title: "" };
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const hours = ALLOWED_INTERVALS.has(parsed.intervalHours) ? parsed.intervalHours : DEFAULT_INTERVAL_HOURS;
+    return {
+      intervalHours: hours,
+      message: typeof parsed.message === "string" ? parsed.message : "",
+      title: typeof parsed.title === "string" ? parsed.title : "",
+    };
+  } catch (e) {
+    return { intervalHours: DEFAULT_INTERVAL_HOURS, message: "", title: "" };
+  }
 }
 
 export default async function handler(req, res) {
@@ -83,10 +98,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // Log cleanup doesn't need Redis/VAPID, so it runs regardless of whether
-  // push notifications are configured — this cron is the one daily trigger
-  // both features share. The same initial read is reused for the reminder
-  // loop below so this handler only fetches the shared record once.
   let logsCleared = false;
   let record = null;
   try {
@@ -94,7 +105,7 @@ export default async function handler(req, res) {
     const result = await clearStaleLogs(req, record);
     logsCleared = result.cleared;
   } catch (e) {
-    // Best-effort — don't let a log-cleanup failure block reminders below.
+    // Best-effort
   }
 
   if (!redisConfigured()) {
@@ -110,39 +121,48 @@ export default async function handler(req, res) {
 
     if (!record) record = await fetchRecord(req);
     const accounts = record.accounts || [];
-    const today = todayKey();
+    const now = Date.now();
 
     let sent = 0, skipped = 0, expired = 0;
 
     for (const code of codes) {
       const account = accounts.find((a) => a.code === code);
-      if (!account) { skipped++; continue; } // account deleted since subscribing
+      if (!account) { skipped++; continue; }
+
+      const prefs = await loadPrefs(code);
+      const intervalMs = prefs.intervalHours * HOUR_MS;
 
       const studiedAt = account.studiedAt || {};
       const values = Object.values(studiedAt);
       const lastStudied = values.length ? Math.max(...values) : null;
-      const daysSince = lastStudied == null ? null : Math.floor((Date.now() - lastStudied) / DAY_MS);
-      if (daysSince === null || daysSince < 1) { skipped++; continue; } // studied recently, or never studied at all (nothing to remind about yet)
+      if (lastStudied == null) { skipped++; continue; }
+      const msSinceStudy = now - lastStudied;
+      if (msSinceStudy < intervalMs) { skipped++; continue; }
 
-      const alreadyNotified = await redisCommand("GET", `${NOTIFIED_PREFIX}${code}`);
-      if (alreadyNotified === today) { skipped++; continue; }
+      const lastNotifiedRaw = await redisCommand("GET", `${NOTIFIED_PREFIX}${code}`);
+      if (lastNotifiedRaw) {
+        const lastNotified = Number(lastNotifiedRaw);
+        if (Number.isFinite(lastNotified) && now - lastNotified < intervalMs) {
+          skipped++;
+          continue;
+        }
+      }
 
       const subRaw = await redisCommand("GET", `${SUB_PREFIX}${code}`);
       if (!subRaw) { skipped++; continue; }
-      const subscription = JSON.parse(subRaw);
+      const subscription = typeof subRaw === "string" ? JSON.parse(subRaw) : subRaw;
 
-      // No per-account language is stored server-side (appLang lives only in
-      // the browser), so the push text is bilingual rather than guessing.
-      const payload = {
-        title: "وقت المراجعة! / Time to review!",
-        body: `عدّى ${daysSince} يوم من غير ما تراجع. / It's been ${daysSince} day${daysSince === 1 ? "" : "s"} since you studied.`,
-        url: "/",
-      };
+      const hoursSince = Math.max(1, Math.floor(msSinceStudy / HOUR_MS));
+      const title = (prefs.title && prefs.title.trim()) || DEFAULT_TITLE;
+      const body = (prefs.message && prefs.message.trim()) || DEFAULT_BODY_TEMPLATE(hoursSince);
+
+      const payload = { title, body, url: "/" };
 
       const result = await sendPush(subscription, payload);
       if (result.ok) {
         sent++;
-        await redisCommand("SET", `${NOTIFIED_PREFIX}${code}`, today, "EX", String(NOTIFIED_TTL_SECONDS));
+        const ttlSec = Math.ceil((intervalMs / 1000) * 1.5) + 3600;
+        await redisCommand("SET", `${NOTIFIED_PREFIX}${code}`, String(now), "EX", String(ttlSec));
       } else if (result.expired) {
         expired++;
         await redisCommand("DEL", `${SUB_PREFIX}${code}`);

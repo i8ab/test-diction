@@ -43,7 +43,7 @@ export default function HeaderMenu({
 
   function itemClick(fn) { fn(); }
 
-  const itemStyle = { position: "relative", display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "11px 12px", minHeight: 44, fontSize: 13.5, fontWeight: 600, color: "var(--ink)", background: "none", border: "none", borderRadius: 9, textAlign: "start", cursor: "pointer" };
+  const itemStyle = { position: "relative", display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px", minHeight: 40, fontSize: 13.5, fontWeight: 600, color: "var(--ink)", background: "none", border: "none", borderRadius: 9, textAlign: "start", cursor: "pointer" };
   const iconWrapStyle = (bg) => ({ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 8, background: bg, flexShrink: 0 });
 
   function Row({ icon, label, onClick, disabled, tint, danger, trailing }) {
@@ -85,7 +85,7 @@ export default function HeaderMenu({
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button onClick={() => setOpen((o) => !o)} title={tr(isAr, "Menu", "القائمة")} aria-label={tr(isAr, "Menu", "القائمة")} aria-expanded={open} className="lift-hover touch-target"
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, border: "1px solid rgba(var(--border-rgb),0.25)", background: "none", color: "var(--icon-muted)", borderRadius: 10, cursor: "pointer", position: "relative" }}>
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, border: "1px solid rgba(var(--border-rgb),0.25)", background: "none", color: "var(--icon-muted)", borderRadius: 10, cursor: "pointer", position: "relative", flexShrink: 0 }}>
         <MenuIcon size={16} />
         {isAdmin && pendingCount > 0 && (
           <span style={{

@@ -60,9 +60,9 @@ function saveTimerView(open, bubble) {
 export default function MainView({
   name, isAdmin, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
   showAdd, onOpenAdd, onCloseAdd, persistEntries, saveError, onLogout,
-  accounts, accountCode, logs, onClearLogs, studiedIds, studiedAt, onToggleStudied, favoriteIds, onToggleFavorite, showAccount, onOpenAccount, onCloseAccount, onUpdateOwnName,
+  accounts, accountCode, logs, onClearLogs, studiedIds, studiedAt, onToggleStudied, favoriteIds, onToggleFavorite, showAccount, onOpenAccount, onCloseAccount, onUpdateOwnAccount,
   srsBox, srsDueAt, quizHistory, onRecordSrsAnswer, onSaveQuizResult,
-  showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount,
+  showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount, onApproveRequest, onRejectRequest,
   toast, showToast, theme, onToggleTheme, accentTheme, onChangeAccent,
   appIsAr, onToggleAppLang,
   sessionStart,
@@ -460,7 +460,7 @@ export default function MainView({
       aria-hidden={showTimer && !timerBubble ? true : undefined}
     >
       <header style={{ borderBottom: "1px solid rgba(var(--border-rgb),0.15)", background: PAPER, position: "sticky", top: 0, zIndex: 1000 }}>
-        <div style={{ maxWidth: 900, margin: "0 auto", padding: "18px 20px 0" }}>
+        <div className="app-container" style={{ margin: "0 auto", padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px) 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
               <BookIcon size={20} color={BRASS} />
@@ -473,7 +473,10 @@ export default function MainView({
                 accentTheme={accentTheme} onChangeAccent={onChangeAccent}
                 remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={onEnableReminders} onDisableReminders={onDisableReminders} onTestReminder={onTestReminder}
                 reminderTitle={reminderTitle} onChangeReminderTitle={onChangeReminderTitle}
-                reminderMessage={reminderMessage} onChangeReminderMessage={onChangeReminderMessage} />
+                reminderMessage={reminderMessage} onChangeReminderMessage={onChangeReminderMessage}
+                pendingAccounts={(accounts || []).filter((a) => a.status === "pending")}
+                onApproveRequest={onApproveRequest}
+                onRejectRequest={onRejectRequest} />
             </div>
           </div>
           <div style={{ display: "flex", gap: 4, marginTop: 16 }}>
@@ -481,7 +484,7 @@ export default function MainView({
               const active = key === section;
               return (
                 <button key={key} onClick={() => onChangeSection(key)}
-                  style={{ padding: "9px 18px", fontSize: 14, fontWeight: 600, color: active ? s.accent : "var(--icon-muted)", background: active ? CARD : "transparent", border: "1px solid rgba(var(--border-rgb),0.15)", borderBottom: active ? `1px solid ${CARD}` : "1px solid rgba(var(--border-rgb),0.15)", borderRadius: "8px 8px 0 0", marginBottom: -1, cursor: "pointer", transform: active ? "translateY(-1px)" : "none" }}>
+                  className="touch-target section-tab" style={{ padding: "10px 16px", minHeight: 44, fontSize: "clamp(13px, 2.5vw, 14px)", fontWeight: 600, color: active ? s.accent : "var(--icon-muted)", background: active ? CARD : "transparent", border: "1px solid rgba(var(--border-rgb),0.15)", borderBottom: active ? `1px solid ${CARD}` : "1px solid rgba(var(--border-rgb),0.15)", borderRadius: "8px 8px 0 0", marginBottom: -1, cursor: "pointer", transform: active ? "translateY(-1px)" : "none" }}>
                   {s.shortLabel}
                 </button>
               );
@@ -490,7 +493,7 @@ export default function MainView({
         </div>
       </header>
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "18px 20px 0" }}>
+      <div className="app-container" style={{ margin: "0 auto", padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px) 0" }}>
         <div className="toolbar-row" style={{ display: "flex", gap: 10, flexWrap: "wrap", position: "relative", zIndex: 50 }}>
           <div className="toolbar-anim toolbar-search-wrap" style={{ position: "relative", flex: "1 1 240px", animationDelay: "0.02s", zIndex: 50 }}>
             <SearchIcon size={16} color="var(--icon-muted)" style={{ position: "absolute", insetInlineStart: 12, top: "50%", transform: "translateY(-50%)" }} />
@@ -667,13 +670,13 @@ export default function MainView({
         )}
       </div>
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 20px 60px", display: "flex", gap: 18 }}>
-        <nav style={{ flex: "0 0 34px", display: "flex", flexDirection: "column", gap: 2, position: "sticky", top: 130, alignSelf: "flex-start", maxHeight: "calc(100vh - 160px)", overflowY: "auto" }}>
+      <div className="app-container app-main-row" style={{ margin: "0 auto", padding: "clamp(14px, 2.5vw, 22px) clamp(12px, 3vw, 24px) clamp(40px, 8vw, 72px)", display: "flex", gap: "clamp(12px, 2vw, 20px)" }}>
+        <nav className="letter-rail" style={{ flex: "0 0 34px", display: "flex", flexDirection: "column", gap: 2, position: "sticky", top: 130, alignSelf: "flex-start", maxHeight: "calc(100dvh - 160px)", overflowY: "auto" }}>
           {cfg.letters.map((l) => {
             const has = availableLetters.has(l);
             return (
-              <button key={l} disabled={!has} onClick={() => jumpTo(l)}
-                style={{ fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif", fontSize: 13, padding: "2px 0", border: "none", background: "none", color: has ? cfg.accent : "rgba(var(--border-rgb),0.2)", fontWeight: has ? 700 : 400, cursor: has ? "pointer" : "default", textAlign: "center" }}>
+              <button key={l} disabled={!has} onClick={() => jumpTo(l)} className="letter-rail-btn touch-target"
+                style={{ fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif", fontSize: 13, padding: "4px 0", minHeight: 28, border: "none", background: "none", color: has ? cfg.accent : "rgba(var(--border-rgb),0.2)", fontWeight: has ? 700 : 400, cursor: has ? "pointer" : "default", textAlign: "center" }}>
                 {l}
               </button>
             );
@@ -790,7 +793,7 @@ export default function MainView({
           <AccountModal
             account={accounts.find((a) => a.code === accountCode) || { name, code: accountCode, role: isAdmin ? "admin" : "user" }}
             onClose={onCloseAccount}
-            onSave={onUpdateOwnName}
+            onSave={onUpdateOwnAccount}
             isAr={isAr}
           />
         )}

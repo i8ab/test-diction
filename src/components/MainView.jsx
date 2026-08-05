@@ -53,20 +53,27 @@ export default function MainView({
   const studiedPct = sectionEntries.length ? (studiedCount / sectionEntries.length) * 100 : 0;
   const notStudiedPct = 100 - studiedPct;
   const accountNameByCode = useMemo(() => Object.fromEntries(accounts.map((a) => [a.code, a.name])), [accounts]);
-  const [voiceListening, setVoiceListening] = useState(false);
+  // "preparing": button pressed but the mic isn't armed yet (permission /
+  // hardware startup can take a noticeable beat) — talking during this
+  // window is silently lost. "listening": recognition's own onstart fired,
+  // so it's actually capturing audio. Waiting for onstart before treating
+  // it as "listening" (instead of flipping the flag at click time) fixes
+  // attempts getting dropped because the user spoke a moment too early.
+  const [voiceMicState, setVoiceMicState] = useState("idle"); // idle | preparing | listening
+  const voiceListening = voiceMicState !== "idle";
   const speechSupported = useMemo(() => !!getSpeechRecognitionCtor(), []);
   const handleVoiceSearch = useCallback(async () => {
     if (!speechSupported || voiceListening) return;
-    setVoiceListening(true);
+    setVoiceMicState("preparing");
     try {
       const lang = isAr ? "ar-EG" : "en-US";
-      const text = await recognizeSpeech(lang);
+      const text = await recognizeSpeech(lang, { onStart: () => setVoiceMicState("listening") });
       setQuery(text);
       setShowSuggestions(true);
     } catch (e) {
       showToast(tr(isAr, "Didn't catch that — try again.", "معرفتش أسمع صح — جرّب تاني."));
     } finally {
-      setVoiceListening(false);
+      setVoiceMicState("idle");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speechSupported, voiceListening, isAr]);
@@ -459,8 +466,9 @@ export default function MainView({
               style={{ width: "100%", padding: "10px 12px", paddingInlineStart: 36, paddingInlineEnd: speechSupported ? 38 : 12, fontSize: 14, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, background: "var(--input-bg)", color: INK }} />
             {speechSupported && (
               <button type="button" onClick={handleVoiceSearch} disabled={voiceListening}
-                title={tr(isAr, "Search by voice", "بحث صوتي")} aria-label={tr(isAr, "Search by voice", "بحث صوتي")}
-                className={voiceListening ? "voice-mic-active" : undefined}
+                title={voiceMicState === "listening" ? tr(isAr, "Listening — speak now", "بسمع دلوقتي — اتكلم") : tr(isAr, "Search by voice", "بحث صوتي")}
+                aria-label={tr(isAr, "Search by voice", "بحث صوتي")}
+                className={voiceMicState === "listening" ? "voice-mic-active" : undefined}
                 style={{ position: "absolute", insetInlineEnd: 8, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, border: "none", background: "none", color: voiceListening ? cfg.accent : "var(--icon-muted)", cursor: voiceListening ? "default" : "pointer", padding: 0 }}>
                 <MicIcon size={15} />
               </button>

@@ -161,6 +161,45 @@ export default function DictionaryApp() {
     }
   }
 
+  // TEMPORARY — test push now. Remove after verifying notifications work
+  // (also remove api/push-test.js, the HeaderMenu button, and the vite route).
+  async function testReminderPush() {
+    if (!accountCode) {
+      showToast("سجّل الدخول أولاً / Sign in first");
+      return;
+    }
+    try {
+      if (pushSupported()) {
+        const sub = await subscribeToPush(accountCode);
+        if (!sub.ok) {
+          showToast(sub.error === "denied"
+            ? "الإذن مرفوض — فعّل الإشعارات من إعدادات المتصفح"
+            : "مفيش اشتراك Push — فعّل التذكيرات الأول");
+          return;
+        }
+        setRemindersOn(true);
+        try { localStorage.setItem(REMINDER_PREF_KEY, "1"); } catch (e) {}
+      }
+      const r = await fetch("/api/push-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: accountCode }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok) {
+        showToast("اتبعت إشعار تجريبي — شوف شريط الإشعارات ✓");
+      } else if (data.error === "no_subscription") {
+        showToast("مفيش اشتراك محفوظ — فعّل التذكيرات ووافق على الإذن");
+      } else if (data.error === "subscription_expired") {
+        showToast("الاشتراك انتهى — أوقف التذكيرات وشغّلها تاني");
+      } else {
+        showToast(data.message || data.error || `فشل الإرسال (${r.status})`);
+      }
+    } catch (e) {
+      showToast("خطأ شبكة أثناء تجربة الإشعار");
+    }
+  }
+
   function showToast(message) {
     setToast(message);
     setTimeout(() => setToast(""), 3000);
@@ -881,7 +920,7 @@ export default function DictionaryApp() {
       accentTheme={accentTheme} onChangeAccent={setAccentTheme}
       appIsAr={appIsAr} onToggleAppLang={toggleAppLang}
       sessionStart={sessionStartRef.current}
-      remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={enableReminders} onDisableReminders={disableReminders}
+      remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={enableReminders} onDisableReminders={disableReminders} onTestReminder={testReminderPush}
     />
   );
 }

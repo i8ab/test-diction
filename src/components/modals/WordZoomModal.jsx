@@ -19,23 +19,29 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
   // scorePronunciation in lib/utils/speech.js). Hidden entirely when the
   // browser has no SpeechRecognition support.
   const speechSupported = useMemo(() => !!getSpeechRecognitionCtor(), []);
-  const [listening, setListening] = useState(false);
+  // "preparing": button pressed, mic not armed yet (permission/hardware
+  // startup) — the user should NOT talk yet, since audio in this window is
+  // silently lost. "listening": the recognizer's own onstart fired, so it's
+  // actually capturing audio now. Splitting these two states (instead of a
+  // single "listening" flag flipped at click time) is what fixes attempts
+  // being missed because the person started talking a beat too early.
+  const [micState, setMicState] = useState("idle"); // idle | preparing | listening
   const [pronResult, setPronResult] = useState(null); // { transcript, score, passed } | null
   const [pronError, setPronError] = useState("");
 
   async function handlePracticePronunciation() {
-    if (listening) return;
-    setListening(true);
+    if (micState !== "idle") return;
+    setMicState("preparing");
     setPronError("");
     setPronResult(null);
     try {
       const lang = cfg.wordDir === "rtl" ? "ar-EG" : "en-US";
-      const result = await scorePronunciation(entry.word, lang);
+      const result = await scorePronunciation(entry.word, lang, () => setMicState("listening"));
       setPronResult(result);
     } catch (e) {
       setPronError(tr(isAr, "Didn't catch that — try again.", "معرفتش أسمع صح — جرّب تاني."));
     } finally {
-      setListening(false);
+      setMicState("idle");
     }
   }
 
@@ -78,10 +84,14 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
         </div>
         {speechSupported && (
           <div style={{ marginTop: 18 }}>
-            <button type="button" onClick={handlePracticePronunciation} disabled={listening}
-              style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 16px", fontSize: 13, fontWeight: 700, color: "#fff", background: listening ? "var(--muted)" : cfg.accent, border: "none", borderRadius: 20, cursor: listening ? "default" : "pointer" }}>
+            <button type="button" onClick={handlePracticePronunciation} disabled={micState !== "idle"}
+              style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 16px", fontSize: 13, fontWeight: 700, color: "#fff", background: micState !== "idle" ? "var(--muted)" : cfg.accent, border: "none", borderRadius: 20, cursor: micState !== "idle" ? "default" : "pointer" }}>
               <MicIcon size={14} />
-              {listening ? tr(isAr, "Listening…", "بسمع دلوقتي…") : tr(isAr, "Practice pronunciation", "تمرين النطق")}
+              {micState === "listening"
+                ? tr(isAr, "Listening — speak now…", "بسمع دلوقتي — اتكلم…")
+                : micState === "preparing"
+                ? tr(isAr, "One sec…", "لحظة واحدة…")
+                : tr(isAr, "Practice pronunciation", "تمرين النطق")}
             </button>
             {pronResult && (
               <div style={{ marginTop: 10, fontSize: 13, color: pronResult.passed ? "var(--success)" : "var(--muted-strong)" }}>

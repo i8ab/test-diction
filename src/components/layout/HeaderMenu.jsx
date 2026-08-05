@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
 import { ACCENT_THEMES } from "../../lib/state/storage";
 import {
-  UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon,
+  UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon, CheckIcon, TrashIcon,
 } from "../common/Icons";
 
 export default function HeaderMenu({
@@ -11,14 +11,22 @@ export default function HeaderMenu({
   remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
   reminderTitle, onChangeReminderTitle,
   reminderMessage, onChangeReminderMessage,
+  pendingAccounts = [],
+  onApproveRequest,
+  onRejectRequest,
 }) {
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [requestsOpen, setRequestsOpen] = useState(false);
+  const [busyCode, setBusyCode] = useState(null);
   const ref = useRef(null);
+
+  const pendingCount = (pendingAccounts || []).length;
 
   function closeMenu() {
     setOpen(false);
     setNotifOpen(false);
+    setRequestsOpen(false);
   }
 
   useEffect(() => {
@@ -35,7 +43,7 @@ export default function HeaderMenu({
 
   function itemClick(fn) { fn(); }
 
-  const itemStyle = { position: "relative", display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px", fontSize: 13.5, fontWeight: 600, color: "var(--ink)", background: "none", border: "none", borderRadius: 9, textAlign: "start", cursor: "pointer" };
+  const itemStyle = { position: "relative", display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "11px 12px", minHeight: 44, fontSize: 13.5, fontWeight: 600, color: "var(--ink)", background: "none", border: "none", borderRadius: 9, textAlign: "start", cursor: "pointer" };
   const iconWrapStyle = (bg) => ({ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 8, background: bg, flexShrink: 0 });
 
   function Row({ icon, label, onClick, disabled, tint, danger, trailing }) {
@@ -43,7 +51,7 @@ export default function HeaderMenu({
       <button
         role="menuitem"
         disabled={disabled}
-        className="header-menu-item"
+        className="header-menu-item touch-target"
         style={{ ...itemStyle, color: danger ? "var(--danger)" : "var(--ink)", opacity: disabled ? 0.55 : 1, cursor: disabled ? "default" : "pointer" }}
         onClick={() => { if (!disabled) itemClick(onClick); }}
       >
@@ -63,11 +71,30 @@ export default function HeaderMenu({
     border: "1px solid rgba(var(--border-rgb),0.22)", borderRadius: 8, outline: "none",
   };
 
+  async function approve(code) {
+    if (!onApproveRequest) return;
+    setBusyCode(code);
+    try { await onApproveRequest(code); } finally { setBusyCode(null); }
+  }
+  async function reject(code) {
+    if (!onRejectRequest) return;
+    setBusyCode(code);
+    try { await onRejectRequest(code); } finally { setBusyCode(null); }
+  }
+
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button onClick={() => setOpen((o) => !o)} title={tr(isAr, "Menu", "القائمة")} aria-label={tr(isAr, "Menu", "القائمة")} aria-expanded={open} className="lift-hover"
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, border: "1px solid rgba(var(--border-rgb),0.25)", background: "none", color: "var(--icon-muted)", borderRadius: 10, cursor: "pointer" }}>
+      <button onClick={() => setOpen((o) => !o)} title={tr(isAr, "Menu", "القائمة")} aria-label={tr(isAr, "Menu", "القائمة")} aria-expanded={open} className="lift-hover touch-target"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, border: "1px solid rgba(var(--border-rgb),0.25)", background: "none", color: "var(--icon-muted)", borderRadius: 10, cursor: "pointer", position: "relative" }}>
         <MenuIcon size={16} />
+        {isAdmin && pendingCount > 0 && (
+          <span style={{
+            position: "absolute", top: -3, insetInlineEnd: -3, minWidth: 16, height: 16, borderRadius: 8,
+            background: "var(--danger)", color: "#fff", fontSize: 10, fontWeight: 700,
+            display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px",
+            boxShadow: "0 0 0 2px var(--card)",
+          }}>{pendingCount > 9 ? "9+" : pendingCount}</span>
+        )}
       </button>
       {open && (
         <>
@@ -76,8 +103,24 @@ export default function HeaderMenu({
             .header-menu-item:hover:not(:disabled) { background: var(--input-bg); }
             .header-menu-item:active:not(:disabled) { background: var(--input-bg); opacity: 0.9; }
             .header-menu-swatch { transition: box-shadow 0.12s ease; }
+            .header-menu-panel {
+              position: absolute; top: calc(100% + 8px); inset-inline-end: 0;
+              min-width: min(280px, calc(100vw - 24px)); max-width: min(320px, calc(100vw - 16px));
+              background: var(--card); border: 1px solid rgba(var(--border-rgb),0.14);
+              border-radius: 17px;
+              box-shadow: 0 22px 48px -18px rgba(0,0,0,0.42), 0 2px 8px -2px rgba(0,0,0,0.15);
+              overflow: hidden; z-index: 40;
+            }
+            @media (max-width: 480px) {
+              .header-menu-panel {
+                position: fixed; top: auto; bottom: 0; inset-inline: 0;
+                max-width: none; min-width: 0; width: 100%;
+                border-radius: 18px 18px 0 0;
+                max-height: min(85dvh, 640px);
+              }
+            }
           `}</style>
-          <div className="header-menu-panel" role="menu" style={{ position: "absolute", top: "calc(100% + 8px)", insetInlineEnd: 0, minWidth: 250, maxWidth: 300, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.14)", borderRadius: 17, boxShadow: "0 22px 48px -18px rgba(0,0,0,0.42), 0 2px 8px -2px rgba(0,0,0,0.15)", overflow: "hidden", zIndex: 40 }}>
+          <div className="header-menu-panel" role="menu">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 8px" }}>
               <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
                 {tr(isAr, "Menu", "القائمة")}
@@ -85,19 +128,89 @@ export default function HeaderMenu({
               <button
                 type="button"
                 aria-label={tr(isAr, "Close", "إغلاق")}
+                className="touch-target"
                 onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); closeMenu(); }}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", color: "var(--icon-muted)", background: "var(--input-bg)", border: "none", cursor: "pointer", transition: "none" }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: "50%", color: "var(--icon-muted)", background: "var(--input-bg)", border: "none", cursor: "pointer" }}
               >
                 <XIcon size={12} />
               </button>
             </div>
-            <div style={{ overflowY: "auto", overflowX: "hidden", maxHeight: "min(420px, calc(100vh - 100px))", overscrollBehavior: "contain", padding: "0 6px 6px", display: "flex", flexDirection: "column", gap: 1 }}>
+            <div style={{ overflowY: "auto", overflowX: "hidden", maxHeight: "min(480px, calc(100dvh - 100px))", overscrollBehavior: "contain", padding: "0 6px 6px", display: "flex", flexDirection: "column", gap: 1 }}>
               <Row
                 tint="#f5a623"
                 icon={theme === "dark" ? <SunIcon size={14} /> : <MoonIcon size={14} />}
                 label={theme === "dark" ? tr(isAr, "Light Mode", "الوضع الفاتح") : tr(isAr, "Dark Mode", "الوضع الداكن")}
                 onClick={onToggleTheme}
               />
+
+              {/* ========== New account requests (admins) ========== */}
+              {isAdmin && (
+                <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 4, paddingTop: 4 }}>
+                  <Row
+                    tint="#af52de"
+                    icon={<UsersIcon size={14} />}
+                    label={tr(isAr, "New requests", "طلبات جديدة")}
+                    onClick={() => setRequestsOpen((v) => !v)}
+                    trailing={
+                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {pendingCount > 0 && (
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: "var(--danger)", borderRadius: 10, padding: "2px 7px" }}>
+                            {pendingCount}
+                          </span>
+                        )}
+                        <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>{requestsOpen ? "▾" : (isAr ? "◂" : "▸")}</span>
+                      </span>
+                    }
+                  />
+                  {requestsOpen && (
+                    <div onPointerDown={(e) => e.stopPropagation()} style={{ padding: "6px 8px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
+                      {pendingCount === 0 ? (
+                        <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "8px 6px", lineHeight: 1.45 }}>
+                          {tr(isAr, "No pending account requests.", "لا توجد طلبات حساب معلّقة.")}
+                        </div>
+                      ) : (
+                        pendingAccounts.map((a) => (
+                          <div key={a.code} style={{
+                            border: "1px solid rgba(var(--border-rgb),0.16)", borderRadius: 10,
+                            padding: "10px 10px", background: "var(--input-bg)",
+                          }}>
+                            <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>{a.name}</div>
+                            <div style={{ fontSize: 12, color: "var(--muted-strong)", fontFamily: "ui-monospace, monospace", marginTop: 2 }} dir="ltr">@{a.username || "—"}</div>
+                            <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                              <button
+                                type="button"
+                                disabled={busyCode === a.code}
+                                className="touch-target"
+                                onClick={() => approve(a.code)}
+                                style={{
+                                  flex: 1, minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                                  padding: "8px 10px", borderRadius: 8, border: "none", cursor: "pointer",
+                                  fontSize: 12.5, fontWeight: 700, color: "#fff", background: "var(--success)",
+                                }}
+                              >
+                                <CheckIcon size={13} /> {tr(isAr, "Approve", "موافقة")}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busyCode === a.code}
+                                className="touch-target"
+                                onClick={() => reject(a.code)}
+                                style={{
+                                  flex: 1, minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                                  padding: "8px 10px", borderRadius: 8, border: "1px solid var(--danger)", cursor: "pointer",
+                                  fontSize: 12.5, fontWeight: 700, color: "var(--danger)", background: "transparent",
+                                }}
+                              >
+                                <TrashIcon size={13} /> {tr(isAr, "Reject", "رفض")}
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* ========== Notifications section ========== */}
               {(onEnableReminders || onDisableReminders) && (
@@ -109,7 +222,7 @@ export default function HeaderMenu({
                     onClick={() => setNotifOpen((v) => !v)}
                     trailing={
                       <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
-                        {notifOpen ? (isAr ? "▾" : "▾") : (isAr ? "◂" : "▸")}
+                        {notifOpen ? "▾" : (isAr ? "◂" : "▸")}
                       </span>
                     }
                   />
@@ -118,14 +231,14 @@ export default function HeaderMenu({
                       onPointerDown={(e) => e.stopPropagation()}
                       style={{ padding: "6px 10px 12px", display: "flex", flexDirection: "column", gap: 10 }}
                     >
-                      {/* On / Off toggle */}
                       <button
                         type="button"
                         disabled={remindersBusy}
+                        className="touch-target"
                         onClick={() => { if (remindersOn) onDisableReminders(); else onEnableReminders(); }}
                         style={{
                           display: "flex", alignItems: "center", justifyContent: "space-between",
-                          width: "100%", padding: "9px 12px", borderRadius: 10, cursor: remindersBusy ? "default" : "pointer",
+                          width: "100%", padding: "9px 12px", minHeight: 44, borderRadius: 10, cursor: remindersBusy ? "default" : "pointer",
                           border: "1px solid rgba(var(--border-rgb),0.18)", background: "var(--input-bg)",
                           fontSize: 13, fontWeight: 600, color: "var(--ink)",
                         }}
@@ -150,7 +263,6 @@ export default function HeaderMenu({
                           "تذكير يومي الساعة 5:00 صباحًا (توقيت مصر)، حتى لو ذاكرت.")}
                       </div>
 
-                      {/* Custom title */}
                       <div>
                         <label style={fieldLabel}>{tr(isAr, "Notification title", "عنوان الإشعار")}</label>
                         <input
@@ -164,7 +276,6 @@ export default function HeaderMenu({
                         />
                       </div>
 
-                      {/* Custom message */}
                       <div>
                         <label style={fieldLabel}>{tr(isAr, "Notification message", "نص الإشعار")}</label>
                         <textarea
@@ -185,7 +296,6 @@ export default function HeaderMenu({
                         </div>
                       </div>
 
-                      {/* Live preview card */}
                       <div style={{
                         border: "1px solid rgba(var(--border-rgb),0.18)", borderRadius: 10,
                         padding: "10px 12px", background: "var(--paper)",
@@ -205,14 +315,14 @@ export default function HeaderMenu({
                         </div>
                       </div>
 
-                      {/* Test button — sends the final notification shape */}
                       {onTestReminder && (
                         <button
                           type="button"
                           onClick={onTestReminder}
+                          className="touch-target"
                           style={{
                             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                            width: "100%", padding: "9px 12px", borderRadius: 10, cursor: "pointer",
+                            width: "100%", padding: "10px 12px", minHeight: 44, borderRadius: 10, cursor: "pointer",
                             border: "none", fontSize: 13, fontWeight: 700, color: "#fff",
                             background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
                           }}
@@ -238,8 +348,8 @@ export default function HeaderMenu({
                       return (
                         <button key={key} type="button" onClick={() => onChangeAccent(key)}
                           title={tr(isAr, t.label.en, t.label.ar)} aria-label={tr(isAr, t.label.en, t.label.ar)}
-                          className="header-menu-swatch"
-                          style={{ width: 24, height: 24, borderRadius: "50%", background: swatch, border: active ? "2px solid var(--ink)" : "1px solid rgba(var(--border-rgb),0.3)", cursor: "pointer", padding: 0, boxShadow: active ? "0 0 0 3px var(--card), 0 0 0 4px " + swatch + "55" : "none" }} />
+                          className="header-menu-swatch touch-target"
+                          style={{ width: 28, height: 28, borderRadius: "50%", background: swatch, border: active ? "2px solid var(--ink)" : "1px solid rgba(var(--border-rgb),0.3)", cursor: "pointer", padding: 0, boxShadow: active ? "0 0 0 3px var(--card), 0 0 0 4px " + swatch + "55" : "none" }} />
                       );
                     })}
                   </div>

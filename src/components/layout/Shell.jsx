@@ -28,7 +28,7 @@ function LanguageToggle({ isAr, onToggle, floating = true }) {
 
 function Shell({ children }) {
   return (
-    <div style={{ position: "relative", minHeight: "100vh", background: PAPER, backgroundImage: "radial-gradient(circle at 1px 1px, rgba(var(--border-rgb),0.06) 1px, transparent 0)", backgroundSize: "18px 18px", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, overflow: "hidden" }}>
+    <div style={{ position: "relative", minHeight: "100dvh", background: PAPER, backgroundImage: "radial-gradient(circle at 1px 1px, rgba(var(--border-rgb),0.06) 1px, transparent 0)", backgroundSize: "18px 18px", display: "flex", alignItems: "center", justifyContent: "center", padding: "clamp(12px, 3vw, 28px)", overflow: "hidden" }}>
       <div className="auth-orb" style={{ width: 320, height: 320, top: "-8%", insetInlineStart: "-6%", background: "radial-gradient(circle, var(--accent-1) 0%, transparent 70%)", animationDuration: "12s" }} />
       <div className="auth-orb" style={{ width: 260, height: 260, bottom: "-8%", insetInlineEnd: "-4%", background: "radial-gradient(circle, var(--accent-2) 0%, transparent 70%)", animationDuration: "14s", animationDelay: "-4s" }} />
       <div className="auth-orb" style={{ width: 180, height: 180, top: "38%", insetInlineEnd: "8%", background: "radial-gradient(circle, var(--focus-rgb, 25,167,206), transparent 70%)", opacity: 0.28, animationDuration: "9s", animationDelay: "-2s" }} />

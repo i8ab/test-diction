@@ -38,23 +38,29 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
     setCenter({ x: cx, y: cy, openUpward });
   }, []);
 
+  // Close instantly — no exit animation, no transition delay.
+  function closeMenu() {
+    setOpen(false);
+  }
+
   useEffect(() => {
     if (!open) return;
     computeCenter();
     function onDocClick(e) {
       if (btnRef.current?.contains(e.target)) return;
       if (menuRef.current?.contains(e.target)) return;
-      setOpen(false);
+      closeMenu();
     }
-    function onKeyDown(e) { if (e.key === "Escape") setOpen(false); }
+    function onKeyDown(e) { if (e.key === "Escape") closeMenu(); }
     window.addEventListener("scroll", computeCenter, true);
     window.addEventListener("resize", computeCenter);
-    document.addEventListener("mousedown", onDocClick);
+    // pointerdown fires earlier than click → outside-close feels instant
+    document.addEventListener("pointerdown", onDocClick);
     document.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener("scroll", computeCenter, true);
       window.removeEventListener("resize", computeCenter);
-      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("pointerdown", onDocClick);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open, computeCenter]);
@@ -79,17 +85,12 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
   const menu = open && center && (
     <div ref={menuRef} role="menu" style={{ position: "fixed", inset: 0, zIndex: 1000, pointerEvents: "none" }}>
       <style>{`
-        @keyframes toolsWheelRing { from { transform: scale(0.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        @keyframes toolsWheelPop { from { transform: scale(0.2) translate(var(--hx,0), var(--hy,0)); opacity: 0; } to { transform: scale(1) translate(0, 0); opacity: 1; } }
-        .tools-wheel-hub { animation: toolsWheelRing 0.3s cubic-bezier(0.34,1.56,0.64,1) both; }
-        .tools-wheel-item { transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.22s ease, border-color 0.22s ease; }
-        .tools-wheel-item:hover:not(:disabled) { transform: scale(1.22); box-shadow: 0 12px 26px -8px rgba(0,0,0,0.5); }
-        .tools-wheel-item:active:not(:disabled) { transform: scale(1.05); }
-        .tools-wheel-label { transition: opacity 0.15s ease, transform 0.15s ease; }
+        /* No entrance/exit animations — open and close are instant. */
+        .tools-wheel-item:hover:not(:disabled) { transform: scale(1.12); box-shadow: 0 12px 26px -8px rgba(0,0,0,0.5); }
+        .tools-wheel-item:active:not(:disabled) { transform: scale(1.02); }
       `}</style>
-      {/* Soft glow ring behind the hub, purely decorative, echoes the wheel look */}
+      {/* Soft glow ring behind the hub, purely decorative */}
       <div
-        className="tools-wheel-hub"
         style={{
           position: "absolute",
           left: center.x - (RADIUS + SATELLITE_SIZE / 2),
@@ -105,7 +106,6 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
       {items.map((it, i) => {
         const angle = startAngle + step * i;
         const { x, y } = polar(center.x, center.y, RADIUS, angle);
-        const hx = center.x - x, hy = center.y - y; // pop out from the hub's position
         const hovered = hoverKey === it.key;
         return (
           <div key={it.key} style={{ position: "absolute", left: x, top: y, transform: "translate(-50%, -50%)", pointerEvents: "auto" }}>
@@ -133,16 +133,12 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
                 opacity: it.disabled ? 0.4 : 1,
                 cursor: it.disabled ? "default" : "pointer",
                 boxShadow: "0 10px 22px -10px rgba(0,0,0,0.45)",
-                animation: `toolsWheelPop 0.32s cubic-bezier(0.22,1,0.36,1) both`,
-                animationDelay: `${i * 0.03}s`,
-                "--hx": `${hx}px`,
-                "--hy": `${hy}px`,
+                transition: "none",
               }}
             >
               {it.icon}
             </button>
             <span
-              className="tools-wheel-label"
               style={{
                 position: "absolute",
                 top: "50%",
@@ -166,12 +162,11 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
           </div>
         );
       })}
-      {/* Hub itself: a close button sitting where the trigger is, so tapping
-          the center — same spot the user just tapped to open it — closes it. */}
+      {/* Hub close (X): pointerdown closes instantly — no animation. */}
       <button
         type="button"
         aria-label={tr(isAr, "Close", "إغلاق")}
-        onClick={() => setOpen(false)}
+        onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); closeMenu(); }}
         style={{
           position: "absolute",
           left: center.x,
@@ -189,6 +184,7 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
           cursor: "pointer",
           boxShadow: `0 8px 20px -6px ${accent}88`,
           pointerEvents: "auto",
+          transition: "none",
         }}
       >
         <XIcon size={16} />
@@ -213,7 +209,7 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
           background: open ? accent : "var(--card)",
           border: `1px solid ${accent}40`,
           cursor: "pointer",
-          transition: "background 0.2s ease, color 0.2s ease",
+          transition: "none",
           opacity: open ? 0 : 1,
           pointerEvents: open ? "none" : "auto",
         }}

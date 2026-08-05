@@ -38,6 +38,38 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
     setLearningCount(0);
   }
 
+  // Printable version of the current word pool — opens a plain HTML page in
+  // a new tab and triggers the browser's print dialog, where "Save as PDF"
+  // is one of the built-in destinations. No extra library needed (jsPDF
+  // etc.) since every browser already ships a print-to-PDF path.
+  function exportPoolAsPdf() {
+    const w = window.open("", "_blank");
+    if (!w) return; // popup blocked — silently give up rather than error
+    const rowsHtml = pool.map((e) => `
+      <tr>
+        <td dir="${cfg.wordDir}" style="font-weight:600;padding:8px 10px;border-bottom:1px solid #ddd;">${escapeHtml(e.word)}</td>
+        <td dir="${cfg.meaningDir}" style="padding:8px 10px;border-bottom:1px solid #ddd;">${escapeHtml(e.meaning)}</td>
+      </tr>`).join("");
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(sectionLabel || "Flashcards")}</title>
+      <style>
+        body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; padding: 24px; }
+        h1 { font-size: 18px; margin-bottom: 4px; }
+        p { color: #666; font-size: 12px; margin-top: 0 0 16px; }
+        table { width: 100%; border-collapse: collapse; }
+        @media print { body { padding: 0; } }
+      </style></head>
+      <body>
+        <h1>${escapeHtml(sectionLabel || "Flashcards")}</h1>
+        <p>${pool.length} ${isAr ? "كلمة" : "words"}</p>
+        <table>${rowsHtml}</table>
+        <script>window.onload = () => window.print();</script>
+      </body></html>`);
+    w.document.close();
+  }
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
   function advance(knew) {
     if (knew) setKnewCount((c) => c + 1); else setLearningCount((c) => c + 1);
     setPulse(knew ? "knew" : "learning");
@@ -89,6 +121,10 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
             <button type="button" onClick={startDeck} disabled={pool.length === 0} className="btn-shine"
               style={{ ...primaryBtnStyle, opacity: pool.length === 0 ? 0.5 : 1, cursor: pool.length === 0 ? "default" : "pointer" }}>
               <LayersIcon size={16} /> {tr(isAr, "Start reviewing", "ابدأ المراجعة")}
+            </button>
+            <button type="button" onClick={exportPoolAsPdf} disabled={pool.length === 0}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, marginInlineStart: 10, padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 20, border: "1px solid rgba(var(--border-rgb),0.25)", background: "none", color: pool.length === 0 ? "var(--icon-muted)" : "var(--muted-strong)", cursor: pool.length === 0 ? "default" : "pointer" }}>
+              {tr(isAr, "Export as PDF", "تصدير PDF")}
             </button>
           </div>
         )}

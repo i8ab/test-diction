@@ -44,7 +44,7 @@ export default function MainView({
   toast, showToast, theme, onToggleTheme, accentTheme, onChangeAccent,
   appIsAr, onToggleAppLang,
   sessionStart,
-  remindersOn, remindersBusy, onEnableReminders, onDisableReminders,
+  remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
 }) {
   const cfg = SECTIONS[section];
   const isAr = section === "ar-ar";
@@ -429,7 +429,7 @@ export default function MainView({
               <HeaderMenu theme={theme} onToggleTheme={onToggleTheme} isAdmin={isAdmin}
                 onOpenAccount={onOpenAccount} onOpenAdmin={onOpenAdmin} onLogout={onLogout} isAr={appIsAr}
                 accentTheme={accentTheme} onChangeAccent={onChangeAccent}
-                remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={onEnableReminders} onDisableReminders={onDisableReminders} />
+                remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={onEnableReminders} onDisableReminders={onDisableReminders} onTestReminder={onTestReminder} />
             </div>
           </div>
           <div style={{ display: "flex", gap: 4, marginTop: 16 }}>

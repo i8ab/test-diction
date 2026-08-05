@@ -122,30 +122,43 @@ export default function DictionaryApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountCode]);
 
+  // Optimistic UI: flip the toggle immediately so the menu feels instant.
+  // Network / permission work runs in the background; if enable fails
+  // (permission denied, unsupported, server error) we roll the flag back.
   async function enableReminders() {
+    if (remindersBusy) return;
+    setRemindersOn(true);
+    try { localStorage.setItem(REMINDER_PREF_KEY, "1"); } catch (e) {}
     setRemindersBusy(true);
     try {
       if (pushSupported() && accountCode) {
         const result = await subscribeToPush(accountCode);
-        if (!result.ok) { setRemindersBusy(false); return; }
+        if (!result.ok) {
+          setRemindersOn(false);
+          try { localStorage.removeItem(REMINDER_PREF_KEY); } catch (e) {}
+        }
       } else if (typeof Notification !== "undefined" && Notification.permission !== "granted") {
         const perm = await Notification.requestPermission();
-        if (perm !== "granted") { setRemindersBusy(false); return; }
+        if (perm !== "granted") {
+          setRemindersOn(false);
+          try { localStorage.removeItem(REMINDER_PREF_KEY); } catch (e) {}
+        }
       }
-      setRemindersOn(true);
-      try { localStorage.setItem(REMINDER_PREF_KEY, "1"); } catch (e) {}
-    } catch (e) { /* ignore — nothing to enable if this failed */ }
+    } catch (e) {
+      setRemindersOn(false);
+      try { localStorage.removeItem(REMINDER_PREF_KEY); } catch (err) {}
+    }
     setRemindersBusy(false);
   }
 
   async function disableReminders() {
-    setRemindersBusy(true);
-    try {
-      if (accountCode) await unsubscribeFromPush(accountCode);
-    } catch (e) { /* ignore — still clear the local flag below */ }
     setRemindersOn(false);
     try { localStorage.removeItem(REMINDER_PREF_KEY); } catch (e) {}
     setRemindersBusy(false);
+    // Unsubscribe in the background — UI is already off, no lag.
+    if (accountCode) {
+      try { await unsubscribeFromPush(accountCode); } catch (e) { /* ignore */ }
+    }
   }
 
   function showToast(message) {

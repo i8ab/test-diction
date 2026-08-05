@@ -1,24 +1,32 @@
 import { useState, useEffect, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
 import { ACCENT_THEMES } from "../../lib/state/storage";
+import { REMINDER_INTERVAL_OPTIONS } from "../../lib/state/push";
 import {
   UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon,
 } from "../common/Icons";
 
-export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin, onLogout, isAr, accentTheme, onChangeAccent, remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder }) {
+export default function HeaderMenu({
+  theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin, onLogout, isAr,
+  accentTheme, onChangeAccent,
+  remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
+  reminderIntervalHours, onChangeReminderInterval,
+  reminderTitle, onChangeReminderTitle,
+  reminderMessage, onChangeReminderMessage,
+}) {
   const [open, setOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const ref = useRef(null);
 
-  // Close instantly — no exit animation, no transition delay.
   function closeMenu() {
     setOpen(false);
+    setNotifOpen(false);
   }
 
   useEffect(() => {
     if (!open) return;
     function onDocClick(e) { if (ref.current && !ref.current.contains(e.target)) closeMenu(); }
     function onKeyDown(e) { if (e.key === "Escape") closeMenu(); }
-    // pointerdown fires earlier than click, so outside-close feels instant.
     document.addEventListener("pointerdown", onDocClick);
     document.addEventListener("keydown", onKeyDown);
     return () => {
@@ -27,14 +35,12 @@ export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccoun
     };
   }, [open]);
 
-  // Actions fire immediately but the menu stays open — it only closes via
-  // the X button, a click outside, or Escape.
   function itemClick(fn) { fn(); }
 
   const itemStyle = { position: "relative", display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px", fontSize: 13.5, fontWeight: 600, color: "var(--ink)", background: "none", border: "none", borderRadius: 9, textAlign: "start", cursor: "pointer" };
   const iconWrapStyle = (bg) => ({ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 8, background: bg, flexShrink: 0 });
 
-  function Row({ icon, label, onClick, disabled, tint, danger }) {
+  function Row({ icon, label, onClick, disabled, tint, danger, trailing }) {
     return (
       <button
         role="menuitem"
@@ -47,9 +53,17 @@ export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccoun
           <span style={{ color: danger ? "var(--danger)" : tint, display: "flex" }}>{icon}</span>
         </span>
         <span style={{ flex: 1, textAlign: "start" }}>{label}</span>
+        {trailing}
       </button>
     );
   }
+
+  const fieldLabel = { display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.03em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 5 };
+  const fieldInput = {
+    width: "100%", boxSizing: "border-box", padding: "8px 10px", fontSize: 13,
+    fontFamily: "inherit", color: "var(--ink)", background: "var(--input-bg)",
+    border: "1px solid rgba(var(--border-rgb),0.22)", borderRadius: 8, outline: "none",
+  };
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
@@ -65,8 +79,7 @@ export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccoun
             .header-menu-item:active:not(:disabled) { background: var(--input-bg); opacity: 0.9; }
             .header-menu-swatch { transition: box-shadow 0.12s ease; }
           `}</style>
-          {/* No entrance/exit animation — panel appears and disappears instantly for a snappy close on X. */}
-          <div className="header-menu-panel" role="menu" style={{ position: "absolute", top: "calc(100% + 8px)", insetInlineEnd: 0, minWidth: 210, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.14)", borderRadius: 17, boxShadow: "0 22px 48px -18px rgba(0,0,0,0.42), 0 2px 8px -2px rgba(0,0,0,0.15)", overflow: "hidden", zIndex: 40 }}>
+          <div className="header-menu-panel" role="menu" style={{ position: "absolute", top: "calc(100% + 8px)", insetInlineEnd: 0, minWidth: 250, maxWidth: 300, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.14)", borderRadius: 17, boxShadow: "0 22px 48px -18px rgba(0,0,0,0.42), 0 2px 8px -2px rgba(0,0,0,0.15)", overflow: "hidden", zIndex: 40 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 8px" }}>
               <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
                 {tr(isAr, "Menu", "القائمة")}
@@ -80,30 +93,149 @@ export default function HeaderMenu({ theme, onToggleTheme, isAdmin, onOpenAccoun
                 <XIcon size={12} />
               </button>
             </div>
-            <div style={{ overflowY: "auto", overflowX: "hidden", maxHeight: "min(360px, calc(100vh - 100px))", overscrollBehavior: "contain", padding: "0 6px 6px", display: "flex", flexDirection: "column", gap: 1 }}>
+            <div style={{ overflowY: "auto", overflowX: "hidden", maxHeight: "min(420px, calc(100vh - 100px))", overscrollBehavior: "contain", padding: "0 6px 6px", display: "flex", flexDirection: "column", gap: 1 }}>
               <Row
                 tint="#f5a623"
                 icon={theme === "dark" ? <SunIcon size={14} /> : <MoonIcon size={14} />}
                 label={theme === "dark" ? tr(isAr, "Light Mode", "الوضع الفاتح") : tr(isAr, "Dark Mode", "الوضع الداكن")}
                 onClick={onToggleTheme}
               />
+
+              {/* ========== Notifications section ========== */}
               {(onEnableReminders || onDisableReminders) && (
-                <Row
-                  tint={remindersOn ? "#34c759" : "#8e8e93"}
-                  icon={remindersOn ? <BellIcon size={14} /> : <BellOffIcon size={14} />}
-                  label={remindersOn ? tr(isAr, "Reminders: On", "التذكيرات: مفعّلة") : tr(isAr, "Reminders: Off", "التذكيرات: متوقفة")}
-                  onClick={remindersOn ? onDisableReminders : onEnableReminders}
-                />
+                <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 4, paddingTop: 4 }}>
+                  <Row
+                    tint={remindersOn ? "#34c759" : "#8e8e93"}
+                    icon={remindersOn ? <BellIcon size={14} /> : <BellOffIcon size={14} />}
+                    label={tr(isAr, "Notifications", "الإشعارات")}
+                    onClick={() => setNotifOpen((v) => !v)}
+                    trailing={
+                      <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                        {notifOpen ? (isAr ? "▾" : "▾") : (isAr ? "◂" : "▸")}
+                      </span>
+                    }
+                  />
+                  {notifOpen && (
+                    <div
+                      onPointerDown={(e) => e.stopPropagation()}
+                      style={{ padding: "6px 10px 12px", display: "flex", flexDirection: "column", gap: 10 }}
+                    >
+                      {/* On / Off toggle */}
+                      <button
+                        type="button"
+                        disabled={remindersBusy}
+                        onClick={() => { if (remindersOn) onDisableReminders(); else onEnableReminders(); }}
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          width: "100%", padding: "9px 12px", borderRadius: 10, cursor: remindersBusy ? "default" : "pointer",
+                          border: "1px solid rgba(var(--border-rgb),0.18)", background: "var(--input-bg)",
+                          fontSize: 13, fontWeight: 600, color: "var(--ink)",
+                        }}
+                      >
+                        <span>{remindersOn ? tr(isAr, "Reminders: On", "التذكيرات: مفعّلة") : tr(isAr, "Reminders: Off", "التذكيرات: متوقفة")}</span>
+                        <span style={{
+                          width: 36, height: 20, borderRadius: 10, position: "relative", flexShrink: 0,
+                          background: remindersOn ? "#34c759" : "rgba(var(--border-rgb),0.35)",
+                          transition: "background 0.2s ease",
+                        }}>
+                          <span style={{
+                            position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff",
+                            insetInlineStart: remindersOn ? 18 : 2, transition: "inset-inline-start 0.2s ease",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+                          }} />
+                        </span>
+                      </button>
+
+                      {/* Interval */}
+                      <div>
+                        <label style={fieldLabel}>{tr(isAr, "Remind me every", "ذكّرني كل")}</label>
+                        <select
+                          value={reminderIntervalHours || 24}
+                          onChange={(e) => onChangeReminderInterval && onChangeReminderInterval(Number(e.target.value))}
+                          style={fieldInput}
+                        >
+                          {REMINDER_INTERVAL_OPTIONS.map((o) => (
+                            <option key={o.hours} value={o.hours}>{tr(isAr, o.en, o.ar)}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Custom title */}
+                      <div>
+                        <label style={fieldLabel}>{tr(isAr, "Notification title", "عنوان الإشعار")}</label>
+                        <input
+                          type="text"
+                          value={reminderTitle || ""}
+                          onChange={(e) => onChangeReminderTitle && onChangeReminderTitle(e.target.value)}
+                          placeholder={tr(isAr, "Time to review!", "وقت المراجعة!")}
+                          maxLength={120}
+                          style={fieldInput}
+                          dir="auto"
+                        />
+                      </div>
+
+                      {/* Custom message */}
+                      <div>
+                        <label style={fieldLabel}>{tr(isAr, "Notification message", "نص الإشعار")}</label>
+                        <textarea
+                          value={reminderMessage || ""}
+                          onChange={(e) => onChangeReminderMessage && onChangeReminderMessage(e.target.value)}
+                          placeholder={tr(
+                            isAr,
+                            "It's been a while since you studied — time for a quick review.",
+                            "عدّى وقت من غير ما تراجع — يلا نراجع شوية."
+                          )}
+                          maxLength={300}
+                          rows={3}
+                          style={{ ...fieldInput, resize: "vertical", minHeight: 64, lineHeight: 1.4 }}
+                          dir="auto"
+                        />
+                        <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 3, textAlign: "end" }}>
+                          {(reminderMessage || "").length}/300
+                        </div>
+                      </div>
+
+                      {/* Live preview card */}
+                      <div style={{
+                        border: "1px solid rgba(var(--border-rgb),0.18)", borderRadius: 10,
+                        padding: "10px 12px", background: "var(--paper)",
+                      }}>
+                        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>
+                          {tr(isAr, "Preview", "معاينة")}
+                        </div>
+                        <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)", marginBottom: 3, lineHeight: 1.3 }} dir="auto">
+                          {(reminderTitle && reminderTitle.trim()) || tr(isAr, "Time to review!", "وقت المراجعة!")}
+                        </div>
+                        <div style={{ fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.4 }} dir="auto">
+                          {(reminderMessage && reminderMessage.trim()) || tr(
+                            isAr,
+                            "It's been a while since you studied — time for a quick review.",
+                            "عدّى وقت من غير ما تراجع — يلا نراجع شوية."
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Test button — sends the final notification shape */}
+                      {onTestReminder && (
+                        <button
+                          type="button"
+                          onClick={onTestReminder}
+                          style={{
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                            width: "100%", padding: "9px 12px", borderRadius: 10, cursor: "pointer",
+                            border: "none", fontSize: 13, fontWeight: 700, color: "#fff",
+                            background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+                          }}
+                        >
+                          <BellIcon size={14} />
+                          {tr(isAr, "Send test notification", "ابعت إشعار تجريبي")}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
-              {/* TEMPORARY test button — remove with api/push-test.js after testing */}
-              {onTestReminder && (
-                <Row
-                  tint="#ff9f0a"
-                  icon={<BellIcon size={14} />}
-                  label={tr(isAr, "Send test notification", "ابعت إشعار تجريبي")}
-                  onClick={onTestReminder}
-                />
-              )}
+
               {onChangeAccent && (
                 <div style={{ padding: "10px 12px", marginTop: 2, borderTop: "1px solid rgba(var(--border-rgb),0.12)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, color: "var(--icon-muted)", marginBottom: 9 }}>

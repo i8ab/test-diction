@@ -7,6 +7,11 @@
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "";
 
+// localStorage flag for whether the person opted into study reminders —
+// shared between the header-menu toggle and the in-list reminder banner so
+// both reflect the same on/off state.
+export const REMINDER_PREF_KEY = "twoTongues.remindersEnabled";
+
 export function pushSupported() {
   return typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && !!VAPID_PUBLIC_KEY;
 }

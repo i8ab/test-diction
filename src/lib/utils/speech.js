@@ -110,6 +110,33 @@ function getSpeechRecognitionCtor() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
+/* =========================================================================
+   ARABIC DIALECT — recognition accuracy varies a lot per dialect, since the
+   Web Speech API's Arabic model is really several regional models under one
+   "ar" umbrella. Letting the user pick their own (persisted locally) instead
+   of hard-coding ar-EG measurably improves recognizeSpeech's hit rate for
+   non-Egyptian speakers.
+   ========================================================================= */
+const AR_DIALECT_KEY = "twoTongues.arDialect";
+const AR_DIALECTS = [
+  { code: "ar-EG", en: "Egyptian", ar: "مصري" },
+  { code: "ar-SA", en: "Saudi / Standard", ar: "سعودي / فصحى" },
+  { code: "ar-AE", en: "Gulf (UAE)", ar: "خليجي" },
+  { code: "ar-MA", en: "Moroccan", ar: "مغربي" },
+  { code: "ar-LB", en: "Levantine (Lebanon)", ar: "شامي" },
+];
+
+function loadArDialect() {
+  try {
+    const v = localStorage.getItem(AR_DIALECT_KEY);
+    return v && AR_DIALECTS.some((d) => d.code === v) ? v : "ar-EG";
+  } catch (e) { return "ar-EG"; }
+}
+
+function saveArDialect(code) {
+  try { localStorage.setItem(AR_DIALECT_KEY, code); } catch (e) {}
+}
+
 // Runs one voice-search capture. `lang` is a BCP-47 tag ("ar-EG"/"en-US").
 // Resolves with the recognized text, or rejects on error/no-match — callers
 // should catch and show a toast rather than let this throw uncaught.
@@ -169,6 +196,56 @@ function speakWord(text, dir) {
 }
 
 /* =========================================================================
+   MIC LEVEL METER — purely visual, runs alongside SpeechRecognition (which
+   has no volume API of its own) so the UI can show a live "yes, I can hear
+   you" bar instead of a static "Listening…" label the user has to trust
+   blindly. Best-effort: if getUserMedia is blocked/unsupported/denied, this
+   just no-ops via onLevel(0) and callers keep working without it.
+   Returns a stop() function; always call it when done to release the mic.
+   ========================================================================= */
+function startMicLevelMeter(onLevel) {
+  let stopped = false;
+  let audioCtx = null;
+  let stream = null;
+  let raf = null;
+
+  (async () => {
+    try {
+      if (typeof navigator === "undefined" || !navigator.mediaDevices) return;
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (stopped) { stream.getTracks().forEach((t) => t.stop()); return; }
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        if (stopped) return;
+        analyser.getByteTimeDomainData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
+        const rms = Math.sqrt(sum / data.length); // 0..~1
+        onLevel(Math.min(1, rms * 4)); // scaled up — raw RMS from speech is usually small
+        raf = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch (e) {
+      // Mic access denied/unavailable for metering purposes only — the
+      // actual SpeechRecognition capture (which has its own permission
+      // flow) is unaffected.
+    }
+  })();
+
+  return function stop() {
+    stopped = true;
+    if (raf) cancelAnimationFrame(raf);
+    if (audioCtx) { try { audioCtx.close(); } catch (e) {} }
+    if (stream) { try { stream.getTracks().forEach((t) => t.stop()); } catch (e) {} }
+  };
+}
+
+/* =========================================================================
    PRONUNCIATION PRACTICE
    -------------------------------------------------------------------------
    Records one utterance via the same SpeechRecognition API used for voice
@@ -203,4 +280,5 @@ async function scorePronunciation(targetWord, lang, onStart) {
 export {
   waitForVoices, findArabicVoice, playOnlineArabic, speakArabic, speakEnglish,
   getSpeechRecognitionCtor, recognizeSpeech, speakWord, scorePronunciation,
+  AR_DIALECTS, loadArDialect, saveArDialect, startMicLevelMeter,
 };

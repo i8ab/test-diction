@@ -2,8 +2,8 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import {
-  ChevronIcon, MoreIcon, TrophyIcon, StatsIcon, QuizIcon, LayersIcon,
-  DownloadIcon, UploadIcon, LoaderIcon, XIcon, CheckIcon,
+  ChevronIcon, TrophyIcon, StatsIcon, QuizIcon, LayersIcon,
+  DownloadIcon, UploadIcon, LoaderIcon, XIcon,
 } from "../common/Icons";
 
 const TOOLS_MENU_ITEMS_META = { minWidth: 190, gap: 8 };
@@ -61,30 +61,22 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
 
   // Items no longer close the menu on click — the menu only closes when the
   // user explicitly wants it to: the X button, an outside click, or Escape.
-  // A quick "done" pulse on the icon gives feedback that the tap registered.
-  const [pulse, setPulse] = useState(null);
-  function itemClick(key, fn) {
-    fn();
-    setPulse(key);
-    window.clearTimeout(itemClick._t);
-    itemClick._t = window.setTimeout(() => setPulse((p) => (p === key ? null : p)), 900);
-  }
+  function itemClick(fn) { fn(); }
 
   const itemStyle = { display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px", fontSize: 13.5, fontWeight: 600, color: "var(--ink)", background: "none", border: "none", borderRadius: 9, textAlign: "start", cursor: "pointer" };
   const iconWrapStyle = (bg) => ({ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 8, background: bg, flexShrink: 0, transition: "transform 0.2s cubic-bezier(0.34,1.56,0.64,1)" });
 
   function MenuItem({ menuKey, icon, label, onClick, disabled, loading, tint }) {
-    const done = pulse === menuKey;
     return (
       <button
         role="menuitem"
         disabled={disabled}
         className="tools-menu-item"
         style={{ ...itemStyle, opacity: disabled ? 0.45 : 1, cursor: disabled ? "default" : "pointer" }}
-        onClick={() => { if (!disabled) itemClick(menuKey, onClick); }}
+        onClick={() => { if (!disabled) itemClick(onClick); }}
       >
-        <span style={iconWrapStyle(done ? "rgba(52,199,89,0.16)" : `${tint}1c`)}>
-          {done ? <CheckIcon size={14} style={{ color: "#34c759" }} /> : loading ? <LoaderIcon size={14} style={{ color: tint }} /> : (
+        <span style={iconWrapStyle(`${tint}1c`)}>
+          {loading ? <LoaderIcon size={14} style={{ color: tint }} /> : (
             <span style={{ color: tint, display: "flex" }}>{icon}</span>
           )}
         </span>
@@ -92,6 +84,9 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
       </button>
     );
   }
+
+  const originX = isAr ? "0%" : "100%";
+  const originY = coords?.openUpward ? "100%" : "0%";
 
   const menu = open && (
     <div
@@ -113,11 +108,18 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
         boxShadow: "0 20px 44px -16px rgba(0,0,0,0.4), 0 2px 8px -2px rgba(0,0,0,0.15)",
         zIndex: 1000,
         overflow: "hidden",
-        animation: `${coords?.openUpward ? "scaleInUp" : "scaleIn"} 0.18s cubic-bezier(0.22,1,0.36,1) both`,
-        transformOrigin: coords?.openUpward ? "bottom" : "top",
+        "--origin-x": originX,
+        "--origin-y": originY,
+        animation: "toolsMenuCircleIn 0.38s cubic-bezier(0.22,1,0.36,1) both",
         backdropFilter: "blur(20px)",
       }}
     >
+      <style>{`
+        @keyframes toolsMenuCircleIn {
+          from { clip-path: circle(0% at var(--origin-x) var(--origin-y)); opacity: 0.5; }
+          to { clip-path: circle(141% at var(--origin-x) var(--origin-y)); opacity: 1; }
+        }
+      `}</style>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 8px", flexShrink: 0 }}>
         <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
           {tr(isAr, "More", "المزيد")}
@@ -155,7 +157,7 @@ export default function ToolsMenu({ accent, onLeaderboard, onStats, onQuiz, onFl
         className="lift-hover"
         style={{ display: "flex", alignItems: "center", gap: 7, height: "100%", padding: "10px 16px", fontSize: 14, fontWeight: 600, color: accent, background: "var(--card)", border: `1px solid ${accent}40`, borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap" }}
       >
-        <MoreIcon size={16} /> {tr(isAr, "More", "المزيد")}
+        {tr(isAr, "More", "المزيد")}
         <ChevronIcon size={13} style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s ease" }} />
       </button>
       {open && typeof document !== "undefined" ? createPortal(menu, document.body) : null}

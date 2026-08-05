@@ -34,6 +34,7 @@ const AddModal = lazy(() => import("./modals/AddModal"));
 const AccountModal = lazy(() => import("./modals/AccountModal"));
 const AdminModal = lazy(() => import("./modals/AdminModal"));
 const WordZoomModal = lazy(() => import("./modals/WordZoomModal"));
+const TimerPage = lazy(() => import("./timer/TimerPage"));
 
 export default function MainView({
   name, isAdmin, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
@@ -109,6 +110,7 @@ export default function MainView({
   const [showFlashcards, setShowFlashcards] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showTimer, setShowTimer] = useState(false);
   const [undoDelete, setUndoDelete] = useState(null); // { entry, prevEntries } — cleared after UNDO_DELETE_MS or on undo
   const undoTimerRef = useRef(null);
   const importInputRef = useRef(null);
@@ -539,6 +541,7 @@ export default function MainView({
               onStats={() => setShowStats(true)}
               onQuiz={() => setShowQuiz(true)}
               onFlashcards={() => setShowFlashcards(true)}
+              onTimer={() => setShowTimer(true)}
               onExport={() => exportEntriesAsCsv(filtered.length ? filtered : sectionEntries, cfg, cfg.shortLabel)}
               exportDisabled={sectionEntries.length === 0}
               onImport={() => importInputRef.current && importInputRef.current.click()}
@@ -743,6 +746,12 @@ export default function MainView({
             isAr={isAr}
             cfg={cfg}
             onClose={() => setShowLeaderboard(false)}
+          />
+        )}
+        {showTimer && (
+          <TimerPage
+            isAr={isAr}
+            onClose={() => setShowTimer(false)}
           />
         )}
         {showAccount && (

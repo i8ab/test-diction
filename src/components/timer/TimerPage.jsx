@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import { XIcon, ClockIcon } from "../common/Icons";
 
@@ -93,6 +94,16 @@ function parseHms(h, m, s) {
   return ((hh * 3600) + (mm * 60) + ss) * 1000;
 }
 
+
+/** True on phones / narrow touch screens where window.open becomes a full tab. */
+function isMobileLike() {
+  if (typeof window === "undefined") return false;
+  const narrow = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+  const coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+  const touch = typeof navigator !== "undefined" && (navigator.maxTouchPoints || 0) > 0;
+  return !!(narrow || (coarse && touch));
+}
+
 function playDoneSound() {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -129,6 +140,11 @@ export default function TimerPage({ onClose, isAr }) {
   const [doneFlash, setDoneFlash] = useState(false);
   const [pipOpen, setPipOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  // "full" = full-page timer UI; "bubble" = in-app floating mini timer
+  // (used on phones instead of a broken about:blank tab from window.open).
+  const [viewMode, setViewMode] = useState("full");
+  const [bubblePos, setBubblePos] = useState({ x: null, y: null }); // null = default bottom-end
+  const dragRef = useRef(null);
 
   const endAtRef = useRef(null); // absolute timestamp when countdown ends
   const startedAtRef = useRef(null); // for stopwatch
@@ -280,22 +296,18 @@ export default function TimerPage({ onClose, isAr }) {
     }
   }, []);
 
-  // Open mini window when the user leaves the page (visibility / pagehide)
+  // On desktop only: try a real floating window when the tab is hidden.
+  // On phones, window.open becomes a full blank tab (see screenshot) — so we
+  // never auto-open there; the in-app bubble is the mobile path instead.
   useEffect(() => {
     function onVis() {
-      if (document.visibilityState === "hidden" && runningRef.current) {
-        controlsRef.current.openMini();
-      }
-    }
-    function onHide() {
-      if (runningRef.current) controlsRef.current.openMini();
+      if (document.visibilityState !== "hidden") return;
+      if (!runningRef.current) return;
+      if (isMobileLike()) return;
+      controlsRef.current.openMini();
     }
     document.addEventListener("visibilitychange", onVis);
-    window.addEventListener("pagehide", onHide);
-    return () => {
-      document.removeEventListener("visibilitychange", onVis);
-      window.removeEventListener("pagehide", onHide);
-    };
+    return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
 
   function start() {
@@ -396,11 +408,14 @@ export default function TimerPage({ onClose, isAr }) {
 <title>${tr(isAr, "Timer", "مؤقّت")}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;overflow:hidden;font-family:${font}}
+  html,body{height:100%;width:100%;overflow:hidden;font-family:${font};margin:0}
   body{display:flex;flex-direction:column;align-items:center;justify-content:center;
-    background:${bg};color:${color};user-select:none;-webkit-user-select:none}
-  #t{font-size:clamp(28px,18vw,72px);font-weight:700;letter-spacing:0.02em;
-    font-variant-numeric:tabular-nums;text-shadow:0 2px 24px rgba(0,0,0,0.35)}
+    min-height:100%;min-height:100dvh;width:100%;
+    background:${bg};color:${color};user-select:none;-webkit-user-select:none;
+    text-align:center;padding:16px;box-sizing:border-box}
+  #t{font-size:clamp(40px,16vw,80px);font-weight:700;letter-spacing:0.02em;
+    font-variant-numeric:tabular-nums;text-shadow:0 2px 24px rgba(0,0,0,0.35);
+    line-height:1.1;width:100%}
   #row{display:flex;gap:8px;margin-top:16px}
   button{border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;
     cursor:pointer;background:rgba(255,255,255,0.18);color:inherit;backdrop-filter:blur(6px)}
@@ -438,8 +453,34 @@ export default function TimerPage({ onClose, isAr }) {
 </html>`;
   }
 
+  function goBubble() {
+    setViewMode("bubble");
+    setPipOpen(true);
+    setErrorMsg("");
+  }
+
+  function expandFromBubble() {
+    setViewMode("full");
+    setPipOpen(false);
+  }
+
+  function handleClose() {
+    // While running on mobile, minimize to bubble instead of killing the timer.
+    if (runningRef.current || running) {
+      goBubble();
+      return;
+    }
+    onClose();
+  }
+
   async function openMiniWindow() {
-    // Prefer Document Picture-in-Picture when available (Chrome 116+)
+    // Phones: in-app floating bubble (window.open → full about:blank tab).
+    if (isMobileLike()) {
+      goBubble();
+      return;
+    }
+
+    // Prefer Document Picture-in-Picture when available (Chrome desktop).
     if (window.documentPictureInPicture && !window.documentPictureInPicture.window) {
       try {
         const pip = await window.documentPictureInPicture.requestWindow({
@@ -474,7 +515,7 @@ export default function TimerPage({ onClose, isAr }) {
         const pauseBtn = doc.createElement("button");
         pauseBtn.textContent = running ? tr(isAr, "Pause", "إيقاف") : tr(isAr, "Resume", "متابعة");
         pauseBtn.onclick = () => {
-          channelRef.current?.postMessage({ type: "control", action: running ? "pause" : "resume" });
+          channelRef.current?.postMessage({ type: "control", action: runningRef.current ? "pause" : "resume" });
         };
         const resetBtn = doc.createElement("button");
         resetBtn.textContent = tr(isAr, "Reset", "إعادة");
@@ -499,15 +540,20 @@ export default function TimerPage({ onClose, isAr }) {
         });
         return;
       } catch (e) {
-        // fall through to popup
+        // fall through
       }
     }
 
-    // Popup fallback
+    // Desktop popup fallback — never use this path on mobile.
     try {
-      const w = window.open("", "twoTonguesTimer", "width=340,height=220,menubar=no,toolbar=no,location=no,status=no");
+      const w = window.open(
+        "",
+        "twoTonguesTimer",
+        "width=360,height=240,menubar=no,toolbar=no,location=no,status=no,resizable=yes"
+      );
       if (!w) {
-        setErrorMsg(tr(isAr, "Popup blocked — allow popups for the mini timer.", "النوافذ المنبثقة محظورة — اسمح بها للمؤقّت الصغير."));
+        // Popup blocked → in-app bubble instead of failing.
+        goBubble();
         return;
       }
       pipWinRef.current = w;
@@ -520,7 +566,7 @@ export default function TimerPage({ onClose, isAr }) {
         setPipOpen(false);
       });
     } catch {
-      setErrorMsg(tr(isAr, "Couldn't open the mini timer window.", "تعذّر فتح نافذة المؤقّت الصغيرة."));
+      goBubble();
     }
   }
 
@@ -565,6 +611,121 @@ export default function TimerPage({ onClose, isAr }) {
     fontVariantNumeric: "tabular-nums",
   };
 
+  // ---------- In-app floating bubble (mobile-safe mini timer) ----------
+  if (viewMode === "bubble") {
+    const bubbleBg = prefs.customBg
+      ? "#1a1a1a"
+      : ((BG_PRESETS.find((b) => b.id === prefs.bgId) || BG_PRESETS[0]).value);
+    const left = bubblePos.x != null ? bubblePos.x : undefined;
+    const top = bubblePos.y != null ? bubblePos.y : undefined;
+    const useDefaultCorner = bubblePos.x == null;
+
+    const onPointerDown = (e) => {
+      // Only drag from the shell, not from buttons
+      if (e.target.closest("button")) return;
+      const el = e.currentTarget;
+      const rect = el.getBoundingClientRect();
+      dragRef.current = {
+        ox: e.clientX - rect.left,
+        oy: e.clientY - rect.top,
+        w: rect.width,
+        h: rect.height,
+      };
+      el.setPointerCapture?.(e.pointerId);
+    };
+    const onPointerMove = (e) => {
+      if (!dragRef.current) return;
+      const { ox, oy, w, h } = dragRef.current;
+      const x = Math.max(8, Math.min(window.innerWidth - w - 8, e.clientX - ox));
+      const y = Math.max(8, Math.min(window.innerHeight - h - 8, e.clientY - oy));
+      setBubblePos({ x, y });
+    };
+    const onPointerUp = () => { dragRef.current = null; };
+
+    const bubble = (
+      <div
+        role="dialog"
+        aria-label={tr(isAr, "Mini timer", "مؤقّت مصغّر")}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        style={{
+          position: "fixed",
+          zIndex: 3000,
+          ...(useDefaultCorner
+            ? { bottom: "max(16px, env(safe-area-inset-bottom))", insetInlineEnd: 16 }
+            : { left, top }),
+          minWidth: 168,
+          maxWidth: "min(240px, calc(100vw - 24px))",
+          padding: "14px 16px 12px",
+          borderRadius: 18,
+          background: bubbleBg,
+          color: prefs.textColor,
+          boxShadow: "0 16px 40px -12px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.12)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 10,
+          touchAction: "none",
+          userSelect: "none",
+          cursor: "grab",
+          fontFamily: fontCss,
+        }}
+      >
+        <div
+          style={{
+            fontSize: "clamp(28px, 8vw, 36px)",
+            fontWeight: 700,
+            fontVariantNumeric: "tabular-nums",
+            letterSpacing: "0.02em",
+            lineHeight: 1,
+            textShadow: "0 2px 12px rgba(0,0,0,0.35)",
+          }}
+        >
+          {displayText}
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+          <button
+            type="button"
+            onClick={() => (running ? pause() : start())}
+            style={{
+              border: "none", borderRadius: 10, padding: "7px 12px", fontSize: 12, fontWeight: 700,
+              cursor: "pointer", background: "rgba(255,255,255,0.2)", color: "inherit",
+            }}
+          >
+            {running ? tr(isAr, "Pause", "إيقاف") : tr(isAr, "Resume", "متابعة")}
+          </button>
+          <button
+            type="button"
+            onClick={expandFromBubble}
+            style={{
+              border: "none", borderRadius: 10, padding: "7px 12px", fontSize: 12, fontWeight: 700,
+              cursor: "pointer", background: "rgba(255,255,255,0.2)", color: "inherit",
+            }}
+          >
+            {tr(isAr, "Expand", "تكبير")}
+          </button>
+          <button
+            type="button"
+            onClick={() => { reset(); onClose(); }}
+            style={{
+              border: "none", borderRadius: 10, padding: "7px 10px", fontSize: 12, fontWeight: 700,
+              cursor: "pointer", background: "rgba(255,255,255,0.12)", color: "inherit",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+            aria-label={tr(isAr, "Close", "إغلاق")}
+          >
+            <XIcon size={12} />
+          </button>
+        </div>
+      </div>
+    );
+
+    return typeof document !== "undefined" ? createPortal(bubble, document.body) : bubble;
+  }
+
+
   return (
     <div
       style={{
@@ -585,37 +746,38 @@ export default function TimerPage({ onClose, isAr }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "14px 18px",
-          gap: 12,
+          padding: "10px 12px",
+          gap: 8,
           background: isLightBg ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.25)",
           backdropFilter: "blur(10px)",
           borderBottom: `1px solid ${panelBorder}`,
           flexShrink: 0,
+          flexWrap: "wrap",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ display: "flex", color: prefs.textColor, opacity: 0.9 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span style={{ display: "flex", color: prefs.textColor, opacity: 0.9, flexShrink: 0 }}>
             <ClockIcon size={20} />
           </span>
-          <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: "0.02em" }}>
+          <span style={{ fontWeight: 700, fontSize: 14, letterSpacing: "0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {tr(isAr, "Study Timer", "مؤقّت المذاكرة")}
           </span>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button type="button" onClick={() => setShowSettings((s) => !s)} style={btnGhost}>
-            {showSettings ? tr(isAr, "Hide settings", "إخفاء الإعدادات") : tr(isAr, "Settings", "الإعدادات")}
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <button type="button" onClick={() => setShowSettings((s) => !s)} style={{ ...btnGhost, padding: "8px 12px", fontSize: 13, whiteSpace: "nowrap" }}>
+            {showSettings ? tr(isAr, "Hide", "إخفاء") : tr(isAr, "Settings", "إعدادات")}
           </button>
           <button
             type="button"
             onClick={openMiniWindow}
-            style={btnGhost}
+            style={{ ...btnGhost, padding: "8px 12px", fontSize: 13, whiteSpace: "nowrap" }}
             title={tr(isAr, "Open mini floating timer", "فتح مؤقّت عائم صغير")}
           >
-            {tr(isAr, "Mini window", "نافذة صغيرة")}
+            {tr(isAr, "Mini", "مصغّر")}
           </button>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             aria-label={tr(isAr, "Close", "إغلاق")}
             style={{
               ...btnGhost,
@@ -943,8 +1105,8 @@ export default function TimerPage({ onClose, isAr }) {
             <p style={{ fontSize: 12, opacity: 0.65, lineHeight: 1.5, margin: 0 }}>
               {tr(
                 isAr,
-                "Tip: while the timer is running, leave the tab — a small floating window keeps showing the time. You can also open it with “Mini window”.",
-                "نصيحة: أثناء تشغيل المؤقّت، اخرج من التبويب — تظهر نافذة صغيرة عائمة تعرض الوقت. يمكنك فتحها أيضًا من «نافذة صغيرة»."
+                "Tip: on phones, “Mini” shows a floating bubble inside the app (you can drag it). On desktop it opens a small system window. Closing while the timer runs minimizes to the bubble instead of stopping it.",
+                "نصيحة: على الموبايل، «مصغّر» يعرض فقاعة عائمة داخل التطبيق (تقدر تسحبها). على الكمبيوتر تفتح نافذة نظام صغيرة. الإغلاق أثناء التشغيل يصغّر للفقاعة بدل ما يوقف المؤقّت."
               )}
             </p>
           </div>

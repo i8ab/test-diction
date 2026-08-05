@@ -22,6 +22,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
   const [editingCode, setEditingCode] = useState(null);
   const [formName, setFormName] = useState("");
   const [formRole, setFormRole] = useState("user");
+  const [formUsername, setFormUsername] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [newAccountName, setNewAccountName] = useState("");
@@ -42,16 +43,16 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
   }, [onClose, mode]);
 
   function startAdd() {
-    setFormName(""); setFormRole("user"); setError(""); setMode("add");
+    setFormName(""); setFormUsername(""); setFormRole("user"); setError(""); setMode("add");
   }
   function startEdit(account) {
-    setEditingCode(account.code); setFormName(account.name); setFormRole(account.role === "admin" ? "admin" : "user"); setError(""); setMode("edit");
+    setEditingCode(account.code); setFormName(account.name); setFormUsername(account.username || ""); setFormRole(account.role === "admin" ? "admin" : "user"); setError(""); setMode("edit");
   }
 
   async function submitAdd(e) {
     e.preventDefault();
     setSaving(true); setError("");
-    const result = await onAdd(formName, formRole);
+    const result = await onAdd(formName, formRole, formUsername);
     setSaving(false);
     if (result && result.error) { setError(translateAdminError(result.error, isAr)); return; }
     setNewAccountName(formName.trim());
@@ -62,7 +63,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
   async function submitEdit(e) {
     e.preventDefault();
     setSaving(true); setError("");
-    const result = await onEdit(editingCode, { name: formName, role: formRole });
+    const result = await onEdit(editingCode, { name: formName, role: formRole, username: formUsername });
     setSaving(false);
     if (result && result.error) { setError(translateAdminError(result.error, isAr)); return; }
     setMode("list");
@@ -160,11 +161,12 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                       {a.name}
                       {a.code === myAccountCode && <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>{tr(isAr, "(you)", "(أنت)")}</span>}
                     </div>
+                    <div style={{ fontSize: 12, color: "var(--muted-strong)", fontFamily: "ui-monospace, monospace", marginTop: 2 }} dir="ltr">
+                      @{a.username || "—"}
+                      {a.status === "pending" ? ` · ${tr(isAr, "pending", "معلّق")}` : ""}
+                    </div>
                     <div style={{ fontSize: 12, color: a.role === "admin" ? BRASS : "var(--muted)", fontWeight: a.role === "admin" ? 700 : 400 }}>
                       {a.role === "admin" ? tr(isAr, "Admin", "مسؤول") : tr(isAr, "User", "مستخدم")}
-                    </div>
-                    <div style={{ fontSize: 12, color: "var(--muted)", fontFamily: "'Fraunces', serif", letterSpacing: "0.04em", marginTop: 2 }}>
-                      {tr(isAr, `Code: ${a.code}`, `الرمز: ${a.code}`)}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
@@ -189,8 +191,10 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
 
         {(mode === "add" || mode === "edit") && (
           <form onSubmit={mode === "add" ? submitAdd : submitEdit} style={{ marginTop: 14 }}>
-            <label style={labelStyle} htmlFor="acct-form-name">{tr(isAr, "Name", "الاسم")}</label>
+            <label style={labelStyle} htmlFor="acct-form-name">{tr(isAr, "Display name", "الاسم الظاهر")}</label>
             <input id="acct-form-name" value={formName} onChange={(e) => setFormName(e.target.value)} style={inputStyle} autoFocus autoCapitalize="off" autoCorrect="off" />
+            <label style={labelStyle} htmlFor="acct-form-username">{tr(isAr, "Username", "اسم المستخدم")}</label>
+            <input id="acct-form-username" value={formUsername} onChange={(e) => setFormUsername(e.target.value.replace(/\s/g, "").toLowerCase())} style={{ ...inputStyle, fontFamily: "ui-monospace, monospace" }} autoCapitalize="off" autoCorrect="off" spellCheck={false} dir="ltr" placeholder={tr(isAr, "e.g. omar_23", "مثال: omar_23")} />
             <label style={labelStyle} htmlFor="acct-form-role">{tr(isAr, "Role", "الدور")}</label>
             <select id="acct-form-role" value={formRole} onChange={(e) => setFormRole(e.target.value)} style={{ ...inputStyle, fontFamily: "'Source Sans 3', sans-serif" }}>
               <option value="user">{tr(isAr, "User", "مستخدم")}</option>
@@ -211,7 +215,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
         {mode === "added" && (
           <div style={{ marginTop: 14 }}>
             <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "0 0 14px" }}>
-              {tr(isAr, `Share this personal code with ${newAccountName} — they'll use it, along with the shared access code, to sign in.`, `شارك هذا الرمز الشخصي مع ${newAccountName} — سيستخدمه مع رمز الوصول المشترك لتسجيل الدخول.`)}
+              {tr(isAr, `Account created. Temporary password is the internal code below — they should change it after first sign-in (username + password + access code).`, `تم إنشاء الحساب. كلمة المرور المؤقتة هي الرمز بالأسفل — يفضّل تغييرها بعد أول تسجيل دخول (يوزرنيم + باسورد + رمز الوصول).`)}
             </p>
             <div
               onClick={handleCopyNewCode}

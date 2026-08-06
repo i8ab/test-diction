@@ -22,7 +22,7 @@ import BackupReminderBanner from "./layout/BackupReminderBanner";
 import SiteBanner from "./layout/SiteBanner";
 import WordOfTheDay from "./layout/WordOfTheDay";
 import EmptyState from "./layout/EmptyState";
-import { loadFocusMode, saveFocusMode } from "../lib/state/goals";
+import { loadFocusMode, saveFocusMode, loadProgress } from "../lib/state/goals";
 import { loadWordNotes, setWordNote } from "../lib/state/wordNotes";
 
 // These are only ever rendered behind a boolean flag (showQuiz, showAdd,
@@ -1093,6 +1093,18 @@ export default function MainView({
           unlockedIds={(accounts.find((a) => a.code === accountCode) || {}).achievements || []}
           isAr={isAr}
           onClose={() => setShowAchievements(false)}
+          account={accounts.find((a) => a.code === accountCode) || null}
+          streak={computeStreak(studiedAt)}
+          srsBox={srsBox}
+          timerMinutesTotal={(() => {
+            try {
+              const p = loadProgress();
+              return Object.values(p.timerMinutesByDay || {}).reduce((s, n) => s + (Number(n) || 0), 0);
+            } catch (_) { return 0; }
+          })()}
+          dictationRounds={(() => {
+            try { return Number(localStorage.getItem("twoTongues.dictationRounds." + accountCode) || 0); } catch (_) { return 0; }
+          })()}
         />
       </Suspense>
     )}

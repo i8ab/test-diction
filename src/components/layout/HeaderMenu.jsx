@@ -37,109 +37,51 @@ const INFO_SECTIONS = [
     titleAr: "أساسيات القاموس",
     bodyEn: [
       "Switch EN→AR / AR→AR from the section tabs.",
-      "Search by word or meaning. Use the mic for voice search when available.",
-      "Tap a card to expand definition, examples, synonyms.",
-      "Star = favorite · Eye = mark as studied · Zoom = big view + pronunciation practice.",
+      "Search by word or meaning. Mic = voice search when available.",
+      "Star = favorite · Eye = studied · Zoom = big view + practice.",
+      "Add word: choose type (noun/verb/…) or “More than one type”.",
+      "Auto-fill fills definition + examples only (English).",
     ],
     bodyAr: [
       "بدّل EN→AR / AR→AR من تبويبات القسم.",
-      "ابحث بالكلمة أو المعنى. الميكروفون للبحث الصوتي لو متاح.",
-      "اضغط الكرت لفتح التعريف والأمثلة والمرادفات.",
-      "نجمة = مفضلة · عين = علّم كمدروسة · تكبير = عرض كبير + تمرين نطق.",
+      "ابحث بالكلمة أو المعنى. الميكروفون = بحث صوتي لو متاح.",
+      "نجمة = مفضلة · عين = مُذاكرة · تكبير = عرض كبير + تمرين.",
+      "إضافة كلمة: اختار النوع (اسم/فعل/…) أو «أكتر من نوع».",
+      "التعبئة التلقائية = تعريف + أمثلة فقط (إنجليزي).",
     ],
   },
   {
-    id: "filters",
-    icon: SearchIcon,
-    titleEn: "Filters",
-    titleAr: "الفلاتر",
-    bodyEn: [
-      "All / Studied / Not studied / Favorites / Due today.",
-      "Due today = studied words scheduled for review by spaced repetition (SRS).",
-    ],
-    bodyAr: [
-      "الكل / درست / لسه / مفضلة / مستحقة.",
-      "مستحقة = كلمات مدروسة جاهزة للمراجعة حسب نظام التكرار المتباعد.",
-    ],
-  },
-  {
-    id: "quick",
-    icon: LayersIcon,
-    titleEn: "Quick review",
-    titleAr: "مراجعة سريعة",
-    bodyEn: [
-      "Open from More ⋯ → Quick review.",
-      "You see the word first — try to recall the meaning.",
-      "Show meaning → then choose “I knew it” or “Still learning”.",
-      "Best for a 2–5 minute refresh of due words.",
-    ],
-    bodyAr: [
-      "من المزيد ⋯ → مراجعة سريعة.",
-      "تشوف الكلمة الأول — حاول تفتكر المعنى.",
-      "إظهار المعنى → بعدين «عرفتها» أو «لسه بتعلّم».",
-      "مناسبة لمراجعة سريعة ٢–٥ دقايق للكلمات المستحقة.",
-    ],
-  },
-  {
-    id: "quiz",
+    id: "practice",
     icon: QuizIcon,
-    titleEn: "Quiz & flashcards",
-    titleAr: "اختبار وبطاقات",
+    titleEn: "Practice tools",
+    titleAr: "أدوات التدريب",
     bodyEn: [
-      "Quiz builds questions from your studied words (meaning, synonyms, antonyms).",
-      "Flashcards flip through cards for passive review.",
-      "Answers update spaced-repetition levels automatically.",
+      "Quiz, flashcards, quick review, random word, dictation — under More ⋯.",
+      "Multi-type words: quiz labels the type (noun vs verb) so answers stay clear.",
+      "Random word: no repeats until the set is done; can mark studied.",
+      "SRS (spaced repetition) updates from quiz / review / dictation answers.",
     ],
     bodyAr: [
-      "الاختبار بيبني أسئلة من كلماتك المدروسة (معنى، مرادفات، مضادات).",
-      "البطاقات لتمرير سريع ومراجعة خفيفة.",
-      "الإجابات بتحدّث مستوى التكرار المتباعد تلقائيًا.",
+      "اختبار، بطاقات، مراجعة سريعة، كلمة عشوائية، إملاء — من المزيد ⋯.",
+      "الكلمات متعددة النوع: الاختبار بيوضّح النوع (اسم/فعل) عشان متتلخبطش.",
+      "كلمة عشوائية: من غير تكرار لحد ما تخلص المجموعة؛ تقدر تعلّم كمُذاكرة.",
+      "SRS بيتحدّث من إجابات الاختبار / المراجعة / الإملاء.",
     ],
   },
   {
-    id: "timer",
-    icon: ClockIcon,
-    titleEn: "Timer",
-    titleAr: "المؤقّت",
+    id: "pron",
+    icon: MicIcon,
+    titleEn: "Pronunciation (Cambridge)",
+    titleAr: "النطق (كامبريدج)",
     bodyEn: [
-      "Countdown or stopwatch for study sessions.",
-      "Pin shrinks it to a floating bubble so you can keep browsing the dictionary.",
-      "Finished countdown minutes count toward Goals.",
+      "Speakers play Cambridge US/UK audio for English words.",
+      "Settings → English accent (Cambridge): American or British default.",
+      "Zoom view: US / UK buttons + mic practice score.",
     ],
     bodyAr: [
-      "عدّ تنازلي أو ساعة توقيت لجلسات المذاكرة.",
-      "التثبيت يصغّره لفقاعة عائمة وتقدر تتصفح القاموس.",
-      "دقائق العدّ التنازلي بتتحسب في الأهداف.",
-    ],
-  },
-  {
-    id: "calendar",
-    icon: CalendarIcon,
-    titleEn: "Calendar",
-    titleAr: "التقويم",
-    bodyEn: [
-      "Monthly map of days you marked words as studied.",
-      "Tap a day to see the words. Pin = mini widget.",
-    ],
-    bodyAr: [
-      "خريطة شهرية للأيام اللي علّمت فيها كلمات كمدروسة.",
-      "اضغط يوم عشان تشوف الكلمات. تثبيت = ودجت صغير.",
-    ],
-  },
-  {
-    id: "goals",
-    icon: FlameIcon,
-    titleEn: "Goals & challenges",
-    titleAr: "أهداف وتحديات",
-    bodyEn: [
-      "Orange floating button (or More ⋯ → Goals): daily words, timer minutes, weekly targets.",
-      "Weekly challenge rotates automatically.",
-      "Pin keeps a small progress bubble on screen.",
-    ],
-    bodyAr: [
-      "الزرار البرتقالي العائم (أو المزيد ⋯ → أهداف): كلمات يومية، دقائق مؤقّت، هدف أسبوعي.",
-      "تحدي الأسبوع بيتغيّر لوحده.",
-      "تثبيت = فقاعة تقدّم صغيرة على الشاشة.",
+      "السماعة بتشغّل نطق كامبريدج أمريكي/بريطاني للإنجليزي.",
+      "الإعدادات → لهجة الإنجليزية (كامبريدج): أمريكي أو بريطاني.",
+      "العرض الكبير: أزرار US / UK + تمرين ميكروفون مع درجة.",
     ],
   },
   {
@@ -148,108 +90,30 @@ const INFO_SECTIONS = [
     titleEn: "To-do list",
     titleAr: "قائمة المهام",
     bodyEn: [
-      "Green floating button (bottom corner) opens to-dos anywhere.",
-      "Also under More ⋯. Export/Import JSON for backup.",
-      "Pin for a floating mini list.",
+      "Green floating button or More ⋯.",
+      "Start on a task → live timer next to it. One active task at a time.",
+      "Pin = floating mini list. Export/Import JSON.",
     ],
     bodyAr: [
-      "الزرار الأخضر العائم (تحت) بيفتح المهام من أي مكان.",
-      "كمان من المزيد ⋯. تصدير/استيراد JSON للنسخ الاحتياطي.",
-      "تثبيت = قائمة مصغّرة عائمة.",
+      "الزرار الأخضر العائم أو المزيد ⋯.",
+      "ابدأ على مهمة → مؤقت حيّ جنبها. مهمة واحدة شغّالة في نفس الوقت.",
+      "تثبيت = قائمة مصغّرة. تصدير/استيراد JSON.",
     ],
   },
   {
-    id: "focus",
-    icon: StatsIcon,
-    titleEn: "Focus mode",
-    titleAr: "وضع التركيز",
+    id: "goals",
+    icon: FlameIcon,
+    titleEn: "Goals, timer, calendar",
+    titleAr: "أهداف ومؤقّت وتقويم",
     bodyEn: [
-      "Header menu (☰) → Focus mode hides banners and extras.",
-      "Keeps search + word list for distraction-free study.",
-      "Shortcut: F · Exit chip at the top while active.",
+      "Goals: daily words / minutes / weekly challenge (orange button).",
+      "Timer: countdown or stopwatch; minutes count toward goals.",
+      "Calendar: study map by day. Word of the day on the home list.",
     ],
     bodyAr: [
-      "قائمة الهيدر (☰) → وضع التركيز يخفي البنرات والإضافات.",
-      "يفضل البحث + قائمة الكلمات للمذاكرة من غير تشتيت.",
-      "اختصار: F · شريحة خروج فوق وانت فيه.",
-    ],
-  },
-  {
-    id: "keys",
-    icon: SearchIcon,
-    titleEn: "Keyboard shortcuts",
-    titleAr: "اختصارات الكيبورد",
-    bodyEn: [
-      "/ focus search · N add word · Q quiz · T to-do · R quick review · F focus.",
-      "Ignored while typing in an input field.",
-    ],
-    bodyAr: [
-      "/ تركيز البحث · N إضافة · Q اختبار · T مهام · R مراجعة سريعة · F تركيز.",
-      "متشتغلش وانت بتكتب جوه خانة إدخال.",
-    ],
-  },
-  {
-    id: "notes",
-    icon: BookIcon,
-    titleEn: "Personal notes",
-    titleAr: "ملاحظات شخصية",
-    bodyEn: [
-      "Expand any word card → “My note” field.",
-      "Saved on this device for your account (local).",
-    ],
-    bodyAr: [
-      "افتح أي كرت كلمة → حقل «ملاحظتي».",
-      "بتتحفظ على الجهاز لحسابك (محلي).",
-    ],
-  },
-  {
-    id: "pron",
-    icon: MicIcon,
-    titleEn: "Pronunciation",
-    titleAr: "النطق",
-    bodyEn: [
-      "Speaker icons play TTS.",
-      "Zoom view: mic practices saying the word; you get a score.",
-    ],
-    bodyAr: [
-      "أيقونات السماعة بتشغّل نطق كامبريدج (أمريكي/بريطاني) مع احتياطي من المتصفح.",
-      "عرض التكبير: الميكروفون لتمرين نطق الكلمة مع درجة.",
-    ],
-  },
-  {
-    id: "dictation",
-    icon: MicIcon,
-    titleEn: "Listening & Dictation",
-    titleAr: "استماع وإملاء",
-    bodyEn: [
-      "Open from More ⋯ → Dictation, or practice typing what you hear.",
-      "Mode 1: Hear the word (TTS) → type its meaning.",
-      "Mode 2: See the meaning → type the word.",
-      "Each answer updates spaced-repetition (SRS) for that word.",
-    ],
-    bodyAr: [
-      "من المزيد ⋯ → استماع وإملاء.",
-      "وضع ١: اسمع الكلمة (TTS) → اكتب معناها.",
-      "وضع ٢: شوف المعنى → اكتب الكلمة.",
-      "كل إجابة بتحدّث التكرار المتباعد (SRS) للكلمة.",
-    ],
-  },
-  {
-    id: "random",
-    icon: WandIcon,
-    titleEn: "Random word",
-    titleAr: "كلمة عشوائية",
-    bodyEn: [
-      "More ⋯ → Random word for fast one-by-one practice.",
-      "Prefer due words when available. Tap the card to reveal the meaning.",
-      "“Knew it” / “Forgot” updates SRS immediately.",
-      "Keyboard: Space/Enter = reveal · 1 = knew · 2 = forgot.",
-    ],
-    bodyAr: [
-      "المزيد ⋯ → كلمة عشوائية لممارسة سريعة كلمة بكلمة.",
-      "يفضّل الكلمات المستحقة. اضغط الكرت لإظهار المعنى.",
-      "«عرفتها» / «نسيتها» بيحدّثوا SRS فورًا.",
-      "كيبورد: مسافة/Enter = إظهار · 1 = عرفتها · 2 = نسيتها.",
+      "أهداف: كلمات يومية / دقائق / تحدي أسبوعي (الزرار البرتقالي).",
+      "مؤقّت: عدّ تنازلي أو ساعة؛ الدقائق بتتحسب في الأهداف.",
+      "تقويم: خريطة المذاكرة. كلمة اليوم في القائمة الرئيسية.",
     ],
   },
   {
@@ -258,17 +122,32 @@ const INFO_SECTIONS = [
     titleEn: "Achievements",
     titleAr: "الإنجازات",
     bodyEn: [
-      "Header menu (☰) → Achievements, or More ⋯ → Achievements.",
-      "Badges unlock automatically as you study, quiz, keep streaks, and use the timer.",
-      "Examples: first word, 50/200 words, 7/30-day streak, perfect quiz, mastered SRS words.",
+      "Menu ☰ → Achievements: categories with 10 levels each.",
+      "Tap a category to see % progress toward the next level.",
     ],
     bodyAr: [
-      "قائمة الهيدر (☰) → الإنجازات، أو المزيد ⋯ → الإنجازات.",
-      "الشارات بتتفتح لوحدها مع المذاكرة والاختبارات والسلاسل والمؤقّت.",
-      "أمثلة: أول كلمة، ٥٠/٢٠٠ كلمة، سلسلة ٧/٣٠ يوم، اختبار كامل، كلمات متقنة في SRS.",
+      "القائمة ☰ → الإنجازات: أقسام وكل قسم ١٠ مستويات.",
+      "اضغط قسم عشان تشوف نسبة التقدّم للمستوى الجاي.",
+    ],
+  },
+  {
+    id: "more",
+    icon: LayersIcon,
+    titleEn: "More",
+    titleAr: "المزيد",
+    bodyEn: [
+      "Focus mode (F): hides banners for distraction-free study.",
+      "Leaderboard, offline cache, CSV backup, site language in Settings.",
+      "Notifications: optional study reminders when the browser allows.",
+    ],
+    bodyAr: [
+      "وضع التركيز (F): يخفي البنرات للمذاكرة من غير تشتيت.",
+      "لوحة الصدارة، كاش أوفلاين، نسخ CSV، لغة الموقع من الإعدادات.",
+      "الإشعارات: تذكيرات مذاكرة اختيارية حسب دعم المتصفح.",
     ],
   },
 ];
+
 
 export default function HeaderMenu({
   theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin, onLogout, isAr,
@@ -501,6 +380,15 @@ export default function HeaderMenu({
   }
 
   const fieldLabel = { display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.03em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 5 };
+  const bannerSection = (en, ar) => (
+    <div style={{
+      marginTop: 6, marginBottom: 2, paddingTop: 10,
+      borderTop: "1px solid rgba(var(--border-rgb),0.12)",
+      fontSize: 12, fontWeight: 800, color: "var(--ink)", letterSpacing: "0.02em",
+    }}>
+      {T(en, ar)}
+    </div>
+  );
   const fieldInput = {
     width: "100%", boxSizing: "border-box", padding: "8px 10px", fontSize: 13,
     fontFamily: "inherit", color: "var(--ink)", background: "var(--input-bg)",
@@ -1323,6 +1211,7 @@ export default function HeaderMenu({
                           "Banner appears at the very top for every signed-in user. They can dismiss it; a new message shows again.",
                           "البانر يظهر في أعلى الموقع لكل المسجّلين. يقدروا يقفلوه؛ رسالة جديدة هتظهر تاني.")}
                       </div>
+                      {bannerSection("1 · Content", "١ · المحتوى")}
                       <div>
                         <label style={fieldLabel}>{T( "Message", "الرسالة")}</label>
                         <textarea
@@ -1334,6 +1223,7 @@ export default function HeaderMenu({
                           dir="auto"
                         />
                       </div>
+                      {bannerSection("2 · Appearance", "٢ · المظهر")}
                       <div>
                         <label style={fieldLabel}>{T( "Banner color", "لون الشريط")}</label>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -1385,6 +1275,7 @@ export default function HeaderMenu({
                         </span>
                       </button>
 
+                      {bannerSection("3 · Motion & text", "٣ · الحركة والنص")}
                       <div>
                         <label style={fieldLabel}>
                           {T( "Shine", "اللمعان")} — {bannerShine}%
@@ -1476,6 +1367,7 @@ export default function HeaderMenu({
                           <span>{T( "Stretched", "ممتد")}</span>
                         </div>
                       </div>
+                      {bannerSection("4 · Duration", "٤ · المدة")}
                       <div>
                         <label style={fieldLabel}>
                           {T( "Stay on site", "مدة الظهور")}
@@ -1567,6 +1459,7 @@ export default function HeaderMenu({
                         </div>
                       </div>
 
+                      {bannerSection("5 · Preview & publish", "٥ · معاينة ونشر")}
                       {/* Live preview — shine + optional ambulance flash */}
                       <div style={{ borderRadius: 8, overflow: "hidden", border: "1px solid rgba(var(--border-rgb),0.15)", position: "relative" }}>
                         <div

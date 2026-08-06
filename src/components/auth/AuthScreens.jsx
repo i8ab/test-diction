@@ -9,7 +9,7 @@ import {
   SearchIcon, PlusIcon, BookIcon, LoginIcon, KeyIcon, CheckIcon,
   ChevronIcon, EditIcon, UsersIcon, SunIcon, MoonIcon, WifiOffIcon, GlobeIcon,
   QuizIcon, StatsIcon, TrophyIcon, FlameIcon, SpeakerIcon, LoaderIcon, ZoomIcon,
-  LayersIcon, CalendarIcon, DownloadIcon, UserIcon, EyeIcon, EyeOffIcon,
+  LayersIcon, CalendarIcon, DownloadIcon, UserIcon, EyeIcon, EyeOffIcon, StarIcon,
 } from "../common/Icons";
 import BrandMark from "../common/BrandMark";
 import { Shell, LanguageToggle } from "../layout/Shell";
@@ -33,14 +33,15 @@ function AuthScreens({
   if (authStage === "intro") {
     const introFeatures = [
       { icon: SearchIcon, title: atr("Instant search", "بحث فوري"), desc: atr("Look up any word between English and Arabic in a heartbeat.", "ابحث عن أي كلمة بين الإنجليزية والعربية في لحظة.") },
-      { icon: SpeakerIcon, title: atr("Hear it spoken", "استمع للنطق"), desc: atr("Native-style pronunciation for every entry, one tap away.", "نطق واضح لكل كلمة بضغطة زر واحدة.") },
-      { icon: QuizIcon, title: atr("Practice quizzes", "اختبارات تدريبية"), desc: atr("Turn what you've studied into quick multiple-choice quizzes.", "حوّل ما درسته إلى اختبارات اختيار من متعدد سريعة.") },
-      { icon: EditIcon, title: atr("Grow the dictionary", "أضِف كلمات جديدة"), desc: atr("Add new words and definitions that everyone in the group can use.", "أضف كلمات وتعريفات جديدة يستفيد منها الجميع.") },
+      { icon: SpeakerIcon, title: atr("Cambridge pronunciation", "نطق كامبريدج"), desc: atr("American and British audio from Cambridge Dictionary, plus practice scoring.", "نطق أمريكي وبريطاني من قاموس كامبريدج مع تمرين وتقييم.") },
+      { icon: QuizIcon, title: atr("Practice quizzes", "اختبارات تدريبية"), desc: atr("Quizzes, flashcards, random word, and dictation — with multi-type words labeled clearly.", "اختبارات وبطاقات وكلمة عشوائية وإملاء — مع توضيح نوع الكلمة لو ليها أكتر من معنى.") },
+      { icon: EditIcon, title: atr("Grow the dictionary", "أضِف كلمات جديدة"), desc: atr("Add words with types, multiple senses, auto-fill definitions and examples.", "أضف كلمات بأنواع ومعاني متعددة وتعبئة تلقائية للتعريف والأمثلة.") },
       { icon: UsersIcon, title: atr("Shared with your group", "مشترك مع مجموعتك"), desc: atr("One dictionary for everyone, with each person's progress tracked separately.", "قاموس واحد للجميع، وتقدّم كل شخص محفوظ بشكل منفصل.") },
       { icon: GlobeIcon, title: atr("Fully bilingual", "ثنائي اللغة بالكامل"), desc: atr("Switch the whole app between English and Arabic anytime.", "بدّل الموقع بالكامل بين الإنجليزية والعربية في أي وقت.") },
-      { icon: ZoomIcon, title: atr("Automatic grammar breakdown", "تحليل نحوي تلقائي"), desc: atr("Full English tense tables, Arabic verb conjugation, and adjective breakdowns — detected automatically as you type.", "جداول أزمنة إنجليزية كاملة، تصريف الفعل العربي، وتحليل الصفات — يتم اكتشافها تلقائيًا أثناء الكتابة.") },
+      { icon: StarIcon, title: atr("Achievements by category", "إنجازات بالأقسام"), desc: atr("Ten levels per track — studying, streaks, quizzes, focus time, and more — with live % progress.", "عشر مستويات لكل مسار — مذاكرة وسلاسل واختبارات ووقت تركيز وغيرها — مع نسبة تقدّم حية.") },
       { icon: TrophyIcon, title: atr("Leaderboard", "لوحة الصدارة"), desc: atr("See how you stack up against the rest of your group.", "شوف ترتيبك مقارنة بباقي أفراد مجموعتك.") },
-      { icon: StatsIcon, title: atr("Smart review reminders", "تذكيرات مراجعة ذكية"), desc: atr("Spaced-repetition scheduling brings words back right before you'd forget them.", "جدولة تكرار متباعد تعيد لك الكلمات في التوقيت المثالي قبل ما تنساها.") },
+      { icon: StatsIcon, title: atr("Smart review (SRS)", "مراجعة ذكية"), desc: atr("Spaced-repetition brings words back right before you'd forget them.", "التكرار المتباعد بيرجّع الكلمات قبل ما تنساها.") },
+      { icon: CheckIcon, title: atr("To-do with work timer", "مهام مع مؤقت شغل"), desc: atr("Start a task and watch a live timer track how long you've been on it.", "ابدأ مهمة وشوف مؤقت حيّ بيحسب وقت شغلك عليها.") },
       { icon: WifiOffIcon, title: atr("Works offline", "يعمل بدون إنترنت"), desc: atr("Your saved words stay with you even without a connection.", "كلماتك المحفوظة تفضل معاك حتى من غير اتصال بالإنترنت.") },
       { icon: LayersIcon, title: atr("Flashcards mode", "وضع البطاقات التعليمية"), desc: atr("Flip through your words as flashcards for quick, focused review sessions.", "قلّب كلماتك كبطاقات تعليمية لمراجعة سريعة ومركزة.") },
       { icon: CalendarIcon, title: atr("Word of the day", "كلمة اليوم"), desc: atr("A fresh word from your dictionary highlighted for you every single day.", "كلمة جديدة من قاموسك تُعرض لك كل يوم.") },

@@ -19,6 +19,9 @@ function loadTodos() {
         text: String(t.text).slice(0, 500),
         done: !!t.done,
         createdAt: typeof t.createdAt === "number" ? t.createdAt : Date.now(),
+        workedMs: typeof t.workedMs === "number" ? Math.max(0, t.workedMs) : 0,
+        // Only one task should be active; cleaned up after load
+        activeSince: typeof t.activeSince === "number" ? t.activeSince : null,
       }));
   } catch (_) {
     return [];
@@ -33,6 +36,15 @@ function saveTodos(list) {
 
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+function formatElapsed(ms) {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 /**
@@ -50,12 +62,35 @@ export default function TodoPage({
   const [viewMode, setViewMode] = useState(initialBubble ? "bubble" : "full");
   const [bubblePos, setBubblePos] = useState({ x: null, y: null });
   const [filter, setFilter] = useState("all"); // all | open | done
+  const [nowTick, setNowTick] = useState(Date.now());
   const inputRef = useRef(null);
   const dragRef = useRef(null);
+
+  // Keep only the most recently started active task
+  useEffect(() => {
+    setTodos((prev) => {
+      const actives = prev.filter((t) => t.activeSince);
+      if (actives.length <= 1) return prev;
+      const keepId = actives.sort((a, b) => b.activeSince - a.activeSince)[0].id;
+      return prev.map((t) =>
+        t.activeSince && t.id !== keepId
+          ? { ...t, activeSince: null, workedMs: (t.workedMs || 0) + (Date.now() - t.activeSince) }
+          : t
+      );
+    });
+  }, []);
 
   useEffect(() => {
     saveTodos(todos);
   }, [todos]);
+
+  // Live tick while any task is running
+  const hasActive = todos.some((t) => t.activeSince);
+  useEffect(() => {
+    if (!hasActive) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [hasActive]);
 
   useEffect(() => {
     onBubbleChange?.(viewMode === "bubble");
@@ -90,11 +125,64 @@ export default function TodoPage({
   }
 
   function toggleTodo(id) {
-    setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+    setTodos((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        // Completing a task stops its timer and banks the elapsed time
+        if (!t.done && t.activeSince) {
+          return {
+            ...t,
+            done: true,
+            activeSince: null,
+            workedMs: (t.workedMs || 0) + (Date.now() - t.activeSince),
+          };
+        }
+        return { ...t, done: !t.done };
+      })
+    );
+  }
+
+  function startTask(id) {
+    setTodos((prev) =>
+      prev.map((t) => {
+        if (t.id === id) {
+          if (t.done || t.activeSince) return t;
+          return { ...t, activeSince: Date.now() };
+        }
+        // Stop any other active task
+        if (t.activeSince) {
+          return {
+            ...t,
+            activeSince: null,
+            workedMs: (t.workedMs || 0) + (Date.now() - t.activeSince),
+          };
+        }
+        return t;
+      })
+    );
+  }
+
+  function stopTask(id) {
+    setTodos((prev) =>
+      prev.map((t) => {
+        if (t.id !== id || !t.activeSince) return t;
+        return {
+          ...t,
+          activeSince: null,
+          workedMs: (t.workedMs || 0) + (Date.now() - t.activeSince),
+        };
+      })
+    );
   }
 
   function removeTodo(id) {
     setTodos((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  function elapsedFor(t) {
+    const base = t.workedMs || 0;
+    if (t.activeSince) return base + Math.max(0, nowTick - t.activeSince);
+    return base;
   }
 
   function clearDone() {
@@ -205,6 +293,25 @@ export default function TodoPage({
           )}
         </div>
 
+        {(() => {
+          const active = todos.find((x) => x.activeSince);
+          if (active) {
+            return (
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#30d158", marginBottom: 2 }}>
+                  {tr(isAr, "Working on", "شغال على")}
+                </div>
+                <div style={{ fontSize: 12, color: INK, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {active.text}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 800, fontFamily: "ui-monospace, monospace", color: "#30d158", marginTop: 4 }}>
+                  {formatElapsed(elapsedFor(active))}
+                </div>
+              </div>
+            );
+          }
+          return null;
+        })()}
         {preview.length === 0 ? (
           <div style={{ fontSize: 11, color: "var(--muted)" }}>
             {tr(isAr, "No open tasks", "مفيش مهام مفتوحة")}
@@ -223,7 +330,7 @@ export default function TodoPage({
                   padding: "3px 0",
                 }}
               >
-                · {t.text}
+                {t.activeSince ? "▶ " : "· "}{t.text}
               </li>
             ))}
             {openCount > 3 && (
@@ -329,6 +436,8 @@ export default function TodoPage({
                         text: String(t.text).slice(0, 500),
                         done: !!t.done,
                         createdAt: typeof t.createdAt === "number" ? t.createdAt : Date.now(),
+                        workedMs: typeof t.workedMs === "number" ? t.workedMs : 0,
+                        activeSince: null,
                       }));
                     setTodos(cleaned);
                   } catch (_) {}
@@ -461,6 +570,8 @@ export default function TodoPage({
                   border: "1px solid rgba(var(--border-rgb),0.12)",
                   borderRadius: 12,
                   opacity: t.done ? 0.65 : 1,
+                  borderColor: t.activeSince ? "color-mix(in srgb, #30d158 45%, transparent)" : "rgba(var(--border-rgb),0.12)",
+                  boxShadow: t.activeSince ? "0 0 0 1px color-mix(in srgb, #30d158 25%, transparent)" : undefined,
                 }}
               >
                 <button
@@ -484,17 +595,59 @@ export default function TodoPage({
                 >
                   {t.done ? <CheckIcon size={14} /> : null}
                 </button>
-                <span
-                  style={{
-                    flex: 1,
-                    fontSize: 15,
-                    color: INK,
-                    textDecoration: t.done ? "line-through" : "none",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {t.text}
-                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span
+                    style={{
+                      fontSize: 15,
+                      color: INK,
+                      textDecoration: t.done ? "line-through" : "none",
+                      wordBreak: "break-word",
+                      display: "block",
+                    }}
+                  >
+                    {t.text}
+                  </span>
+                  {(t.activeSince || (t.workedMs || 0) > 0) && (
+                    <div
+                      style={{
+                        marginTop: 4,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        fontFamily: "ui-monospace, 'Source Sans 3', monospace",
+                        color: t.activeSince ? "#30d158" : "var(--muted-strong)",
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      {t.activeSince ? "● " : ""}
+                      {formatElapsed(elapsedFor(t))}
+                      {t.activeSince
+                        ? ` ${tr(isAr, "working", "شغال")}`
+                        : ` ${tr(isAr, "total", "إجمالي")}`}
+                    </div>
+                  )}
+                </div>
+                {!t.done && (
+                  <button
+                    type="button"
+                    onClick={() => (t.activeSince ? stopTask(t.id) : startTask(t.id))}
+                    title={t.activeSince ? tr(isAr, "Stop", "إيقاف") : tr(isAr, "Start working", "ابدأ الشغل")}
+                    style={{
+                      border: "none",
+                      borderRadius: 8,
+                      padding: "6px 10px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      flexShrink: 0,
+                      background: t.activeSince
+                        ? "color-mix(in srgb, #ff9f0a 22%, transparent)"
+                        : "color-mix(in srgb, #30d158 18%, transparent)",
+                      color: t.activeSince ? "#ff9f0a" : "#30d158",
+                    }}
+                  >
+                    {t.activeSince ? tr(isAr, "Stop", "إيقاف") : tr(isAr, "Start", "ابدأ")}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => removeTodo(t.id)}

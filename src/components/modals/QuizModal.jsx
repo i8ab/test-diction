@@ -14,6 +14,11 @@ function ReviewRow({ item, isAr }) {
     <div style={{ padding: "10px 12px", border: "1px solid rgba(var(--border-rgb),0.15)", borderRadius: 4, marginBottom: 8 }}>
       <div dir={item.wordDir} style={{ fontFamily: item.wordFont, fontSize: 16, fontWeight: 700, color: INK, marginBottom: 4 }}>
         {item.word}
+        {item.pos ? (
+          <span style={{ marginInlineStart: 8, fontSize: 11, fontWeight: 700, color: "var(--muted-strong)", fontFamily: "'Source Sans 3', sans-serif" }}>
+            ({item.pos})
+          </span>
+        ) : null}
       </div>
       <p style={{ fontSize: 13, color: "var(--muted-strong)", margin: 0 }}>
         {tr(isAr,
@@ -94,7 +99,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
     setAnswered(true);
     setResults((r) => [...r, {
       id: q.id, correct, type: q.type,
-      word: q.word, wordDir: q.wordDir, wordFont: q.wordFont,
+      word: q.word, wordDir: q.wordDir, wordFont: q.wordFont, pos: q.pos || "",
       selectedAnswer: opt, correctAnswer: q.correct,
     }]);
     // Feed this word's result into its spaced-repetition schedule. Fire
@@ -256,8 +261,8 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                 <div style={{ width: `${((index) / questions.length) * 100}%`, height: "100%", background: BRASS, borderRadius: 2, transition: "width 0.2s" }} />
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "0 0 8px" }}>
-                <p style={{ fontSize: 21, fontWeight: 700, color: "var(--muted-strong)", margin: 0 }}>{quizQuestionLabel(q.type, isAr)}</p>
-                <SpeakButton text={quizQuestionLabel(q.type, isAr)} dir={isAr ? "rtl" : "ltr"} isAr={isAr} size={16}
+                <p style={{ fontSize: 21, fontWeight: 700, color: "var(--muted-strong)", margin: 0 }}>{quizQuestionLabel(q.type, isAr, q.pos)}</p>
+                <SpeakButton text={quizQuestionLabel(q.type, isAr, q.pos)} dir={isAr ? "rtl" : "ltr"} isAr={isAr} size={16}
                   style={{ flexShrink: 0 }} />
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--input-bg)", borderRadius: 4, padding: "20px 16px", marginBottom: 16 }}>

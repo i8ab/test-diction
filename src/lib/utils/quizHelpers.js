@@ -1,3 +1,4 @@
+import { getEntrySenses, posLabel } from "./wordTypes";
 // SRS + quiz helpers shared across Quiz, Stats, MainView, App.
 
 export function uid() {
@@ -142,32 +143,68 @@ function shuffle(arr) {
 export function buildQuiz(matchingEntries, allEntries, mode) {
   if (!matchingEntries || matchingEntries.length < 1) return [];
   const pool = matchingEntries.length >= 4 ? matchingEntries : allEntries || matchingEntries;
-  const questions = matchingEntries.slice(0, 30).map((entry) => {
-    const correct = entry.meaning;
+
+  // Expand multi-sense entries into one question per sense so the quiz can
+  // say "this is the NOUN meaning" and not mix verb/noun answers.
+  const items = [];
+  for (const entry of matchingEntries.slice(0, 40)) {
+    const senses = getEntrySenses(entry);
+    if (!senses.length) continue;
+    for (const sense of senses) {
+      items.push({ entry, sense });
+    }
+  }
+  const picked = shuffle(items).slice(0, 30);
+
+  // Collect all meanings from the pool for distractors
+  const allMeanings = [];
+  for (const e of pool) {
+    for (const s of getEntrySenses(e)) {
+      if (s.meaning) allMeanings.push(s.meaning);
+    }
+    if (e.meaning && !allMeanings.includes(e.meaning)) allMeanings.push(e.meaning);
+  }
+
+  const questions = picked.map(({ entry, sense }) => {
+    const correct = sense.meaning;
+    const isArWord = entry.section === "ar-ar";
+    const wordDir = isArWord ? "rtl" : "ltr";
+    const wordFont = isArWord ? "'Amiri', serif" : "'Fraunces', serif";
+    const meaningDir = "rtl";
+    const meaningFont = "'Amiri', serif";
+
     let options = [correct];
     if (mode === "mcq") {
       const distractors = shuffle(
-        pool.filter((e) => e.id !== entry.id && e.meaning && e.meaning !== correct)
-      )
-        .slice(0, 3)
-        .map((e) => e.meaning);
-      while (distractors.length < 3 && pool.length > options.length) {
-        const extra = pool[Math.floor(Math.random() * pool.length)];
-        if (extra && extra.meaning && !options.includes(extra.meaning) && !distractors.includes(extra.meaning)) {
-          distractors.push(extra.meaning);
-        } else break;
+        allMeanings.filter((m) => m && m !== correct)
+      ).slice(0, 3);
+      while (distractors.length < 3 && allMeanings.length > distractors.length + 1) {
+        const extra = allMeanings[Math.floor(Math.random() * allMeanings.length)];
+        if (extra && extra !== correct && !distractors.includes(extra)) distractors.push(extra);
+        else break;
       }
       options = shuffle([correct, ...distractors]).slice(0, 4);
     }
+
     return {
-      id: entry.id,
+      id: `${entry.id}:${sense.id}`,
+      entryId: entry.id,
       word: entry.word,
-      meaning: entry.meaning,
+      meaning: correct,
+      correct,
       correctAnswer: correct,
+      acceptedAnswers: [correct],
       options,
-      wordDir: entry.section === "ar-ar" ? "rtl" : "ltr",
-      wordFont: entry.section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif",
+      type: mode,
       mode,
+      pos: sense.pos || "",
+      promptText: entry.word,
+      promptDir: wordDir,
+      promptFont: wordFont,
+      optionDir: meaningDir,
+      optionFont: meaningFont,
+      wordDir,
+      wordFont,
     };
   });
   return shuffle(questions);
@@ -181,14 +218,21 @@ export function isTypingCorrect(typed, correct) {
       .toLowerCase()
       .replace(/[^\p{L}\p{N}\s]/gu, "")
       .replace(/\s+/g, " ");
-  return norm(typed) === norm(correct);
+  const t = norm(typed);
+  if (!t) return false;
+  const list = Array.isArray(correct) ? correct : [correct];
+  return list.some((c) => c && norm(c) === t);
 }
 
-export function quizQuestionLabel(mode, isAr) {
-  if (mode === "typing") {
-    return isAr ? "اكتب المعنى" : "Type the meaning";
-  }
-  return isAr ? "اختر المعنى الصحيح" : "Pick the correct meaning";
+export function quizQuestionLabel(mode, isAr, pos) {
+  const base =
+    mode === "typing"
+      ? (isAr ? "اكتب المعنى" : "Type the meaning")
+      : (isAr ? "اختر المعنى الصحيح" : "Pick the correct meaning");
+  if (!pos) return base;
+  const tag = posLabel(pos, isAr);
+  if (!tag) return base;
+  return isAr ? `${base} — دي (${tag})` : `${base} — as a ${tag}`;
 }
 
 export const QUIZ_RESULT_CATEGORIES = [

@@ -8,7 +8,8 @@ export class DictionaryLookupError extends Error {
 }
 
 /**
- * Returns { definition, example, synonyms: string[] }
+ * Auto-fill payload: definitions + example sentences only.
+ * Returns { definition, example, examples: string[] }
  */
 export async function fetchDictionarySuggestion(word) {
   const q = String(word || "").trim();
@@ -25,24 +26,29 @@ export async function fetchDictionarySuggestion(word) {
   const data = await res.json();
   if (!Array.isArray(data) || !data.length) throw new DictionaryLookupError("not_found");
 
-  let definition = "";
-  let example = "";
-  const synonyms = new Set();
+  const definitions = [];
+  const examples = [];
 
   for (const entry of data) {
     for (const m of entry.meanings || []) {
       for (const d of m.definitions || []) {
-        if (!definition && d.definition) definition = d.definition;
-        if (!example && d.example) example = d.example;
-        (d.synonyms || []).forEach((s) => synonyms.add(s));
+        if (d.definition && definitions.length < 5) {
+          const def = String(d.definition).trim();
+          if (def && !definitions.includes(def)) definitions.push(def);
+        }
+        if (d.example) {
+          const ex = String(d.example).trim();
+          if (ex && !examples.includes(ex) && examples.length < 6) examples.push(ex);
+        }
       }
-      (m.synonyms || []).forEach((s) => synonyms.add(s));
     }
   }
 
   return {
-    definition,
-    example,
-    synonyms: Array.from(synonyms).slice(0, 12),
+    definition: definitions[0] || "",
+    // Join extra senses into the definition field when useful
+    definitions,
+    example: examples[0] || "",
+    examples,
   };
 }

@@ -9,6 +9,7 @@ import { useState, memo } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { cambridgeUrl } from "../../lib/utils/wordCard";
+import { entryPosList, posLabel, getEntrySenses } from "../../lib/utils/wordTypes";
 import { detectDir, detectFont } from "../../lib/utils/searchUtils";
 import { PairListDisplay } from "./PairList";
 import {
@@ -37,12 +38,41 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
       >
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
           <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 15, fontWeight: 600, color: INK }}>{entry.word}</span>
+          {entryPosList(entry).map((p) => (
+            <span key={p} style={{
+              marginInlineStart: 6, fontSize: 10, fontWeight: 700, letterSpacing: "0.02em",
+              padding: "1px 6px", borderRadius: 999, verticalAlign: "middle",
+              background: "color-mix(in srgb, var(--accent-1) 14%, transparent)",
+              color: "var(--accent-1)", border: "1px solid color-mix(in srgb, var(--accent-1) 35%, transparent)",
+            }}>
+              {posLabel(p, isAr)}
+            </span>
+          ))}
           {isExpandable && (
             <ChevronIcon size={11} color={cfg.accent}
               style={{ flexShrink: 0, transition: "transform 0.15s", transform: `${cfg.dir === "rtl" ? "scaleX(-1) " : ""}${open ? "rotate(90deg)" : ""}` }} />
           )}
-          <span dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: 14, color: "var(--meaning)" }}>{entry.meaning}</span>
-          {!!entry.meaning && <SpeakButton text={entry.meaning} dir={cfg.meaningDir} isAr={isAr} size={13} />}
+          {(() => {
+            const senses = getEntrySenses(entry);
+            if (senses.length > 1) {
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {senses.map((s) => (
+                    <span key={s.id} dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: 13.5, color: "var(--meaning)" }}>
+                      {s.pos ? <span style={{ color: "var(--accent-1)", fontWeight: 700, fontSize: 11, marginInlineEnd: 5 }}>{posLabel(s.pos, isAr)}</span> : null}
+                      {s.meaning}
+                    </span>
+                  ))}
+                </div>
+              );
+            }
+            return (
+              <>
+                <span dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: 14, color: "var(--meaning)" }}>{entry.meaning}</span>
+                {!!entry.meaning && <SpeakButton text={entry.meaning} dir={cfg.meaningDir} isAr={isAr} size={13} />}
+              </>
+            );
+          })()}
         </div>
         {(isStudied || isFavorite) && (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5 }}>

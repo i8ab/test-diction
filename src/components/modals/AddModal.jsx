@@ -3,8 +3,9 @@ import { useState, useEffect } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { normalizePairs } from "../../lib/utils/pairUtils";
-import { uid } from "../../lib/utils/quizHelpers";
 import { fetchDictionarySuggestion, DictionaryLookupError } from "../../lib/utils/dictionaryApi";
+import { uid } from "../../lib/utils/quizHelpers";
+import { WORD_TYPES, getEntrySenses } from "../../lib/utils/wordTypes";
 import { PairListEditor } from "../common/PairList";
 import { PlusIcon, XIcon, CheckIcon, LoaderIcon, WandIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
@@ -14,6 +15,21 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
   const isEdit = !!initialEntry;
   const [word, setWord] = useState(isEdit ? initialEntry.word : "");
   const [meaning, setMeaning] = useState(isEdit ? initialEntry.meaning : "");
+  const initialSenses = isEdit ? getEntrySenses(initialEntry) : [];
+  const [multiSense, setMultiSense] = useState(isEdit && initialSenses.length > 1);
+  const [pos, setPos] = useState(isEdit ? (initialEntry.pos || (initialSenses[0] && initialSenses[0].pos) || "") : "");
+  const [senses, setSenses] = useState(() => {
+    if (isEdit && initialSenses.length > 1) {
+      return initialSenses.map((s) => ({ id: s.id || uid(), pos: s.pos || "", meaning: s.meaning || "" }));
+    }
+    if (isEdit && initialSenses.length === 1) {
+      return [{ id: uid(), pos: initialSenses[0].pos || initialEntry.pos || "", meaning: initialSenses[0].meaning || "" }];
+    }
+    return [
+      { id: uid(), pos: "", meaning: "" },
+      { id: uid(), pos: "", meaning: "" },
+    ];
+  });
   const [definition, setDefinition] = useState(isEdit ? (initialEntry.definition || "") : "");
   const [example, setExample] = useState(isEdit ? (initialEntry.example || "") : "");
   const [extraExamples, setExtraExamples] = useState(isEdit && initialEntry.examples ? initialEntry.examples : []);
@@ -35,19 +51,34 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
     setSuggestError("");
     try {
       const result = await fetchDictionarySuggestion(word);
-      if (!definition.trim() && result.definition) setDefinition(result.definition);
-      if (!example.trim() && result.example) setExample(result.example);
-      if (result.synonyms.length) {
-        setSynonyms((list) => {
-          const existing = new Set(list.map((p) => p.word.trim().toLowerCase()).filter(Boolean));
-          const additions = result.synonyms
-            .filter((s) => !existing.has(s.toLowerCase()))
-            .map((s) => ({ id: uid(), word: s, meaning: "" }));
-          return additions.length ? [...list, ...additions] : list;
-        });
+      // Only definition + examples — never synonyms, antonyms, or meaning.
+      const defs = (result.definitions && result.definitions.length)
+        ? result.definitions
+        : (result.definition ? [result.definition] : []);
+      const exs = (result.examples && result.examples.length)
+        ? result.examples
+        : (result.example ? [result.example] : []);
+
+      if (defs.length) {
+        // Primary definition field; extra senses joined if the field was empty.
+        if (!definition.trim()) {
+          setDefinition(defs.length === 1 ? defs[0] : defs.map((d, i) => `${i + 1}. ${d}`).join("\n"));
+        }
       }
-      if (!result.definition && !result.example && !result.synonyms.length) {
-        setSuggestError(tr(isAr, "No extra details found for that word.", "معرفتش ألاقي تفاصيل إضافية للكلمة دي."));
+      if (exs.length) {
+        if (!example.trim()) setExample(exs[0]);
+        const rest = exs.slice(1);
+        if (rest.length) {
+          setExtraExamples((prev) => {
+            const existing = new Set(prev.map((x) => x.trim().toLowerCase()).filter(Boolean));
+            if (example.trim()) existing.add(example.trim().toLowerCase());
+            const additions = rest.filter((x) => !existing.has(x.toLowerCase()));
+            return additions.length ? [...prev, ...additions] : prev;
+          });
+        }
+      }
+      if (!defs.length && !exs.length) {
+        setSuggestError(tr(isAr, "No definition or examples found for that word.", "مفيش تعريف أو أمثلة للكلمة دي."));
       }
     } catch (e) {
       if (e instanceof DictionaryLookupError && e.message === "not_found") {
@@ -76,12 +107,47 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!word.trim() || !meaning.trim()) { setError(tr(isAr, "Word and meaning are both required.", "الكلمة والمعنى مطلوبان.")); return; }
+    if (!word.trim()) { setError(tr(isAr, "Word is required.", "الكلمة مطلوبة.")); return; }
+
+    let payloadMeaning = meaning.trim();
+    let payloadPos = pos || "";
+    let payloadSenses = undefined;
+
+    if (multiSense) {
+      const cleaned = senses
+        .map((s) => ({ id: s.id || uid(), pos: s.pos || "", meaning: (s.meaning || "").trim() }))
+        .filter((s) => s.meaning);
+      if (!cleaned.length) {
+        setError(tr(isAr, "Add at least one meaning.", "ضيف معنى واحد على الأقل."));
+        return;
+      }
+      for (const s of cleaned) {
+        if (!s.pos) {
+          setError(tr(isAr, "Pick a word type for each meaning.", "اختار نوع الكلمة لكل معنى."));
+          return;
+        }
+      }
+      payloadSenses = cleaned;
+      payloadMeaning = cleaned[0].meaning;
+      payloadPos = cleaned[0].pos;
+    } else {
+      if (!payloadMeaning) {
+        setError(tr(isAr, "Word and meaning are both required.", "الكلمة والمعنى مطلوبان."));
+        return;
+      }
+    }
+
     setSaving(true);
     await onSubmit({
-      word: word.trim(), meaning: meaning.trim(), definition: definition.trim(), example: example.trim(),
+      word: word.trim(),
+      meaning: payloadMeaning,
+      pos: payloadPos || undefined,
+      senses: payloadSenses,
+      definition: definition.trim(),
+      example: example.trim(),
       examples: extraExamples.map((ex) => ex.trim()).filter(Boolean),
-      synonyms: cleanPairs(synonyms), antonyms: cleanPairs(antonyms),
+      synonyms: cleanPairs(synonyms),
+      antonyms: cleanPairs(antonyms),
     });
     setSaving(false);
   }
@@ -100,7 +166,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
             <input id="add-word" value={word} onChange={(e) => setWord(e.target.value)} placeholder={cfg.wordPlaceholder} dir={cfg.wordDir} style={{ ...inputStyle, flex: 1, fontFamily: cfg.wordFont, fontSize: 16 }} autoFocus />
             {canAutoSuggest && (
               <button type="button" onClick={handleAutoSuggest} disabled={!word.trim() || suggesting}
-                title={tr(isAr, "Fetch definition/example from dictionary", "جلب التعريف والمثال من القاموس")}
+                title={tr(isAr, "Fetch definition and examples only", "جلب التعريف والأمثلة فقط")}
                 style={{ display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", padding: "10px 12px", fontSize: 12.5, fontWeight: 700, color: cfg.accent, background: cfg.accentSoft, border: "none", borderRadius: 3, cursor: !word.trim() || suggesting ? "default" : "pointer", opacity: !word.trim() ? 0.6 : 1 }}>
                 {suggesting ? <LoaderIcon size={14} /> : <WandIcon size={14} />}
                 {tr(isAr, "Auto-fill", "تعبئة تلقائية")}
@@ -108,8 +174,90 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
             )}
           </div>
           {suggestError && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{suggestError}</div>}
-          <label style={labelStyle} htmlFor="add-meaning">{tr(isAr, "Meaning *", "المعنى *")}</label>
-          <input id="add-meaning" value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder={cfg.meaningPlaceholder} dir={cfg.meaningDir} style={{ ...inputStyle, fontFamily: cfg.meaningFont, fontSize: 16 }} />
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 4, marginBottom: 4 }}>
+            <span style={{ ...labelStyle, margin: 0 }}>{tr(isAr, "Word type", "نوع الكلمة")}</span>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: "var(--muted-strong)", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={multiSense}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setMultiSense(on);
+                  if (on && meaning.trim() && !senses.some((s) => s.meaning.trim())) {
+                    setSenses((list) => {
+                      const next = list.slice();
+                      next[0] = { ...next[0], pos: pos || next[0].pos, meaning: meaning.trim() };
+                      return next;
+                    });
+                  }
+                }}
+              />
+              {tr(isAr, "More than one type", "أكتر من نوع")}
+            </label>
+          </div>
+
+          {!multiSense ? (
+            <>
+              <select
+                id="add-pos"
+                value={pos}
+                onChange={(e) => setPos(e.target.value)}
+                style={{ ...inputStyle, marginBottom: 8, cursor: "pointer" }}
+                aria-label={tr(isAr, "Word type", "نوع الكلمة")}
+              >
+                <option value="">{tr(isAr, "— optional —", "— اختياري —")}</option>
+                {WORD_TYPES.map((wt) => (
+                  <option key={wt.id} value={wt.id}>{tr(isAr, wt.en, wt.ar)}</option>
+                ))}
+              </select>
+              <label style={labelStyle} htmlFor="add-meaning">{tr(isAr, "Meaning *", "المعنى *")}</label>
+              <input id="add-meaning" value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder={cfg.meaningPlaceholder} dir={cfg.meaningDir} style={{ ...inputStyle, fontFamily: cfg.meaningFont, fontSize: 16 }} />
+            </>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 8 }}>
+              <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", lineHeight: 1.45 }}>
+                {tr(isAr,
+                  "Add each type with its own meaning (e.g. noun vs verb). The quiz will say which type it is asking for.",
+                  "ضيف كل نوع بمعناه (مثلاً اسم وفعل). في الاختبار هيقولك النوع المطلوب عشان متتلخبطش.")}
+              </p>
+              {senses.map((s, i) => (
+                <div key={s.id} style={{ padding: 10, borderRadius: 8, border: "1px solid rgba(var(--border-rgb),0.18)", background: "var(--input-bg)" }}>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
+                    <select
+                      value={s.pos}
+                      onChange={(e) => setSenses((list) => list.map((row, idx) => idx === i ? { ...row, pos: e.target.value } : row))}
+                      style={{ ...inputStyle, margin: 0, flex: 1, cursor: "pointer" }}
+                      aria-label={tr(isAr, `Type ${i + 1}`, `النوع ${i + 1}`)}
+                    >
+                      <option value="">{tr(isAr, "Pick type…", "اختار النوع…")}</option>
+                      {WORD_TYPES.map((wt) => (
+                        <option key={wt.id} value={wt.id}>{tr(isAr, wt.en, wt.ar)}</option>
+                      ))}
+                    </select>
+                    {senses.length > 1 && (
+                      <button type="button" onClick={() => setSenses((list) => list.filter((_, idx) => idx !== i))}
+                        aria-label={tr(isAr, "Remove", "حذف")}
+                        style={{ border: "none", background: "none", color: "var(--icon-muted)", cursor: "pointer", padding: 4 }}>
+                        <XIcon size={16} />
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    value={s.meaning}
+                    onChange={(e) => setSenses((list) => list.map((row, idx) => idx === i ? { ...row, meaning: e.target.value } : row))}
+                    placeholder={tr(isAr, `Meaning (${i + 1}) *`, `المعنى (${i + 1}) *`)}
+                    dir={cfg.meaningDir}
+                    style={{ ...inputStyle, margin: 0, fontFamily: cfg.meaningFont, fontSize: 15 }}
+                  />
+                </div>
+              ))}
+              <button type="button" onClick={() => setSenses((list) => [...list, { id: uid(), pos: "", meaning: "" }])}
+                style={{ display: "flex", alignItems: "center", gap: 5, border: "none", background: "none", color: cfg.accent, fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: 0 }}>
+                <PlusIcon size={12} /> {tr(isAr, "Add another type / meaning", "أضف نوع/معنى تاني")}
+              </button>
+            </div>
+          )}
           <label style={labelStyle} htmlFor="add-definition">{tr(isAr, "Definition (optional)", "تعريف (اختياري)")}</label>
           <textarea id="add-definition" value={definition} onChange={(e) => setDefinition(e.target.value)} placeholder="شرح إضافي أو مثال" dir="rtl" rows={3} style={{ ...inputStyle, fontFamily: "'Amiri', serif", fontSize: 15, resize: "vertical" }} />
           <label style={labelStyle} htmlFor="add-example">{tr(isAr, "Example sentence (optional)", "جملة توضيحية (اختياري)")}</label>

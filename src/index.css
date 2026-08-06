@@ -518,9 +518,3 @@ body::-webkit-scrollbar,
   55% { opacity: 0.85; }
   100% { transform: translateX(45%) rotate(12deg); opacity: 0; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .fab-glow,
-  .fab-glow-shine {
-    animation: none !important;
-  }
-}

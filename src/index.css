@@ -265,6 +265,8 @@
     gap: 10px !important;
   }
   .letter-rail {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
     flex: 0 0 auto !important;
     flex-direction: row !important;
     flex-wrap: wrap !important;
@@ -279,6 +281,11 @@
     border-bottom: 1px solid rgba(var(--border-rgb),0.1);
     margin-bottom: 2px;
     overflow: visible !important;
+  }
+  .letter-rail::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
   }
   header .section-tab {
     flex: 1 1 auto;
@@ -320,4 +327,16 @@
     justify-content: center;
     min-height: 44px;
   }
+}
+
+
+/* Hide scrollbar on A–Z letter rail (scroll still works) */
+.letter-rail {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.letter-rail::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }

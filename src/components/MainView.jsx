@@ -681,7 +681,24 @@ export default function MainView({
       </div>
 
       <div className="app-container app-main-row" style={{ margin: "0 auto", padding: "clamp(14px, 2.5vw, 22px) clamp(12px, 3vw, 24px) clamp(40px, 8vw, 72px)", display: "flex", gap: "clamp(12px, 2vw, 20px)" }}>
-        <nav className="letter-rail" style={{ flex: "0 0 34px", display: "flex", flexDirection: "column", gap: 2, position: "sticky", top: 130, alignSelf: "flex-start", maxHeight: "calc(100dvh - 160px)", overflowY: "auto" }}>
+        <nav
+          className="letter-rail"
+          style={{
+            flex: "0 0 34px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            position: "sticky",
+            top: 130,
+            alignSelf: "flex-start",
+            maxHeight: "calc(100dvh - 160px)",
+            overflowY: "auto",
+            // Hide the scrollbar next to the letters (keep scroll working)
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+          }}
+        >
+          <style>{`.letter-rail::-webkit-scrollbar{display:none;width:0;height:0}`}</style>
           {cfg.letters.map((l) => {
             const has = availableLetters.has(l);
             return (

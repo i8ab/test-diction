@@ -479,7 +479,7 @@ export default function DictionaryApp() {
         }
       } catch (e) {
         const cached = loadOfflineCache();
-        if (cached && cached.entries.length) {
+        if (cached && ((cached.entries && cached.entries.length) || (cached.accounts && cached.accounts.length))) {
           const { accounts: migrated } = migrateAccounts(cached.accounts || []);
           setEntries(cached.entries);
           setAccounts(migrated);
@@ -842,7 +842,8 @@ export default function DictionaryApp() {
         const prevStats = (a.srsStats && a.srsStats[entryId]) || { correct: 0, total: 0 };
         const nextStats = { correct: prevStats.correct + (correct ? 1 : 0), total: prevStats.total + 1 };
         const nextLevel = correct ? srsLevelFromStats(nextStats) : 0; // a miss always means "re-test soon", regardless of the word's overall level
-        const nextDue = Date.now() + SRS_LEVEL_INTERVALS_MS[nextLevel];
+        const levelIdx = Math.max(0, Math.min(nextLevel, SRS_LEVEL_INTERVALS_MS.length - 1));
+        const nextDue = Date.now() + SRS_LEVEL_INTERVALS_MS[levelIdx];
         return { ...a, srsStats: { ...(a.srsStats || {}), [entryId]: nextStats }, srsDueAt: { ...(a.srsDueAt || {}), [entryId]: nextDue } };
       }));
     } catch (e) { /* best-effort, quiz keeps going */ }
@@ -989,48 +990,39 @@ export default function DictionaryApp() {
 
     setLoggingIn(true);
     let passwordOk = false;
+    let shouldUpgradeHash = false;
     try {
       if (account.passwordHash) {
         const result = await verifyPasswordDetailed(passwordInput, account.code, account.passwordHash);
         passwordOk = result.ok;
-        // If an older hash scheme matched, upgrade to the canonical form so
-        // future logins are fast and consistent.
-        if (result.ok && result.needsUpgrade) {
-          const newHash = await hashPassword(passwordInput, account.code);
-          curAccounts = curAccounts.map((a) =>
-            a.code === account.code ? { ...a, passwordHash: newHash } : a
-          );
-          account = curAccounts.find((a) => a.code === account.code) || account;
-          try {
-            const newVersion = await saveRecord(
-              { entries, accounts: curAccounts, logs, siteBanner },
-              recordVersion
-            );
-            setAccounts(curAccounts);
-            setRecordVersion(newVersion);
-          } catch (e) {
-            setAccounts(curAccounts);
-          }
+        shouldUpgradeHash = !!(result.ok && result.needsUpgrade);
+      }
+      // Legacy / recovery: personal code accepted as password once.
+      // Also covers accounts whose hash was produced by an older build
+      // whose algorithm we no longer match — users can sign in with the
+      // personal code and we rewrite the hash to the canonical form.
+      if (!passwordOk) {
+        const typed = passwordInput.trim();
+        if (typed && typed === String(account.code)) {
+          passwordOk = true;
+          shouldUpgradeHash = true;
         }
-      } else {
-        // Legacy account: accept the old personal code as a one-time password.
-        passwordOk = passwordInput.trim() === String(account.code);
-        if (passwordOk) {
-          const newHash = await hashPassword(passwordInput, account.code);
-          curAccounts = curAccounts.map((a) =>
-            a.code === account.code ? { ...a, passwordHash: newHash } : a
+      }
+      if (passwordOk && shouldUpgradeHash) {
+        const newHash = await hashPassword(passwordInput, account.code);
+        curAccounts = curAccounts.map((a) =>
+          a.code === account.code ? { ...a, passwordHash: newHash } : a
+        );
+        account = curAccounts.find((a) => a.code === account.code) || account;
+        try {
+          const newVersion = await saveRecord(
+            { entries, accounts: curAccounts, logs, siteBanner },
+            recordVersion
           );
-          account = curAccounts.find((a) => a.code === account.code);
-          try {
-            const newVersion = await saveRecord(
-              { entries, accounts: curAccounts, logs, siteBanner },
-              recordVersion
-            );
-            setAccounts(curAccounts);
-            setRecordVersion(newVersion);
-          } catch (e) {
-            setAccounts(curAccounts);
-          }
+          setAccounts(curAccounts);
+          setRecordVersion(newVersion);
+        } catch (e) {
+          setAccounts(curAccounts);
         }
       }
     } catch (err) {

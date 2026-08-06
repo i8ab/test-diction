@@ -8,13 +8,34 @@ const SESSION_KEY = "twoTongues.sessionId";
 const LANG_KEY = "twoTongues.appLang";
 const HISTORY_KEY = "twoTongues.searchHistory";
 
-export const ACCENT_THEMES = [
-  { id: "brass", label: "Brass", accent1: "#b08d57", accent2: "#c4a574", soft1: "rgba(176,141,87,0.12)", soft2: "rgba(196,165,116,0.12)", focus: "176,141,87" },
-  { id: "ocean", label: "Ocean", accent1: "#2a9d8f", accent2: "#457b9d", soft1: "rgba(42,157,143,0.12)", soft2: "rgba(69,123,157,0.12)", focus: "42,157,143" },
-  { id: "berry", label: "Berry", accent1: "#9b5de5", accent2: "#f15bb5", soft1: "rgba(155,93,229,0.12)", soft2: "rgba(241,91,181,0.12)", focus: "155,93,229" },
-  { id: "forest", label: "Forest", accent1: "#40916c", accent2: "#52b788", soft1: "rgba(64,145,108,0.12)", soft2: "rgba(82,183,136,0.12)", focus: "64,145,108" },
-  { id: "sunset", label: "Sunset", accent1: "#e85d04", accent2: "#f48c06", soft1: "rgba(232,93,4,0.12)", soft2: "rgba(244,140,6,0.12)", focus: "232,93,4" },
-];
+// Accents must work on both light and dark (soft colors differ).
+export const ACCENT_THEMES = {
+  ocean: {
+    label: "Ocean",
+    light: { a1: "#19A7CE", a2: "#146C94", soft1: "#D3E7EF", soft2: "#E4EEF2", focus: "25,167,206", meaning: "#1F7A9E" },
+    dark:  { a1: "#3FC1E8", a2: "#6BAFD1", soft1: "#163642", soft2: "#142A34", focus: "63,193,232", meaning: "#6FCCEE" },
+  },
+  brass: {
+    label: "Brass",
+    light: { a1: "#b08d57", a2: "#8a6a3a", soft1: "rgba(176,141,87,0.15)", soft2: "rgba(138,106,58,0.12)", focus: "176,141,87", meaning: "#7a5c2e" },
+    dark:  { a1: "#d4b483", a2: "#c4a574", soft1: "rgba(212,180,131,0.18)", soft2: "rgba(196,165,116,0.14)", focus: "212,180,131", meaning: "#e0c9a0" },
+  },
+  berry: {
+    label: "Berry",
+    light: { a1: "#9b5de5", a2: "#f15bb5", soft1: "rgba(155,93,229,0.12)", soft2: "rgba(241,91,181,0.12)", focus: "155,93,229", meaning: "#7b3db5" },
+    dark:  { a1: "#c77dff", a2: "#ff85c8", soft1: "rgba(199,125,255,0.18)", soft2: "rgba(255,133,200,0.14)", focus: "199,125,255", meaning: "#e0aaff" },
+  },
+  forest: {
+    label: "Forest",
+    light: { a1: "#40916c", a2: "#2d6a4f", soft1: "rgba(64,145,108,0.12)", soft2: "rgba(45,106,79,0.12)", focus: "64,145,108", meaning: "#2d6a4f" },
+    dark:  { a1: "#52b788", a2: "#74c69d", soft1: "rgba(82,183,136,0.18)", soft2: "rgba(116,198,157,0.14)", focus: "82,183,136", meaning: "#95d5b2" },
+  },
+  sunset: {
+    label: "Sunset",
+    light: { a1: "#e85d04", a2: "#f48c06", soft1: "rgba(232,93,4,0.12)", soft2: "rgba(244,140,6,0.12)", focus: "232,93,4", meaning: "#c2410c" },
+    dark:  { a1: "#fb923c", a2: "#fdba74", soft1: "rgba(251,146,60,0.18)", soft2: "rgba(253,186,116,0.14)", focus: "251,146,60", meaning: "#fdba74" },
+  },
+};
 
 export function loadSavedTheme() {
   try {
@@ -27,10 +48,10 @@ export function loadSavedTheme() {
 
 export function loadSavedAccent() {
   try {
-    const id = localStorage.getItem(ACCENT_KEY) || "brass";
-    return ACCENT_THEMES.some((t) => t.id === id) ? id : "brass";
+    const id = localStorage.getItem(ACCENT_KEY) || "ocean";
+    return ACCENT_THEMES[id] ? id : "ocean";
   } catch (_) {
-    return "brass";
+    return "ocean";
   }
 }
 
@@ -40,15 +61,19 @@ export function saveAccent(id) {
   } catch (_) {}
 }
 
-export function applyAccentTheme(id) {
-  const theme = ACCENT_THEMES.find((t) => t.id === id) || ACCENT_THEMES[0];
+/** Apply accent CSS vars. Second arg is light/dark mode from the app theme. */
+export function applyAccentTheme(id, mode) {
+  const theme = ACCENT_THEMES[id] || ACCENT_THEMES.ocean;
+  const isDark = mode === "dark" || (typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "dark");
+  const colors = isDark ? theme.dark : theme.light;
   try {
     const root = document.documentElement;
-    root.style.setProperty("--accent-1", theme.accent1);
-    root.style.setProperty("--accent-2", theme.accent2);
-    root.style.setProperty("--accent-1-soft", theme.soft1);
-    root.style.setProperty("--accent-2-soft", theme.soft2);
-    root.style.setProperty("--focus-rgb", theme.focus);
+    root.style.setProperty("--accent-1", colors.a1);
+    root.style.setProperty("--accent-2", colors.a2);
+    root.style.setProperty("--accent-1-soft", colors.soft1);
+    root.style.setProperty("--accent-2-soft", colors.soft2);
+    root.style.setProperty("--focus-rgb", colors.focus);
+    if (colors.meaning) root.style.setProperty("--meaning", colors.meaning);
   } catch (_) {}
 }
 
@@ -102,7 +127,7 @@ export function generatePersonalCode() {
 }
 
 export function generateSessionId() {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export function saveSessionId(id) {

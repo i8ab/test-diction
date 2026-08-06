@@ -3,15 +3,15 @@ import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import {
   MoreIcon, XIcon, TrophyIcon, StatsIcon, QuizIcon, LayersIcon,
-  DownloadIcon, UploadIcon, LoaderIcon, ClockIcon,
+  DownloadIcon, UploadIcon, LoaderIcon, ClockIcon, CalendarIcon,
 } from "../common/Icons";
 
 // Desktop: radial wheel around the trigger.
 // Mobile / narrow screens: bottom sheet list — readable, tappable, no overlap.
 const HUB_SIZE = 40;
 const SATELLITE_SIZE = 46;
-const RADIUS = 96;
-const ARC_SPAN = 140;
+const RADIUS = 108;
+const ARC_SPAN = 170;
 
 function polar(cx, cy, r, deg) {
   const rad = (deg * Math.PI) / 180;
@@ -38,7 +38,7 @@ function useIsCompact() {
 }
 
 export default function ToolsMenu({
-  accent, onLeaderboard, onStats, onQuiz, onFlashcards, onTimer,
+  accent, onLeaderboard, onStats, onQuiz, onFlashcards, onTimer, onCalendar,
   onExport, exportDisabled, onImport, importing, isAr,
 }) {
   const [open, setOpen] = useState(false);
@@ -97,6 +97,7 @@ export default function ToolsMenu({
     { key: "quiz", icon: <QuizIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quiz", "اختبار"), onClick: onQuiz },
     { key: "flashcards", icon: <LayersIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Flashcards", "بطاقات تعليمية"), onClick: onFlashcards },
     { key: "timer", icon: <ClockIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Timer", "مؤقّت"), onClick: onTimer },
+    { key: "calendar", icon: <CalendarIcon size={18} />, tint: "#e85d04", label: tr(isAr, "Calendar", "التقويم"), onClick: onCalendar },
     { key: "export", icon: <DownloadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Export CSV", "تصدير CSV"), onClick: onExport, disabled: exportDisabled },
     { key: "import", icon: importing ? <LoaderIcon size={18} /> : <UploadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Import CSV", "استيراد CSV"), onClick: onImport, disabled: importing },
   ];

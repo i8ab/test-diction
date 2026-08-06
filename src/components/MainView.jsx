@@ -36,9 +36,11 @@ const AccountModal = lazy(() => import("./modals/AccountModal"));
 const AdminModal = lazy(() => import("./modals/AdminModal"));
 const WordZoomModal = lazy(() => import("./modals/WordZoomModal"));
 const TimerPage = lazy(() => import("./timer/TimerPage"));
+const CalendarPage = lazy(() => import("./calendar/CalendarPage"));
 
 
 const TIMER_VIEW_KEY = "twoTongues.timerView";
+const CALENDAR_VIEW_KEY = "twoTongues.calendarView";
 
 function loadTimerView() {
   try {
@@ -55,6 +57,24 @@ function saveTimerView(open, bubble) {
   try {
     if (!open) localStorage.removeItem(TIMER_VIEW_KEY);
     else localStorage.setItem(TIMER_VIEW_KEY, JSON.stringify({ open: true, bubble: !!bubble }));
+  } catch (e) {}
+}
+
+function loadCalendarView() {
+  try {
+    const raw = localStorage.getItem(CALENDAR_VIEW_KEY);
+    if (!raw) return { open: false, bubble: false };
+    const p = JSON.parse(raw);
+    return { open: !!p.open, bubble: !!p.bubble };
+  } catch (e) {
+    return { open: false, bubble: false };
+  }
+}
+
+function saveCalendarView(open, bubble) {
+  try {
+    if (!open) localStorage.removeItem(CALENDAR_VIEW_KEY);
+    else localStorage.setItem(CALENDAR_VIEW_KEY, JSON.stringify({ open: true, bubble: !!bubble }));
   } catch (e) {}
 }
 
@@ -135,11 +155,18 @@ export default function MainView({
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showTimer, setShowTimer] = useState(() => loadTimerView().open);
   const [timerBubble, setTimerBubble] = useState(() => loadTimerView().bubble);
+  const [showCalendar, setShowCalendar] = useState(() => loadCalendarView().open);
+  const [calendarBubble, setCalendarBubble] = useState(() => loadCalendarView().bubble);
 
   // Persist timer page across refresh until the user closes it themselves.
   useEffect(() => {
     saveTimerView(showTimer, timerBubble);
   }, [showTimer, timerBubble]);
+
+  // Persist calendar widget across refresh until the user closes it themselves.
+  useEffect(() => {
+    saveCalendarView(showCalendar, calendarBubble);
+  }, [showCalendar, calendarBubble]);
   const [undoDelete, setUndoDelete] = useState(null); // { entry, prevEntries } — cleared after UNDO_DELETE_MS or on undo
   const undoTimerRef = useRef(null);
   const importInputRef = useRef(null);
@@ -450,16 +477,16 @@ export default function MainView({
 
   return (
     <>
-    {/* Hide dictionary while the full timer page is open; show it again under the floating bubble. */}
+    {/* Hide dictionary while the full timer/calendar page is open; show it again under the floating bubble. */}
     <div
       dir={cfg.dir}
       style={{
         minHeight: "100vh",
         background: PAPER,
         fontFamily: "'Source Sans 3', sans-serif",
-        display: showTimer && !timerBubble ? "none" : undefined,
+        display: (showTimer && !timerBubble) || (showCalendar && !calendarBubble) ? "none" : undefined,
       }}
-      aria-hidden={showTimer && !timerBubble ? true : undefined}
+      aria-hidden={(showTimer && !timerBubble) || (showCalendar && !calendarBubble) ? true : undefined}
     >
       <SiteBanner banner={siteBanner} isAr={appIsAr} />
       <header style={{ borderBottom: "1px solid rgba(var(--border-rgb),0.15)", background: PAPER, position: "sticky", top: 0, zIndex: 1000 }}>
@@ -592,6 +619,7 @@ export default function MainView({
               onQuiz={() => setShowQuiz(true)}
               onFlashcards={() => setShowFlashcards(true)}
               onTimer={() => { setTimerBubble(false); setShowTimer(true); }}
+              onCalendar={() => { setCalendarBubble(false); setShowCalendar(true); }}
               onExport={() => exportEntriesAsCsv(filtered.length ? filtered : sectionEntries, cfg, cfg.shortLabel)}
               exportDisabled={sectionEntries.length === 0}
               onImport={() => importInputRef.current && importInputRef.current.click()}
@@ -854,6 +882,19 @@ export default function MainView({
           initialBubble={timerBubble}
           onClose={() => { setShowTimer(false); setTimerBubble(false); }}
           onBubbleChange={setTimerBubble}
+        />
+      </Suspense>
+    )}
+
+    {showCalendar && (
+      <Suspense fallback={null}>
+        <CalendarPage
+          isAr={isAr}
+          studiedAt={studiedAt}
+          entries={entries}
+          initialBubble={calendarBubble}
+          onClose={() => { setShowCalendar(false); setCalendarBubble(false); }}
+          onBubbleChange={setCalendarBubble}
         />
       </Suspense>
     )}

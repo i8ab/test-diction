@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import {
   MoreIcon, XIcon, TrophyIcon, StatsIcon, QuizIcon, LayersIcon,
-  DownloadIcon, UploadIcon, LoaderIcon, ClockIcon, CalendarIcon, CheckIcon,
+  DownloadIcon, UploadIcon, LoaderIcon, ClockIcon, CalendarIcon, CheckIcon, FlameIcon,
 } from "../common/Icons";
 
 // Always a readable list (bottom sheet on narrow screens, anchored panel on desktop).
@@ -29,6 +29,7 @@ function useIsCompact() {
 
 export default function ToolsMenu({
   accent, onLeaderboard, onStats, onQuiz, onFlashcards, onTimer, onCalendar, onTodo,
+  onGoals, onQuickReview,
   onExport, exportDisabled, onImport, importing, isAr,
 }) {
   const [open, setOpen] = useState(false);
@@ -92,6 +93,8 @@ export default function ToolsMenu({
     { key: "flashcards", icon: <LayersIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Flashcards", "بطاقات تعليمية"), onClick: onFlashcards },
     { key: "timer", icon: <ClockIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Timer", "مؤقّت"), onClick: onTimer },
     { key: "calendar", icon: <CalendarIcon size={18} />, tint: "#e85d04", label: tr(isAr, "Calendar", "التقويم"), onClick: onCalendar },
+    { key: "goals", icon: <FlameIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Goals", "الأهداف"), onClick: onGoals },
+    { key: "quick", icon: <LayersIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quick review", "مراجعة سريعة"), onClick: onQuickReview },
     { key: "todo", icon: <CheckIcon size={18} />, tint: "#30d158", label: tr(isAr, "To-do list", "قائمة المهام"), onClick: onTodo },
     { key: "export", icon: <DownloadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Export CSV", "تصدير CSV"), onClick: onExport, disabled: exportDisabled },
     { key: "import", icon: importing ? <LoaderIcon size={18} /> : <UploadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Import CSV", "استيراد CSV"), onClick: onImport, disabled: importing },

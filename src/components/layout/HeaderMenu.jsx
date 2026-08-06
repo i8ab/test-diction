@@ -22,7 +22,7 @@ function stretchArabicText(text, amount) {
 
 const hasArabic = (text) => /[\u0600-\u06FF]/.test(text || "");
 import {
-  UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon, CheckIcon, TrashIcon, LayersIcon, LoaderIcon, SettingsIcon,
+  UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon, CheckIcon, TrashIcon, LayersIcon, LoaderIcon, SettingsIcon, BookIcon,
 } from "../common/Icons";
 
 export default function HeaderMenu({
@@ -39,6 +39,9 @@ export default function HeaderMenu({
   siteBanner = null,
   onPersistSiteBanner = null,
   myAccountCode = null,
+  focusMode = false,
+  onToggleFocus = null,
+  onOpenInfo = null,
 }) {
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -330,8 +333,15 @@ export default function HeaderMenu({
                 label={T( "Settings", "الإعدادات")}
                 onClick={openSettings}
               />
-
-              {/* ========== New account requests (admins) ========== */}
+              {typeof onToggleFocus === "function" && (
+                <Row
+                  tint={focusMode ? "#fff" : "#6366f1"}
+                  icon={<LayersIcon size={14} />}
+                  label={focusMode ? T( "Exit focus mode", "إغلاق وضع التركيز") : T( "Focus mode", "وضع التركيز")}
+                  onClick={onToggleFocus}
+                />
+              )}
+{/* ========== New account requests (admins) ========== */}
               {isAdmin && (
                 <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 4, paddingTop: 4 }}>
                   <Row
@@ -454,6 +464,14 @@ export default function HeaderMenu({
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {typeof onOpenInfo === "function" && (
+                <Row
+                  tint="#5b8def"
+                  icon={<BookIcon size={14} />}
+                  label={T( "Information", "معلومات")}
+                  onClick={() => { closeSettings(); onOpenInfo(); }}
+                />
+              )}
               <Row
                 tint="#f5a623"
                 icon={theme === "dark" ? <SunIcon size={14} /> : <MoonIcon size={14} />}

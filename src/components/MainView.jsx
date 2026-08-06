@@ -21,7 +21,6 @@ import BackupReminderBanner from "./layout/BackupReminderBanner";
 import SiteBanner from "./layout/SiteBanner";
 import WordOfTheDay from "./layout/WordOfTheDay";
 import EmptyState from "./layout/EmptyState";
-import GoalsBanner from "./layout/GoalsBanner";
 import { loadFocusMode, saveFocusMode } from "../lib/state/goals";
 import { loadWordNotes, setWordNote } from "../lib/state/wordNotes";
 
@@ -42,6 +41,8 @@ const TimerPage = lazy(() => import("./timer/TimerPage"));
 const CalendarPage = lazy(() => import("./calendar/CalendarPage"));
 const TodoPage = lazy(() => import("./todo/TodoPage"));
 const QuickReviewModal = lazy(() => import("./modals/QuickReviewModal"));
+const GoalsPage = lazy(() => import("./goals/GoalsPage"));
+const InfoGuideModal = lazy(() => import("./modals/InfoGuideModal"));
 
 
 const TIMER_VIEW_KEY = "twoTongues.timerView";
@@ -185,6 +186,9 @@ export default function MainView({
   const [todoBubble, setTodoBubble] = useState(() => loadTodoView().bubble);
   const [focusMode, setFocusMode] = useState(() => loadFocusMode());
   const [showQuickReview, setShowQuickReview] = useState(false);
+  const [showGoals, setShowGoals] = useState(false);
+  const [goalsBubble, setGoalsBubble] = useState(false);
+  const [showInfoGuide, setShowInfoGuide] = useState(false);
   const [wordNotes, setWordNotes] = useState(() => loadWordNotes(accountCode));
   const searchInputRef = useRef(null);
 
@@ -559,9 +563,9 @@ export default function MainView({
         minHeight: "100vh",
         background: PAPER,
         fontFamily: "'Source Sans 3', sans-serif",
-        display: (showTimer && !timerBubble) || (showCalendar && !calendarBubble) || (showTodo && !todoBubble) ? "none" : undefined,
+        display: (showTimer && !timerBubble) || (showCalendar && !calendarBubble) || (showTodo && !todoBubble) || (showGoals && !goalsBubble) ? "none" : undefined,
       }}
-      aria-hidden={(showTimer && !timerBubble) || (showCalendar && !calendarBubble) || (showTodo && !todoBubble) ? true : undefined}
+      aria-hidden={(showTimer && !timerBubble) || (showCalendar && !calendarBubble) || (showTodo && !todoBubble) || (showGoals && !goalsBubble) ? true : undefined}
     >
       {!focusMode && <SiteBanner banner={siteBanner} isAr={appIsAr} />}
       <header style={{ borderBottom: "1px solid rgba(var(--border-rgb),0.15)", background: PAPER, position: "sticky", top: 0, zIndex: 1000 }}>
@@ -586,6 +590,10 @@ export default function MainView({
                 siteBanner={siteBanner}
                 onPersistSiteBanner={onPersistSiteBanner}
                 myAccountCode={accountCode}
+              
+                focusMode={focusMode}
+                onToggleFocus={() => setFocusMode((v) => !v)}
+                onOpenInfo={() => setShowInfoGuide(true)}
               />
             </div>
           </div>
@@ -697,6 +705,8 @@ export default function MainView({
               onTimer={() => { setTimerBubble(false); setShowTimer(true); }}
               onCalendar={() => { setCalendarBubble(false); setShowCalendar(true); }}
               onTodo={() => { setTodoBubble(false); setShowTodo(true); }}
+              onGoals={() => { setGoalsBubble(false); setShowGoals(true); }}
+              onQuickReview={() => setShowQuickReview(true)}
               onExport={() => exportEntriesAsCsv(filtered.length ? filtered : sectionEntries, cfg, cfg.shortLabel)}
               exportDisabled={sectionEntries.length === 0}
               onImport={() => importInputRef.current && importInputRef.current.click()}
@@ -729,15 +739,6 @@ export default function MainView({
         )}
         {!focusMode && <WordOfTheDay entries={sectionEntries} section={section} cfg={cfg} isAr={isAr} onOpenZoom={(id) => setZoomEntry(sectionEntries.find((e) => e.id === id) || null)} />}
         {!focusMode && <ReminderBanner studiedAt={studiedAt} isAr={isAr} cfg={cfg} remindersOn={remindersOn} reminderTitle={reminderTitle} reminderMessage={reminderMessage} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />}
-        {!focusMode && (
-          <GoalsBanner
-            studiedAt={studiedAt}
-            quizHistory={quizHistory}
-            streak={computeStreak(studiedAt)}
-            isAr={isAr}
-            cfg={cfg}
-          />
-        )}
         {isAdmin && !focusMode && <BackupReminderBanner isAr={isAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
         <div style={{ marginTop: 12, background: CARD, border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 10, padding: "12px 14px" }}>
           <div dir={isAr ? "rtl" : "ltr"} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
@@ -782,14 +783,6 @@ export default function MainView({
               </button>
             );
           })}
-          <button type="button" onClick={() => setShowQuickReview(true)}
-            style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, color: "var(--icon-muted)", background: "none", border: "1px solid rgba(var(--border-rgb),0.25)", borderRadius: 20, cursor: "pointer" }}>
-            {tr(isAr, "Quick review", "مراجعة سريعة")}
-          </button>
-          <button type="button" onClick={() => setFocusMode((v) => !v)}
-            style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, color: focusMode ? "#fff" : "var(--icon-muted)", background: focusMode ? "var(--ink)" : "none", border: `1px solid ${focusMode ? "var(--ink)" : "rgba(var(--border-rgb),0.25)"}`, borderRadius: 20, cursor: "pointer" }}>
-            {tr(isAr, "Focus", "تركيز")}
-          </button>
         </div>
         {loadError && <div style={{ ...errorStyle, marginTop: 10 }} role="alert" aria-live="assertive">{tr(isAr, loadError, "تعذر تحميل القاموس المشترك. تحقق من اتصالك وحاول تحديث الصفحة.")}</div>}
         {saveError && <div style={{ ...errorStyle, marginTop: 10 }} role="alert" aria-live="assertive">{tr(isAr, saveError, "تعذر الحفظ — تحقق من اتصالك وحاول مرة أخرى.")}</div>}
@@ -1007,6 +1000,27 @@ export default function MainView({
       </Suspense>
     )}
 
+    {showGoals && (
+      <Suspense fallback={null}>
+        <GoalsPage
+          isAr={isAr}
+          studiedAt={studiedAt}
+          quizHistory={quizHistory}
+          streak={computeStreak(studiedAt)}
+          cfg={cfg}
+          initialBubble={goalsBubble}
+          onClose={() => { setShowGoals(false); setGoalsBubble(false); }}
+          onBubbleChange={setGoalsBubble}
+        />
+      </Suspense>
+    )}
+
+    {showInfoGuide && (
+      <Suspense fallback={null}>
+        <InfoGuideModal isAr={isAr} onClose={() => setShowInfoGuide(false)} />
+      </Suspense>
+    )}
+
     {showQuickReview && (
       <Suspense fallback={null}>
         <QuickReviewModal
@@ -1016,6 +1030,7 @@ export default function MainView({
           isAr={isAr}
           onClose={() => setShowQuickReview(false)}
           onToggleStudied={onToggleStudied}
+          onRecordSrsAnswer={onRecordSrsAnswer}
         />
       </Suspense>
     )}

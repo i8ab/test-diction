@@ -169,7 +169,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
               </button>
             </div>
             <p style={{ fontSize: 12, color: "var(--muted)", margin: "8px 0 0" }}>
-              {tr(isAr, "Anyone with this link can create an account, but they'll still need the shared access code from you to actually sign in.", "أي حد معاه الرابط ده يقدر يعمل حساب، بس لسه محتاج منك رمز الوصول المشترك عشان يقدر يسجل دخول فعلاً.")}
+              {tr(isAr, "Anyone with this link can request an account; an admin must approve them before they can sign in.", "أي حد معاه الرابط ده يقدر يطلب حساب؛ لازم الأدمن يوافق عليه قبل ما يقدر يسجّل دخول.")}
             </p>
             <p style={{ fontSize: 12, color: "var(--muted)", margin: "4px 0 0" }}>
               {tr(isAr, "The backup file has everything — words, accounts, and the activity log. Keep it somewhere safe; it's not uploaded anywhere.", "ملف النسخة الاحتياطية فيه كل حاجة — الكلمات والحسابات وسجل النشاط. احتفظ بيه في مكان آمن؛ مش بيترفع لأي مكان.")}
@@ -237,7 +237,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
         {mode === "added" && (
           <div style={{ marginTop: 14 }}>
             <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "0 0 14px" }}>
-              {tr(isAr, `Account created. Temporary password is the internal code below — they should change it after first sign-in (username + password + access code).`, `تم إنشاء الحساب. كلمة المرور المؤقتة هي الرمز بالأسفل — يفضّل تغييرها بعد أول تسجيل دخول (يوزرنيم + باسورد + رمز الوصول).`)}
+              {tr(isAr, `Account created. Temporary password is the internal code below — they should change it after first sign-in (username + password).`, `تم إنشاء الحساب. كلمة المرور المؤقتة هي الرمز بالأسفل — يفضّل تغييرها بعد أول تسجيل دخول (يوزرنيم + باسورد).`)}
             </p>
             <div
               onClick={handleCopyNewCode}

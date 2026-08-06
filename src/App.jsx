@@ -5,7 +5,6 @@ import {
   loadSavedAccent, saveAccent, applyAccentTheme, ACCENT_THEMES, THEME_KEY,
   loadSearchHistory, saveSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory,
   saveOfflineCache, loadOfflineCache, loadSavedTheme, savePersonalCode, loadPersonalCode, clearPersonalCode,
-  saveAccessCode, loadAccessCode, clearAccessCode,
   saveSessionId, loadSessionId, generateSessionId,
   generatePersonalCode, detectDeviceIsAr, hasInviteParam,
   loadAppLang, saveAppLang,
@@ -39,7 +38,6 @@ export default function DictionaryApp() {
     savedPersonalCode ? "restoring" : hasInviteParam() ? "signup" : "intro"
   ); // intro | signup | pendingShown | login | restoring | in
   const [name, setName] = useState("");
-  const [codeInput, setCodeInput] = useState("");
   const [usernameInput, setUsernameInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [signupUsername, setSignupUsername] = useState("");
@@ -86,6 +84,15 @@ export default function DictionaryApp() {
   // (and reject) a write that would silently clobber someone else's change
   // made in between. See the concurrency comment in api/jsonbin.js.
   const [recordVersion, setRecordVersion] = useState(0);
+  // Always keep a ref in sync so concurrent saves (two toggles in a row, two
+  // tabs, quiz answers firing back-to-back) never send a stale expectedVersion
+  // just because React hasn't re-rendered the useCallback closure yet.
+  const recordVersionRef = useRef(0);
+  function commitRecordVersion(v) {
+    const n = typeof v === "number" ? v : 0;
+    recordVersionRef.current = n;
+    setRecordVersion(n);
+  }
   const [loadError, setLoadError] = useState("");
   const [isOffline, setIsOffline] = useState(false);
   const [offlineCachedAt, setOfflineCachedAt] = useState(null);
@@ -95,19 +102,6 @@ export default function DictionaryApp() {
   const [logsLoaded, setLogsLoaded] = useState(false);
   const [siteBanner, setSiteBanner] = useState(null); // admin-published site-wide announcement
   const [accountCode, setAccountCode] = useState(""); // this browser's signed-in account's personal code
-  // Shared ACCESS_CODE: localStorage so it works across tabs and survives
-  // browser restarts. Ref mirrors state so save helpers always see the latest
-  // value even when called in the same turn as setAccessCode (React state
-  // updates are async).
-  const [accessCode, setAccessCodeState] = useState(() => loadAccessCode());
-  const accessCodeRef = useRef(accessCode);
-  function setAccessCode(code) {
-    const v = code ? String(code).trim() : "";
-    accessCodeRef.current = v;
-    setAccessCodeState(v);
-    if (v) saveAccessCode(v);
-    else clearAccessCode();
-  }
   const [section, setSection] = useState("en-ar");
   const [query, setQuery] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -117,6 +111,14 @@ export default function DictionaryApp() {
   const [toast, setToast] = useState("");
   const [theme, setTheme] = useState(loadSavedTheme);
   const [accentTheme, setAccentTheme] = useState(loadSavedAccent);
+
+  // Drop legacy shared-access-code key from older builds (no longer used).
+  useEffect(() => {
+    try {
+      localStorage.removeItem("twoTongues.accessCode");
+      sessionStorage.removeItem("twoTongues.accessCode");
+    } catch (_) {}
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -403,18 +405,10 @@ export default function DictionaryApp() {
       return { ...rec, accounts: migrated };
     }
     migrationDoneRef.current = true;
-    // Only persist migration when we already hold a verified access code
-    // (otherwise the PUT would be rejected). In-memory migration still
-    // applies so the UI works; a later authenticated save will write it.
-    const code = accessCodeRef.current;
-    if (!code) {
-      return { ...rec, accounts: migrated };
-    }
     try {
       const newVersion = await saveRecord(
         { entries: rec.entries || [], accounts: migrated, logs: rec.logs || [], siteBanner: rec.siteBanner || null },
-        rec.version || 0,
-        code
+        rec.version || 0
       );
       return { ...rec, accounts: migrated, version: newVersion };
     } catch (e) {
@@ -434,7 +428,7 @@ export default function DictionaryApp() {
         setLogs(rec.logs);
         setSiteBanner(rec.siteBanner || null);
         setLogsLoaded(true);
-        setRecordVersion(rec.version);
+        commitRecordVersion(rec.version);
         saveOfflineCache(rec);
         setIsOffline(false);
         if (savedPersonalCode) {
@@ -447,7 +441,7 @@ export default function DictionaryApp() {
               setAccounts(freshRec.accounts);
               setLogs(freshRec.logs);
               setSiteBanner(freshRec.siteBanner || null);
-              setRecordVersion(freshRec.version);
+              commitRecordVersion(freshRec.version);
               saveOfflineCache(freshRec);
               account = freshRec.accounts.find((a) => a.code === savedPersonalCode);
             } catch (e2) { /* fall through */ }
@@ -464,7 +458,6 @@ export default function DictionaryApp() {
             const localSid = loadSessionId();
             if (account.sessionId && localSid && account.sessionId !== localSid) {
               clearPersonalCode();
-              setAccessCode("");
               try { localStorage.removeItem("twoTongues.sessionId"); } catch (_) {}
               setAuthStage("login");
               syncBaseHistory("login");
@@ -482,18 +475,12 @@ export default function DictionaryApp() {
                   a.code === account.code ? { ...a, sessionId: sid, sessionAt: Date.now() } : a
                 );
                 try {
-                  const code = accessCodeRef.current;
-                  if (code) {
-                    const newVersion = await saveRecord(
-                      { entries: rec.entries, accounts: nextAccounts, logs: rec.logs, siteBanner: rec.siteBanner || null },
-                      rec.version || 0,
-                      code
-                    );
-                    setAccounts(nextAccounts);
-                    setRecordVersion(newVersion);
-                  } else {
-                    setAccounts(nextAccounts);
-                  }
+                  const newVersion = await saveRecord(
+                    { entries: rec.entries, accounts: nextAccounts, logs: rec.logs, siteBanner: rec.siteBanner || null },
+                    rec.version || 0
+                  );
+                  setAccounts(nextAccounts);
+                  commitRecordVersion(newVersion);
                 } catch (_) {
                   setAccounts(nextAccounts);
                 }
@@ -507,7 +494,6 @@ export default function DictionaryApp() {
             }
           } else {
             clearPersonalCode();
-            setAccessCode("");
             setAuthStage("login");
             syncBaseHistory("login");
           }
@@ -649,8 +635,8 @@ export default function DictionaryApp() {
     setAccounts(err.fresh.accounts || []);
     setLogs(err.fresh.logs || []);
     if (err.fresh.siteBanner !== undefined) setSiteBanner(err.fresh.siteBanner || null);
-    setRecordVersion(err.fresh.version || 0);
-    setSaveError("Someone else updated the dictionary at the same time — your last change wasn't saved. The list has been refreshed; please try again.");
+    commitRecordVersion(err.fresh.version || 0);
+    setSaveError("The dictionary was updated elsewhere (another tab or device). Your last change wasn't saved — the list was refreshed, please try again.");
   }
 
   // Max number of automatic retries on a version conflict before giving up
@@ -673,7 +659,8 @@ export default function DictionaryApp() {
     let curEntries = typeof entriesFn === "function" ? entries : entriesFn;
     let curAccounts = accounts;
     let curLogs = logs;
-    let curVersion = recordVersion;
+    // Prefer the live ref so two rapid saves don't both send the same stale version.
+    let curVersion = recordVersionRef.current;
 
     for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
       const next = typeof entriesFn === "function" ? entriesFn(curEntries) : entriesFn;
@@ -684,35 +671,36 @@ export default function DictionaryApp() {
       if (logEntry) setLogs(nextLogs);
 
       try {
-        const newVersion = await saveRecord({ entries: next, accounts: curAccounts, logs: nextLogs, siteBanner }, curVersion, accessCodeRef.current);
-        setRecordVersion(newVersion);
+        const newVersion = await saveRecord({ entries: next, accounts: curAccounts, logs: nextLogs, siteBanner }, curVersion);
+        commitRecordVersion(newVersion);
         saveOfflineCache({ entries: next, accounts: curAccounts, logs: nextLogs, siteBanner });
         setSaveError("");
         return;
       } catch (e) {
         if (e instanceof SaveConflictError && typeof entriesFn === "function" && attempt < MAX_SAVE_RETRIES) {
-          // Someone else saved first — reapply our change on top of the
-          // fresh server data and try again, instead of losing it.
+          // Someone else (or another tab / in-flight save) wrote first —
+          // reapply our change on top of the fresh server data and try again.
           curEntries = e.fresh.entries || [];
           curAccounts = e.fresh.accounts || [];
           curLogs = e.fresh.logs || [];
           curVersion = e.fresh.version || 0;
+          commitRecordVersion(curVersion);
           continue;
         }
         if (e instanceof SaveConflictError) handleSaveConflict(e);
         else if (String(e && e.message) === "unauthorized")
-          setSaveError("Session expired — sign out and sign in again with the access code.");
+          setSaveError("Session expired — sign out and sign in again.");
         else setSaveError("Couldn't save — check your connection and try again.");
         return;
       }
     }
-  }, [entries, accounts, logs, siteBanner, recordVersion]);
+  }, [entries, accounts, logs, siteBanner]);
 
   const persistAccounts = useCallback(async (accountsFn, logEntryFn) => {
     let curEntries = entries;
     let curAccounts = typeof accountsFn === "function" ? accounts : accountsFn;
     let curLogs = logs;
-    let curVersion = recordVersion;
+    let curVersion = recordVersionRef.current;
 
     for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
       const next = typeof accountsFn === "function" ? accountsFn(curAccounts) : accountsFn;
@@ -723,8 +711,8 @@ export default function DictionaryApp() {
       if (logEntry) setLogs(nextLogs);
 
       try {
-        const newVersion = await saveRecord({ entries: curEntries, accounts: next, logs: nextLogs, siteBanner }, curVersion, accessCodeRef.current);
-        setRecordVersion(newVersion);
+        const newVersion = await saveRecord({ entries: curEntries, accounts: next, logs: nextLogs, siteBanner }, curVersion);
+        commitRecordVersion(newVersion);
         saveOfflineCache({ entries: curEntries, accounts: next, logs: nextLogs, siteBanner });
         setSaveError("");
         return;
@@ -734,30 +722,55 @@ export default function DictionaryApp() {
           curAccounts = e.fresh.accounts || [];
           curLogs = e.fresh.logs || [];
           curVersion = e.fresh.version || 0;
+          commitRecordVersion(curVersion);
           continue;
         }
         if (e instanceof SaveConflictError) handleSaveConflict(e);
         else if (String(e && e.message) === "unauthorized")
-          setSaveError("Session expired — sign out and sign in again with the access code.");
+          setSaveError("Session expired — sign out and sign in again.");
         else setSaveError("Couldn't save — check your connection and try again.");
         return;
       }
     }
-  }, [entries, accounts, logs, siteBanner, recordVersion]);
+  }, [entries, accounts, logs, siteBanner]);
 
   // For events that don't touch entries/accounts (sign in/out) — still saved
   // into the same shared record so it stays in sync with everything else.
   const persistLogs = useCallback(async (next) => {
     setLogs(next);
-    try {
-      const newVersion = await saveRecord({ entries, accounts, logs: next, siteBanner }, recordVersion, accessCodeRef.current);
-      setRecordVersion(newVersion);
-    } catch (e) {
-      // Best-effort: a failed log write shouldn't block sign-in/out. On a
-      // conflict, still resync so we don't keep hammering a stale version.
-      if (e instanceof SaveConflictError) handleSaveConflict(e);
+    let curVersion = recordVersionRef.current;
+    let curEntries = entries;
+    let curAccounts = accounts;
+    for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+      try {
+        const newVersion = await saveRecord({ entries: curEntries, accounts: curAccounts, logs: next, siteBanner }, curVersion);
+        commitRecordVersion(newVersion);
+        return;
+      } catch (e) {
+        // Best-effort: a failed log write shouldn't block sign-in/out.
+        // On conflict, adopt fresh data and retry writing OUR log list.
+        if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
+          curEntries = e.fresh.entries || [];
+          curAccounts = e.fresh.accounts || [];
+          curVersion = e.fresh.version || 0;
+          commitRecordVersion(curVersion);
+          // Don't clobber local entries/accounts UI mid-sign-in unless we give up.
+          continue;
+        }
+        if (e instanceof SaveConflictError) {
+          // Quiet resync — log writes are not worth a red banner.
+          if (e.fresh) {
+            setEntries(e.fresh.entries || []);
+            setAccounts(e.fresh.accounts || []);
+            setLogs(e.fresh.logs || []);
+            if (e.fresh.siteBanner !== undefined) setSiteBanner(e.fresh.siteBanner || null);
+            commitRecordVersion(e.fresh.version || 0);
+          }
+        }
+        return;
+      }
     }
-  }, [entries, accounts, siteBanner, recordVersion]);
+  }, [entries, accounts, siteBanner]);
 
   function logEvent(action, message, actorName, actorCode) {
     persistLogs(capLogs([...logs, makeLogEntry(action, message, actorName, actorCode)]));
@@ -766,23 +779,26 @@ export default function DictionaryApp() {
   // Admin publishes / clears the site-wide announcement banner.
   const persistSiteBanner = useCallback(async (nextBanner) => {
     setSiteBanner(nextBanner);
-    let curVersion = recordVersion;
+    let curVersion = recordVersionRef.current;
+    let curEntries = entries;
+    let curAccounts = accounts;
+    let curLogs = logs;
     for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
       try {
-        const newVersion = await saveRecord(
-          { entries, accounts, logs, siteBanner: nextBanner },
-          curVersion,
-          accessCodeRef.current
-        );
-        setRecordVersion(newVersion);
-        saveOfflineCache({ entries, accounts, logs, siteBanner: nextBanner });
+        const newVersion = await saveRecord({ entries: curEntries, accounts: curAccounts, logs: curLogs, siteBanner: nextBanner }, curVersion);
+        commitRecordVersion(newVersion);
+        saveOfflineCache({ entries: curEntries, accounts: curAccounts, logs: curLogs, siteBanner: nextBanner });
         return { ok: true };
       } catch (e) {
         if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
-          setEntries(e.fresh.entries || []);
-          setAccounts(e.fresh.accounts || []);
-          setLogs(e.fresh.logs || []);
+          curEntries = e.fresh.entries || [];
+          curAccounts = e.fresh.accounts || [];
+          curLogs = e.fresh.logs || [];
+          setEntries(curEntries);
+          setAccounts(curAccounts);
+          setLogs(curLogs);
           curVersion = e.fresh.version || 0;
+          commitRecordVersion(curVersion);
           // Keep trying to write OUR banner on top of the fresh record.
           continue;
         }
@@ -791,7 +807,7 @@ export default function DictionaryApp() {
       }
     }
     return { ok: false, error: "Couldn't save the announcement — try again." };
-  }, [entries, accounts, logs, recordVersion]);
+  }, [entries, accounts, logs]);
 
 
   // Admin action: wipe the activity log down to just the "first sign in"
@@ -836,18 +852,28 @@ export default function DictionaryApp() {
       } catch (_) {}
       return;
     }
+    // Desired absolute state (not relative toggle) so a conflict-retry that
+    // re-runs this function against fresher data still ends up where the
+    // user clicked, instead of flipping twice.
     const acct = accounts.find((a) => a.code === accountCode);
     const current = (acct && acct.studied) || [];
-    const currentAt = (acct && acct.studiedAt) || {};
-    const nowStudying = !current.includes(entryId);
-    const nextStudied = nowStudying
-      ? [...current, entryId]
-      : current.filter((id) => id !== entryId);
-    const nextStudiedAt = { ...currentAt };
-    if (nowStudying) nextStudiedAt[entryId] = Date.now();
-    else delete nextStudiedAt[entryId];
-    const nextAccounts = accounts.map((a) => (a.code === accountCode ? { ...a, studied: nextStudied, studiedAt: nextStudiedAt } : a));
-    await persistAccounts(nextAccounts);
+    const wantStudied = !current.includes(entryId);
+    const stampedAt = Date.now();
+    await persistAccounts((curAccounts) => curAccounts.map((a) => {
+      if (a.code !== accountCode) return a;
+      const studied = a.studied || [];
+      const studiedAt = { ...(a.studiedAt || {}) };
+      const has = studied.includes(entryId);
+      if (wantStudied && !has) {
+        return { ...a, studied: [...studied, entryId], studiedAt: { ...studiedAt, [entryId]: stampedAt } };
+      }
+      if (!wantStudied && has) {
+        const nextAt = { ...studiedAt };
+        delete nextAt[entryId];
+        return { ...a, studied: studied.filter((id) => id !== entryId), studiedAt: nextAt };
+      }
+      return a;
+    }));
   }
 
   // Toggles whether the current signed-in account has bookmarked a word as
@@ -857,11 +883,15 @@ export default function DictionaryApp() {
   async function handleToggleFavorite(entryId) {
     const acct = accounts.find((a) => a.code === accountCode);
     const current = (acct && acct.favorites) || [];
-    const nextFavorites = current.includes(entryId)
-      ? current.filter((id) => id !== entryId)
-      : [...current, entryId];
-    const nextAccounts = accounts.map((a) => (a.code === accountCode ? { ...a, favorites: nextFavorites } : a));
-    await persistAccounts(nextAccounts);
+    const wantFavorite = !current.includes(entryId);
+    await persistAccounts((curAccounts) => curAccounts.map((a) => {
+      if (a.code !== accountCode) return a;
+      const favorites = a.favorites || [];
+      const has = favorites.includes(entryId);
+      if (wantFavorite && !has) return { ...a, favorites: [...favorites, entryId] };
+      if (!wantFavorite && has) return { ...a, favorites: favorites.filter((id) => id !== entryId) };
+      return a;
+    }));
   }
 
   // Called once per answered quiz question. Adds to the word's cumulative
@@ -923,9 +953,6 @@ export default function DictionaryApp() {
     const trimmedName = name.trim();
     if (!trimmedName) { setSignupError("Enter a name."); return; }
 
-    const sharedCode = codeInput.trim();
-    if (!sharedCode) { setSignupError("Enter the access code."); return; }
-
     const uCheck = validateUsername(signupUsername);
     if (!uCheck.ok) { setSignupError(uCheck.error); return; }
     const pCheck = validatePassword(signupPassword);
@@ -936,25 +963,6 @@ export default function DictionaryApp() {
     }
 
     setSignupSaving(true);
-    // Verify shared access code before creating the pending account.
-    try {
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: sharedCode }),
-      });
-      const verified = await res.json();
-      if (!verified || !verified.ok) {
-        setSignupError((verified && verified.error) || "That access code doesn't match.");
-        setSignupSaving(false);
-        return;
-      }
-      setAccessCode(sharedCode);
-    } catch (err) {
-      setSignupError("Couldn't verify the access code — check your connection and try again.");
-      setSignupSaving(false);
-      return;
-    }
     try {
       const rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
       const clash = (rec.accounts || []).some(
@@ -966,7 +974,7 @@ export default function DictionaryApp() {
         setEntries(rec.entries);
         setLogs(rec.logs);
         setSiteBanner(rec.siteBanner || null);
-        setRecordVersion(rec.version);
+        commitRecordVersion(rec.version);
         return;
       }
       const code = generatePersonalCode();
@@ -994,13 +1002,12 @@ export default function DictionaryApp() {
       ]);
       const newVersion = await saveRecord(
         { entries: rec.entries, accounts: nextAccounts, logs: nextLogs, siteBanner: rec.siteBanner || null },
-        rec.version,
-        sharedCode
+        rec.version
       );
       setEntries(rec.entries);
       setAccounts(nextAccounts);
       setLogs(nextLogs);
-      setRecordVersion(newVersion);
+      commitRecordVersion(newVersion);
       setSignupPassword("");
       setSignupPassword2("");
       goToStage("pendingShown");
@@ -1019,8 +1026,6 @@ export default function DictionaryApp() {
     e.preventDefault();
     setAuthError("");
 
-    const accessCode = codeInput.trim();
-    if (!accessCode) { setAuthError("Enter the access code."); return; }
     if (!accountsLoaded) { setAuthError("Still loading — please try again in a moment."); return; }
 
     const uCheck = validateUsername(usernameInput);
@@ -1037,7 +1042,7 @@ export default function DictionaryApp() {
         setEntries(rec.entries);
         setLogs(rec.logs);
         setSiteBanner(rec.siteBanner || null);
-        setRecordVersion(rec.version);
+        commitRecordVersion(rec.version);
         account = curAccounts.find((a) => normalizeUsername(a.username) === uCheck.username);
       } catch (e) { /* fall through */ }
     }
@@ -1077,7 +1082,7 @@ export default function DictionaryApp() {
           a.code === account.code ? { ...a, passwordHash: newHash } : a
         );
         account = curAccounts.find((a) => a.code === account.code) || account;
-        // Persist hash upgrade after access-code verification below (uses accessCode).
+        // Persist hash upgrade after password verification below.
       }
     } catch (err) {
       setLoggingIn(false);
@@ -1090,42 +1095,23 @@ export default function DictionaryApp() {
       return;
     }
 
-    let verified;
-    try {
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: accessCode }),
-      });
-      verified = await res.json();
-    } catch (err) {
-      setLoggingIn(false);
-      setAuthError("Couldn't verify the access code — check your connection and try again.");
-      return;
-    }
     setLoggingIn(false);
-    if (!verified || !verified.ok) {
-      setAuthError((verified && verified.error) || "That access code doesn't match.");
-      return;
-    }
 
     setName(account.name);
     setIsAdmin(account.role === "admin");
     setAccountCode(account.code);
-    setAccessCode(accessCode); // also updates ref + localStorage immediately
     savePersonalCode(account.code);
     // Keep password field until login fully succeeds — cleared after session is saved.
 
-    // Persist any password-hash upgrade now that we hold a verified access code.
+    // Persist any password-hash upgrade now that password is verified.
     if (shouldUpgradeHash) {
       try {
         const newVersion = await saveRecord(
           { entries, accounts: curAccounts, logs, siteBanner },
-          recordVersion,
-          accessCodeRef.current || accessCode
+          recordVersionRef.current
         );
         setAccounts(curAccounts);
-        setRecordVersion(newVersion);
+        commitRecordVersion(newVersion);
       } catch (e) {
         setAccounts(curAccounts);
       }
@@ -1178,8 +1164,6 @@ export default function DictionaryApp() {
     setName("");
     setIsAdmin(false);
     setAccountCode("");
-    setAccessCode(""); // clears ref + localStorage
-    setCodeInput("");
     setUsernameInput("");
     setPasswordInput("");
     setAuthError("");
@@ -1201,7 +1185,7 @@ export default function DictionaryApp() {
         if (cancelled) return;
         if (rec.accounts) setAccounts(rec.accounts);
         if (rec.siteBanner !== undefined) setSiteBanner(rec.siteBanner || null);
-        if (typeof rec.version === "number") setRecordVersion(rec.version);
+        if (typeof rec.version === "number") commitRecordVersion(rec.version);
         const account = (rec.accounts || []).find((a) => a.code === accountCode);
         if (!account || account.status === "pending" || account.status === "rejected") {
           handleLogout();
@@ -1397,7 +1381,6 @@ export default function DictionaryApp() {
         signupError={signupError} setSignupError={setSignupError} signupSaving={signupSaving} handleSignup={handleSignup}
         usernameInput={usernameInput} setUsernameInput={setUsernameInput}
         passwordInput={passwordInput} setPasswordInput={setPasswordInput}
-        codeInput={codeInput} setCodeInput={setCodeInput}
         authError={authError} setAuthError={setAuthError} loggingIn={loggingIn} handleLogin={handleLogin} onGuest={handleGuest}
       />
     );

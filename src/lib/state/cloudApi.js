@@ -7,10 +7,8 @@
    the browser. Set the env vars in your Vercel project settings, then
    deploy; both of you read/write the same bin through this proxy.
    ========================================================================= */
-// The shared access code is verified server-side by /api/login (env var
-// ACCESS_CODE) — it never ships to the browser. The one-time admin-bootstrap
-// code has been retired: an admin account already exists, so manage roles
-// from the Admin panel from here on.
+// Auth is username + password only. Writes go through /api/jsonbin; the
+// JSONBin master key never ships to the browser.
 
 // `fresh: true` bypasses the browser/edge cache (see api/jsonbin.js) for the
 // rare calls where we must have the absolute latest data — e.g. checking for
@@ -42,11 +40,8 @@ export class SaveConflictError extends Error {
   }
 }
 
-export async function saveRecord(record, expectedVersion, accessCode) {
+export async function saveRecord(record, expectedVersion) {
   const headers = { "Content-Type": "application/json" };
-  if (accessCode) {
-    headers["x-access-code"] = String(accessCode).trim();
-  }
   const res = await fetch("/api/jsonbin", {
     method: "PUT",
     headers,

@@ -124,11 +124,8 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "PUT") {
-      const accessHeader = (req.headers["x-access-code"] || "").trim().toLowerCase();
-      const expected = (process.env.ACCESS_CODE || "").trim().toLowerCase();
-      if (!expected || accessHeader !== expected) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
+      // Writes are open to the deployed app (no shared access code).
+      // JSONBin credentials stay server-side only.
 
       let body = req.body;
       // Vercel usually parses JSON bodies automatically, but guard in case

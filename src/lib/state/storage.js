@@ -117,43 +117,6 @@ export function clearPersonalCode() {
   } catch (_) {}
 }
 
-// Shared ACCESS_CODE is kept in localStorage so it works across tabs and
-// survives browser restarts (user preference: stay signed in normally).
-const ACCESS_CODE_KEY = "twoTongues.accessCode";
-
-export function saveAccessCode(code) {
-  try {
-    if (code) localStorage.setItem(ACCESS_CODE_KEY, String(code).trim());
-    else localStorage.removeItem(ACCESS_CODE_KEY);
-  } catch (_) {}
-}
-
-export function loadAccessCode() {
-  try {
-    let v = localStorage.getItem(ACCESS_CODE_KEY) || "";
-    // One-time migration: if an older build left the code in sessionStorage only,
-    // copy it to localStorage so existing sessions keep working across tabs.
-    if (!v) {
-      try {
-        const legacy = sessionStorage.getItem(ACCESS_CODE_KEY) || "";
-        if (legacy) {
-          localStorage.setItem(ACCESS_CODE_KEY, legacy);
-          sessionStorage.removeItem(ACCESS_CODE_KEY);
-          v = legacy;
-        }
-      } catch (_) {}
-    }
-    return v;
-  } catch (_) {
-    return "";
-  }
-}
-
-export function clearAccessCode() {
-  try {
-    localStorage.removeItem(ACCESS_CODE_KEY);
-  } catch (_) {}
-}
 
 export function generatePersonalCode() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

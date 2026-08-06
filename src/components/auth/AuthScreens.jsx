@@ -1,7 +1,7 @@
 import { useState } from "react";
 // Full-screen auth flow: intro landing, signup (name + username + password),
 // pending-approval screen, restoring-session spinner, and login
-// (username + password + shared access code).
+// (username + password).
 import { tr } from "../../lib/config/i18n";
 import { INK, PAPER, BRASS, labelStyle, errorStyle, primaryBtnStyle, authCardStyle, authInputStyle, authBadgeWrapStyle } from "../../lib/config/theme";
 import { translateAdminError } from "../../lib/state/logs";
@@ -24,7 +24,6 @@ function AuthScreens({
   signupError, setSignupError, signupSaving, handleSignup,
   usernameInput, setUsernameInput,
   passwordInput, setPasswordInput,
-  codeInput, setCodeInput,
   authError, setAuthError, loggingIn, handleLogin, onGuest,
 }) {
   const [showLoginPw, setShowLoginPw] = useState(false);
@@ -239,8 +238,8 @@ function AuthScreens({
           </div>
           <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 18px", lineHeight: 1.6 }}>
             {atr(
-              "Your account request is waiting for an admin to approve it. Once approved, sign in with your username, password, and the shared access code.",
-              "طلب حسابك في انتظار موافقة الأدمن. بعد الموافقة سجّل دخول باليوزرنيم وكلمة المرور ورمز الوصول المشترك."
+              "Your account request is waiting for an admin to approve it. Once approved, sign in with your username and password.",
+              "طلب حسابك في انتظار موافقة الأدمن. بعد الموافقة سجّل دخول باليوزرنيم وكلمة المرور."
             )}
           </p>
           <button
@@ -274,8 +273,8 @@ function AuthScreens({
           </div>
           <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 22px" }}>
             {atr(
-              "Enter your username, password, and the shared access code.",
-              "أدخل اسم المستخدم وكلمة المرور ورمز الوصول المشترك."
+              "Enter your username and password.",
+              "أدخل اسم المستخدم وكلمة المرور."
             )}
           </p>
           <form onSubmit={handleLogin}>
@@ -294,10 +293,6 @@ function AuthScreens({
               <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
                 {atr("Legacy accounts: use your old personal code as the password once.", "الحسابات القديمة: استخدم الرمز الشخصي القديم ككلمة مرور مرة واحدة.")}
               </div>
-            </div>
-            <div className="auth-field-3">
-              <label style={labelStyle} htmlFor="login-access-code"><KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Access code", "رمز الوصول")}</label>
-              <input id="login-access-code" value={codeInput} onChange={(e) => setCodeInput(e.target.value)} placeholder={atr("Shared group code", "الرمز المشترك للمجموعة")} style={authInputStyle} autoCapitalize="off" autoCorrect="off" autoComplete="off" spellCheck={false} />
             </div>
             {authError && <div style={errorStyle} role="alert" aria-live="assertive">{translateAdminError(authError, appIsAr)}</div>}
             <button type="submit" disabled={loggingIn} className="btn-shine auth-field-3 touch-target" style={{ ...primaryBtnStyle, minHeight: 48 }}>

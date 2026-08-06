@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from "react";
 import { tr } from "../lib/config/i18n";
 import { INK, PAPER, CARD, BRASS, errorStyle } from "../lib/config/theme";
-import { getSpeechRecognitionCtor, recognizeSpeech, loadArDialect, startMicLevelMeter } from "../lib/utils/speech";
+import { getSpeechRecognitionCtor, recognizeSpeech, loadArDialect, loadEnAccent, enAccentLang, startMicLevelMeter } from "../lib/utils/speech";
 import { uid, isSrsDue, computeStreak } from "../lib/utils/quizHelpers";
 import {
   SearchIcon, PlusIcon, XIcon, LoaderIcon, CheckIcon, WifiOffIcon,
@@ -163,7 +163,7 @@ export default function MainView({
     setVoiceMicState("preparing");
     const stopMeter = startMicLevelMeter(setVoiceMicLevel);
     try {
-      const lang = isAr ? loadArDialect() : "en-US";
+      const lang = isAr ? loadArDialect() : enAccentLang(loadEnAccent());
       const text = await recognizeSpeech(lang, { onStart: () => setVoiceMicState("listening") });
       setQuery(text);
       setShowSuggestions(true);

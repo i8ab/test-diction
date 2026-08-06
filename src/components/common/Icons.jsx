@@ -68,13 +68,38 @@ const CalendarIcon = (p) => <Icon {...p} path={<><rect x="3" y="4" width="18" he
 const SettingsIcon = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></>} />;
 const WandIcon = (p) => <Icon {...p} path={<><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></>} />;
 
-function SpeakButton({ text, dir, isAr, size = 16, style }) {
+function SpeakButton({ text, dir, isAr, size = 16, style, accent, showBoth = false }) {
   if (!text) return null;
+  const isRtl = dir === "rtl" || /[\u0600-\u06FF]/.test(String(text));
+  if (showBoth && !isRtl) {
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 2, ...style }}>
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); speakWord(text, dir, { accent: "us" }); }}
+          title={tr(isAr, "American (Cambridge)", "أمريكي (كامبريدج)")}
+          aria-label={tr(isAr, `Pronounce ${text} (US)`, `نطق ${text} أمريكي`)}
+          style={{ border: "none", background: "none", color: "var(--icon-muted)", padding: 4, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 2, fontSize: Math.max(10, size * 0.55), fontWeight: 700 }}
+        >
+          <SpeakerIcon size={size} /> US
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); speakWord(text, dir, { accent: "uk" }); }}
+          title={tr(isAr, "British (Cambridge)", "بريطاني (كامبريدج)")}
+          aria-label={tr(isAr, `Pronounce ${text} (UK)`, `نطق ${text} بريطاني`)}
+          style={{ border: "none", background: "none", color: "var(--icon-muted)", padding: 4, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 2, fontSize: Math.max(10, size * 0.55), fontWeight: 700 }}
+        >
+          <SpeakerIcon size={size} /> UK
+        </button>
+      </span>
+    );
+  }
   return (
     <button
       type="button"
-      onClick={(e) => { e.preventDefault(); e.stopPropagation(); speakWord(text, dir); }}
-      title={tr(isAr, "Pronounce", "نطق الكلمة")}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); speakWord(text, dir, accent ? { accent } : undefined); }}
+      title={tr(isAr, "Pronounce (Cambridge US/UK)", "نطق (كامبريدج أمريكي/بريطاني)")}
       aria-label={tr(isAr, `Pronounce ${text}`, `نطق ${text}`)}
       style={{ border: "none", background: "none", color: "var(--icon-muted)", padding: 4, cursor: "pointer", display: "inline-flex", alignItems: "center", ...style }}>
       <SpeakerIcon size={size} />

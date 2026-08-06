@@ -3,7 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD } from "../../lib/config/theme";
 import { cambridgeUrl, shareWordCard } from "../../lib/utils/wordCard";
 import { detectDir, detectFont } from "../../lib/utils/searchUtils";
-import { getSpeechRecognitionCtor, scorePronunciation, AR_DIALECTS, loadArDialect, saveArDialect, startMicLevelMeter } from "../../lib/utils/speech";
+import { getSpeechRecognitionCtor, scorePronunciation, AR_DIALECTS, loadArDialect, saveArDialect, EN_ACCENTS, loadEnAccent, saveEnAccent, enAccentLang, startMicLevelMeter } from "../../lib/utils/speech";
 import { LoaderIcon, ShareIcon, SpeakButton, XIcon, MicIcon } from "../common/Icons";
 import { PairListDisplay } from "../common/PairList";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
@@ -31,6 +31,7 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
   const [pronResult, setPronResult] = useState(null); // { transcript, score, passed } | null
   const [pronError, setPronError] = useState("");
   const [arDialect, setArDialect] = useState(loadArDialect);
+  const [enAccent, setEnAccent] = useState(loadEnAccent);
 
   async function handlePracticePronunciation() {
     if (micState !== "idle") return;
@@ -39,7 +40,7 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
     setPronResult(null);
     const stopMeter = startMicLevelMeter(setMicLevel);
     try {
-      const lang = cfg.wordDir === "rtl" ? arDialect : "en-US";
+      const lang = cfg.wordDir === "rtl" ? arDialect : enAccentLang(enAccent);
       const result = await scorePronunciation(entry.word, lang, () => setMicState("listening"));
       setPronResult(result);
     } catch (e) {
@@ -80,7 +81,7 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
           <div dir={cfg.wordDir} id="zoom-modal-word" style={{ fontFamily: cfg.wordFont, fontSize: "clamp(30px, 6vw, 46px)", fontWeight: 700, color: INK, lineHeight: 1.2, wordBreak: "break-word" }}>
             {entry.word}
           </div>
-          <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={cfg.dir === "rtl"} size={26} style={{ color: cfg.accent, flexShrink: 0 }} />
+          <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={cfg.dir === "rtl"} size={26} style={{ color: cfg.accent, flexShrink: 0 }} showBoth={cfg.wordDir !== "rtl"} />
         </div>
         <div style={{ width: 48, height: 3, background: cfg.accent, borderRadius: 2, margin: "18px auto" }} />
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -91,11 +92,17 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
         </div>
         {speechSupported && (
           <div style={{ marginTop: 18 }}>
-            {cfg.wordDir === "rtl" && (
+            {cfg.wordDir === "rtl" ? (
               <select value={arDialect} onChange={(e) => { setArDialect(e.target.value); saveArDialect(e.target.value); }}
                 disabled={micState !== "idle"} aria-label={tr(isAr, "Dialect for voice recognition", "لهجة التعرف الصوتي")}
                 style={{ display: "block", margin: "0 auto 8px", fontSize: 12, padding: "3px 6px", borderRadius: 6, border: "1px solid rgba(var(--border-rgb),0.25)", background: "var(--input-bg)", color: "var(--muted-strong)" }}>
                 {AR_DIALECTS.map((d) => <option key={d.code} value={d.code}>{tr(isAr, d.en, d.ar)}</option>)}
+              </select>
+            ) : (
+              <select value={enAccent} onChange={(e) => { setEnAccent(e.target.value); saveEnAccent(e.target.value); }}
+                disabled={micState !== "idle"} aria-label={tr(isAr, "English accent", "لهجة الإنجليزية")}
+                style={{ display: "block", margin: "0 auto 8px", fontSize: 12, padding: "3px 6px", borderRadius: 6, border: "1px solid rgba(var(--border-rgb),0.25)", background: "var(--input-bg)", color: "var(--muted-strong)" }}>
+                {EN_ACCENTS.map((d) => <option key={d.code} value={d.code}>{tr(isAr, d.en, d.ar)}</option>)}
               </select>
             )}
             <button type="button" onClick={handlePracticePronunciation} disabled={micState !== "idle"}

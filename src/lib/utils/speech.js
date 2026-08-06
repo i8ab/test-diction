@@ -1,15 +1,122 @@
 // TTS + Web Speech Recognition helpers.
+// English pronunciation prefers Cambridge Dictionary audio (US / UK) via
+// /api/cambridge-audio, with browser speechSynthesis as fallback.
 
-export function speakWord(text, dir) {
+const EN_ACCENT_KEY = "twoTongues.enAccent";
+
+export const EN_ACCENTS = [
+  { code: "us", en: "American (US)", ar: "أمريكي", lang: "en-US" },
+  { code: "uk", en: "British (UK)", ar: "بريطاني", lang: "en-GB" },
+];
+
+export function loadEnAccent() {
+  try {
+    const v = localStorage.getItem(EN_ACCENT_KEY);
+    if (v === "us" || v === "uk") return v;
+  } catch (_) {}
+  return "us";
+}
+
+export function saveEnAccent(code) {
+  try {
+    if (code === "us" || code === "uk") localStorage.setItem(EN_ACCENT_KEY, code);
+  } catch (_) {}
+}
+
+export function enAccentLang(code) {
+  return code === "uk" ? "en-GB" : "en-US";
+}
+
+let _currentAudio = null;
+
+function stopAllSpeech() {
+  try {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  } catch (_) {}
+  try {
+    if (_currentAudio) {
+      _currentAudio.pause();
+      _currentAudio.src = "";
+      _currentAudio = null;
+    }
+  } catch (_) {}
+}
+
+/** Play Cambridge MP3 for an English word. Returns true if playback started. */
+export async function playCambridgeAudio(text, accent) {
+  if (!text || typeof window === "undefined") return false;
+  const word = String(text).trim();
+  if (!word || /[\u0600-\u06FF]/.test(word)) return false;
+  const acc = accent === "uk" ? "uk" : "us";
+  const url =
+    "/api/cambridge-audio?word=" +
+    encodeURIComponent(word) +
+    "&accent=" +
+    encodeURIComponent(acc);
+  try {
+    stopAllSpeech();
+    const audio = new Audio(url);
+    _currentAudio = audio;
+    await new Promise((resolve, reject) => {
+      let settled = false;
+      const ok = () => { if (!settled) { settled = true; resolve(); } };
+      const fail = () => { if (!settled) { settled = true; reject(new Error("audio error")); } };
+      audio.addEventListener("canplay", ok);
+      audio.addEventListener("error", fail);
+      if (audio.readyState >= 2) ok();
+      else audio.load();
+      setTimeout(() => { if (!settled) { settled = true; reject(new Error("timeout")); } }, 8000);
+    });
+    await audio.play();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function speakBrowser(text, lang) {
   if (!text || typeof window === "undefined" || !window.speechSynthesis) return;
   try {
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(String(text));
-    const isRtl = dir === "rtl" || /[\u0600-\u06FF]/.test(text);
-    u.lang = isRtl ? loadArDialect() : "en-US";
+    u.lang = lang || "en-US";
     u.rate = 0.95;
+    // Prefer a matching voice when the browser has one.
+    try {
+      const voices = window.speechSynthesis.getVoices() || [];
+      const want = (lang || "").toLowerCase();
+      const match =
+        voices.find((v) => (v.lang || "").toLowerCase() === want) ||
+        voices.find((v) => (v.lang || "").toLowerCase().startsWith(want.split("-")[0]));
+      if (match) u.voice = match;
+    } catch (_) {}
     window.speechSynthesis.speak(u);
   } catch (_) {}
+}
+
+/**
+ * Speak a word.
+ * @param {string} text
+ * @param {"ltr"|"rtl"|string} dir
+ * @param {{ accent?: "us"|"uk" }} [opts]  force US/UK for English (overrides saved preference)
+ */
+export function speakWord(text, dir, opts = {}) {
+  if (!text) return;
+  const isRtl = dir === "rtl" || /[\u0600-\u06FF]/.test(String(text));
+  if (isRtl) {
+    stopAllSpeech();
+    speakBrowser(text, loadArDialect());
+    return;
+  }
+  const accent = opts.accent === "uk" || opts.accent === "us" ? opts.accent : loadEnAccent();
+  const lang = enAccentLang(accent);
+  // Fire-and-forget: try Cambridge, fall back to browser TTS.
+  (async () => {
+    const ok = await playCambridgeAudio(text, accent);
+    if (!ok) speakBrowser(text, lang);
+  })();
 }
 
 export function getSpeechRecognitionCtor() {

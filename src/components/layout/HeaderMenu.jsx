@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { EN_ACCENTS, loadEnAccent, saveEnAccent } from "../../lib/utils/speech";
 import { tr, UI_LANGS } from "../../lib/config/i18n";
 import { ACCENT_THEMES } from "../../lib/state/storage";
 
@@ -211,7 +212,7 @@ const INFO_SECTIONS = [
       "Zoom view: mic practices saying the word; you get a score.",
     ],
     bodyAr: [
-      "أيقونات السماعة بتشغّل النطق الآلي.",
+      "أيقونات السماعة بتشغّل نطق كامبريدج (أمريكي/بريطاني) مع احتياطي من المتصفح.",
       "عرض التكبير: الميكروفون لتمرين نطق الكلمة مع درجة.",
     ],
   },
@@ -311,6 +312,7 @@ export default function HeaderMenu({
   const [bannerDurationUnit, setBannerDurationUnit] = useState("hours"); // minutes | hours | days
   const [bannerSaving, setBannerSaving] = useState(false);
   const [bannerMsg, setBannerMsg] = useState("");
+  const [enAccentPref, setEnAccentPref] = useState(loadEnAccent);
   const [bannerRemainingLabel, setBannerRemainingLabel] = useState("");
 
   // Broadcast form (admin, under Notifications)
@@ -849,6 +851,41 @@ export default function HeaderMenu({
                   </div>
                 </div>
               )}
+
+              {/* English pronunciation accent (Cambridge US / UK) */}
+              <div style={{ padding: "8px 10px 12px", borderBottom: "1px solid rgba(var(--border-rgb),0.1)" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--icon-muted)", marginBottom: 8 }}>
+                  {T("English accent (Cambridge)", "لهجة الإنجليزية (كامبريدج)")}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  {EN_ACCENTS.map((a) => {
+                    const active = enAccentPref === a.code;
+                    return (
+                      <button
+                        key={a.code}
+                        type="button"
+                        onClick={() => { setEnAccentPref(a.code); saveEnAccent(a.code); }}
+                        className="touch-target"
+                        style={{
+                          minHeight: 42, padding: "8px 10px", borderRadius: 10, cursor: "pointer",
+                          fontSize: 13, fontWeight: 700,
+                          border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.18)",
+                          background: active ? "color-mix(in srgb, var(--accent-1) 14%, var(--card))" : "var(--input-bg)",
+                          color: "var(--ink)",
+                        }}
+                      >
+                        {T(a.en, a.ar)}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6, lineHeight: 1.4 }}>
+                  {T(
+                    "Speaker buttons play Cambridge Dictionary audio. In the zoom view you can pick US or UK for each word.",
+                    "أزرار السماعة بتشغّل نطق قاموس كامبريدج. في العرض الكبير تقدر تختار أمريكي أو بريطاني لكل كلمة."
+                  )}
+                </div>
+              </div>
 
               {/* ========== Information — opens small modal ========== */}
               <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 4, paddingTop: 4 }}>

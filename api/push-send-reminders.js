@@ -10,9 +10,7 @@
 //
 // Protect this endpoint so randoms on the internet can't trigger mass
 // notifications: set CRON_SECRET in Vercel env vars, and Vercel's Cron
-// automatically sends it as `Authorization: Bearer <CRON_SECRET>` when you
-// configure it that way (see vercel.json comment). Manual calls must send
-// the same header.
+// automatically sends it as `Authorization: Bearer <CRON_SECRET>`.
 //
 // Set in Vercel: CRON_SECRET (any random string)
 
@@ -31,39 +29,66 @@ const DEFAULT_TITLE = "وقت المراجعة! / Time to review!";
 const DEFAULT_BODY_TEMPLATE = (daysSince) =>
   `عدّى ${daysSince} يوم من غير ما تراجع. / It's been ${daysSince} day${daysSince === 1 ? "" : "s"} since you studied.`;
 
-
-async function fetchRecord(req) {
-  const proto = req.headers["x-forwarded-proto"] || "https";
-  const host = req.headers.host;
-  const r = await fetch(`${proto}://${host}/api/jsonbin`);
-  if (!r.ok) throw new Error("Could not load dictionary record");
-  return r.json();
+/**
+ * Load the shared dictionary record straight from JSONBin (server-side).
+ * Avoids fetching our own /api/jsonbin which can 401 under Vercel
+ * Deployment Protection and caused the cron job to 500.
+ */
+async function fetchRecordDirect() {
+  const { JSONBIN_BIN_ID, JSONBIN_MASTER_KEY } = process.env;
+  if (!JSONBIN_BIN_ID || !JSONBIN_MASTER_KEY) {
+    throw new Error("missing JSONBIN_BIN_ID or JSONBIN_MASTER_KEY");
+  }
+  const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+    headers: { "X-Master-Key": JSONBIN_MASTER_KEY },
+  });
+  if (!r.ok) throw new Error(`JSONBin fetch failed: ${r.status}`);
+  const data = await r.json();
+  const rec = data.record || {};
+  return {
+    entries: rec.entries || [],
+    accounts: rec.accounts || [],
+    logs: rec.logs || [],
+    siteBanner: rec.siteBanner || null,
+    version: rec.version || 0,
+  };
 }
 
-async function clearStaleLogs(req, record) {
-  const now = new Date();
-  const isToday = (ts) => {
-    const d = new Date(ts);
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-  };
-  const logs = record.logs || [];
-  const hasStale = logs.some((entry) => entry.action !== "first_sign_in" && !isToday(entry.at));
-  if (!hasStale) return { cleared: false };
+async function clearStaleLogsDirect(record) {
+  try {
+    const now = new Date();
+    const isToday = (ts) => {
+      const d = new Date(ts);
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    };
+    const logs = record.logs || [];
+    const hasStale = logs.some((entry) => entry.action !== "first_sign_in" && !isToday(entry.at));
+    if (!hasStale) return { cleared: false };
 
-  const proto = req.headers["x-forwarded-proto"] || "https";
-  const host = req.headers.host;
-  const nextLogs = logs.filter((entry) => entry.action === "first_sign_in" || isToday(entry.at));
-  const r = await fetch(`${proto}://${host}/api/jsonbin`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+    const { JSONBIN_BIN_ID, JSONBIN_MASTER_KEY } = process.env;
+    if (!JSONBIN_BIN_ID || !JSONBIN_MASTER_KEY) return { cleared: false };
+
+    const nextLogs = logs.filter((entry) => entry.action === "first_sign_in" || isToday(entry.at));
+    const nextVersion = (record.version || 0) + 1;
+    const payload = {
       entries: record.entries || [],
       accounts: record.accounts || [],
       logs: nextLogs,
-      expectedVersion: record.version || 0,
-    }),
-  });
-  return { cleared: r.ok };
+      version: nextVersion,
+      siteBanner: record.siteBanner || null,
+    };
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Master-Key": JSONBIN_MASTER_KEY,
+      },
+      body: JSON.stringify(payload),
+    });
+    return { cleared: r.ok };
+  } catch (_) {
+    return { cleared: false };
+  }
 }
 
 async function loadPrefs(code) {
@@ -90,8 +115,7 @@ async function loadPrefs(code) {
 export default async function handler(req, res) {
   // Vercel Cron sends Authorization: Bearer $CRON_SECRET automatically when
   // CRON_SECRET is set. Also accept the platform's x-vercel-cron marker so a
-  // misconfigured/missing Bearer header doesn't silently kill the daily job
-  // (test endpoint stays protected by requiring a real subscription code).
+  // misconfigured/missing Bearer header doesn't silently kill the daily job.
   if (process.env.CRON_SECRET) {
     const auth = req.headers.authorization || "";
     const isVercelCron = req.headers["x-vercel-cron"] === "1";
@@ -103,11 +127,12 @@ export default async function handler(req, res) {
   let logsCleared = false;
   let record = null;
   try {
-    record = await fetchRecord(req);
-    const result = await clearStaleLogs(req, record);
+    record = await fetchRecordDirect();
+    const result = await clearStaleLogsDirect(record);
     logsCleared = result.cleared;
   } catch (e) {
-    // Best-effort
+    // Best-effort — reminders can still go out without the accounts list
+    record = { entries: [], accounts: [], logs: [], version: 0 };
   }
 
   if (!redisConfigured()) {
@@ -119,10 +144,11 @@ export default async function handler(req, res) {
 
   try {
     const codes = (await redisCommand("SMEMBERS", CODES_SET_KEY)) || [];
-    if (!codes.length) return res.status(200).json({ sent: 0, skipped: 0, expired: 0, logsCleared });
+    if (!codes.length) {
+      return res.status(200).json({ sent: 0, skipped: 0, expired: 0, logsCleared, message: "No push subscriptions." });
+    }
 
-    if (!record) record = await fetchRecord(req);
-    const accounts = record.accounts || [];
+    const accounts = (record && record.accounts) || [];
     const now = Date.now();
 
     let sent = 0, skipped = 0, expired = 0;
@@ -130,8 +156,14 @@ export default async function handler(req, res) {
     const seenEndpoints = new Set();
 
     for (const code of codes) {
-      const account = accounts.find((a) => a.code === code);
-      if (!account) { skipped++; continue; }
+      // If we have accounts loaded, prefer matching ones; if the list is
+      // empty/unavailable still try to send (subscription alone is enough
+      // for a daily nudge).
+      const account = accounts.find((a) => a.code === code) || null;
+      if (accounts.length > 0 && !account) {
+        skipped++;
+        continue;
+      }
 
       const prefs = await loadPrefs(code);
 
@@ -163,7 +195,7 @@ export default async function handler(req, res) {
       }
       seenEndpoints.add(endpoint);
 
-      const studiedAt = account.studiedAt || {};
+      const studiedAt = (account && account.studiedAt) || {};
       const values = Object.values(studiedAt);
       const lastStudied = values.length ? Math.max(...values) : null;
       const daysSince = lastStudied == null ? null : Math.max(0, Math.floor((now - lastStudied) / DAY_MS));
@@ -199,6 +231,9 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ sent, skipped, expired, logsCleared });
   } catch (e) {
-    return res.status(500).json({ error: "Failed sending reminders." });
+    return res.status(500).json({
+      error: "Failed sending reminders.",
+      message: String((e && e.message) || e),
+    });
   }
 }

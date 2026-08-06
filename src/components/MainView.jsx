@@ -66,7 +66,7 @@ export default function MainView({
   siteBanner, onPersistSiteBanner,
   showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount, onApproveRequest, onRejectRequest,
   toast, showToast, theme, onToggleTheme, accentTheme, onChangeAccent,
-  appIsAr, onToggleAppLang,
+  appIsAr, appLang = "en", onToggleAppLang, onChangeAppLang,
   sessionStart,
   remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
   reminderTitle, onChangeReminderTitle,
@@ -473,6 +473,7 @@ export default function MainView({
               <div style={{ fontSize: 13, color: "var(--muted-strong)" }}><strong style={{ color: INK }}>{name}</strong></div>
               <HeaderMenu theme={theme} onToggleTheme={onToggleTheme} isAdmin={isAdmin}
                 onOpenAccount={onOpenAccount} onOpenAdmin={onOpenAdmin} onLogout={onLogout} isAr={appIsAr}
+                appLang={appLang} onChangeAppLang={onChangeAppLang}
                 accentTheme={accentTheme} onChangeAccent={onChangeAccent}
                 remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={onEnableReminders} onDisableReminders={onDisableReminders} onTestReminder={onTestReminder}
                 reminderTitle={reminderTitle} onChangeReminderTitle={onChangeReminderTitle}
@@ -803,7 +804,8 @@ export default function MainView({
             account={accounts.find((a) => a.code === accountCode) || { name, code: accountCode, role: isAdmin ? "admin" : "user" }}
             onClose={onCloseAccount}
             onSave={onUpdateOwnAccount}
-            isAr={isAr}
+            isAr={appIsAr}
+            lang={appLang}
           />
         )}
         {showAdmin && (

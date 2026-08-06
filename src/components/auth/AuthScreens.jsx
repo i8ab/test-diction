@@ -13,7 +13,7 @@ import {
 import { Shell, LanguageToggle } from "../layout/Shell";
 
 function AuthScreens({
-  authStage, appIsAr, atr, theme, toggleTheme, toggleAppLang,
+  authStage, appIsAr, appLang = "en", atr, theme, toggleTheme, toggleAppLang, onChangeAppLang,
   moreFeaturesOpen, setMoreFeaturesOpen, goToStage,
   name, setName,
   signupUsername, setSignupUsername,
@@ -63,7 +63,7 @@ function AuthScreens({
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: "50%", color: "var(--icon-muted)", background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.2)" }}>
                 {theme === "dark" ? <SunIcon size={15} /> : <MoonIcon size={15} />}
               </button>
-              <LanguageToggle isAr={appIsAr} onToggle={toggleAppLang} floating={false} />
+              <LanguageToggle lang={appLang} onChangeLang={onChangeAppLang} isAr={appIsAr} onToggle={toggleAppLang} floating={false} />
             </div>
           </div>
 
@@ -167,7 +167,7 @@ function AuthScreens({
     return (
       <Shell>
         <div className="auth-card" style={{ ...authCardStyle, maxWidth: "min(420px, 100%)" }} dir={appIsAr ? "rtl" : "ltr"}>
-          <LanguageToggle isAr={appIsAr} onToggle={toggleAppLang} />
+          <LanguageToggle lang={appLang} onChangeLang={onChangeAppLang} isAr={appIsAr} onToggle={toggleAppLang} />
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
             <div className="auth-badge" style={authBadgeWrapStyle}>
               <BookIcon size={24} color="#fff" />
@@ -265,7 +265,7 @@ function AuthScreens({
     return (
       <Shell>
         <div className="auth-card" style={{ ...authCardStyle, maxWidth: "min(420px, 100%)" }} dir={appIsAr ? "rtl" : "ltr"}>
-          <LanguageToggle isAr={appIsAr} onToggle={toggleAppLang} />
+          <LanguageToggle lang={appLang} onChangeLang={onChangeAppLang} isAr={appIsAr} onToggle={toggleAppLang} />
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
             <div className="auth-badge" style={authBadgeWrapStyle}>
               <BookIcon size={24} color="#fff" />

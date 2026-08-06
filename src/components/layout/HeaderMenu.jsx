@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { tr } from "../../lib/config/i18n";
+import { tr, UI_LANGS } from "../../lib/config/i18n";
 import { ACCENT_THEMES } from "../../lib/state/storage";
 import {
   UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon, CheckIcon, TrashIcon, LayersIcon, LoaderIcon, SettingsIcon,
@@ -7,6 +7,7 @@ import {
 
 export default function HeaderMenu({
   theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin, onLogout, isAr,
+  appLang = "en", onChangeAppLang,
   accentTheme, onChangeAccent,
   remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
   reminderTitle, onChangeReminderTitle,
@@ -33,7 +34,8 @@ export default function HeaderMenu({
   const [bannerEnabled, setBannerEnabled] = useState(false);
   const [bannerShine, setBannerShine] = useState(40);
   const [bannerSpeed, setBannerSpeed] = useState(1);
-  const [bannerDurationHours, setBannerDurationHours] = useState(0);
+  const [bannerDurationAmount, setBannerDurationAmount] = useState(0);
+  const [bannerDurationUnit, setBannerDurationUnit] = useState("hours"); // minutes | hours | days
   const [bannerSaving, setBannerSaving] = useState(false);
   const [bannerMsg, setBannerMsg] = useState("");
 
@@ -44,6 +46,9 @@ export default function HeaderMenu({
   const [pushResult, setPushResult] = useState("");
 
   const pendingCount = (pendingAccounts || []).length;
+  // UI language for chrome strings (settings / menu). RTL still uses isAr.
+  const lang = appLang || (isAr ? "ar" : "en");
+  const T = (en, ar, de, fr) => tr(lang, en, ar, de, fr);
 
   // Sync form fields when the live banner changes or the section opens
   useEffect(() => {
@@ -54,7 +59,23 @@ export default function HeaderMenu({
     setBannerEnabled(!!b.enabled);
     setBannerShine(typeof b.shine === "number" ? b.shine : 40);
     setBannerSpeed(typeof b.speed === "number" ? b.speed : 1);
-    setBannerDurationHours(typeof b.durationHours === "number" ? b.durationHours : 0);
+    // Prefer durationMinutes; fall back to legacy durationHours
+    let mins = 0;
+    if (typeof b.durationMinutes === "number" && b.durationMinutes > 0) mins = b.durationMinutes;
+    else if (typeof b.durationHours === "number" && b.durationHours > 0) mins = Math.round(b.durationHours * 60);
+    if (mins <= 0) {
+      setBannerDurationAmount(0);
+      setBannerDurationUnit("hours");
+    } else if (mins % (60 * 24) === 0) {
+      setBannerDurationAmount(mins / (60 * 24));
+      setBannerDurationUnit("days");
+    } else if (mins % 60 === 0) {
+      setBannerDurationAmount(mins / 60);
+      setBannerDurationUnit("hours");
+    } else {
+      setBannerDurationAmount(mins);
+      setBannerDurationUnit("minutes");
+    }
     setBannerMsg("");
   }, [bannerOpen, siteBanner]);
 
@@ -148,7 +169,13 @@ export default function HeaderMenu({
       updatedAt: Date.now(),
       shine: Math.max(0, Math.min(100, Number(bannerShine) || 0)),
       speed: Math.max(0.4, Math.min(2, Number(bannerSpeed) || 1)),
-      durationHours: Math.max(0, Math.min(720, Number(bannerDurationHours) || 0)),
+      durationMinutes: (() => {
+        const amt = Math.max(0, Number(bannerDurationAmount) || 0);
+        if (!amt) return 0;
+        if (bannerDurationUnit === "days") return Math.min(60 * 24 * 30, Math.round(amt * 60 * 24));
+        if (bannerDurationUnit === "hours") return Math.min(60 * 24 * 30, Math.round(amt * 60));
+        return Math.min(60 * 24 * 30, Math.round(amt)); // minutes, cap ~30 days
+      })(),
     };
     // Keep same id if content unchanged so dismissed users stay dismissed
     if (
@@ -157,7 +184,7 @@ export default function HeaderMenu({
       siteBanner.color === next.color &&
       siteBanner.shine === next.shine &&
       siteBanner.speed === next.speed &&
-      siteBanner.durationHours === next.durationHours &&
+      (siteBanner.durationMinutes || 0) === (next.durationMinutes || 0) &&
       siteBanner.id
     ) {
       next.id = siteBanner.id;
@@ -166,10 +193,10 @@ export default function HeaderMenu({
     const result = await onPersistSiteBanner(next.enabled ? next : { ...next, enabled: false, message: msg });
     setBannerSaving(false);
     if (result && result.ok === false) {
-      setBannerMsg(result.error || tr(isAr, "Save failed.", "فشل الحفظ."));
+      setBannerMsg(result.error || T( "Save failed.", "فشل الحفظ."));
       return;
     }
-    setBannerMsg(tr(isAr, "Announcement saved.", "تم حفظ الإعلان."));
+    setBannerMsg(T( "Announcement saved.", "تم حفظ الإعلان."));
   }
 
   async function clearBanner() {
@@ -179,12 +206,12 @@ export default function HeaderMenu({
     const result = await onPersistSiteBanner(null);
     setBannerSaving(false);
     if (result && result.ok === false) {
-      setBannerMsg(result.error || tr(isAr, "Save failed.", "فشل الحفظ."));
+      setBannerMsg(result.error || T( "Save failed.", "فشل الحفظ."));
       return;
     }
     setBannerMessage("");
     setBannerEnabled(false);
-    setBannerMsg(tr(isAr, "Announcement cleared.", "تم إزالة الإعلان."));
+    setBannerMsg(T( "Announcement cleared.", "تم إزالة الإعلان."));
   }
 
   async function sendBroadcast(e) {
@@ -204,7 +231,7 @@ export default function HeaderMenu({
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        setPushResult(data.error || tr(isAr, "Send failed.", "فشل الإرسال."));
+        setPushResult(data.error || T( "Send failed.", "فشل الإرسال."));
       } else {
         setPushResult(
           tr(
@@ -215,14 +242,14 @@ export default function HeaderMenu({
         );
       }
     } catch (err) {
-      setPushResult(tr(isAr, "Network error — try again.", "خطأ في الشبكة — حاول مرة أخرى."));
+      setPushResult(T( "Network error — try again.", "خطأ في الشبكة — حاول مرة أخرى."));
     }
     setPushSending(false);
   }
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button onClick={() => setOpen((o) => !o)} title={tr(isAr, "Menu", "القائمة")} aria-label={tr(isAr, "Menu", "القائمة")} aria-expanded={open} className="lift-hover touch-target"
+      <button onClick={() => setOpen((o) => !o)} title={T( "Menu", "القائمة")} aria-label={T( "Menu", "القائمة")} aria-expanded={open} className="lift-hover touch-target"
         style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, border: "1px solid rgba(var(--border-rgb),0.25)", background: "none", color: "var(--icon-muted)", borderRadius: 10, cursor: "pointer", position: "relative", flexShrink: 0 }}>
         <MenuIcon size={16} />
         {isAdmin && pendingCount > 0 && (
@@ -261,11 +288,11 @@ export default function HeaderMenu({
           <div className="header-menu-panel" role="menu">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 8px" }}>
               <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
-                {tr(isAr, "Menu", "القائمة")}
+                {T( "Menu", "القائمة")}
               </span>
               <button
                 type="button"
-                aria-label={tr(isAr, "Close", "إغلاق")}
+                aria-label={T( "Close", "إغلاق")}
                 className="touch-target"
                 onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); closeMenu(); }}
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: "50%", color: "var(--icon-muted)", background: "var(--input-bg)", border: "none", cursor: "pointer" }}
@@ -277,7 +304,7 @@ export default function HeaderMenu({
               <Row
                 tint="#64748b"
                 icon={<SettingsIcon size={14} />}
-                label={tr(isAr, "Settings", "الإعدادات")}
+                label={T( "Settings", "الإعدادات")}
                 onClick={openSettings}
               />
 
@@ -287,7 +314,7 @@ export default function HeaderMenu({
                   <Row
                     tint="#af52de"
                     icon={<UsersIcon size={14} />}
-                    label={tr(isAr, "New requests", "طلبات جديدة")}
+                    label={T( "New requests", "طلبات جديدة")}
                     onClick={() => setRequestsOpen((v) => !v)}
                     trailing={
                       <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -304,7 +331,7 @@ export default function HeaderMenu({
                     <div onPointerDown={(e) => e.stopPropagation()} style={{ padding: "6px 8px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
                       {pendingCount === 0 ? (
                         <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "8px 6px", lineHeight: 1.45 }}>
-                          {tr(isAr, "No pending account requests.", "لا توجد طلبات حساب معلّقة.")}
+                          {T( "No pending account requests.", "لا توجد طلبات حساب معلّقة.")}
                         </div>
                       ) : (
                         pendingAccounts.map((a) => (
@@ -326,7 +353,7 @@ export default function HeaderMenu({
                                   fontSize: 12.5, fontWeight: 700, color: "#fff", background: "var(--success)",
                                 }}
                               >
-                                <CheckIcon size={13} /> {tr(isAr, "Approve", "موافقة")}
+                                <CheckIcon size={13} /> {T( "Approve", "موافقة")}
                               </button>
                               <button
                                 type="button"
@@ -339,7 +366,7 @@ export default function HeaderMenu({
                                   fontSize: 12.5, fontWeight: 700, color: "var(--danger)", background: "transparent",
                                 }}
                               >
-                                <TrashIcon size={13} /> {tr(isAr, "Reject", "رفض")}
+                                <TrashIcon size={13} /> {T( "Reject", "رفض")}
                               </button>
                             </div>
                           </div>
@@ -351,11 +378,11 @@ export default function HeaderMenu({
               )}
 
               <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 2, paddingTop: 1 }}>
-                <Row tint="#5b8def" icon={<UserIcon size={14} />} label={tr(isAr, "My Account", "حسابي")} onClick={onOpenAccount} />
+                <Row tint="#5b8def" icon={<UserIcon size={14} />} label={T( "My Account", "حسابي")} onClick={onOpenAccount} />
                 {isAdmin && (
-                  <Row tint="#af52de" icon={<UsersIcon size={14} />} label={tr(isAr, "Admin Panel", "لوحة التحكم")} onClick={onOpenAdmin} />
+                  <Row tint="#af52de" icon={<UsersIcon size={14} />} label={T( "Admin Panel", "لوحة التحكم")} onClick={onOpenAdmin} />
                 )}
-                <Row danger tint="var(--danger)" icon={<LogoutIcon size={14} />} label={tr(isAr, "Sign Out", "تسجيل الخروج")} onClick={onLogout} />
+                <Row danger tint="var(--danger)" icon={<LogoutIcon size={14} />} label={T( "Sign Out", "تسجيل الخروج")} onClick={onLogout} />
               </div>
             </div>
           </div>
@@ -391,12 +418,12 @@ export default function HeaderMenu({
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <h2 id="settings-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: "var(--ink)" }}>
-                {tr(isAr, "Settings", "الإعدادات")}
+                {T( "Settings", "الإعدادات")}
               </h2>
               <button
                 type="button"
                 onClick={closeSettings}
-                aria-label={tr(isAr, "Close", "إغلاق")}
+                aria-label={T( "Close", "إغلاق")}
                 style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", minWidth: 36, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
               >
                 <XIcon size={20} />
@@ -407,9 +434,48 @@ export default function HeaderMenu({
               <Row
                 tint="#f5a623"
                 icon={theme === "dark" ? <SunIcon size={14} /> : <MoonIcon size={14} />}
-                label={theme === "dark" ? tr(isAr, "Light Mode", "الوضع الفاتح") : tr(isAr, "Dark Mode", "الوضع الداكن")}
+                label={theme === "dark" ? T( "Light Mode", "الوضع الفاتح") : T( "Dark Mode", "الوضع الداكن")}
                 onClick={onToggleTheme}
               />
+
+              {/* Site language (chrome only — not dictionary content) */}
+              {onChangeAppLang && (
+                <div style={{ padding: "8px 10px 12px", borderBottom: "1px solid rgba(var(--border-rgb),0.1)" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--icon-muted)", marginBottom: 8 }}>
+                    {T("Site language", "لغة الموقع", "Sprache der Website", "Langue du site")}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    {UI_LANGS.map((l) => {
+                      const active = lang === l.id;
+                      return (
+                        <button
+                          key={l.id}
+                          type="button"
+                          onClick={() => onChangeAppLang(l.id)}
+                          className="touch-target"
+                          style={{
+                            minHeight: 42, padding: "8px 10px", borderRadius: 10, cursor: "pointer",
+                            fontSize: 13, fontWeight: 700,
+                            border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.18)",
+                            background: active ? "color-mix(in srgb, var(--accent-1) 14%, var(--card))" : "var(--input-bg)",
+                            color: "var(--ink)",
+                          }}
+                        >
+                          {l.native}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6, lineHeight: 1.4 }}>
+                    {T(
+                      "Changes menus, settings, and account screens — not dictionary words.",
+                      "بتغيّر القوائم والإعدادات والحساب — مش كلمات القاموس.",
+                      "Ändert Menüs, Einstellungen und Konto — nicht die Wörterbuchinhalte.",
+                      "Change les menus, réglages et compte — pas le contenu du dictionnaire."
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* ========== Notifications section ========== */}
               {(onEnableReminders || onDisableReminders) && (
@@ -417,7 +483,7 @@ export default function HeaderMenu({
                   <Row
                     tint={remindersOn ? "#34c759" : "#8e8e93"}
                     icon={remindersOn ? <BellIcon size={14} /> : <BellOffIcon size={14} />}
-                    label={tr(isAr, "Notifications", "الإشعارات")}
+                    label={T( "Notifications", "الإشعارات")}
                     onClick={() => setNotifOpen((v) => !v)}
                     trailing={
                       <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
@@ -442,7 +508,7 @@ export default function HeaderMenu({
                           fontSize: 13, fontWeight: 600, color: "var(--ink)",
                         }}
                       >
-                        <span>{remindersOn ? tr(isAr, "Reminders: On", "التذكيرات: مفعّلة") : tr(isAr, "Reminders: Off", "التذكيرات: متوقفة")}</span>
+                        <span>{remindersOn ? T( "Reminders: On", "التذكيرات: مفعّلة") : T( "Reminders: Off", "التذكيرات: متوقفة")}</span>
                         <span style={{
                           width: 36, height: 20, borderRadius: 10, position: "relative", flexShrink: 0,
                           background: remindersOn ? "#34c759" : "rgba(var(--border-rgb),0.35)",
@@ -457,18 +523,18 @@ export default function HeaderMenu({
                       </button>
 
                       <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.4, padding: "0 2px" }}>
-                        {tr(isAr,
+                        {T(
                           "Daily reminder at 5:00 AM (Egypt time), even if you studied.",
                           "تذكير يومي الساعة 5:00 صباحًا (توقيت مصر)، حتى لو ذاكرت.")}
                       </div>
 
                       <div>
-                        <label style={fieldLabel}>{tr(isAr, "Notification title", "عنوان الإشعار")}</label>
+                        <label style={fieldLabel}>{T( "Notification title", "عنوان الإشعار")}</label>
                         <input
                           type="text"
                           value={reminderTitle || ""}
                           onChange={(e) => onChangeReminderTitle && onChangeReminderTitle(e.target.value)}
-                          placeholder={tr(isAr, "Time to review!", "وقت المراجعة!")}
+                          placeholder={T( "Time to review!", "وقت المراجعة!")}
                           maxLength={120}
                           style={fieldInput}
                           dir="auto"
@@ -476,7 +542,7 @@ export default function HeaderMenu({
                       </div>
 
                       <div>
-                        <label style={fieldLabel}>{tr(isAr, "Notification message", "نص الإشعار")}</label>
+                        <label style={fieldLabel}>{T( "Notification message", "نص الإشعار")}</label>
                         <textarea
                           value={reminderMessage || ""}
                           onChange={(e) => onChangeReminderMessage && onChangeReminderMessage(e.target.value)}
@@ -500,10 +566,10 @@ export default function HeaderMenu({
                         padding: "10px 12px", background: "var(--paper)",
                       }}>
                         <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>
-                          {tr(isAr, "Preview", "معاينة")}
+                          {T( "Preview", "معاينة")}
                         </div>
                         <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)", marginBottom: 3, lineHeight: 1.3 }} dir="auto">
-                          {(reminderTitle && reminderTitle.trim()) || tr(isAr, "Time to review!", "وقت المراجعة!")}
+                          {(reminderTitle && reminderTitle.trim()) || T( "Time to review!", "وقت المراجعة!")}
                         </div>
                         <div style={{ fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.4 }} dir="auto">
                           {(reminderMessage && reminderMessage.trim()) || tr(
@@ -527,7 +593,7 @@ export default function HeaderMenu({
                           }}
                         >
                           <BellIcon size={14} />
-                          {tr(isAr, "Send test notification", "ابعت إشعار تجريبي")}
+                          {T( "Send test notification", "ابعت إشعار تجريبي")}
                         </button>
                       )}
 
@@ -539,31 +605,31 @@ export default function HeaderMenu({
                           display: "flex", flexDirection: "column", gap: 10,
                         }}>
                           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
-                            {tr(isAr, "Notify everyone", "إشعار للجميع")}
+                            {T( "Notify everyone", "إشعار للجميع")}
                           </div>
                           <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.4 }}>
-                            {tr(isAr,
+                            {T(
                               "Sends a real push to every user who turned reminders on.",
                               "بيبعت إشعار حقيقي لكل مستخدم فعّل التذكيرات.")}
                           </div>
                           <div>
-                            <label style={fieldLabel}>{tr(isAr, "Title", "العنوان")}</label>
+                            <label style={fieldLabel}>{T( "Title", "العنوان")}</label>
                             <input
                               type="text"
                               value={pushTitle}
                               onChange={(e) => setPushTitle(e.target.value)}
-                              placeholder={tr(isAr, "e.g. New words added", "مثال: كلمات جديدة اتضافت")}
+                              placeholder={T( "e.g. New words added", "مثال: كلمات جديدة اتضافت")}
                               maxLength={120}
                               style={fieldInput}
                               dir="auto"
                             />
                           </div>
                           <div>
-                            <label style={fieldLabel}>{tr(isAr, "Message", "الرسالة")}</label>
+                            <label style={fieldLabel}>{T( "Message", "الرسالة")}</label>
                             <textarea
                               value={pushBody}
                               onChange={(e) => setPushBody(e.target.value)}
-                              placeholder={tr(isAr, "Optional body text…", "نص اختياري…")}
+                              placeholder={T( "Optional body text…", "نص اختياري…")}
                               maxLength={300}
                               rows={2}
                               style={{ ...fieldInput, resize: "vertical", minHeight: 52, lineHeight: 1.4 }}
@@ -593,7 +659,7 @@ export default function HeaderMenu({
                             }}
                           >
                             {pushSending ? <LoaderIcon size={14} /> : <BellIcon size={14} />}
-                            {tr(isAr, "Send to everyone", "إرسال للجميع")}
+                            {T( "Send to everyone", "إرسال للجميع")}
                           </button>
                         </div>
                       )}
@@ -608,7 +674,7 @@ export default function HeaderMenu({
                   <Row
                     tint="#146C94"
                     icon={<LayersIcon size={14} />}
-                    label={tr(isAr, "Site banner", "بانر الموقع")}
+                    label={T( "Site banner", "بانر الموقع")}
                     onClick={() => setBannerOpen((v) => !v)}
                     trailing={
                       <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -617,7 +683,7 @@ export default function HeaderMenu({
                             fontSize: 10, fontWeight: 700, color: "#fff", background: "#34c759",
                             borderRadius: 8, padding: "2px 6px",
                           }}>
-                            {tr(isAr, "ON", "مفعّل")}
+                            {T( "ON", "مفعّل")}
                           </span>
                         )}
                         <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
@@ -632,23 +698,23 @@ export default function HeaderMenu({
                       style={{ padding: "6px 10px 12px", display: "flex", flexDirection: "column", gap: 10 }}
                     >
                       <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.4 }}>
-                        {tr(isAr,
+                        {T(
                           "Banner appears at the very top for every signed-in user. They can dismiss it; a new message shows again.",
                           "البانر يظهر في أعلى الموقع لكل المسجّلين. يقدروا يقفلوه؛ رسالة جديدة هتظهر تاني.")}
                       </div>
                       <div>
-                        <label style={fieldLabel}>{tr(isAr, "Message", "الرسالة")}</label>
+                        <label style={fieldLabel}>{T( "Message", "الرسالة")}</label>
                         <textarea
                           value={bannerMessage}
                           onChange={(e) => setBannerMessage(e.target.value)}
                           rows={3}
-                          placeholder={tr(isAr, "e.g. Maintenance tonight at 10pm", "مثال: صيانة الليلة الساعة ١٠")}
+                          placeholder={T( "e.g. Maintenance tonight at 10pm", "مثال: صيانة الليلة الساعة ١٠")}
                           style={{ ...fieldInput, resize: "vertical", minHeight: 64, lineHeight: 1.4 }}
                           dir="auto"
                         />
                       </div>
                       <div>
-                        <label style={fieldLabel}>{tr(isAr, "Banner color", "لون الشريط")}</label>
+                        <label style={fieldLabel}>{T( "Banner color", "لون الشريط")}</label>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                           <input
                             type="color"
@@ -684,7 +750,7 @@ export default function HeaderMenu({
                           fontSize: 13, fontWeight: 600, color: "var(--ink)",
                         }}
                       >
-                        <span>{tr(isAr, "Show on site", "إظهار على الموقع")}</span>
+                        <span>{T( "Show on site", "إظهار على الموقع")}</span>
                         <span style={{
                           width: 36, height: 20, borderRadius: 10, position: "relative", flexShrink: 0,
                           background: bannerEnabled ? "#34c759" : "rgba(var(--border-rgb),0.35)",
@@ -700,7 +766,7 @@ export default function HeaderMenu({
 
                       <div>
                         <label style={fieldLabel}>
-                          {tr(isAr, "Shine", "اللمعان")} — {bannerShine}%
+                          {T( "Shine", "اللمعان")} — {bannerShine}%
                         </label>
                         <input
                           type="range" min={0} max={100} step={5}
@@ -711,7 +777,7 @@ export default function HeaderMenu({
                       </div>
                       <div>
                         <label style={fieldLabel}>
-                          {tr(isAr, "Motion speed", "سرعة الحركة")} — {bannerSpeed.toFixed(1)}×
+                          {T( "Motion speed", "سرعة الحركة")} — {bannerSpeed.toFixed(1)}×
                         </label>
                         <input
                           type="range" min={0.4} max={2} step={0.1}
@@ -720,27 +786,68 @@ export default function HeaderMenu({
                           style={{ width: "100%", accentColor: "var(--accent-1)" }}
                         />
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, color: "var(--muted)", marginTop: 2 }}>
-                          <span>{tr(isAr, "Slow", "بطيء")}</span>
-                          <span>{tr(isAr, "Fast", "سريع")}</span>
+                          <span>{T( "Slow", "بطيء")}</span>
+                          <span>{T( "Fast", "سريع")}</span>
                         </div>
                       </div>
                       <div>
                         <label style={fieldLabel}>
-                          {tr(isAr, "Stay on site", "مدة الظهور")}
+                          {T( "Stay on site", "مدة الظهور")}
                         </label>
-                        <select
-                          value={String(bannerDurationHours)}
-                          onChange={(e) => setBannerDurationHours(Number(e.target.value))}
-                          style={{ ...fieldInput, cursor: "pointer" }}
-                        >
-                          <option value="0">{tr(isAr, "Until turned off", "لحد ما يتقفل")}</option>
-                          <option value="1">{tr(isAr, "1 hour", "ساعة واحدة")}</option>
-                          <option value="6">{tr(isAr, "6 hours", "٦ ساعات")}</option>
-                          <option value="12">{tr(isAr, "12 hours", "١٢ ساعة")}</option>
-                          <option value="24">{tr(isAr, "1 day", "يوم")}</option>
-                          <option value="72">{tr(isAr, "3 days", "٣ أيام")}</option>
-                          <option value="168">{tr(isAr, "1 week", "أسبوع")}</option>
-                        </select>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <input
+                            type="number"
+                            min={0}
+                            max={9999}
+                            step={1}
+                            value={bannerDurationAmount}
+                            onChange={(e) => setBannerDurationAmount(Math.max(0, Number(e.target.value) || 0))}
+                            placeholder="0"
+                            style={{ ...fieldInput, width: 90, flex: "0 0 auto" }}
+                          />
+                          <select
+                            value={bannerDurationUnit}
+                            onChange={(e) => setBannerDurationUnit(e.target.value)}
+                            style={{ ...fieldInput, width: "auto", flex: "1 1 120px", cursor: "pointer" }}
+                          >
+                            <option value="minutes">{T( "Minutes", "دقائق")}</option>
+                            <option value="hours">{T( "Hours", "ساعات")}</option>
+                            <option value="days">{T( "Days", "أيام")}</option>
+                          </select>
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
+                          {bannerDurationAmount > 0
+                            ? T(
+                                "Banner auto-hides after this time. No dismiss (X) button.",
+                                "البانر هيختفي تلقائي بعد المدة دي. زر الإغلاق (X) مش هيظهر.")
+                            : T(
+                                "0 = stays until you turn it off. Users can dismiss with X.",
+                                "٠ = يفضل ظاهر لحد ما تقفله. المستخدم يقدر يقفله بـ X.")}
+                        </div>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                          {[
+                            { a: 0, u: "hours", label: T( "Forever", "دائم") },
+                            { a: 30, u: "minutes", label: T( "30m", "٣٠د") },
+                            { a: 1, u: "hours", label: T( "1h", "١س") },
+                            { a: 6, u: "hours", label: T( "6h", "٦س") },
+                            { a: 1, u: "days", label: T( "1d", "يوم") },
+                            { a: 7, u: "days", label: T( "7d", "أسبوع") },
+                          ].map((q) => (
+                            <button
+                              key={q.label}
+                              type="button"
+                              onClick={() => { setBannerDurationAmount(q.a); setBannerDurationUnit(q.u); }}
+                              style={{
+                                padding: "4px 10px", borderRadius: 8, fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+                                border: "1px solid rgba(var(--border-rgb),0.2)",
+                                background: bannerDurationAmount === q.a && bannerDurationUnit === q.u ? "var(--accent-1)" : "var(--input-bg)",
+                                color: bannerDurationAmount === q.a && bannerDurationUnit === q.u ? "#fff" : "var(--ink)",
+                              }}
+                            >
+                              {q.label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
 
                       {/* Live preview — bold + centered + soft shine */}
@@ -761,7 +868,7 @@ export default function HeaderMenu({
                           )}
                           <span style={{ width: 18, flexShrink: 0 }} />
                           <span style={{ flex: 1, textAlign: "center", fontWeight: 700, position: "relative" }}>
-                            {bannerMessage.trim() || tr(isAr, "Preview…", "معاينة…")}
+                            {bannerMessage.trim() || T( "Preview…", "معاينة…")}
                           </span>
                           <span style={{ opacity: 0.7, width: 18, textAlign: "center", position: "relative" }}>×</span>
                         </div>
@@ -789,7 +896,7 @@ export default function HeaderMenu({
                           }}
                         >
                           {bannerSaving ? <LoaderIcon size={14} /> : null}
-                          {tr(isAr, "Save banner", "حفظ البانر")}
+                          {T( "Save banner", "حفظ البانر")}
                         </button>
                         <button
                           type="button"
@@ -802,7 +909,7 @@ export default function HeaderMenu({
                             background: "none", border: "1px solid var(--danger-border, rgba(179,38,30,0.35))",
                           }}
                         >
-                          {tr(isAr, "Clear", "إزالة")}
+                          {T( "Clear", "إزالة")}
                         </button>
                       </div>
                     </div>
@@ -813,7 +920,7 @@ export default function HeaderMenu({
               {onChangeAccent && (
                 <div style={{ padding: "10px 12px", marginTop: 2, borderTop: "1px solid rgba(var(--border-rgb),0.12)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, color: "var(--icon-muted)", marginBottom: 9 }}>
-                    <PaletteIcon size={13} /> {tr(isAr, "Color theme", "لون الواجهة")}
+                    <PaletteIcon size={13} /> {T( "Color theme", "لون الواجهة")}
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {Object.entries(ACCENT_THEMES).map(([key, t]) => {
@@ -821,7 +928,7 @@ export default function HeaderMenu({
                       const active = key === accentTheme;
                       return (
                         <button key={key} type="button" onClick={() => onChangeAccent(key)}
-                          title={tr(isAr, t.label.en, t.label.ar)} aria-label={tr(isAr, t.label.en, t.label.ar)}
+                          title={T( t.label.en, t.label.ar)} aria-label={T( t.label.en, t.label.ar)}
                           className="header-menu-swatch touch-target"
                           style={{ width: 28, height: 28, borderRadius: "50%", background: swatch, border: active ? "2px solid var(--ink)" : "1px solid rgba(var(--border-rgb),0.3)", cursor: "pointer", padding: 0, boxShadow: active ? "0 0 0 3px var(--card), 0 0 0 4px " + swatch + "55" : "none" }} />
                       );

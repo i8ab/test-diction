@@ -56,10 +56,14 @@ function pickBanner(record) {
   let speed = typeof b.speed === "number" ? b.speed : 1;
   if (speed < 0.4) speed = 0.4;
   if (speed > 2) speed = 2;
-  // Hours the banner stays live after updatedAt. 0 = until turned off.
-  let durationHours = typeof b.durationHours === "number" ? b.durationHours : 0;
-  if (durationHours < 0) durationHours = 0;
-  if (durationHours > 720) durationHours = 720;
+  // How long the banner stays live after updatedAt.
+  // Prefer durationMinutes; keep durationHours for older records.
+  let durationMinutes = typeof b.durationMinutes === "number" ? b.durationMinutes : 0;
+  if (!durationMinutes && typeof b.durationHours === "number" && b.durationHours > 0) {
+    durationMinutes = Math.round(b.durationHours * 60);
+  }
+  if (durationMinutes < 0) durationMinutes = 0;
+  if (durationMinutes > 60 * 24 * 30) durationMinutes = 60 * 24 * 30; // 30 days
   return {
     id: typeof b.id === "string" ? b.id : "",
     message: typeof b.message === "string" ? b.message : "",
@@ -68,7 +72,7 @@ function pickBanner(record) {
     updatedAt: typeof b.updatedAt === "number" ? b.updatedAt : 0,
     shine,
     speed,
-    durationHours,
+    durationMinutes,
   };
 }
 

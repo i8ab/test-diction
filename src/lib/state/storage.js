@@ -24,6 +24,7 @@ export function generatePersonalCode() {
    login screen shows up again on demand.
    ========================================================================= */
 export const SESSION_KEY = "twoTongues.personalCode";
+export const APP_LANG_KEY = "twoTongues.appLang";
 // Single-device session: cloud account.sessionId must match this, or we sign out.
 export const SESSION_ID_KEY = "twoTongues.sessionId";
 export const THEME_KEY = "twoTongues.theme";
@@ -213,13 +214,37 @@ export function generateSessionId() {
 
 // follows the device's own system language, not whichever section (EN→AR /
 // AR→AR) happens to be open.
-export function detectDeviceIsAr() {
+export function detectDeviceLang() {
   try {
-    const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || ""];
-    return langs.some((l) => (l || "").toLowerCase().startsWith("ar"));
-  } catch (e) {
-    return false;
-  }
+    const list = (navigator.languages && navigator.languages.length)
+      ? navigator.languages
+      : [navigator.language || ""];
+    for (const l of list) {
+      const code = (l || "").toLowerCase().slice(0, 2);
+      if (code === "ar" || code === "en" || code === "de" || code === "fr") return code;
+    }
+  } catch (e) {}
+  return "en";
+}
+
+export function detectDeviceIsAr() {
+  return detectDeviceLang() === "ar";
+}
+
+export function loadAppLang() {
+  try {
+    const v = localStorage.getItem(APP_LANG_KEY);
+    if (v === "ar" || v === "en" || v === "de" || v === "fr") return v;
+  } catch (e) {}
+  return detectDeviceLang();
+}
+
+export function saveAppLang(lang) {
+  try {
+    if (lang === "ar" || lang === "en" || lang === "de" || lang === "fr") {
+      localStorage.setItem(APP_LANG_KEY, lang);
+    }
+  } catch (e) {}
 }
 
 

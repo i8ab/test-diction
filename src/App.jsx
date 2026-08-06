@@ -7,6 +7,7 @@ import {
   saveOfflineCache, loadOfflineCache, loadSavedTheme, savePersonalCode, loadPersonalCode, clearPersonalCode,
   saveSessionId, loadSessionId, generateSessionId,
   generatePersonalCode, detectDeviceIsAr, hasInviteParam,
+  loadAppLang, saveAppLang,
 } from "./lib/state/storage";
 import {
   validateUsername, validatePassword, hashPassword, verifyPassword, migrateAccounts, normalizeUsername,
@@ -49,15 +50,31 @@ export default function DictionaryApp() {
   const [moreFeaturesOpen, setMoreFeaturesOpen] = useState(false);
   const migrationDoneRef = useRef(false);
 
-  // App-wide language toggle — starts out matching the device's system
-  // language, but the switch in the header (and on the login screen) lets
-  // the user flip it manually (Arabic <-> English) anywhere in the site.
-  const [appLang, setAppLang] = useState(deviceIsAr ? "ar" : "en");
+  // App-wide UI language (en / ar / de / fr). Independent of dictionary content.
+  // Starts from saved preference, else device language.
+  const [appLang, setAppLangState] = useState(() => loadAppLang());
   const appIsAr = appLang === "ar";
-  const atr = (en, ar) => tr(appIsAr, en, ar);
-  function toggleAppLang() {
-    setAppLang((l) => (l === "ar" ? "en" : "ar"));
+  const atr = (en, ar, de, fr) => tr(appLang, en, ar, de, fr);
+  function setAppLang(lang) {
+    if (lang !== "en" && lang !== "ar" && lang !== "de" && lang !== "fr") return;
+    setAppLangState(lang);
+    saveAppLang(lang);
+    try {
+      document.documentElement.lang = lang;
+      document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+    } catch (_) {}
   }
+  function toggleAppLang() {
+    // Legacy two-way flip used on older auth toggle — cycles en <-> ar
+    setAppLang(appLang === "ar" ? "en" : "ar");
+  }
+  // Keep <html lang/dir> in sync on mount + change
+  useEffect(() => {
+    try {
+      document.documentElement.lang = appLang;
+      document.documentElement.dir = appLang === "ar" ? "rtl" : "ltr";
+    } catch (_) {}
+  }, [appLang]);
 
   const [entries, setEntries] = useState([]);
   const [entriesLoaded, setEntriesLoaded] = useState(false);
@@ -1213,7 +1230,7 @@ export default function DictionaryApp() {
   if (authStage !== "in") {
     return (
       <AuthScreens
-        authStage={authStage} appIsAr={appIsAr} atr={atr} theme={theme} toggleTheme={toggleTheme} toggleAppLang={toggleAppLang}
+        authStage={authStage} appIsAr={appIsAr} appLang={appLang} atr={atr} theme={theme} toggleTheme={toggleTheme} toggleAppLang={toggleAppLang} onChangeAppLang={setAppLang}
         moreFeaturesOpen={moreFeaturesOpen} setMoreFeaturesOpen={setMoreFeaturesOpen} goToStage={goToStage}
         name={name} setName={setName}
         signupUsername={signupUsername} setSignupUsername={setSignupUsername}
@@ -1260,7 +1277,7 @@ export default function DictionaryApp() {
       toast={toast} showToast={showToast}
       theme={theme} onToggleTheme={toggleTheme}
       accentTheme={accentTheme} onChangeAccent={setAccentTheme}
-      appIsAr={appIsAr} onToggleAppLang={toggleAppLang}
+      appIsAr={appIsAr} appLang={appLang} onToggleAppLang={toggleAppLang} onChangeAppLang={setAppLang}
       sessionStart={sessionStartRef.current}
       remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={enableReminders} onDisableReminders={disableReminders} onTestReminder={testReminderPush}
       reminderTitle={reminderTitle} onChangeReminderTitle={handleChangeReminderTitle}

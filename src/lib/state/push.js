@@ -1,4 +1,7 @@
 // Web Push subscription helpers + local reminder prefs.
+// API contract (api/push-subscribe.js):
+//   POST { code, subscription?, prefsOnly?, title?, message?, intervalDays? }
+//   DELETE { code }
 
 const REMINDERS_KEY = "twoTongues.remindersEnabled.";
 const TITLE_KEY = "twoTongues.reminderTitle.";
@@ -31,48 +34,94 @@ function urlBase64ToUint8Array(base64String) {
   return out;
 }
 
-export async function subscribeToPush(accountCode, prefs = {}) {
-  if (!pushSupported()) return { ok: false, reason: "unsupported" };
+function getVapidPublicKey() {
   try {
+    // Vite injects env at build time
+    const k = import.meta.env && import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    return k && String(k).trim() ? String(k).trim() : "";
+  } catch (_) {
+    return "";
+  }
+}
+
+function prefsFromObject(prefs = {}) {
+  return {
+    title: typeof prefs.title === "string" ? prefs.title : "",
+    message: typeof prefs.message === "string" ? prefs.message : "",
+    intervalDays:
+      typeof prefs.intervalDays === "number" ? prefs.intervalDays : 1,
+  };
+}
+
+export async function subscribeToPush(accountCode, prefs = {}) {
+  if (!pushSupported()) return { ok: false, reason: "unsupported", error: "unsupported" };
+  if (!accountCode) return { ok: false, reason: "no_code", error: "no_code" };
+
+  try {
+    // Request permission first
+    let perm = Notification.permission;
+    if (perm !== "granted") {
+      perm = await Notification.requestPermission();
+    }
+    if (perm === "denied") {
+      return { ok: false, reason: "denied", error: "denied" };
+    }
+    if (perm !== "granted") {
+      return { ok: false, reason: "default", error: "default" };
+    }
+
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
+
     if (!sub) {
-      // VAPID public key should come from env; fallback attempts server
-      let vapidKey = null;
-      try {
-        const r = await fetch("/api/push-subscribe");
-        if (r.ok) {
-          const j = await r.json();
-          vapidKey = j.publicKey || j.vapidPublicKey;
-        }
-      } catch (_) {}
+      const vapidKey = getVapidPublicKey();
       if (!vapidKey) {
-        // Without a VAPID key we can still request permission for local notifs
-        const perm = await Notification.requestPermission();
-        return { ok: perm === "granted", reason: perm === "granted" ? "local" : perm };
+        return {
+          ok: false,
+          reason: "no_vapid",
+          error: "no_vapid",
+          message: "VITE_VAPID_PUBLIC_KEY missing",
+        };
       }
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
     }
-    try {
-      await fetch("/api/push-subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accountCode,
-          subscription: sub.toJSON(),
-          prefs,
-        }),
-      });
-    } catch (_) {}
+
+    const body = {
+      code: accountCode,
+      subscription: sub.toJSON(),
+      ...prefsFromObject(prefs),
+    };
+
+    const res = await fetch("/api/push-subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return {
+        ok: false,
+        reason: data.error || `http_${res.status}`,
+        error: data.error || `http_${res.status}`,
+        message: data.message || data.error,
+      };
+    }
+
     try {
       localStorage.setItem(SUB_KEY + accountCode, JSON.stringify(sub.toJSON()));
     } catch (_) {}
+
     return { ok: true, subscription: sub };
   } catch (e) {
-    return { ok: false, reason: String(e && e.message ? e.message : e) };
+    return {
+      ok: false,
+      reason: String(e && e.message ? e.message : e),
+      error: String(e && e.message ? e.message : e),
+    };
   }
 }
 
@@ -84,16 +133,30 @@ export async function unsubscribeFromPush(accountCode) {
     if (sub) await sub.unsubscribe();
   } catch (_) {}
   try {
-    localStorage.removeItem(SUB_KEY + accountCode);
+    if (accountCode) {
+      await fetch("/api/push-subscribe", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: accountCode }),
+      });
+    }
+  } catch (_) {}
+  try {
+    if (accountCode) localStorage.removeItem(SUB_KEY + accountCode);
   } catch (_) {}
 }
 
 export async function savePushPrefs(accountCode, prefs) {
+  if (!accountCode) return;
   try {
     await fetch("/api/push-subscribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accountCode, prefsOnly: true, prefs }),
+      body: JSON.stringify({
+        code: accountCode,
+        prefsOnly: true,
+        ...prefsFromObject(prefs),
+      }),
     });
   } catch (_) {}
 }
@@ -144,7 +207,11 @@ export function saveReminderMessage(message, accountCode) {
 export function buildReminderPayload({ title, message, dueCount }) {
   return {
     title: title || "Study reminder",
-    body: message || (dueCount ? `${dueCount} words due for review` : "Time to review your words"),
+    body:
+      message ||
+      (dueCount
+        ? `${dueCount} words due for review`
+        : "Time to review your words"),
     dueCount: dueCount || 0,
   };
 }

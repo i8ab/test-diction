@@ -1,3 +1,4 @@
+import { useState } from "react";
 // Full-screen auth flow: intro landing, signup (name + username + password),
 // pending-approval screen, restoring-session spinner, and login
 // (username + password + shared access code).
@@ -8,7 +9,7 @@ import {
   SearchIcon, PlusIcon, BookIcon, LoginIcon, KeyIcon, CheckIcon,
   ChevronIcon, EditIcon, UsersIcon, SunIcon, MoonIcon, WifiOffIcon, GlobeIcon,
   QuizIcon, StatsIcon, TrophyIcon, FlameIcon, SpeakerIcon, LoaderIcon, ZoomIcon,
-  LayersIcon, CalendarIcon, DownloadIcon, UserIcon,
+  LayersIcon, CalendarIcon, DownloadIcon, UserIcon, EyeIcon, EyeOffIcon,
 } from "../common/Icons";
 import BrandMark from "../common/BrandMark";
 import { Shell, LanguageToggle } from "../layout/Shell";
@@ -26,6 +27,10 @@ function AuthScreens({
   codeInput, setCodeInput,
   authError, setAuthError, loggingIn, handleLogin, onGuest,
 }) {
+  const [showLoginPw, setShowLoginPw] = useState(false);
+  const [showSignupPw, setShowSignupPw] = useState(false);
+  const [showSignupPw2, setShowSignupPw2] = useState(false);
+
   if (authStage === "intro") {
     const introFeatures = [
       { icon: SearchIcon, title: atr("Instant search", "بحث فوري"), desc: atr("Look up any word between English and Arabic in a heartbeat.", "ابحث عن أي كلمة بين الإنجليزية والعربية في لحظة.") },
@@ -280,7 +285,12 @@ function AuthScreens({
             </div>
             <div className="auth-field-2">
               <label style={labelStyle} htmlFor="login-password"><KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Password", "كلمة المرور")}</label>
-              <input id="login-password" type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} placeholder={atr("Your password", "كلمة المرور")} style={authInputStyle} autoComplete="current-password" />
+              <div style={{ position: "relative" }}>
+                <input id="login-password" type={showLoginPw ? "text" : "password"} value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} placeholder={atr("Your password", "كلمة المرور")} style={{ ...authInputStyle, paddingInlineEnd: 44 }} autoComplete="current-password" />
+                <button type="button" onClick={() => setShowLoginPw((v) => !v)} aria-label={showLoginPw ? atr("Hide", "إخفاء") : atr("Show", "إظهار")} style={{ position: "absolute", insetInlineEnd: 8, top: "50%", transform: "translateY(-50%)", border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 6, display: "flex" }}>
+                  {showLoginPw ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+                </button>
+              </div>
               <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
                 {atr("Legacy accounts: use your old personal code as the password once.", "الحسابات القديمة: استخدم الرمز الشخصي القديم ككلمة مرور مرة واحدة.")}
               </div>

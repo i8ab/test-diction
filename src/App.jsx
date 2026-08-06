@@ -248,9 +248,14 @@ export default function DictionaryApp() {
       if (pushSupported()) {
         const sub = await subscribeToPush(accountCode, getReminderPrefs());
         if (!sub.ok) {
-          showToast(sub.error === "denied"
-            ? "الإذن مرفوض — فعّل الإشعارات من إعدادات المتصفح"
-            : "مفيش اشتراك Push — فعّل التذكيرات الأول");
+          const err = sub.error || sub.reason || "";
+          if (err === "denied") {
+            showToast("الإذن مرفوض — فعّل الإشعارات من إعدادات المتصفح");
+          } else if (err === "no_vapid") {
+            showToast("مفتاح VAPID ناقص — حط VITE_VAPID_PUBLIC_KEY في Vercel ثم redeploy");
+          } else {
+            showToast(sub.message || "مفيش اشتراك Push — فعّل التذكيرات ووافق على الإذن");
+          }
           return;
         }
         setRemindersOn(true);
@@ -1059,7 +1064,7 @@ export default function DictionaryApp() {
     setIsAdmin(account.role === "admin");
     setAccountCode(account.code);
     savePersonalCode(account.code);
-    setPasswordInput("");
+    // Keep password field until login fully succeeds — cleared after session is saved.
 
     // New session token — invalidates any other device still holding the old one.
     const sid = generateSessionId();
@@ -1095,6 +1100,7 @@ export default function DictionaryApp() {
         setAccounts(withSession);
       }
     }
+    setPasswordInput("");
     goToStage("in");
   }
 
@@ -1183,7 +1189,11 @@ export default function DictionaryApp() {
       trimmed,
       accountCode
     );
-    await persistAccounts(nextAccounts, logEntry);
+    try {
+      await persistAccounts(nextAccounts, logEntry);
+    } catch (e) {
+      return { error: appIsAr ? "تعذّر حفظ التغييرات — حاول مرة أخرى." : "Couldn't save changes — try again." };
+    }
     setName(trimmed);
     showToast(appIsAr ? "تم تحديث الحساب." : "Account info updated.");
     return { ok: true };

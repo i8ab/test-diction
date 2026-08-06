@@ -5,6 +5,7 @@ import {
   loadSavedAccent, saveAccent, applyAccentTheme, ACCENT_THEMES, THEME_KEY,
   loadSearchHistory, saveSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory,
   saveOfflineCache, loadOfflineCache, loadSavedTheme, savePersonalCode, loadPersonalCode, clearPersonalCode,
+  saveAccessCode, loadAccessCode, clearAccessCode,
   saveSessionId, loadSessionId, generateSessionId,
   generatePersonalCode, detectDeviceIsAr, hasInviteParam,
   loadAppLang, saveAppLang,
@@ -94,7 +95,9 @@ export default function DictionaryApp() {
   const [logsLoaded, setLogsLoaded] = useState(false);
   const [siteBanner, setSiteBanner] = useState(null); // admin-published site-wide announcement
   const [accountCode, setAccountCode] = useState(""); // this browser's signed-in account's personal code
-  const [accessCode, setAccessCode] = useState(""); // shared ACCESS_CODE kept in memory only (never localStorage)
+  // Shared ACCESS_CODE: sessionStorage so refresh still works within the same
+  // browser session; never localStorage (cleared when the tab/window closes).
+  const [accessCode, setAccessCode] = useState(() => loadAccessCode());
   const [section, setSection] = useState("en-ar");
   const [query, setQuery] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -450,6 +453,8 @@ export default function DictionaryApp() {
             const localSid = loadSessionId();
             if (account.sessionId && localSid && account.sessionId !== localSid) {
               clearPersonalCode();
+              clearAccessCode();
+              setAccessCode("");
               try { localStorage.removeItem("twoTongues.sessionId"); } catch (_) {}
               setAuthStage("login");
               syncBaseHistory("login");
@@ -491,6 +496,8 @@ export default function DictionaryApp() {
             }
           } else {
             clearPersonalCode();
+            clearAccessCode();
+            setAccessCode("");
             setAuthStage("login");
             syncBaseHistory("login");
           }
@@ -683,6 +690,8 @@ export default function DictionaryApp() {
           continue;
         }
         if (e instanceof SaveConflictError) handleSaveConflict(e);
+        else if (String(e && e.message) === "unauthorized")
+          setSaveError("Session expired — sign out and sign in again with the access code.");
         else setSaveError("Couldn't save — check your connection and try again.");
         return;
       }
@@ -718,6 +727,8 @@ export default function DictionaryApp() {
           continue;
         }
         if (e instanceof SaveConflictError) handleSaveConflict(e);
+        else if (String(e && e.message) === "unauthorized")
+          setSaveError("Session expired — sign out and sign in again with the access code.");
         else setSaveError("Couldn't save — check your connection and try again.");
         return;
       }
@@ -929,6 +940,7 @@ export default function DictionaryApp() {
         return;
       }
       setAccessCode(sharedCode);
+      saveAccessCode(sharedCode);
     } catch (err) {
       setSignupError("Couldn't verify the access code — check your connection and try again.");
       setSignupSaving(false);
@@ -1092,6 +1104,7 @@ export default function DictionaryApp() {
     setIsAdmin(account.role === "admin");
     setAccountCode(account.code);
     setAccessCode(accessCode);
+    saveAccessCode(accessCode);
     savePersonalCode(account.code);
     // Keep password field until login fully succeeds — cleared after session is saved.
 
@@ -1153,6 +1166,7 @@ export default function DictionaryApp() {
       logEvent("sign_out", `${name} signed out`, name, accountCode);
     }
     clearPersonalCode();
+    clearAccessCode();
     try { localStorage.removeItem("twoTongues.sessionId"); } catch (_) {}
     setName("");
     setIsAdmin(false);

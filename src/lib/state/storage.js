@@ -117,6 +117,32 @@ export function clearPersonalCode() {
   } catch (_) {}
 }
 
+// Shared ACCESS_CODE is kept in sessionStorage only (survives refresh within
+// the same tab/window session, cleared when the tab is closed). Never put it
+// in localStorage so it doesn't persist across browser restarts.
+const ACCESS_SESSION_KEY = "twoTongues.accessCode";
+
+export function saveAccessCode(code) {
+  try {
+    if (code) sessionStorage.setItem(ACCESS_SESSION_KEY, String(code).trim());
+    else sessionStorage.removeItem(ACCESS_SESSION_KEY);
+  } catch (_) {}
+}
+
+export function loadAccessCode() {
+  try {
+    return sessionStorage.getItem(ACCESS_SESSION_KEY) || "";
+  } catch (_) {
+    return "";
+  }
+}
+
+export function clearAccessCode() {
+  try {
+    sessionStorage.removeItem(ACCESS_SESSION_KEY);
+  } catch (_) {}
+}
+
 export function generatePersonalCode() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let out = "";

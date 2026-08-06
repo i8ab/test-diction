@@ -93,6 +93,25 @@ export default function DictionaryApp() {
     recordVersionRef.current = n;
     setRecordVersion(n);
   }
+  // Serialize all cloud writes from this tab. Parallel persist* calls were the
+  // main source of fake "updated elsewhere" errors when marking studied /
+  // favorites quickly or when login session write raced a background sync.
+  const saveChainRef = useRef(Promise.resolve());
+  function enqueueSave(task) {
+    const run = saveChainRef.current.then(task, task);
+    // Swallow so the chain never permanently rejects.
+    saveChainRef.current = run.catch(() => {});
+    return run;
+  }
+  // Live mirrors so a queued/coalesced save always sees the latest data,
+  // not a stale React closure from when the user clicked earlier.
+  const entriesRef = useRef([]);
+  const accountsRef = useRef([]);
+  const logsRef = useRef([]);
+  const siteBannerRef = useRef(null);
+  // Batch rapid studied/favorite/quiz ops into a single network write.
+  const pendingAccountOpsRef = useRef([]);
+  const pendingEntryOpsRef = useRef([]);
   const [loadError, setLoadError] = useState("");
   const [isOffline, setIsOffline] = useState(false);
   const [offlineCachedAt, setOfflineCachedAt] = useState(null);
@@ -124,6 +143,11 @@ export default function DictionaryApp() {
     document.documentElement.setAttribute("data-theme", theme);
     try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
   }, [theme]);
+
+  useEffect(() => { entriesRef.current = entries; }, [entries]);
+  useEffect(() => { accountsRef.current = accounts; }, [accounts]);
+  useEffect(() => { logsRef.current = logs; }, [logs]);
+  useEffect(() => { siteBannerRef.current = siteBanner; }, [siteBanner]);
 
   // Re-applies the chosen accent color palette whenever the accent choice
   // or the light/dark mode changes (each accent has its own light+dark
@@ -455,42 +479,61 @@ export default function DictionaryApp() {
             //   the local session to the cloud one (or claim a new one).
             //   Logging out on missing localSid was kicking users on every
             //   refresh / new tab.
+            // Stay signed in whenever personalCode matches a valid account.
+            // Never force-logout on sessionId mismatch (refresh, new tab,
+            // screenshot → visibility, or another device). Multi-device is OK;
+            // explicit Sign out is the only way out.
+            setName(account.name);
+            setIsAdmin(account.role === "admin");
+            setAccountCode(account.code);
+            setAuthStage("in");
+            syncBaseHistory("in");
             const localSid = loadSessionId();
-            if (account.sessionId && localSid && account.sessionId !== localSid) {
-              clearPersonalCode();
-              try { localStorage.removeItem("twoTongues.sessionId"); } catch (_) {}
-              setAuthStage("login");
-              syncBaseHistory("login");
-            } else {
-              setName(account.name);
-              setIsAdmin(account.role === "admin");
-              setAccountCode(account.code);
-              setAuthStage("in");
-              syncBaseHistory("in");
-              if (!account.sessionId) {
-                // First bind: claim a session token for this account.
-                const sid = generateSessionId();
-                saveSessionId(sid);
-                const nextAccounts = rec.accounts.map((a) =>
-                  a.code === account.code ? { ...a, sessionId: sid, sessionAt: Date.now() } : a
-                );
-                try {
-                  const newVersion = await saveRecord(
-                    { entries: rec.entries, accounts: nextAccounts, logs: rec.logs, siteBanner: rec.siteBanner || null },
-                    rec.version || 0
+            if (account.sessionId) {
+              // Prefer the cloud token so every tab in this browser agrees.
+              saveSessionId(account.sessionId);
+            } else if (!localSid) {
+              const sid = generateSessionId();
+              saveSessionId(sid);
+              const code = account.code;
+              const stamped = Date.now();
+              try {
+                // Best-effort claim; failure must NOT log the user out.
+                let ver = rec.version || 0;
+                let accs = rec.accounts || [];
+                for (let attempt = 0; attempt < 5; attempt++) {
+                  const nextAccounts = accs.map((a) =>
+                    a.code === code ? { ...a, sessionId: sid, sessionAt: stamped } : a
                   );
-                  setAccounts(nextAccounts);
-                  commitRecordVersion(newVersion);
-                } catch (_) {
-                  setAccounts(nextAccounts);
+                  try {
+                    const newVersion = await saveRecord(
+                      { entries: rec.entries, accounts: nextAccounts, logs: rec.logs, siteBanner: rec.siteBanner || null },
+                      ver
+                    );
+                    setAccounts(nextAccounts);
+                    commitRecordVersion(newVersion);
+                    break;
+                  } catch (e) {
+                    if (e instanceof SaveConflictError) {
+                      accs = e.fresh.accounts || accs;
+                      ver = e.fresh.version || ver;
+                      commitRecordVersion(ver);
+                      // If someone else already set a session, adopt it.
+                      const freshAcc = accs.find((a) => a.code === code);
+                      if (freshAcc && freshAcc.sessionId) {
+                        saveSessionId(freshAcc.sessionId);
+                        setAccounts(accs);
+                        break;
+                      }
+                      continue;
+                    }
+                    setAccounts(accs.map((a) =>
+                      a.code === code ? { ...a, sessionId: sid, sessionAt: stamped } : a
+                    ));
+                    break;
+                  }
                 }
-              } else if (!localSid) {
-                // Same browser, lost local token (or new tab before write) —
-                // adopt the cloud session so refresh stays signed in.
-                saveSessionId(account.sessionId);
-              } else {
-                saveSessionId(localSid);
-              }
+              } catch (_) { /* stay signed in locally */ }
             }
           } else {
             clearPersonalCode();
@@ -636,7 +679,7 @@ export default function DictionaryApp() {
     setLogs(err.fresh.logs || []);
     if (err.fresh.siteBanner !== undefined) setSiteBanner(err.fresh.siteBanner || null);
     commitRecordVersion(err.fresh.version || 0);
-    setSaveError("The dictionary was updated elsewhere (another tab or device). Your last change wasn't saved — the list was refreshed, please try again.");
+    setSaveError(""); // conflict recovered by resync — no scary banner
   }
 
   // Max number of automatic retries on a version conflict before giving up
@@ -645,132 +688,259 @@ export default function DictionaryApp() {
   // retry resolves the vast majority of real-world races (two people
   // adding a word within the same second), since each retry re-reads the
   // absolute latest server state.
-  const MAX_SAVE_RETRIES = 5;
+  const MAX_SAVE_RETRIES = 10;
 
-  // `entriesFn` is either an array (the new entries list) or a function
-  // `(currentEntries) => nextEntries`. Passing a function is what makes
-  // concurrent adds safe: if the server rejects our save because someone
-  // else saved first, we re-fetch the fresh entries and *re-run* the
-  // function against them, so our own change (e.g. "add this one word")
-  // gets re-applied on top of theirs instead of being thrown away. Same
-  // idea for `logEntryFn`, which may depend on data that changed (e.g. a
-  // log message referencing something in the freshly-read state).
-  const persistEntries = useCallback(async (entriesFn, logEntryFn) => {
-    let curEntries = typeof entriesFn === "function" ? entries : entriesFn;
-    let curAccounts = accounts;
-    let curLogs = logs;
-    // Prefer the live ref so two rapid saves don't both send the same stale version.
-    let curVersion = recordVersionRef.current;
-
-    for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
-      const next = typeof entriesFn === "function" ? entriesFn(curEntries) : entriesFn;
-      const logEntry = typeof logEntryFn === "function" ? logEntryFn(curEntries) : logEntryFn;
-      const nextLogs = logEntry ? capLogs([...curLogs, logEntry]) : curLogs;
-
-      setEntries(next);
-      if (logEntry) setLogs(nextLogs);
-
-      try {
-        const newVersion = await saveRecord({ entries: next, accounts: curAccounts, logs: nextLogs, siteBanner }, curVersion);
-        commitRecordVersion(newVersion);
-        saveOfflineCache({ entries: next, accounts: curAccounts, logs: nextLogs, siteBanner });
-        setSaveError("");
-        return;
-      } catch (e) {
-        if (e instanceof SaveConflictError && typeof entriesFn === "function" && attempt < MAX_SAVE_RETRIES) {
-          // Someone else (or another tab / in-flight save) wrote first —
-          // reapply our change on top of the fresh server data and try again.
-          curEntries = e.fresh.entries || [];
-          curAccounts = e.fresh.accounts || [];
-          curLogs = e.fresh.logs || [];
-          curVersion = e.fresh.version || 0;
-          commitRecordVersion(curVersion);
-          continue;
-        }
-        if (e instanceof SaveConflictError) handleSaveConflict(e);
-        else if (String(e && e.message) === "unauthorized")
-          setSaveError("Session expired — sign out and sign in again.");
-        else setSaveError("Couldn't save — check your connection and try again.");
-        return;
+  // Apply a list of ops (each op is { fn, logFn }) onto base state.
+  // Functional fns compose; plain-array ops replace.
+  function applyOps(base, ops, kind) {
+    let cur = base;
+    const logsToAdd = [];
+    for (const op of ops) {
+      const fn = op.fn;
+      cur = typeof fn === "function" ? fn(cur) : fn;
+      if (op.logFn) {
+        const logEntry = typeof op.logFn === "function" ? op.logFn(cur) : op.logFn;
+        if (logEntry) logsToAdd.push(logEntry);
       }
     }
-  }, [entries, accounts, logs, siteBanner]);
+    return { next: cur, logsToAdd };
+  }
+
+  // Flush every pending account op in ONE save. Many studied/favorite clicks
+  // while a write is in flight become a single composed write afterward.
+  function flushPendingAccounts() {
+    return enqueueSave(async () => {
+      while (pendingAccountOpsRef.current.length > 0) {
+        const ops = pendingAccountOpsRef.current.slice();
+        pendingAccountOpsRef.current = [];
+
+        // attempt 0: UI already has ops applied optimistically → save refs as-is.
+        // later attempts: re-apply ops on top of fresh server data.
+        let curEntries = entriesRef.current;
+        let curAccounts = accountsRef.current;
+        let curLogs = logsRef.current;
+        let curBanner = siteBannerRef.current;
+        let curVersion = recordVersionRef.current;
+        let useOptimisticSnapshot = true;
+
+        for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+          let nextAccounts;
+          let nextLogs = curLogs;
+          if (useOptimisticSnapshot && attempt === 0) {
+            nextAccounts = curAccounts;
+          } else {
+            const applied = applyOps(curAccounts, ops, "accounts");
+            nextAccounts = applied.next;
+            nextLogs = curLogs;
+            for (const le of applied.logsToAdd) nextLogs = capLogs([...nextLogs, le]);
+          }
+
+          setAccounts(nextAccounts);
+          accountsRef.current = nextAccounts;
+          if (nextLogs !== curLogs) {
+            setLogs(nextLogs);
+            logsRef.current = nextLogs;
+          }
+
+          try {
+            const newVersion = await saveRecord(
+              { entries: curEntries, accounts: nextAccounts, logs: nextLogs, siteBanner: curBanner },
+              curVersion
+            );
+            commitRecordVersion(newVersion);
+            saveOfflineCache({ entries: curEntries, accounts: nextAccounts, logs: nextLogs, siteBanner: curBanner });
+            setSaveError("");
+            break;
+          } catch (e) {
+            if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
+              curEntries = e.fresh.entries || [];
+              curAccounts = e.fresh.accounts || [];
+              curLogs = e.fresh.logs || [];
+              if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
+              curVersion = e.fresh.version || 0;
+              entriesRef.current = curEntries;
+              accountsRef.current = curAccounts;
+              logsRef.current = curLogs;
+              siteBannerRef.current = curBanner;
+              commitRecordVersion(curVersion);
+              useOptimisticSnapshot = false; // must re-apply ops onto server state
+              await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+              continue;
+            }
+            if (e instanceof SaveConflictError && e.fresh) {
+              setEntries(e.fresh.entries || []);
+              setAccounts(e.fresh.accounts || []);
+              setLogs(e.fresh.logs || []);
+              if (e.fresh.siteBanner !== undefined) setSiteBanner(e.fresh.siteBanner || null);
+              entriesRef.current = e.fresh.entries || [];
+              accountsRef.current = e.fresh.accounts || [];
+              logsRef.current = e.fresh.logs || [];
+              commitRecordVersion(e.fresh.version || 0);
+              setSaveError("");
+            } else if (String(e && e.message) === "unauthorized") {
+              setSaveError("Session expired — sign out and sign in again.");
+            } else {
+              setSaveError("Couldn't save — check your connection and try again.");
+            }
+            break;
+          }
+        }
+      }
+    });
+  }
+
+  function flushPendingEntries() {
+    return enqueueSave(async () => {
+      while (pendingEntryOpsRef.current.length > 0) {
+        const ops = pendingEntryOpsRef.current.slice();
+        pendingEntryOpsRef.current = [];
+
+        let curEntries = entriesRef.current;
+        let curAccounts = accountsRef.current;
+        let curLogs = logsRef.current;
+        let curBanner = siteBannerRef.current;
+        let curVersion = recordVersionRef.current;
+        let useOptimisticSnapshot = true;
+
+        for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+          let nextEntries;
+          let nextLogs = curLogs;
+          if (useOptimisticSnapshot && attempt === 0) {
+            nextEntries = curEntries;
+          } else {
+            const applied = applyOps(curEntries, ops, "entries");
+            nextEntries = applied.next;
+            nextLogs = curLogs;
+            for (const le of applied.logsToAdd) nextLogs = capLogs([...nextLogs, le]);
+          }
+
+          setEntries(nextEntries);
+          entriesRef.current = nextEntries;
+          if (nextLogs !== curLogs) {
+            setLogs(nextLogs);
+            logsRef.current = nextLogs;
+          }
+
+          try {
+            const newVersion = await saveRecord(
+              { entries: nextEntries, accounts: curAccounts, logs: nextLogs, siteBanner: curBanner },
+              curVersion
+            );
+            commitRecordVersion(newVersion);
+            saveOfflineCache({ entries: nextEntries, accounts: curAccounts, logs: nextLogs, siteBanner: curBanner });
+            setSaveError("");
+            break;
+          } catch (e) {
+            if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
+              curEntries = e.fresh.entries || [];
+              curAccounts = e.fresh.accounts || [];
+              curLogs = e.fresh.logs || [];
+              if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
+              curVersion = e.fresh.version || 0;
+              entriesRef.current = curEntries;
+              accountsRef.current = curAccounts;
+              logsRef.current = curLogs;
+              siteBannerRef.current = curBanner;
+              commitRecordVersion(curVersion);
+              useOptimisticSnapshot = false;
+              await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+              continue;
+            }
+            if (e instanceof SaveConflictError && e.fresh) {
+              setEntries(e.fresh.entries || []);
+              setAccounts(e.fresh.accounts || []);
+              setLogs(e.fresh.logs || []);
+              if (e.fresh.siteBanner !== undefined) setSiteBanner(e.fresh.siteBanner || null);
+              entriesRef.current = e.fresh.entries || [];
+              accountsRef.current = e.fresh.accounts || [];
+              logsRef.current = e.fresh.logs || [];
+              commitRecordVersion(e.fresh.version || 0);
+              setSaveError("");
+            } else if (String(e && e.message) === "unauthorized") {
+              setSaveError("Session expired — sign out and sign in again.");
+            } else {
+              setSaveError("Couldn't save — check your connection and try again.");
+            }
+            break;
+          }
+        }
+      }
+    });
+  }
+
+  // Public API: queue the op (optimistic UI update) and schedule a coalesced flush.
+  const persistEntries = useCallback(async (entriesFn, logEntryFn) => {
+    // Optimistic local apply immediately for snappy UI.
+    const base = entriesRef.current;
+    const optimistic = typeof entriesFn === "function" ? entriesFn(base) : entriesFn;
+    setEntries(optimistic);
+    entriesRef.current = optimistic;
+    if (logEntryFn) {
+      const le = typeof logEntryFn === "function" ? logEntryFn(base) : logEntryFn;
+      if (le) {
+        const nl = capLogs([...logsRef.current, le]);
+        setLogs(nl);
+        logsRef.current = nl;
+      }
+    }
+    pendingEntryOpsRef.current.push({ fn: entriesFn, logFn: logEntryFn || null });
+    return flushPendingEntries();
+  }, []);
 
   const persistAccounts = useCallback(async (accountsFn, logEntryFn) => {
-    let curEntries = entries;
-    let curAccounts = typeof accountsFn === "function" ? accounts : accountsFn;
-    let curLogs = logs;
-    let curVersion = recordVersionRef.current;
-
-    for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
-      const next = typeof accountsFn === "function" ? accountsFn(curAccounts) : accountsFn;
-      const logEntry = typeof logEntryFn === "function" ? logEntryFn(curAccounts) : logEntryFn;
-      const nextLogs = logEntry ? capLogs([...curLogs, logEntry]) : curLogs;
-
-      setAccounts(next);
-      if (logEntry) setLogs(nextLogs);
-
-      try {
-        const newVersion = await saveRecord({ entries: curEntries, accounts: next, logs: nextLogs, siteBanner }, curVersion);
-        commitRecordVersion(newVersion);
-        saveOfflineCache({ entries: curEntries, accounts: next, logs: nextLogs, siteBanner });
-        setSaveError("");
-        return;
-      } catch (e) {
-        if (e instanceof SaveConflictError && typeof accountsFn === "function" && attempt < MAX_SAVE_RETRIES) {
-          curEntries = e.fresh.entries || [];
-          curAccounts = e.fresh.accounts || [];
-          curLogs = e.fresh.logs || [];
-          curVersion = e.fresh.version || 0;
-          commitRecordVersion(curVersion);
-          continue;
-        }
-        if (e instanceof SaveConflictError) handleSaveConflict(e);
-        else if (String(e && e.message) === "unauthorized")
-          setSaveError("Session expired — sign out and sign in again.");
-        else setSaveError("Couldn't save — check your connection and try again.");
-        return;
+    const base = accountsRef.current;
+    const optimistic = typeof accountsFn === "function" ? accountsFn(base) : accountsFn;
+    setAccounts(optimistic);
+    accountsRef.current = optimistic;
+    if (logEntryFn) {
+      const le = typeof logEntryFn === "function" ? logEntryFn(base) : logEntryFn;
+      if (le) {
+        const nl = capLogs([...logsRef.current, le]);
+        setLogs(nl);
+        logsRef.current = nl;
       }
     }
-  }, [entries, accounts, logs, siteBanner]);
+    pendingAccountOpsRef.current.push({ fn: accountsFn, logFn: logEntryFn || null });
+    return flushPendingAccounts();
+  }, []);
 
   // For events that don't touch entries/accounts (sign in/out) — still saved
   // into the same shared record so it stays in sync with everything else.
   const persistLogs = useCallback(async (next) => {
     setLogs(next);
-    let curVersion = recordVersionRef.current;
-    let curEntries = entries;
-    let curAccounts = accounts;
-    for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
-      try {
-        const newVersion = await saveRecord({ entries: curEntries, accounts: curAccounts, logs: next, siteBanner }, curVersion);
-        commitRecordVersion(newVersion);
-        return;
-      } catch (e) {
-        // Best-effort: a failed log write shouldn't block sign-in/out.
-        // On conflict, adopt fresh data and retry writing OUR log list.
-        if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
-          curEntries = e.fresh.entries || [];
-          curAccounts = e.fresh.accounts || [];
-          curVersion = e.fresh.version || 0;
-          commitRecordVersion(curVersion);
-          // Don't clobber local entries/accounts UI mid-sign-in unless we give up.
-          continue;
-        }
-        if (e instanceof SaveConflictError) {
-          // Quiet resync — log writes are not worth a red banner.
-          if (e.fresh) {
+    logsRef.current = next;
+    return enqueueSave(async () => {
+      let curVersion = recordVersionRef.current;
+      let curEntries = entriesRef.current;
+      let curAccounts = accountsRef.current;
+      let curBanner = siteBannerRef.current;
+      for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+        try {
+          const newVersion = await saveRecord({ entries: curEntries, accounts: curAccounts, logs: next, siteBanner: curBanner }, curVersion);
+          commitRecordVersion(newVersion);
+          return;
+        } catch (e) {
+          if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
+            curEntries = e.fresh.entries || [];
+            curAccounts = e.fresh.accounts || [];
+            curVersion = e.fresh.version || 0;
+            if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
+            commitRecordVersion(curVersion);
+            await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+            continue;
+          }
+          if (e instanceof SaveConflictError && e.fresh) {
             setEntries(e.fresh.entries || []);
             setAccounts(e.fresh.accounts || []);
             setLogs(e.fresh.logs || []);
             if (e.fresh.siteBanner !== undefined) setSiteBanner(e.fresh.siteBanner || null);
             commitRecordVersion(e.fresh.version || 0);
           }
+          return;
         }
-        return;
       }
-    }
-  }, [entries, accounts, siteBanner]);
+    });
+  }, []);
 
   function logEvent(action, message, actorName, actorCode) {
     persistLogs(capLogs([...logs, makeLogEntry(action, message, actorName, actorCode)]));
@@ -779,35 +949,41 @@ export default function DictionaryApp() {
   // Admin publishes / clears the site-wide announcement banner.
   const persistSiteBanner = useCallback(async (nextBanner) => {
     setSiteBanner(nextBanner);
-    let curVersion = recordVersionRef.current;
-    let curEntries = entries;
-    let curAccounts = accounts;
-    let curLogs = logs;
-    for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
-      try {
-        const newVersion = await saveRecord({ entries: curEntries, accounts: curAccounts, logs: curLogs, siteBanner: nextBanner }, curVersion);
-        commitRecordVersion(newVersion);
-        saveOfflineCache({ entries: curEntries, accounts: curAccounts, logs: curLogs, siteBanner: nextBanner });
-        return { ok: true };
-      } catch (e) {
-        if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
-          curEntries = e.fresh.entries || [];
-          curAccounts = e.fresh.accounts || [];
-          curLogs = e.fresh.logs || [];
-          setEntries(curEntries);
-          setAccounts(curAccounts);
-          setLogs(curLogs);
-          curVersion = e.fresh.version || 0;
-          commitRecordVersion(curVersion);
-          // Keep trying to write OUR banner on top of the fresh record.
-          continue;
+    siteBannerRef.current = nextBanner;
+    return enqueueSave(async () => {
+      let curVersion = recordVersionRef.current;
+      let curEntries = entriesRef.current;
+      let curAccounts = accountsRef.current;
+      let curLogs = logsRef.current;
+      for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+        try {
+          const newVersion = await saveRecord({ entries: curEntries, accounts: curAccounts, logs: curLogs, siteBanner: nextBanner }, curVersion);
+          commitRecordVersion(newVersion);
+          saveOfflineCache({ entries: curEntries, accounts: curAccounts, logs: curLogs, siteBanner: nextBanner });
+          return { ok: true };
+        } catch (e) {
+          if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
+            curEntries = e.fresh.entries || [];
+            curAccounts = e.fresh.accounts || [];
+            curLogs = e.fresh.logs || [];
+            setEntries(curEntries);
+            setAccounts(curAccounts);
+            setLogs(curLogs);
+            entriesRef.current = curEntries;
+            accountsRef.current = curAccounts;
+            logsRef.current = curLogs;
+            curVersion = e.fresh.version || 0;
+            commitRecordVersion(curVersion);
+            await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+            continue;
+          }
+          if (e instanceof SaveConflictError) handleSaveConflict(e);
+          return { ok: false, error: "Couldn't save the announcement — try again." };
         }
-        if (e instanceof SaveConflictError) handleSaveConflict(e);
-        return { ok: false, error: "Couldn't save the announcement — try again." };
       }
-    }
-    return { ok: false, error: "Couldn't save the announcement — try again." };
-  }, [entries, accounts, logs]);
+      return { ok: false, error: "Couldn't save the announcement — try again." };
+    });
+  }, []);
 
 
   // Admin action: wipe the activity log down to just the "first sign in"
@@ -1117,39 +1293,37 @@ export default function DictionaryApp() {
       }
     }
 
-    // New session token — invalidates any other device still holding the old one.
+    // Record a session token (for optional multi-device awareness). Failure to
+    // persist it must never block sign-in — personalCode in localStorage is
+    // what keeps the user signed in across refresh / new tabs.
     const sid = generateSessionId();
     saveSessionId(sid);
-    const withSession = curAccounts.map((a) =>
-      a.code === account.code
-        ? {
-            ...a,
-            sessionId: sid,
-            sessionAt: Date.now(),
-            ...(a.role !== "admin" && !a.firstSignInAt ? { firstSignInAt: Date.now() } : {}),
-          }
-        : a
-    );
-    curAccounts = withSession;
-
-    if (account.role !== "admin") {
-      const isFirstSignIn = !account.firstSignInAt;
-      const logEntry = makeLogEntry(
-        isFirstSignIn ? "first_sign_in" : "sign_in",
-        isFirstSignIn
-          ? `${account.name} (@${account.username}) signed in for the first time`
-          : `${account.name} (@${account.username}) signed in`,
-        account.name,
-        account.code
-      );
-      await persistAccounts(withSession, logEntry);
-    } else {
-      // Admins still need the sessionId written so other devices get kicked.
-      try {
-        await persistAccounts(withSession, null);
-      } catch (_) {
-        setAccounts(withSession);
-      }
+    const accountCodeLogin = account.code;
+    const isFirstSignIn = account.role !== "admin" && !account.firstSignInAt;
+    const stamped = Date.now();
+    const logEntry = account.role !== "admin"
+      ? makeLogEntry(
+          isFirstSignIn ? "first_sign_in" : "sign_in",
+          isFirstSignIn
+            ? `${account.name} (@${account.username}) signed in for the first time`
+            : `${account.name} (@${account.username}) signed in`,
+          account.name,
+          account.code
+        )
+      : null;
+    try {
+      await persistAccounts((accs) => accs.map((a) =>
+        a.code === accountCodeLogin
+          ? {
+              ...a,
+              sessionId: sid,
+              sessionAt: stamped,
+              ...(isFirstSignIn ? { firstSignInAt: stamped } : {}),
+            }
+          : a
+      ), logEntry);
+    } catch (_) {
+      // Signed in locally regardless.
     }
     setPasswordInput("");
     goToStage("in");
@@ -1173,13 +1347,16 @@ export default function DictionaryApp() {
     goToStage("login");
   }
 
-  // While signed in: periodically re-check that this device still owns the
-  // account session. If the same account signed in elsewhere, kick this tab.
+  // Soft background sync while signed in. NEVER log the user out because of
+  // focus / visibility / screenshot / another device — those were kicking
+  // people on refresh and when the OS briefly hid the tab. We only sync
+  // data + adopt the cloud sessionId. Logout happens solely via Sign out,
+  // or if the account itself is gone / pending / rejected.
   useEffect(() => {
     if (authStage !== "in" || !accountCode) return;
     let cancelled = false;
 
-    async function checkSession() {
+    async function softSync() {
       try {
         const rec = await fetchRecord({ fresh: true });
         if (cancelled) return;
@@ -1191,29 +1368,16 @@ export default function DictionaryApp() {
           handleLogout();
           return;
         }
-        const localSid = loadSessionId();
-        // Only kick when this browser has a token that no longer matches
-        // the cloud (signed in elsewhere). Missing local token = re-bind,
-        // never logout — otherwise refresh / new tab boots the user out.
-        if (account.sessionId && localSid && account.sessionId !== localSid) {
-          handleLogout();
-        } else if (account.sessionId && !localSid) {
-          saveSessionId(account.sessionId);
-        }
+        if (account.sessionId) saveSessionId(account.sessionId);
       } catch (_) {
-        // Offline — don't kick the user just because the network dropped.
+        // Offline — stay signed in.
       }
     }
 
-    const onFocus = () => checkSession();
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") checkSession();
-    });
-    const interval = setInterval(checkSession, 45000);
+    // No focus/visibility listeners (screenshot & app-switch were logging people out).
+    const interval = setInterval(softSync, 120000);
     return () => {
       cancelled = true;
-      window.removeEventListener("focus", onFocus);
       clearInterval(interval);
     };
   }, [authStage, accountCode]);

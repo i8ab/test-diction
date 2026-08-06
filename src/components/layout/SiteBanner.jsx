@@ -4,9 +4,10 @@ import { XIcon } from "../common/Icons";
 /* =========================================================================
    SITE BANNER — paper streamer pulled by a plane
    -------------------------------------------------------------------------
-   Continuous flight: exits one side of the screen and re-enters from the
-   other. Direction follows UI language (LTR → flies left→right, RTL →
-   right→left). Speed comes from admin `speed` setting.
+   Position is driven by requestAnimationFrame (not CSS keyframes) so the
+   flight always moves even when the OS has "reduce motion" enabled — the
+   whole point of this banner is the continuous pass across the screen.
+   Direction follows UI language (RTL ↔ LTR). Speed = admin `speed` setting.
    ========================================================================= */
 const DISMISS_KEY = "twoTongues.siteBannerDismissedId";
 
@@ -66,7 +67,6 @@ function isExpired(banner) {
   return Date.now() > from + mins * 60 * 1000;
 }
 
-/** Simple plane silhouette — flipped for RTL. */
 function PlaneIcon({ color, flip }) {
   return (
     <svg
@@ -81,24 +81,20 @@ function PlaneIcon({ color, flip }) {
         filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.25))",
       }}
     >
-      {/* fuselage */}
       <path
         d="M2 15.5 L28 13.2 L40 11.8 C41.5 11.5 42.5 12.2 42.2 13.5 C41.9 14.8 40.5 15.5 38.8 15.6 L28 16.2 L18 24.5 C17.4 25 16.6 24.7 16.5 24 L17.2 17.2 L8 18.5 C7.2 18.6 6.6 18.1 6.6 17.4 L6.8 16.2 L2 16.6 C1.3 16.7 1 16.2 1.2 15.7 Z"
         fill={color}
       />
-      {/* wing */}
       <path
         d="M14 14.5 L26 7.5 C26.8 7 27.6 7.3 27.5 8.2 L26.2 14.8 L14.5 15.3 Z"
         fill={color}
         opacity="0.92"
       />
-      {/* tail */}
       <path
         d="M4 12.5 L8 9.2 C8.5 8.8 9.1 9.1 9 9.8 L8.2 14.5 L4.5 14.8 Z"
         fill={color}
         opacity="0.88"
       />
-      {/* window dots */}
       <circle cx="31" cy="13.8" r="1.1" fill="rgba(255,255,255,0.55)" />
       <circle cx="34.5" cy="13.4" r="1.1" fill="rgba(255,255,255,0.45)" />
     </svg>
@@ -108,6 +104,10 @@ function PlaneIcon({ color, flip }) {
 export default function SiteBanner({ banner, isAr }) {
   const [dismissedId, setDismissedId] = useState(loadDismissedId);
   const [live, setLive] = useState(true);
+  const trackRef = useRef(null);
+  const flightRef = useRef(null);
+  const rafRef = useRef(0);
+  const progressRef = useRef(0); // 0 → 1 across one full pass
   const hideTimer = useRef(null);
 
   const hasTimedDuration = durationMinutesOf(banner) > 0;
@@ -147,17 +147,67 @@ export default function SiteBanner({ banner, isAr }) {
     };
   }, [shouldShow, banner && banner.id, banner && banner.updatedAt, banner && banner.durationMinutes, banner && banner.durationHours]);
 
+  // Continuous flight via rAF — always runs while visible
+  useEffect(() => {
+    if (!shouldShow) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      return;
+    }
+
+    const speed = typeof (banner && banner.speed) === "number" ? banner.speed : 1;
+    // Full crossing duration in ms (speed 1 ≈ 14s)
+    const durationMs = Math.max(5000, Math.min(45000, 14000 / Math.max(0.4, speed)));
+    const rtl = !!isAr;
+    progressRef.current = rtl ? 1 : 0; // start just off the entry side
+    let last = performance.now();
+
+    function tick(now) {
+      const el = flightRef.current;
+      const track = trackRef.current;
+      if (!el || !track) {
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      const dt = Math.min(64, now - last);
+      last = now;
+
+      const delta = dt / durationMs;
+      if (rtl) {
+        progressRef.current -= delta;
+        if (progressRef.current < 0) progressRef.current += 1;
+      } else {
+        progressRef.current += delta;
+        if (progressRef.current > 1) progressRef.current -= 1;
+      }
+
+      // progress 0 = fully off the left (plane+banner width past left edge)
+      // progress 1 = fully off the right
+      const trackW = track.offsetWidth || window.innerWidth;
+      const flightW = el.offsetWidth || 200;
+      // Travel distance: enter from -flightW to exit at trackW
+      const x = -flightW + progressRef.current * (trackW + flightW);
+      el.style.transform = `translate3d(${x}px, -50%, 0)`;
+
+      rafRef.current = requestAnimationFrame(tick);
+    }
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [shouldShow, isAr, banner && banner.speed, banner && banner.id]);
+
   if (!shouldShow) return null;
 
   const bg = (banner && banner.color) || "#146C94";
   const c = contrastFor(bg);
   const shine = typeof (banner && banner.shine) === "number" ? banner.shine : 40;
   const speed = typeof (banner && banner.speed) === "number" ? banner.speed : 1;
-  // One full pass across the viewport. Higher speed = faster (shorter duration).
-  // Base 18s at speed 1; clamp to a comfortable range.
-  const durationSec = Math.max(6, Math.min(40, 18 / Math.max(0.4, speed)));
   const rtl = !!isAr;
   const planeColor = c.text === "#fff" ? "rgba(255,255,255,0.95)" : "rgba(30,30,30,0.9)";
+  const flutterSec = Math.max(0.9, 2.2 / Math.max(0.4, speed));
+  const windSec = Math.max(3, 8 / Math.max(0.4, speed));
 
   function dismiss() {
     if (hasTimedDuration) return;
@@ -170,6 +220,7 @@ export default function SiteBanner({ banner, isAr }) {
 
   return (
     <div
+      ref={trackRef}
       role="status"
       aria-live="polite"
       className="site-banner"
@@ -179,17 +230,15 @@ export default function SiteBanner({ banner, isAr }) {
         zIndex: 3000,
         height: 52,
         overflow: "hidden",
-        // Sky strip behind the flight path
         background: `linear-gradient(180deg, ${bg}dd 0%, ${bg} 55%, ${bg}ee 100%)`,
         borderBottom: `1px solid ${c.border}`,
         boxShadow: "0 2px 12px -4px rgba(0,0,0,0.22)",
-        direction: "ltr", // animation axes are physical L/R; plane flip handles RTL
+        direction: "ltr",
       }}
     >
-      {/* Soft wind streaks in the sky */}
+      {/* Wind streaks */}
       <div
         aria-hidden="true"
-        className="site-banner-wind"
         style={{
           position: "absolute",
           inset: 0,
@@ -197,13 +246,14 @@ export default function SiteBanner({ banner, isAr }) {
           opacity: Math.min(0.55, 0.15 + (shine / 100) * 0.4),
           background:
             "repeating-linear-gradient(90deg, transparent 0 28px, rgba(255,255,255,0.07) 28px 30px, transparent 30px 62px)",
-          animation: `siteBannerWind ${Math.max(3, 8 / Math.max(0.4, speed))}s linear infinite`,
+          animation: `siteBannerWind ${windSec}s linear infinite`,
           animationDirection: rtl ? "reverse" : "normal",
         }}
       />
 
-      {/* Flying group: plane + paper streamer */}
+      {/* Flying group — transform updated every frame by rAF */}
       <div
+        ref={flightRef}
         className="site-banner-flight"
         style={{
           position: "absolute",
@@ -211,15 +261,12 @@ export default function SiteBanner({ banner, isAr }) {
           left: 0,
           display: "flex",
           alignItems: "center",
-          gap: 0,
-          // Start fully off one side; keyframes carry it across and off the other
-          transform: "translateY(-50%)",
-          animation: `${rtl ? "siteBannerFlyRtl" : "siteBannerFlyLtr"} ${durationSec}s linear infinite`,
+          transform: "translate3d(-200px, -50%, 0)",
           willChange: "transform",
           whiteSpace: "nowrap",
+          pointerEvents: "none",
         }}
       >
-        {/* Plane leads in LTR; in RTL we still put plane first then flip the whole row via flex-direction */}
         <div
           style={{
             display: "flex",
@@ -231,7 +278,6 @@ export default function SiteBanner({ banner, isAr }) {
             <PlaneIcon color={planeColor} flip={rtl} />
           </div>
 
-          {/* Tow string */}
           <span
             aria-hidden="true"
             style={{
@@ -243,7 +289,6 @@ export default function SiteBanner({ banner, isAr }) {
             }}
           />
 
-          {/* Paper banner */}
           <div
             className="site-banner-paper"
             style={{
@@ -253,7 +298,6 @@ export default function SiteBanner({ banner, isAr }) {
               maxWidth: "min(72vw, 520px)",
               padding: "8px 18px",
               marginInlineStart: 2,
-              // Paper look
               background: `
                 linear-gradient(180deg, rgba(255,255,255,0.22) 0%, transparent 40%),
                 linear-gradient(135deg, ${bg} 0%, ${bg}ee 50%, ${bg} 100%)
@@ -267,25 +311,10 @@ export default function SiteBanner({ banner, isAr }) {
               fontSize: 14.5,
               fontWeight: 700,
               lineHeight: 1.35,
-              // Wind flutter
-              animation: `siteBannerFlutter ${Math.max(0.9, 2.2 / Math.max(0.4, speed))}s ease-in-out infinite`,
+              animation: `siteBannerFlutter ${flutterSec}s ease-in-out infinite`,
               transformOrigin: rtl ? "100% 50%" : "0% 50%",
             }}
           >
-            {/* Paper edge notches */}
-            <span
-              aria-hidden="true"
-              style={{
-                position: "absolute",
-                insetBlock: 4,
-                insetInlineStart: -5,
-                width: 10,
-                background: `radial-gradient(circle at 0 50%, transparent 5px, ${bg} 5.5px)`,
-                backgroundSize: "10px 12px",
-                backgroundRepeat: "repeat-y",
-                opacity: 0.9,
-              }}
-            />
             <span
               style={{
                 overflow: "hidden",
@@ -302,7 +331,6 @@ export default function SiteBanner({ banner, isAr }) {
         </div>
       </div>
 
-      {/* Dismiss — only when no timed duration */}
       {!hasTimedDuration && (
         <button
           type="button"
@@ -325,6 +353,7 @@ export default function SiteBanner({ banner, isAr }) {
             alignItems: "center",
             justifyContent: "center",
             borderRadius: 8,
+            pointerEvents: "auto",
           }}
         >
           <XIcon size={16} />
@@ -332,14 +361,6 @@ export default function SiteBanner({ banner, isAr }) {
       )}
 
       <style>{`
-        @keyframes siteBannerFlyLtr {
-          0%   { transform: translateY(-50%) translateX(-105%); }
-          100% { transform: translateY(-50%) translateX(105vw); }
-        }
-        @keyframes siteBannerFlyRtl {
-          0%   { transform: translateY(-50%) translateX(105vw); }
-          100% { transform: translateY(-50%) translateX(-105%); }
-        }
         @keyframes siteBannerFlutter {
           0%, 100% { transform: rotate(-1.2deg) skewX(-1deg); }
           50%      { transform: rotate(1.4deg) skewX(1.2deg); }
@@ -347,17 +368,6 @@ export default function SiteBanner({ banner, isAr }) {
         @keyframes siteBannerWind {
           0%   { background-position: 0 0; }
           100% { background-position: 60px 0; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .site-banner-flight {
-            animation: none !important;
-            left: 50% !important;
-            transform: translate(-50%, -50%) !important;
-          }
-          .site-banner-paper,
-          .site-banner-wind {
-            animation: none !important;
-          }
         }
       `}</style>
     </div>

@@ -1062,6 +1062,7 @@ export default function MainView({
     {!showGoals && !focusMode && (
       <button
         type="button"
+        className="fab-glow fab-glow--goals"
         onClick={() => { setGoalsBubble(false); setShowGoals(true); }}
         title={tr(isAr, "Goals", "الأهداف")}
         aria-label={tr(isAr, "Open goals", "فتح الأهداف")}
@@ -1074,9 +1075,8 @@ export default function MainView({
           height: 56,
           borderRadius: "50%",
           border: "none",
-          background: "linear-gradient(135deg, #ff9f0a, #ff6b00)",
+          background: "linear-gradient(145deg, #ffb340 0%, #ff9f0a 40%, #ff6b00 100%)",
           color: "#fff",
-          boxShadow: "0 10px 28px -8px rgba(255,159,10,0.55)",
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
@@ -1085,7 +1085,8 @@ export default function MainView({
           touchAction: "manipulation",
         }}
       >
-        <FlameIcon size={24} />
+        <span className="fab-glow-shine" aria-hidden="true" />
+        <FlameIcon size={24} style={{ position: "relative", zIndex: 1 }} />
       </button>
     )}
 
@@ -1093,6 +1094,7 @@ export default function MainView({
     {!showTodo && !focusMode && (
       <button
         type="button"
+        className="fab-glow fab-glow--todo"
         onClick={() => { setTodoBubble(false); setShowTodo(true); }}
         title={tr(isAr, "To-do list", "قائمة المهام")}
         aria-label={tr(isAr, "Open to-do list", "فتح قائمة المهام")}
@@ -1105,9 +1107,8 @@ export default function MainView({
           height: 56,
           borderRadius: "50%",
           border: "none",
-          background: "linear-gradient(135deg, #30d158, #34c759)",
+          background: "linear-gradient(145deg, #5dff8a 0%, #30d158 45%, #28a745 100%)",
           color: "#fff",
-          boxShadow: "0 10px 28px -8px rgba(48,209,88,0.55)",
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
@@ -1116,7 +1117,8 @@ export default function MainView({
           touchAction: "manipulation",
         }}
       >
-        <CheckIcon size={24} />
+        <span className="fab-glow-shine" aria-hidden="true" />
+        <CheckIcon size={24} style={{ position: "relative", zIndex: 1 }} />
       </button>
     )}
 

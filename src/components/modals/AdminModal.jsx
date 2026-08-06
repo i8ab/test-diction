@@ -6,10 +6,10 @@ import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle }
 import { translateAdminError, LOG_ACTION_META, LOG_SECTIONS } from "../../lib/state/logs";
 import { downloadFullBackup } from "../../lib/utils/backupUtils";
 import {
-import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
   XIcon, CheckIcon, LoaderIcon, PlusIcon, EditIcon, TrashIcon, LinkIcon,
   BookIcon, ChevronIcon, CopyIcon, DownloadIcon,
 } from "../common/Icons";
+import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClose, onAdd, onEdit, onDelete, isAr }) {
   const [backupDone, setBackupDone] = useState(false);

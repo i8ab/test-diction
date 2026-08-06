@@ -311,6 +311,7 @@ export default function HeaderMenu({
   const [bannerDurationUnit, setBannerDurationUnit] = useState("hours"); // minutes | hours | days
   const [bannerSaving, setBannerSaving] = useState(false);
   const [bannerMsg, setBannerMsg] = useState("");
+  const [bannerRemainingLabel, setBannerRemainingLabel] = useState("");
 
   // Broadcast form (admin, under Notifications)
   const [pushTitle, setPushTitle] = useState("");
@@ -354,6 +355,47 @@ export default function HeaderMenu({
     }
     setBannerMsg("");
   }, [bannerOpen, siteBanner]);
+
+  // Countdown for the currently published banner — shown only in admin settings.
+  useEffect(() => {
+    if (!bannerOpen) {
+      setBannerRemainingLabel("");
+      return;
+    }
+    const b = siteBanner;
+    if (!b || !b.enabled || !b.updatedAt) {
+      setBannerRemainingLabel("");
+      return;
+    }
+    let mins = 0;
+    if (typeof b.durationMinutes === "number" && b.durationMinutes > 0) mins = b.durationMinutes;
+    else if (typeof b.durationHours === "number" && b.durationHours > 0) mins = Math.round(b.durationHours * 60);
+    if (!mins) {
+      setBannerRemainingLabel("");
+      return;
+    }
+    const endsAt = b.updatedAt + mins * 60 * 1000;
+
+    function formatRemaining(ms) {
+      if (ms <= 0) return T("Ended — will hide on refresh", "انتهى — هيختفي مع التحديث");
+      const totalSec = Math.ceil(ms / 1000);
+      const d = Math.floor(totalSec / 86400);
+      const h = Math.floor((totalSec % 86400) / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      if (d > 0) return T(`${d}d ${h}h ${m}m left`, `${d}ي ${h}س ${m}د متبقية`);
+      if (h > 0) return T(`${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s left`, `${h}س ${String(m).padStart(2, "0")}د ${String(s).padStart(2, "0")}ث متبقية`);
+      if (m > 0) return T(`${m}m ${String(s).padStart(2, "0")}s left`, `${m}د ${String(s).padStart(2, "0")}ث متبقية`);
+      return T(`${s}s left`, `${s}ث متبقية`);
+    }
+
+    function tick() {
+      setBannerRemainingLabel(formatRemaining(endsAt - Date.now()));
+    }
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [bannerOpen, siteBanner, lang]);
 
   function closeMenu() {
     setOpen(false);
@@ -1429,6 +1471,39 @@ export default function HeaderMenu({
                                 "0 = stays until you turn it off. Users can dismiss with X.",
                                 "٠ = يفضل ظاهر لحد ما تقفله. المستخدم يقدر يقفله بـ X.")}
                         </div>
+                        {bannerRemainingLabel && (
+                          <div
+                            style={{
+                              marginTop: 10,
+                              padding: "10px 12px",
+                              borderRadius: 10,
+                              background: "rgba(var(--accent-rgb, 25,167,206), 0.12)",
+                              border: "1px solid rgba(var(--accent-rgb, 25,167,206), 0.35)",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                            }}
+                          >
+                            <span style={{ fontSize: 18, lineHeight: 1 }} aria-hidden="true">⏱</span>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--accent-1)", marginBottom: 2 }}>
+                                {T("Live banner timer", "مؤقت البانر الحالي")}
+                              </div>
+                              <div style={{
+                                fontFamily: "ui-monospace, 'Source Sans 3', monospace",
+                                fontSize: 15,
+                                fontWeight: 800,
+                                color: "var(--ink)",
+                                letterSpacing: "0.02em",
+                              }}>
+                                {bannerRemainingLabel}
+                              </div>
+                              <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 2 }}>
+                                {T("Until the published banner auto-removes", "لحد ما البانر المنشور يتشال لوحده")}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
                           {[
                             { a: 0, u: "hours", label: T( "Forever", "دائم") },

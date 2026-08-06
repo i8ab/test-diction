@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { isSrsDue } from "../../lib/utils/quizHelpers";
@@ -6,8 +6,22 @@ import { SpeakButton, XIcon, CheckIcon, EyeIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 /**
+ * Shuffle a copy of an array (Fisher–Yates).
+ */
+function shuffled(list) {
+  const a = list.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = a[i];
+    a[i] = a[j];
+    a[j] = t;
+  }
+  return a;
+}
+
+/**
  * Fast "random word" practice: show word → Knew it / Forgot / Reveal.
- * Updates SRS via onRecordSrsAnswer.
+ * Updates SRS via onRecordSrsAnswer. Marks studied when the user practices a word.
  */
 export default function RandomWordModal({
   entries,
@@ -24,10 +38,17 @@ export default function RandomWordModal({
     [studiedIds]
   );
 
+  // Prefer: due studied → not yet studied → other studied → everything in section
   const pool = useMemo(() => {
     const list = (entries || []).filter((e) => e.section === section || !section);
+    if (!list.length) return [];
     const due = list.filter((e) => studiedSet.has(e.id) && isSrsDue(e.id, srsDueAt));
-    if (due.length >= 3) return due;
+    if (due.length >= 2) return due;
+    const notStudied = list.filter((e) => !studiedSet.has(e.id));
+    if (notStudied.length >= 1) {
+      // Mix a few due words in if any, but prioritize learning new ones
+      return notStudied.length >= 3 ? notStudied : [...notStudied, ...due];
+    }
     const studied = list.filter((e) => studiedSet.has(e.id));
     if (studied.length >= 1) return studied;
     return list;
@@ -35,28 +56,64 @@ export default function RandomWordModal({
 
   const [current, setCurrent] = useState(null);
   const [flipped, setFlipped] = useState(false);
-  const [seenIds, setSeenIds] = useState([]);
   const [sessionCorrect, setSessionCorrect] = useState(0);
   const [sessionTotal, setSessionTotal] = useState(0);
+  const [cycleShown, setCycleShown] = useState(0);
+  const [cycleTotal, setCycleTotal] = useState(0);
+  // Bag of remaining ids for this cycle — no repeats until the bag is empty.
+  const bagRef = useRef([]);
+  const lastIdRef = useRef(null);
+
+  const refillBag = useCallback(
+    (preferNotId) => {
+      let ids = shuffled(pool.map((e) => e.id));
+      if (preferNotId && ids.length > 1) {
+        // Avoid starting the new cycle with the same word we just finished.
+        if (ids[0] === preferNotId) {
+          const swap = ids.findIndex((id) => id !== preferNotId);
+          if (swap > 0) {
+            const tmp = ids[0];
+            ids[0] = ids[swap];
+            ids[swap] = tmp;
+          }
+        }
+      }
+      bagRef.current = ids;
+      setCycleTotal(ids.length);
+      setCycleShown(0);
+    },
+    [pool]
+  );
 
   const pickNext = useCallback(() => {
     if (!pool.length) {
       setCurrent(null);
+      lastIdRef.current = null;
       return;
     }
-    const unseen = pool.filter((e) => !seenIds.includes(e.id));
-    const source = unseen.length ? unseen : pool;
-    const next = source[Math.floor(Math.random() * source.length)];
+    if (!bagRef.current.length) {
+      refillBag(lastIdRef.current);
+    }
+    // Safety: if bag still empty (pool emptied), bail.
+    if (!bagRef.current.length) {
+      setCurrent(null);
+      return;
+    }
+    const nextId = bagRef.current.shift();
+    const next = pool.find((e) => e.id === nextId) || pool[0];
+    lastIdRef.current = next.id;
+    setCycleShown((n) => n + 1);
     setCurrent(next);
     setFlipped(false);
-    if (!unseen.length) setSeenIds([next.id]);
-    else setSeenIds((s) => [...s, next.id]);
-  }, [pool, seenIds]);
+  }, [pool, refillBag]);
 
+  // Rebuild bag when the pool identity changes (section switch / new words).
   useEffect(() => {
+    bagRef.current = [];
+    lastIdRef.current = null;
     pickNext();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [section, pool.length]);
 
   useEffect(() => {
     function onKey(e) {
@@ -73,17 +130,30 @@ export default function RandomWordModal({
     return () => document.removeEventListener("keydown", onKey);
   });
 
+  /** Mark as studied if not already (toggle only when currently unstudied). */
+  function ensureStudied(entryId) {
+    if (!onToggleStudied || !entryId) return;
+    if (!studiedSet.has(entryId)) {
+      onToggleStudied(entryId);
+    }
+  }
+
   function handleKnew(ok) {
     if (!current) return;
     setSessionTotal((t) => t + 1);
     if (ok) setSessionCorrect((c) => c + 1);
     if (onRecordSrsAnswer) onRecordSrsAnswer(current.id, ok);
-    if (ok && onToggleStudied && !studiedSet.has(current.id)) {
-      onToggleStudied(current.id, true);
-    }
+    // Any answer counts as studying this word.
+    ensureStudied(current.id);
     pickNext();
   }
 
+  function handleMarkStudiedOnly() {
+    if (!current) return;
+    ensureStudied(current.id);
+  }
+
+  const isCurrentStudied = current ? studiedSet.has(current.id) : false;
   const cfgDir = current?.section === "ar-ar" ? "rtl" : "ltr";
   const wordFont = current?.section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif";
 
@@ -134,7 +204,12 @@ export default function RandomWordModal({
         <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted)" }}>
           {sessionTotal > 0
             ? `${sessionCorrect}/${sessionTotal} ${tr(isAr, "this session", "في الجلسة")}`
-            : tr(isAr, "Prefer due words when available", "يفضّل الكلمات المستحقة")}
+            : tr(isAr, "No repeats until every word in the set is shown", "من غير تكرار لحد ما تخلص كل الكلمات")}
+          {cycleTotal > 0 && (
+            <span style={{ marginInlineStart: 6, opacity: 0.85 }}>
+              · {cycleShown}/{cycleTotal} {tr(isAr, "in this round", "في الجولة")}
+            </span>
+          )}
         </p>
 
         {!current ? (
@@ -180,8 +255,36 @@ export default function RandomWordModal({
               )}
             </div>
 
+            {/* Explicit studied control — works even before answering */}
+            <button
+              type="button"
+              onClick={handleMarkStudiedOnly}
+              disabled={isCurrentStudied}
+              style={{
+                width: "100%",
+                marginTop: 12,
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: isCurrentStudied ? "1px solid rgba(var(--border-rgb),0.2)" : "1px solid var(--accent-1)",
+                background: isCurrentStudied ? "var(--input-bg)" : "rgba(var(--accent-rgb, 25,167,206), 0.12)",
+                color: isCurrentStudied ? "var(--muted-strong)" : "var(--accent-1)",
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: isCurrentStudied ? "default" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+              }}
+            >
+              <CheckIcon size={15} />
+              {isCurrentStudied
+                ? tr(isAr, "Marked as studied", "مُعلَّمة كمُذاكرة")
+                : tr(isAr, "Mark as studied", "علّم كمُذاكرة")}
+            </button>
+
             {flipped && (
-              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
                 <button
                   type="button"
                   onClick={() => handleKnew(false)}

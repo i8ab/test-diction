@@ -306,6 +306,7 @@ export default function SiteBanner({ banner, isAr }) {
         {tickerText}
       </div>
 
+
       {!hasTimedDuration && (
         <button
           type="button"

@@ -479,7 +479,11 @@ export default function MainView({
                 reminderMessage={reminderMessage} onChangeReminderMessage={onChangeReminderMessage}
                 pendingAccounts={(accounts || []).filter((a) => a.status === "pending")}
                 onApproveRequest={onApproveRequest}
-                onRejectRequest={onRejectRequest} />
+                onRejectRequest={onRejectRequest}
+                siteBanner={siteBanner}
+                onPersistSiteBanner={onPersistSiteBanner}
+                myAccountCode={accountCode}
+              />
             </div>
           </div>
           <div style={{ display: "flex", gap: 4, marginTop: 16 }}>

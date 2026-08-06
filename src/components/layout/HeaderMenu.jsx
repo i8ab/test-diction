@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
 import { ACCENT_THEMES } from "../../lib/state/storage";
 import {
-  UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon, CheckIcon, TrashIcon,
+  UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon, CheckIcon, TrashIcon, LayersIcon, LoaderIcon,
 } from "../common/Icons";
 
 export default function HeaderMenu({
@@ -14,19 +14,48 @@ export default function HeaderMenu({
   pendingAccounts = [],
   onApproveRequest,
   onRejectRequest,
+  // Admin: site-wide banner + broadcast push (live in this menu)
+  siteBanner = null,
+  onPersistSiteBanner = null,
+  myAccountCode = null,
 }) {
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
+  const [bannerOpen, setBannerOpen] = useState(false);
   const [busyCode, setBusyCode] = useState(null);
   const ref = useRef(null);
 
+  // Banner form (admin)
+  const [bannerMessage, setBannerMessage] = useState("");
+  const [bannerColor, setBannerColor] = useState("#146C94");
+  const [bannerEnabled, setBannerEnabled] = useState(false);
+  const [bannerSaving, setBannerSaving] = useState(false);
+  const [bannerMsg, setBannerMsg] = useState("");
+
+  // Broadcast form (admin, under Notifications)
+  const [pushTitle, setPushTitle] = useState("");
+  const [pushBody, setPushBody] = useState("");
+  const [pushSending, setPushSending] = useState(false);
+  const [pushResult, setPushResult] = useState("");
+
   const pendingCount = (pendingAccounts || []).length;
+
+  // Sync form fields when the live banner changes or the section opens
+  useEffect(() => {
+    if (!bannerOpen) return;
+    const b = siteBanner || {};
+    setBannerMessage(b.message || "");
+    setBannerColor(b.color || "#146C94");
+    setBannerEnabled(!!b.enabled);
+    setBannerMsg("");
+  }, [bannerOpen, siteBanner]);
 
   function closeMenu() {
     setOpen(false);
     setNotifOpen(false);
     setRequestsOpen(false);
+    setBannerOpen(false);
   }
 
   useEffect(() => {
@@ -80,6 +109,80 @@ export default function HeaderMenu({
     if (!onRejectRequest) return;
     setBusyCode(code);
     try { await onRejectRequest(code); } finally { setBusyCode(null); }
+  }
+
+  async function saveBanner(e) {
+    e && e.preventDefault();
+    if (!onPersistSiteBanner) return;
+    setBannerSaving(true);
+    setBannerMsg("");
+    const msg = (bannerMessage || "").trim();
+    const next = {
+      id: `banner-${Date.now().toString(36)}`,
+      message: msg,
+      color: bannerColor || "#146C94",
+      enabled: !!bannerEnabled && !!msg,
+      updatedAt: Date.now(),
+    };
+    // Keep same id if message+color unchanged so dismissed users stay dismissed
+    if (siteBanner && siteBanner.message === msg && siteBanner.color === next.color && siteBanner.id) {
+      next.id = siteBanner.id;
+    }
+    const result = await onPersistSiteBanner(next.enabled ? next : { ...next, enabled: false, message: msg });
+    setBannerSaving(false);
+    if (result && result.ok === false) {
+      setBannerMsg(result.error || tr(isAr, "Save failed.", "فشل الحفظ."));
+      return;
+    }
+    setBannerMsg(tr(isAr, "Announcement saved.", "تم حفظ الإعلان."));
+  }
+
+  async function clearBanner() {
+    if (!onPersistSiteBanner) return;
+    setBannerSaving(true);
+    setBannerMsg("");
+    const result = await onPersistSiteBanner(null);
+    setBannerSaving(false);
+    if (result && result.ok === false) {
+      setBannerMsg(result.error || tr(isAr, "Save failed.", "فشل الحفظ."));
+      return;
+    }
+    setBannerMessage("");
+    setBannerEnabled(false);
+    setBannerMsg(tr(isAr, "Announcement cleared.", "تم إزالة الإعلان."));
+  }
+
+  async function sendBroadcast(e) {
+    e && e.preventDefault();
+    if (!myAccountCode) return;
+    setPushSending(true);
+    setPushResult("");
+    try {
+      const r = await fetch("/api/push-broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminCode: myAccountCode,
+          title: pushTitle.trim(),
+          body: pushBody.trim(),
+        }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setPushResult(data.error || tr(isAr, "Send failed.", "فشل الإرسال."));
+      } else {
+        setPushResult(
+          tr(
+            isAr,
+            `Sent to ${data.sent || 0} device(s). Skipped ${data.skipped || 0}, expired ${data.expired || 0}.`,
+            `اتبعت لـ ${data.sent || 0} جهاز. تم تخطي ${data.skipped || 0}، منتهي ${data.expired || 0}.`
+          )
+        );
+      }
+    } catch (err) {
+      setPushResult(tr(isAr, "Network error — try again.", "خطأ في الشبكة — حاول مرة أخرى."));
+    }
+    setPushSending(false);
   }
 
   return (
@@ -331,6 +434,226 @@ export default function HeaderMenu({
                           {tr(isAr, "Send test notification", "ابعت إشعار تجريبي")}
                         </button>
                       )}
+
+                      {/* Admin: broadcast push to every subscribed user */}
+                      {isAdmin && myAccountCode && (
+                        <div style={{
+                          marginTop: 4, paddingTop: 12,
+                          borderTop: "1px dashed rgba(var(--border-rgb),0.22)",
+                          display: "flex", flexDirection: "column", gap: 10,
+                        }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
+                            {tr(isAr, "Notify everyone", "إشعار للجميع")}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.4 }}>
+                            {tr(isAr,
+                              "Sends a real push to every user who turned reminders on.",
+                              "بيبعت إشعار حقيقي لكل مستخدم فعّل التذكيرات.")}
+                          </div>
+                          <div>
+                            <label style={fieldLabel}>{tr(isAr, "Title", "العنوان")}</label>
+                            <input
+                              type="text"
+                              value={pushTitle}
+                              onChange={(e) => setPushTitle(e.target.value)}
+                              placeholder={tr(isAr, "e.g. New words added", "مثال: كلمات جديدة اتضافت")}
+                              maxLength={120}
+                              style={fieldInput}
+                              dir="auto"
+                            />
+                          </div>
+                          <div>
+                            <label style={fieldLabel}>{tr(isAr, "Message", "الرسالة")}</label>
+                            <textarea
+                              value={pushBody}
+                              onChange={(e) => setPushBody(e.target.value)}
+                              placeholder={tr(isAr, "Optional body text…", "نص اختياري…")}
+                              maxLength={300}
+                              rows={2}
+                              style={{ ...fieldInput, resize: "vertical", minHeight: 52, lineHeight: 1.4 }}
+                              dir="auto"
+                            />
+                          </div>
+                          {pushResult && (
+                            <div style={{
+                              fontSize: 12, lineHeight: 1.4,
+                              color: /fail|فشل|error|خطأ|authorized|Unauthorized/i.test(pushResult) ? "var(--danger)" : "var(--success)",
+                            }}>
+                              {pushResult}
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            disabled={pushSending || (!pushTitle.trim() && !pushBody.trim())}
+                            className="touch-target"
+                            onClick={sendBroadcast}
+                            style={{
+                              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                              width: "100%", padding: "10px 12px", minHeight: 44, borderRadius: 10,
+                              cursor: pushSending || (!pushTitle.trim() && !pushBody.trim()) ? "default" : "pointer",
+                              border: "none", fontSize: 13, fontWeight: 700, color: "#fff",
+                              background: "linear-gradient(135deg, #af52de, #5b8def)",
+                              opacity: pushSending || (!pushTitle.trim() && !pushBody.trim()) ? 0.6 : 1,
+                            }}
+                          >
+                            {pushSending ? <LoaderIcon size={14} /> : <BellIcon size={14} />}
+                            {tr(isAr, "Send to everyone", "إرسال للجميع")}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ========== Site banner (admins) ========== */}
+              {isAdmin && onPersistSiteBanner && (
+                <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 4, paddingTop: 4 }}>
+                  <Row
+                    tint="#146C94"
+                    icon={<LayersIcon size={14} />}
+                    label={tr(isAr, "Site banner", "بانر الموقع")}
+                    onClick={() => setBannerOpen((v) => !v)}
+                    trailing={
+                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {siteBanner && siteBanner.enabled && (
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, color: "#fff", background: "#34c759",
+                            borderRadius: 8, padding: "2px 6px",
+                          }}>
+                            {tr(isAr, "ON", "مفعّل")}
+                          </span>
+                        )}
+                        <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                          {bannerOpen ? "▾" : (isAr ? "◂" : "▸")}
+                        </span>
+                      </span>
+                    }
+                  />
+                  {bannerOpen && (
+                    <div
+                      onPointerDown={(e) => e.stopPropagation()}
+                      style={{ padding: "6px 10px 12px", display: "flex", flexDirection: "column", gap: 10 }}
+                    >
+                      <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.4 }}>
+                        {tr(isAr,
+                          "Banner appears at the very top for every signed-in user. They can dismiss it; a new message shows again.",
+                          "البانر يظهر في أعلى الموقع لكل المسجّلين. يقدروا يقفلوه؛ رسالة جديدة هتظهر تاني.")}
+                      </div>
+                      <div>
+                        <label style={fieldLabel}>{tr(isAr, "Message", "الرسالة")}</label>
+                        <textarea
+                          value={bannerMessage}
+                          onChange={(e) => setBannerMessage(e.target.value)}
+                          rows={3}
+                          placeholder={tr(isAr, "e.g. Maintenance tonight at 10pm", "مثال: صيانة الليلة الساعة ١٠")}
+                          style={{ ...fieldInput, resize: "vertical", minHeight: 64, lineHeight: 1.4 }}
+                          dir="auto"
+                        />
+                      </div>
+                      <div>
+                        <label style={fieldLabel}>{tr(isAr, "Banner color", "لون الشريط")}</label>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <input
+                            type="color"
+                            value={bannerColor && /^#[0-9A-Fa-f]{6}$/.test(bannerColor) ? bannerColor : "#146C94"}
+                            onChange={(e) => setBannerColor(e.target.value)}
+                            style={{ width: 40, height: 32, border: "1px solid rgba(var(--border-rgb),0.25)", borderRadius: 6, padding: 2, cursor: "pointer", background: "var(--card)" }}
+                          />
+                          {[
+                            "#146C94", "#B3261E", "#2E7D32", "#D98B2B", "#6E3D96", "#1B1B1B",
+                          ].map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => setBannerColor(c)}
+                              style={{
+                                width: 24, height: 24, borderRadius: 6,
+                                border: bannerColor === c ? "2px solid #fff" : "1px solid rgba(0,0,0,0.2)",
+                                boxShadow: bannerColor === c ? `0 0 0 2px ${c}` : "none",
+                                background: c, cursor: "pointer", padding: 0,
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="touch-target"
+                        onClick={() => setBannerEnabled((v) => !v)}
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          width: "100%", padding: "9px 12px", minHeight: 44, borderRadius: 10, cursor: "pointer",
+                          border: "1px solid rgba(var(--border-rgb),0.18)", background: "var(--input-bg)",
+                          fontSize: 13, fontWeight: 600, color: "var(--ink)",
+                        }}
+                      >
+                        <span>{tr(isAr, "Show on site", "إظهار على الموقع")}</span>
+                        <span style={{
+                          width: 36, height: 20, borderRadius: 10, position: "relative", flexShrink: 0,
+                          background: bannerEnabled ? "#34c759" : "rgba(var(--border-rgb),0.35)",
+                          transition: "background 0.2s ease",
+                        }}>
+                          <span style={{
+                            position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff",
+                            insetInlineStart: bannerEnabled ? 18 : 2, transition: "inset-inline-start 0.2s ease",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+                          }} />
+                        </span>
+                      </button>
+                      {/* Live preview — matches real banner (bold + centered) */}
+                      <div style={{ borderRadius: 8, overflow: "hidden", border: "1px solid rgba(var(--border-rgb),0.15)" }}>
+                        <div style={{
+                          background: bannerColor || "#146C94", color: "#fff",
+                          padding: "10px 12px", fontSize: 14, fontWeight: 700,
+                          display: "flex", alignItems: "center", gap: 8, textAlign: "center",
+                        }}>
+                          <span style={{ width: 18, flexShrink: 0 }} />
+                          <span style={{ flex: 1, textAlign: "center", fontWeight: 700 }}>
+                            {bannerMessage.trim() || tr(isAr, "Preview…", "معاينة…")}
+                          </span>
+                          <span style={{ opacity: 0.7, width: 18, textAlign: "center" }}>×</span>
+                        </div>
+                      </div>
+                      {bannerMsg && (
+                        <div style={{
+                          fontSize: 12,
+                          color: /fail|فشل/i.test(bannerMsg) ? "var(--danger)" : "var(--success)",
+                        }}>
+                          {bannerMsg}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          disabled={bannerSaving}
+                          className="touch-target"
+                          onClick={saveBanner}
+                          style={{
+                            flex: 1, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                            padding: "10px 12px", borderRadius: 10, border: "none", cursor: bannerSaving ? "default" : "pointer",
+                            fontSize: 13, fontWeight: 700, color: "#fff",
+                            background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+                            opacity: bannerSaving ? 0.7 : 1,
+                          }}
+                        >
+                          {bannerSaving ? <LoaderIcon size={14} /> : null}
+                          {tr(isAr, "Save banner", "حفظ البانر")}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={bannerSaving}
+                          className="touch-target"
+                          onClick={clearBanner}
+                          style={{
+                            minHeight: 44, padding: "10px 14px", borderRadius: 10, cursor: "pointer",
+                            fontSize: 13, fontWeight: 700, color: "var(--danger)",
+                            background: "none", border: "1px solid var(--danger-border, rgba(179,38,30,0.35))",
+                          }}
+                        >
+                          {tr(isAr, "Clear", "إزالة")}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

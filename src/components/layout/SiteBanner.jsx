@@ -4,11 +4,12 @@ import { XIcon } from "../common/Icons";
 /* =========================================================================
    SITE-WIDE ANNOUNCEMENT BANNER
    -------------------------------------------------------------------------
-   Admins publish a short message (see Admin panel → Announcement) that
-   appears at the top of the app for every signed-in user. Each banner has
-   a stable `id`; dismissing stores that id in localStorage so the same
-   announcement stays hidden on this device until the admin posts a new one
-   (new id). Colour is fully controlled by the admin (hex).
+   Admins publish a short message (Header menu → Banner, or Admin panel)
+   that appears at the very top of the app for every signed-in user — above
+   the sticky header and any other chrome. Each banner has a stable `id`;
+   dismissing stores that id in localStorage so the same announcement stays
+   hidden on this device until the admin posts a new one (new id). Colour is
+   fully controlled by the admin (hex).
    ========================================================================= */
 const DISMISS_KEY = "twoTongues.siteBannerDismissedId";
 
@@ -74,22 +75,39 @@ export default function SiteBanner({ banner, isAr }) {
       role="status"
       aria-live="polite"
       style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 3000,
         display: "flex",
-        alignItems: "flex-start",
+        alignItems: "center",
         gap: 10,
         background: bg,
         color: c.text,
         borderBottom: `1px solid ${c.border}`,
-        padding: "10px 12px",
-        paddingLeft: "max(12px, env(safe-area-inset-left))",
-        paddingRight: "max(12px, env(safe-area-inset-right))",
+        padding: "12px 14px",
+        paddingLeft: "max(14px, env(safe-area-inset-left))",
+        paddingRight: "max(14px, env(safe-area-inset-right))",
+        paddingTop: "max(12px, env(safe-area-inset-top))",
         fontFamily: "'Source Sans 3', sans-serif",
-        fontSize: 14,
+        fontSize: 15,
+        fontWeight: 700,
         lineHeight: 1.45,
         direction: isAr ? "rtl" : "ltr",
+        boxShadow: "0 2px 12px -4px rgba(0,0,0,0.25)",
       }}
     >
-      <span style={{ flex: 1, minWidth: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+      {/* Spacer so the message stays visually centered while the close button sits on the end */}
+      <span style={{ width: 36, flexShrink: 0 }} aria-hidden="true" />
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          textAlign: "center",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          fontWeight: 700,
+        }}
+      >
         {banner.message}
       </span>
       <button

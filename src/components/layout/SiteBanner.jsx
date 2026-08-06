@@ -360,16 +360,9 @@ export default function SiteBanner({ banner, isAr }) {
         </button>
       )}
 
-      <style>{`
-        @keyframes siteBannerFlutter {
-          0%, 100% { transform: rotate(-1.2deg) skewX(-1deg); }
-          50%      { transform: rotate(1.4deg) skewX(1.2deg); }
-        }
-        @keyframes siteBannerWind {
-          0%   { background-position: 0 0; }
-          100% { background-position: 60px 0; }
-        }
-      `}</style>
+      {/* Keyframes live in src/index.css (siteBannerFlutter / siteBannerWind).
+          Kept out of the component so reduced-motion overrides can target them
+          cleanly and the CSS stays in one place. */}
     </div>
   );
 }

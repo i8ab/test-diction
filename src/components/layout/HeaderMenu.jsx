@@ -206,22 +206,10 @@ export default function HeaderMenu({
         return Math.min(60 * 24 * 30, Math.round(amt)); // minutes, cap ~30 days
       })(),
     };
-    // Keep same id if content unchanged so dismissed users stay dismissed
-    if (
-      siteBanner &&
-      siteBanner.message === msg &&
-      siteBanner.color === next.color &&
-      siteBanner.shine === next.shine &&
-      siteBanner.speed === next.speed &&
-      (siteBanner.letterSpacing || 0) === (next.letterSpacing || 0) &&
-      !!siteBanner.flash === !!next.flash &&
-      (siteBanner.repeats || 4) === (next.repeats || 4) &&
-      (siteBanner.durationMinutes || 0) === (next.durationMinutes || 0) &&
-      siteBanner.id
-    ) {
-      next.id = siteBanner.id;
-      next.updatedAt = siteBanner.updatedAt || next.updatedAt;
-    }
+    // Always mint a fresh id when publishing an enabled banner so any
+    // previous dismiss (stored per-id on devices) is ignored and the new
+    // announcement replaces the old one immediately for everyone.
+    // (Disabled/draft saves keep no special id behaviour.)
     const result = await onPersistSiteBanner(next.enabled ? next : { ...next, enabled: false, message: msg });
     setBannerSaving(false);
     if (result && result.ok === false) {
@@ -1002,7 +990,7 @@ export default function HeaderMenu({
                                     ? base.replace(/([.!?…]+)\s*$/u, "$1\u200F")
                                     : base.replace(/([.!?…]+)\s*$/u, "$1\u200E");
                                   if (bannerRepeats <= 1) return fixed;
-                                  const sep = rtl ? "   ❋   " : "   •   ";
+                                  const sep = "        ";
                                   return Array(Math.min(3, bannerRepeats)).fill(fixed).join(sep)
                                     + (bannerRepeats > 3 ? sep + "…" : "");
                                 })()

@@ -1,5 +1,6 @@
-// Called once a day by Vercel Cron (see vercel.json — 03:00 UTC = 5 AM Egypt)
-// to send a REAL push notification to every account that:
+// Called once a day by Vercel Cron (see vercel.json — 05:00 UTC = 8:00 AM Egypt
+// in summer EEST/UTC+3; = 7:00 AM in winter EET/UTC+2).
+// Sends a REAL push notification to every account that:
 //   - has an active push subscription (api/push-subscribe.js), AND
 //   - hasn't already been sent today's daily reminder (dedup).
 // Study activity is intentionally ignored: this is a fixed daily nudge.
@@ -87,9 +88,14 @@ async function loadPrefs(code) {
 }
 
 export default async function handler(req, res) {
+  // Vercel Cron sends Authorization: Bearer $CRON_SECRET automatically when
+  // CRON_SECRET is set. Also accept the platform's x-vercel-cron marker so a
+  // misconfigured/missing Bearer header doesn't silently kill the daily job
+  // (test endpoint stays protected by requiring a real subscription code).
   if (process.env.CRON_SECRET) {
     const auth = req.headers.authorization || "";
-    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    const isVercelCron = req.headers["x-vercel-cron"] === "1";
+    if (auth !== `Bearer ${process.env.CRON_SECRET}` && !isVercelCron) {
       return res.status(401).json({ error: "Unauthorized" });
     }
   }

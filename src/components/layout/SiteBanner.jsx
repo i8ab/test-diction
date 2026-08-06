@@ -30,7 +30,8 @@ function fixBidiPunctuation(text, rtl) {
   return text.replace(/([.!?…]+)\s*$/u, "$1\u200E");
 }
 
-/** Build continuous news-ticker content: message repeated `times` with a separator. */
+/** Build continuous news-ticker content: message repeated `times`.
+ *  Separator is plain wide spaces only (no stars/bullets). */
 function buildTickerMessage(raw, letterSpacing, rtl, times) {
   const base = fixBidiPunctuation(
     stretchArabicText((raw || "").trim(), letterSpacing),
@@ -39,7 +40,7 @@ function buildTickerMessage(raw, letterSpacing, rtl, times) {
   if (!base) return "";
   const n = Math.max(1, Math.min(12, Math.round(Number(times) || 1)));
   if (n === 1) return base;
-  const sep = rtl ? "   ❋   " : "   •   ";
+  const sep = "        "; // 8 nbsp gaps
   return Array(n).fill(base).join(sep);
 }
 
@@ -126,7 +127,13 @@ export default function SiteBanner({ banner, isAr }) {
     : !!isAr;
 
   useEffect(() => {
-    setDismissedId(loadDismissedId());
+    // New banner id → always show it (ignore dismiss of the previous one).
+    const stored = loadDismissedId();
+    if (banner && banner.id && stored && stored === banner.id) {
+      setDismissedId(stored);
+    } else {
+      setDismissedId("");
+    }
     setLive(true);
   }, [banner && banner.id]);
 
@@ -160,8 +167,10 @@ export default function SiteBanner({ banner, isAr }) {
     const repeats = Math.max(1, Math.min(12, Math.round(Number(banner && banner.repeats) || 4)));
     const baseMs = 16000 + (repeats - 1) * 2000;
     const durationMs = Math.max(6000, Math.min(70000, baseMs / Math.max(0.4, speed)));
+    // Scroll direction: Arabic ticker moves right→left (text enters from the right),
+    // English left→right (enters from the left) — standard news-ticker behaviour.
     const rtl = msgRtl;
-    progressRef.current = rtl ? 1 : 0;
+    progressRef.current = 0;
     let last = performance.now();
 
     function tick(now) {
@@ -176,17 +185,15 @@ export default function SiteBanner({ banner, isAr }) {
       last = now;
 
       const delta = dt / durationMs;
-      if (rtl) {
-        progressRef.current -= delta;
-        if (progressRef.current < 0) progressRef.current += 1;
-      } else {
-        progressRef.current += delta;
-        if (progressRef.current > 1) progressRef.current -= 1;
-      }
+      progressRef.current += delta;
+      if (progressRef.current > 1) progressRef.current -= 1;
 
       const trackW = track.offsetWidth || window.innerWidth;
       const textW = el.offsetWidth || 200;
-      const x = -textW + progressRef.current * (trackW + textW);
+      // progress 0 → just left of view, progress 1 → just right of view
+      let x = -textW + progressRef.current * (trackW + textW);
+      // RTL: mirror so text travels the opposite physical direction
+      if (rtl) x = trackW - progressRef.current * (trackW + textW);
       el.style.transform = `translate3d(${x}px, -50%, 0)`;
 
       rafRef.current = requestAnimationFrame(tick);

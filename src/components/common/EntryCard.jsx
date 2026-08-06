@@ -16,14 +16,15 @@ import {
   EyeIcon, EyeOffIcon, SpeakButton,
 } from "./Icons";
 
-function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpenZoom, isStudied, onToggleStudied, isFavorite, onToggleFavorite, addedByLabel, editedByLabel }) {
+function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpenZoom, isStudied, onToggleStudied, isFavorite, onToggleFavorite, addedByLabel, editedByLabel, wordNote = "", onSaveNote }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const [open, setOpen] = useState(false);
+  const [noteDraft, setNoteDraft] = useState(wordNote || "");
   const hasDefinition = !!entry.definition;
   const hasExample = !!entry.example || !!(entry.examples && entry.examples.length);
   const hasSynAnt = !!((entry.synonyms && entry.synonyms.length) || (entry.antonyms && entry.antonyms.length));
   const isEnglishWord = cfg.wordDir === "ltr";
-  const isExpandable = isAdmin || hasDefinition || hasExample || hasSynAnt || isEnglishWord;
+  const isExpandable = true; // always expandable so personal notes are reachable
   return (
     <div className="lift-hover" style={{ background: CARD, border: "1px solid rgba(var(--border-rgb),0.1)", borderInlineStart: `3px solid ${isStudied ? "var(--success)" : cfg.accent}`, borderRadius: 3, padding: "9px 14px", display: "flex", justifyContent: "space-between", gap: 12, animation: "fadeInUp 0.35s ease both" }}>
       <div
@@ -100,6 +101,25 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
               <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>
                 {tr(isAr, `added by ${addedByLabel}`, `أضافها ${addedByLabel}`)}
                 {entry.editedBy && <span> · {tr(isAr, `edited by ${editedByLabel}`, `عدّلها ${editedByLabel}`)}</span>}
+              </div>
+            )}
+            {typeof onSaveNote === "function" && (
+              <div style={{ marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-strong)", display: "block", marginBottom: 4 }}>
+                  {tr(isAr, "My note", "ملاحظتي")}
+                </label>
+                <textarea
+                  value={noteDraft}
+                  onChange={(e) => setNoteDraft(e.target.value)}
+                  onBlur={() => onSaveNote(noteDraft)}
+                  placeholder={tr(isAr, "Personal note for this word…", "ملاحظة شخصية على الكلمة…")}
+                  rows={2}
+                  style={{
+                    width: "100%", boxSizing: "border-box", padding: "8px 10px", fontSize: 13,
+                    fontFamily: "inherit", borderRadius: 8, border: "1px solid rgba(var(--border-rgb),0.2)",
+                    background: "var(--input-bg)", color: INK, resize: "vertical",
+                  }}
+                />
               </div>
             )}
           </>

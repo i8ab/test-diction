@@ -7,7 +7,6 @@ import {
 } from "../common/Icons";
 
 // Always a readable list (bottom sheet on narrow screens, anchored panel on desktop).
-// No radial wheel — clearer labels, easier touch targets, scales with more tools.
 
 function useIsCompact() {
   const [compact, setCompact] = useState(() =>
@@ -34,6 +33,7 @@ export default function ToolsMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState(null);
+  const wrapRef = useRef(null);
   const btnRef = useRef(null);
   const menuRef = useRef(null);
   const isCompact = useIsCompact();
@@ -42,41 +42,41 @@ export default function ToolsMenu({
     setOpen(false);
   }
 
+  function openMenu() {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setAnchor({
+        top: r.bottom,
+        bottom: r.top,
+        left: r.left,
+        right: r.right,
+        width: r.width,
+        centerX: r.left + r.width / 2,
+      });
+    }
+    setOpen(true);
+  }
+
   function toggleOpen() {
-    setOpen((o) => {
-      if (!o && btnRef.current) {
-        const r = btnRef.current.getBoundingClientRect();
-        setAnchor({
-          top: r.bottom,
-          bottom: r.top,
-          left: r.left,
-          right: r.right,
-          width: r.width,
-          centerX: r.left + r.width / 2,
-        });
-      }
-      return !o;
-    });
+    if (open) closeMenu();
+    else openMenu();
   }
 
   useEffect(() => {
     if (!open) return;
     function onDocClick(e) {
-      if (btnRef.current?.contains(e.target)) return;
+      // Keep open when clicking the toolbar buttons (More / X) or inside the menu
+      if (wrapRef.current?.contains(e.target)) return;
       if (menuRef.current?.contains(e.target)) return;
       closeMenu();
     }
     function onKeyDown(e) { if (e.key === "Escape") closeMenu(); }
-    function onResize() { closeMenu(); }
     document.addEventListener("pointerdown", onDocClick);
     document.addEventListener("keydown", onKeyDown);
-    window.addEventListener("resize", onResize);
-    window.addEventListener("scroll", closeMenu, true);
+    // NOTE: intentionally NO scroll listener — menu stays open while scrolling
     return () => {
       document.removeEventListener("pointerdown", onDocClick);
       document.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", closeMenu, true);
     };
   }, [open]);
 
@@ -97,10 +97,9 @@ export default function ToolsMenu({
     { key: "import", icon: importing ? <LoaderIcon size={18} /> : <UploadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Import CSV", "استيراد CSV"), onClick: onImport, disabled: importing },
   ];
 
-  // Desktop: panel anchored under the More button (or above if no space).
-  // Mobile: bottom sheet.
   const menuPanel = open && (
     <div style={{ position: "fixed", inset: 0, zIndex: 1200, pointerEvents: "auto" }}>
+      {/* Backdrop: closes on click, does not block scroll of the page underneath on desktop */}
       <div
         onPointerDown={(e) => { e.preventDefault(); closeMenu(); }}
         style={{
@@ -136,13 +135,12 @@ export default function ToolsMenu({
                 top: (() => {
                   if (!anchor) return 60;
                   const spaceBelow = window.innerHeight - anchor.top;
-                  const estimatedH = Math.min(items.length * 52 + 56, 420);
+                  const estimatedH = Math.min(items.length * 52 + 24, 420);
                   if (spaceBelow < estimatedH + 12 && anchor.bottom > estimatedH + 12) {
                     return Math.max(8, anchor.bottom - estimatedH - 8);
                   }
                   return Math.min(anchor.top + 8, window.innerHeight - estimatedH - 8);
                 })(),
-                // Prefer aligning to the button; clamp so it stays on screen.
                 left: (() => {
                   if (!anchor) return 16;
                   const panelW = 260;
@@ -165,22 +163,10 @@ export default function ToolsMenu({
         }
       >
         {isCompact && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 4px 8px" }}>
+          <div style={{ padding: "6px 8px 10px" }}>
             <span style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}>
               {tr(isAr, "More", "المزيد")}
             </span>
-            <button
-              type="button"
-              aria-label={tr(isAr, "Close", "إغلاق")}
-              onClick={closeMenu}
-              style={{
-                width: 36, height: 36, borderRadius: "50%", border: "none",
-                background: "var(--input-bg)", color: "var(--icon-muted)",
-                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-              }}
-            >
-              <XIcon size={16} />
-            </button>
           </div>
         )}
         {items.map((it) => (
@@ -226,7 +212,19 @@ export default function ToolsMenu({
   );
 
   return (
-    <div className="toolbar-anim" style={{ position: "relative", animationDelay: "0.06s", flexShrink: 0 }}>
+    <div
+      ref={wrapRef}
+      className="toolbar-anim"
+      style={{
+        position: "relative",
+        animationDelay: "0.06s",
+        flexShrink: 0,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      {/* More button — always shows ⋯, never turns into X */}
       <button
         ref={btnRef}
         onClick={toggleOpen}
@@ -245,8 +243,31 @@ export default function ToolsMenu({
           transition: "none",
         }}
       >
-        {open ? <XIcon size={16} /> : <MoreIcon size={18} />}
+        <MoreIcon size={18} />
       </button>
+
+      {/* X sits next to the More button (only while open) — closes the menu */}
+      {open && (
+        <button
+          type="button"
+          onClick={closeMenu}
+          title={tr(isAr, "Close", "إغلاق")}
+          aria-label={tr(isAr, "Close menu", "إغلاق القائمة")}
+          className="lift-hover"
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            width: 40, height: 40, borderRadius: "50%",
+            color: "var(--ink)",
+            background: "var(--card)",
+            border: "1px solid rgba(var(--border-rgb),0.22)",
+            cursor: "pointer",
+            transition: "none",
+          }}
+        >
+          <XIcon size={16} />
+        </button>
+      )}
+
       {open && typeof document !== "undefined" ? createPortal(menuPanel, document.body) : null}
     </div>
   );

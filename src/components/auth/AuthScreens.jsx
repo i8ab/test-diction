@@ -23,7 +23,7 @@ function AuthScreens({
   usernameInput, setUsernameInput,
   passwordInput, setPasswordInput,
   codeInput, setCodeInput,
-  authError, setAuthError, loggingIn, handleLogin,
+  authError, setAuthError, loggingIn, handleLogin, onGuest,
 }) {
   if (authStage === "intro") {
     const introFeatures = [
@@ -85,6 +85,12 @@ function AuthScreens({
                 style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 26px", minHeight: 48, fontFamily: "'Source Sans 3', sans-serif", fontSize: 15, fontWeight: 700, color: INK, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 8, cursor: "pointer" }}>
                 <PlusIcon size={16} /> {atr("Create account", "إنشاء حساب")}
               </button>
+              {typeof onGuest === "function" && (
+                <button type="button" onClick={onGuest} className="lift-hover touch-target"
+                  style={{ padding: "12px 20px", minHeight: 44, borderRadius: 10, border: "1px dashed rgba(var(--border-rgb),0.35)", background: "transparent", color: "var(--muted-strong)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
+                  {atr("Browse as guest", "تصفح كضيف")}
+                </button>
+              )}
             </div>
           </div>
 

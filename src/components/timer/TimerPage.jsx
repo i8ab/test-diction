@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import { XIcon, ClockIcon } from "../common/Icons";
+import { addTimerMinutes } from "../../lib/state/goals";
 
 const TIMER_PREFS_KEY = "twoTongues.timerPrefs";
 const TIMER_STATE_KEY = "twoTongues.timerState";
@@ -455,6 +456,11 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
           playAlarmSound(prefsRef.current.alarmId, prefsRef.current.alarmVolume);
           try { ambientRef.current && ambientRef.current.stop(); } catch {}
           ambientRef.current = null;
+          try {
+            const ms = sessionDurationRef.current || 0;
+            if (ms > 0) addTimerMinutes(Math.max(1, Math.round(ms / 60000)));
+            sessionDurationRef.current = 0;
+          } catch (_) {}
           endAtRef.current = null;
           setTimeout(() => setDoneFlash(false), 2500);
           broadcastState({ running: false, remainingMs: 0, display: "00:00" });
@@ -573,6 +579,8 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
     } catch {}
   }
 
+  const sessionDurationRef = useRef(0); // ms credited when countdown completes
+
   function start() {
     setErrorMsg("");
     setDoneFlash(false);
@@ -584,8 +592,10 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
       }
       setRemainingMs(total);
       endAtRef.current = Date.now() + total;
+      sessionDurationRef.current = total;
     } else {
       startedAtRef.current = Date.now();
+      sessionDurationRef.current = 0;
     }
     runningRef.current = true;
     setRunning(true);

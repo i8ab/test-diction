@@ -174,6 +174,14 @@ function StatsModal({ entries, sectionLabel, studiedIds, studiedAt, srsBox, srsD
             <label style={{ ...labelStyle, marginTop: 20 }}>{tr(isAr, "Progress over time", "التقدّم عبر الوقت")}</label>
             <div style={{ background: "var(--input-bg)", borderRadius: 6, padding: "10px 12px 4px", marginTop: 6 }}>
               <ProgressChart studiedAt={studiedAt} isAr={isAr} />
+      <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 10, background: "rgba(var(--border-rgb),0.06)", fontSize: 13 }}>
+        <strong style={{ color: "var(--ink)" }}>{tr(isAr, "This week", "هذا الأسبوع")}</strong>
+        <div style={{ marginTop: 6, color: "var(--muted-strong)" }}>
+          {tr(isAr,
+            `${Object.values(studiedAt || {}).filter((t) => typeof t === "number" && t >= (Date.now() - 7 * 86400000)).length} words studied · ${(quizHistory || []).filter((q) => q && q.at >= Date.now() - 7 * 86400000).length} quizzes`,
+            `${Object.values(studiedAt || {}).filter((t) => typeof t === "number" && t >= (Date.now() - 7 * 86400000)).length} كلمة اتدرست · ${(quizHistory || []).filter((q) => q && q.at >= Date.now() - 7 * 86400000).length} اختبار`)}
+        </div>
+      </div>
             </div>
           </>
         )}

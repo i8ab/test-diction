@@ -289,6 +289,51 @@ export default function TodoPage({
           >
             {tr(isAr, "Pin", "تثبيت")}
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              const blob = new Blob([JSON.stringify({ version: 1, todos }, null, 2)], { type: "application/json" });
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(blob);
+              a.download = `todos-${new Date().toISOString().slice(0, 10)}.json`;
+              a.click();
+              URL.revokeObjectURL(a.href);
+            }}
+            style={headerBtn}
+          >
+            {tr(isAr, "Export", "تصدير")}
+          </button>
+          <label style={{ ...headerBtn, cursor: "pointer", margin: 0 }}>
+            {tr(isAr, "Import", "استيراد")}
+            <input
+              type="file"
+              accept="application/json,.json"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files && e.target.files[0];
+                e.target.value = "";
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                  try {
+                    const data = JSON.parse(String(reader.result || "{}"));
+                    const list = Array.isArray(data) ? data : (data.todos || []);
+                    if (!Array.isArray(list)) return;
+                    const cleaned = list
+                      .filter((t) => t && typeof t.text === "string")
+                      .map((t) => ({
+                        id: typeof t.id === "string" ? t.id : Math.random().toString(36).slice(2),
+                        text: String(t.text).slice(0, 500),
+                        done: !!t.done,
+                        createdAt: typeof t.createdAt === "number" ? t.createdAt : Date.now(),
+                      }));
+                    setTodos(cleaned);
+                  } catch (_) {}
+                };
+                reader.readAsText(file);
+              }}
+            />
+          </label>
           <button type="button" onClick={onClose} style={headerBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
             <XIcon size={16} />
           </button>

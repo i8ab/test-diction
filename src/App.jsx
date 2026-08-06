@@ -285,6 +285,29 @@ export default function DictionaryApp() {
     setTimeout(() => setToast(""), 3000);
   }
 
+  function handleGuest() {
+    let studied = [], studiedAt = {}, favorites = [];
+    try {
+      const raw = localStorage.getItem("twoTongues.guestStudied");
+      if (raw) {
+        const data = JSON.parse(raw);
+        studied = data.studied || [];
+        studiedAt = data.studiedAt || {};
+        favorites = data.favorites || [];
+      }
+    } catch (_) {}
+    setAccounts((prev) => {
+      const others = prev.filter((a) => a.code !== "guest");
+      return [...others, { code: "guest", name: "Guest", role: "user", studied, studiedAt, favorites, status: "active" }];
+    });
+    setName("Guest");
+    setIsAdmin(false);
+    setAccountCode("guest");
+    setAuthStage("in");
+    try { window.history.replaceState({ authStage: "in", showAdd: false, showAccount: false, showAdmin: false, section: "en-ar" }, ""); } catch (_) {}
+  }
+
+
   const studiedIds = useMemo(() => {
     const acct = accounts.find((a) => a.code === accountCode);
     return new Set((acct && acct.studied) || []);
@@ -746,6 +769,26 @@ export default function DictionaryApp() {
   // stamps (or clears) account.studiedAt[entryId] with when that happened,
   // so the quiz can later ask "words I studied in the last N minutes".
   async function handleToggleStudied(entryId) {
+    if (accountCode === "guest") {
+      try {
+        const raw = localStorage.getItem("twoTongues.guestStudied");
+        const data = raw ? JSON.parse(raw) : { studied: [], studiedAt: {} };
+        const current = data.studied || [];
+        const currentAt = data.studiedAt || {};
+        const nowStudying = !current.includes(entryId);
+        const nextStudied = nowStudying ? [...current, entryId] : current.filter((id) => id !== entryId);
+        const nextStudiedAt = { ...currentAt };
+        if (nowStudying) nextStudiedAt[entryId] = Date.now();
+        else delete nextStudiedAt[entryId];
+        localStorage.setItem("twoTongues.guestStudied", JSON.stringify({ studied: nextStudied, studiedAt: nextStudiedAt }));
+        // force re-render via dummy account merge
+        setAccounts((prev) => {
+          const others = prev.filter((a) => a.code !== "guest");
+          return [...others, { code: "guest", name: "Guest", studied: nextStudied, studiedAt: nextStudiedAt, favorites: [] }];
+        });
+      } catch (_) {}
+      return;
+    }
     const acct = accounts.find((a) => a.code === accountCode);
     const current = (acct && acct.studied) || [];
     const currentAt = (acct && acct.studiedAt) || {};
@@ -1240,7 +1283,7 @@ export default function DictionaryApp() {
         usernameInput={usernameInput} setUsernameInput={setUsernameInput}
         passwordInput={passwordInput} setPasswordInput={setPasswordInput}
         codeInput={codeInput} setCodeInput={setCodeInput}
-        authError={authError} setAuthError={setAuthError} loggingIn={loggingIn} handleLogin={handleLogin}
+        authError={authError} setAuthError={setAuthError} loggingIn={loggingIn} handleLogin={handleLogin} onGuest={handleGuest}
       />
     );
   }

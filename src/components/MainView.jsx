@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } fro
 import { tr } from "../lib/config/i18n";
 import { INK, PAPER, CARD, BRASS, errorStyle } from "../lib/config/theme";
 import { getSpeechRecognitionCtor, recognizeSpeech, loadArDialect, startMicLevelMeter } from "../lib/utils/speech";
-import { uid } from "../lib/utils/quizHelpers";
+import { uid, isSrsDue, computeStreak } from "../lib/utils/quizHelpers";
 import {
   SearchIcon, PlusIcon, XIcon, LoaderIcon, CheckIcon, WifiOffIcon,
   UndoIcon, ClockIcon, MicIcon, BookIcon,
@@ -21,6 +21,9 @@ import BackupReminderBanner from "./layout/BackupReminderBanner";
 import SiteBanner from "./layout/SiteBanner";
 import WordOfTheDay from "./layout/WordOfTheDay";
 import EmptyState from "./layout/EmptyState";
+import GoalsBanner from "./layout/GoalsBanner";
+import { loadFocusMode, saveFocusMode } from "../lib/state/goals";
+import { loadWordNotes, setWordNote } from "../lib/state/wordNotes";
 
 // These are only ever rendered behind a boolean flag (showQuiz, showAdd,
 // etc.) — never on first paint. Loading them lazily keeps their code
@@ -38,6 +41,7 @@ const WordZoomModal = lazy(() => import("./modals/WordZoomModal"));
 const TimerPage = lazy(() => import("./timer/TimerPage"));
 const CalendarPage = lazy(() => import("./calendar/CalendarPage"));
 const TodoPage = lazy(() => import("./todo/TodoPage"));
+const QuickReviewModal = lazy(() => import("./modals/QuickReviewModal"));
 
 
 const TIMER_VIEW_KEY = "twoTongues.timerView";
@@ -153,7 +157,7 @@ export default function MainView({
   const [showHistory, setShowHistory] = useState(false);
   const [searchHistory, setSearchHistory] = useState(() => loadSearchHistory(section));
   useEffect(() => { setSearchHistory(loadSearchHistory(section)); }, [section]);
-  const [studyFilter, setStudyFilter] = useState("all"); // "all" | "studied" | "not-studied"
+  const [studyFilter, setStudyFilter] = useState("all"); // "all" | "studied" | "not-studied" | "favorites" | "due"
   /* PAGINATION — with word lists that grow past a hundred or so entries,
      rendering every EntryCard (each with its own DOM subtree, hover
      handlers, speak buttons, etc.) at once is what makes the page feel
@@ -179,6 +183,14 @@ export default function MainView({
   const [calendarBubble, setCalendarBubble] = useState(() => loadCalendarView().bubble);
   const [showTodo, setShowTodo] = useState(() => loadTodoView().open);
   const [todoBubble, setTodoBubble] = useState(() => loadTodoView().bubble);
+  const [focusMode, setFocusMode] = useState(() => loadFocusMode());
+  const [showQuickReview, setShowQuickReview] = useState(false);
+  const [wordNotes, setWordNotes] = useState(() => loadWordNotes(accountCode));
+  const searchInputRef = useRef(null);
+
+  useEffect(() => { setWordNotes(loadWordNotes(accountCode)); }, [accountCode]);
+  useEffect(() => { saveFocusMode(focusMode); }, [focusMode]);
+
 
   // Persist timer page across refresh until the user closes it themselves.
   useEffect(() => {
@@ -193,6 +205,42 @@ export default function MainView({
   useEffect(() => {
     saveTodoView(showTodo, todoBubble);
   }, [showTodo, todoBubble]);
+
+  // Keyboard shortcuts (desktop) — ignored while typing in inputs
+  useEffect(() => {
+    function onKey(e) {
+      const tag = (e.target && e.target.tagName) || "";
+      const typing = tag === "INPUT" || tag === "TEXTAREA" || e.target?.isContentEditable;
+      if (e.key === "Escape") {
+        if (showQuickReview) { setShowQuickReview(false); return; }
+        if (focusMode) { setFocusMode(false); return; }
+      }
+      if (typing) return;
+      if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        searchInputRef.current?.focus?.();
+      } else if (e.key === "n" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        onOpenAdd?.();
+      } else if (e.key === "q" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setShowQuiz(true);
+      } else if (e.key === "r" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setShowQuickReview(true);
+      } else if (e.key === "t" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setTodoBubble(false);
+        setShowTodo(true);
+      } else if (e.key === "f" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setFocusMode((v) => !v);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showQuickReview, focusMode, onOpenAdd]);
+
   const [undoDelete, setUndoDelete] = useState(null); // { entry, prevEntries } — cleared after UNDO_DELETE_MS or on undo
   const undoTimerRef = useRef(null);
   const importInputRef = useRef(null);
@@ -223,8 +271,9 @@ export default function MainView({
     if (studyFilter === "studied") base = base.filter((e) => studiedIds.has(e.id));
     else if (studyFilter === "not-studied") base = base.filter((e) => !studiedIds.has(e.id));
     else if (studyFilter === "favorites") base = base.filter((e) => favoriteIds.has(e.id));
+    else if (studyFilter === "due") base = base.filter((e) => studiedIds.has(e.id) && isSrsDue(e.id, srsDueAt));
     return base;
-  }, [sectionEntries, query, studyFilter, studiedIds, favoriteIds]);
+  }, [sectionEntries, query, studyFilter, studiedIds, favoriteIds, srsDueAt]);
 
   useEffect(() => { setActiveIndex(-1); }, [query]);
 
@@ -514,7 +563,7 @@ export default function MainView({
       }}
       aria-hidden={(showTimer && !timerBubble) || (showCalendar && !calendarBubble) || (showTodo && !todoBubble) ? true : undefined}
     >
-      <SiteBanner banner={siteBanner} isAr={appIsAr} />
+      {!focusMode && <SiteBanner banner={siteBanner} isAr={appIsAr} />}
       <header style={{ borderBottom: "1px solid rgba(var(--border-rgb),0.15)", background: PAPER, position: "sticky", top: 0, zIndex: 1000 }}>
         <div className="app-container" style={{ margin: "0 auto", padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px) 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
@@ -559,6 +608,7 @@ export default function MainView({
           <div className="toolbar-anim toolbar-search-wrap" style={{ position: "relative", flex: "1 1 240px", animationDelay: "0.02s", zIndex: 50 }}>
             <SearchIcon size={16} color="var(--icon-muted)" style={{ position: "absolute", insetInlineStart: 12, top: "50%", transform: "translateY(-50%)" }} />
             <input
+              ref={searchInputRef}
               value={query}
               onChange={(e) => {
                 const v = e.target.value;
@@ -677,9 +727,18 @@ export default function MainView({
             </button>
           </div>
         )}
-        <WordOfTheDay entries={sectionEntries} section={section} cfg={cfg} isAr={isAr} onOpenZoom={(id) => setZoomEntry(sectionEntries.find((e) => e.id === id) || null)} />
-        <ReminderBanner studiedAt={studiedAt} isAr={isAr} cfg={cfg} remindersOn={remindersOn} reminderTitle={reminderTitle} reminderMessage={reminderMessage} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />
-        {isAdmin && <BackupReminderBanner isAr={isAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
+        {!focusMode && <WordOfTheDay entries={sectionEntries} section={section} cfg={cfg} isAr={isAr} onOpenZoom={(id) => setZoomEntry(sectionEntries.find((e) => e.id === id) || null)} />}
+        {!focusMode && <ReminderBanner studiedAt={studiedAt} isAr={isAr} cfg={cfg} remindersOn={remindersOn} reminderTitle={reminderTitle} reminderMessage={reminderMessage} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />}
+        {!focusMode && (
+          <GoalsBanner
+            studiedAt={studiedAt}
+            quizHistory={quizHistory}
+            streak={computeStreak(studiedAt)}
+            isAr={isAr}
+            cfg={cfg}
+          />
+        )}
+        {isAdmin && !focusMode && <BackupReminderBanner isAr={isAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
         <div style={{ marginTop: 12, background: CARD, border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 10, padding: "12px 14px" }}>
           <div dir={isAr ? "rtl" : "ltr"} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 700, color: INK }}>
@@ -713,6 +772,7 @@ export default function MainView({
             { key: "studied", label: tr(isAr, "Studied", "تمت دراستها") },
             { key: "not-studied", label: tr(isAr, "Not Studied", "لم تُدرس بعد") },
             { key: "favorites", label: tr(isAr, "Favorites", "المفضلة") },
+            { key: "due", label: tr(isAr, "Due today", "مستحقة") },
           ].map((f) => {
             const active = studyFilter === f.key;
             return (
@@ -722,6 +782,14 @@ export default function MainView({
               </button>
             );
           })}
+          <button type="button" onClick={() => setShowQuickReview(true)}
+            style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, color: "var(--icon-muted)", background: "none", border: "1px solid rgba(var(--border-rgb),0.25)", borderRadius: 20, cursor: "pointer" }}>
+            {tr(isAr, "Quick review", "مراجعة سريعة")}
+          </button>
+          <button type="button" onClick={() => setFocusMode((v) => !v)}
+            style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, color: focusMode ? "#fff" : "var(--icon-muted)", background: focusMode ? "var(--ink)" : "none", border: `1px solid ${focusMode ? "var(--ink)" : "rgba(var(--border-rgb),0.25)"}`, borderRadius: 20, cursor: "pointer" }}>
+            {tr(isAr, "Focus", "تركيز")}
+          </button>
         </div>
         {loadError && <div style={{ ...errorStyle, marginTop: 10 }} role="alert" aria-live="assertive">{tr(isAr, loadError, "تعذر تحميل القاموس المشترك. تحقق من اتصالك وحاول تحديث الصفحة.")}</div>}
         {saveError && <div style={{ ...errorStyle, marginTop: 10 }} role="alert" aria-live="assertive">{tr(isAr, saveError, "تعذر الحفظ — تحقق من اتصالك وحاول مرة أخرى.")}</div>}
@@ -787,6 +855,8 @@ export default function MainView({
                         onOpenZoom={handleZoomRequest}
                         isStudied={studiedIds.has(e.id)} onToggleStudied={handleToggleStudiedById}
                         isFavorite={favoriteIds.has(e.id)} onToggleFavorite={handleToggleFavoriteById}
+                        wordNote={wordNotes[e.id] || ""}
+                        onSaveNote={(note) => setWordNotes(setWordNote(accountCode, e.id, note))}
                         addedByLabel={accountNameByCode[e.addedBy] || e.addedBy}
                         editedByLabel={accountNameByCode[e.editedBy] || e.editedBy} />
                     ))}
@@ -935,6 +1005,74 @@ export default function MainView({
           onBubbleChange={setTodoBubble}
         />
       </Suspense>
+    )}
+
+    {showQuickReview && (
+      <Suspense fallback={null}>
+        <QuickReviewModal
+          entries={sectionEntries}
+          studiedIds={studiedIds}
+          srsDueAt={srsDueAt}
+          isAr={isAr}
+          onClose={() => setShowQuickReview(false)}
+          onToggleStudied={onToggleStudied}
+        />
+      </Suspense>
+    )}
+
+    {/* Always-available floating To-do button */}
+    {!showTodo && (
+      <button
+        type="button"
+        onClick={() => { setTodoBubble(false); setShowTodo(true); }}
+        title={tr(isAr, "To-do list", "قائمة المهام")}
+        aria-label={tr(isAr, "Open to-do list", "فتح قائمة المهام")}
+        style={{
+          position: "fixed",
+          bottom: "calc(20px + env(safe-area-inset-bottom, 0px))",
+          insetInlineEnd: 16,
+          zIndex: 45,
+          width: 56,
+          height: 56,
+          borderRadius: "50%",
+          border: "none",
+          background: "linear-gradient(135deg, #30d158, #34c759)",
+          color: "#fff",
+          boxShadow: "0 10px 28px -8px rgba(48,209,88,0.55)",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <CheckIcon size={24} />
+      </button>
+    )}
+
+    {/* Focus mode exit chip */}
+    {focusMode && (
+      <button
+        type="button"
+        onClick={() => setFocusMode(false)}
+        style={{
+          position: "fixed",
+          top: "calc(12px + env(safe-area-inset-top, 0px))",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 60,
+          padding: "8px 14px",
+          borderRadius: 20,
+          border: "none",
+          background: "var(--ink)",
+          color: "var(--paper)",
+          fontSize: 12,
+          fontWeight: 700,
+          cursor: "pointer",
+          boxShadow: "0 8px 20px -8px rgba(0,0,0,0.4)",
+        }}
+      >
+        {tr(isAr, "Exit focus mode (F)", "خروج من وضع التركيز (F)")}
+      </button>
     )}
     </>
   );

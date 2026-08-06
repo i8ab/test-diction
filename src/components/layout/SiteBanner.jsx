@@ -211,6 +211,7 @@ export default function SiteBanner({ banner, isAr }) {
           lineHeight: 1.35,
           paddingInline: 12,
           direction: isAr ? "rtl" : "ltr",
+          letterSpacing: banner.letterSpacing ? `${banner.letterSpacing}px` : undefined,
         }}
       >
         {banner.message}

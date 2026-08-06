@@ -34,6 +34,7 @@ export default function HeaderMenu({
   const [bannerEnabled, setBannerEnabled] = useState(false);
   const [bannerShine, setBannerShine] = useState(40);
   const [bannerSpeed, setBannerSpeed] = useState(1);
+  const [bannerLetterSpacing, setBannerLetterSpacing] = useState(0);
   const [bannerDurationAmount, setBannerDurationAmount] = useState(0);
   const [bannerDurationUnit, setBannerDurationUnit] = useState("hours"); // minutes | hours | days
   const [bannerSaving, setBannerSaving] = useState(false);
@@ -59,6 +60,7 @@ export default function HeaderMenu({
     setBannerEnabled(!!b.enabled);
     setBannerShine(typeof b.shine === "number" ? b.shine : 40);
     setBannerSpeed(typeof b.speed === "number" ? b.speed : 1);
+    setBannerLetterSpacing(typeof b.letterSpacing === "number" ? b.letterSpacing : 0);
     // Prefer durationMinutes; fall back to legacy durationHours
     let mins = 0;
     if (typeof b.durationMinutes === "number" && b.durationMinutes > 0) mins = b.durationMinutes;
@@ -169,6 +171,7 @@ export default function HeaderMenu({
       updatedAt: Date.now(),
       shine: Math.max(0, Math.min(100, Number(bannerShine) || 0)),
       speed: Math.max(0.4, Math.min(2, Number(bannerSpeed) || 1)),
+      letterSpacing: Math.max(0, Math.min(30, Number(bannerLetterSpacing) || 0)),
       durationMinutes: (() => {
         const amt = Math.max(0, Number(bannerDurationAmount) || 0);
         if (!amt) return 0;
@@ -184,6 +187,7 @@ export default function HeaderMenu({
       siteBanner.color === next.color &&
       siteBanner.shine === next.shine &&
       siteBanner.speed === next.speed &&
+      (siteBanner.letterSpacing || 0) === (next.letterSpacing || 0) &&
       (siteBanner.durationMinutes || 0) === (next.durationMinutes || 0) &&
       siteBanner.id
     ) {
@@ -211,6 +215,7 @@ export default function HeaderMenu({
     }
     setBannerMessage("");
     setBannerEnabled(false);
+    setBannerLetterSpacing(0);
     setBannerMsg(T( "Announcement cleared.", "تم إزالة الإعلان."));
   }
 
@@ -792,6 +797,21 @@ export default function HeaderMenu({
                       </div>
                       <div>
                         <label style={fieldLabel}>
+                          {T( "Text extension", "امتداد الجملة أو الكلمة")} — {bannerLetterSpacing}px
+                        </label>
+                        <input
+                          type="range" min={0} max={30} step={1}
+                          value={bannerLetterSpacing}
+                          onChange={(e) => setBannerLetterSpacing(Number(e.target.value))}
+                          style={{ width: "100%", accentColor: "var(--accent-1)" }}
+                        />
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, color: "var(--muted)", marginTop: 2 }}>
+                          <span>{T( "Normal", "طبيعي")}</span>
+                          <span>{T( "Stretched", "ممتد")}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={fieldLabel}>
                           {T( "Stay on site", "مدة الظهور")}
                         </label>
                         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -867,7 +887,7 @@ export default function HeaderMenu({
                             }} />
                           )}
                           <span style={{ width: 18, flexShrink: 0 }} />
-                          <span style={{ flex: 1, textAlign: "center", fontWeight: 700, position: "relative" }}>
+                          <span style={{ flex: 1, textAlign: "center", fontWeight: 700, position: "relative", letterSpacing: bannerLetterSpacing ? `${bannerLetterSpacing}px` : undefined }}>
                             {bannerMessage.trim() || T( "Preview…", "معاينة…")}
                           </span>
                           <span style={{ opacity: 0.7, width: 18, textAlign: "center", position: "relative" }}>×</span>

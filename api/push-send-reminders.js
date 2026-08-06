@@ -1,5 +1,5 @@
-// Called once a day by Vercel Cron (see vercel.json — 05:00 UTC = 8:00 AM Egypt
-// in summer EEST/UTC+3; = 7:00 AM in winter EET/UTC+2).
+// Called once a day by Vercel Cron (see vercel.json — 04:00 UTC = 7:00 AM Egypt (Hobby ±1h → arrives ~8 AM)
+// in summer EEST/UTC+3; with Hobby's ±1h window it lands around 8 AM).
 // Sends a REAL push notification to every account that:
 //   - has an active push subscription (api/push-subscribe.js), AND
 //   - hasn't already been sent today's daily reminder (dedup).

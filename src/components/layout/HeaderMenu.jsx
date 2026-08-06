@@ -318,6 +318,38 @@ export default function HeaderMenu({
     setInfoExpanded(null);
   }
 
+  function openInfoModal() {
+    setNotifOpen(false);
+    setBannerOpen(false);
+    setInfoExpanded(null);
+    setInfoOpen(true);
+  }
+
+  function closeInfoModal() {
+    setInfoOpen(false);
+    setInfoExpanded(null);
+  }
+
+  function openNotifModal() {
+    setInfoOpen(false);
+    setBannerOpen(false);
+    setNotifOpen(true);
+  }
+
+  function closeNotifModal() {
+    setNotifOpen(false);
+  }
+
+  function openBannerModal() {
+    setInfoOpen(false);
+    setNotifOpen(false);
+    setBannerOpen(true);
+  }
+
+  function closeBannerModal() {
+    setBannerOpen(false);
+  }
+
   useEffect(() => {
     if (!open) return;
     function onDocClick(e) { if (ref.current && !ref.current.contains(e.target)) closeMenu(); }
@@ -331,11 +363,17 @@ export default function HeaderMenu({
   }, [open]);
 
   useEffect(() => {
-    if (!settingsOpen) return;
-    function onKeyDown(e) { if (e.key === "Escape") closeSettings(); }
+    if (!settingsOpen && !notifOpen && !bannerOpen && !infoOpen) return;
+    function onKeyDown(e) {
+      if (e.key !== "Escape") return;
+      if (infoOpen) { closeInfoModal(); return; }
+      if (notifOpen) { closeNotifModal(); return; }
+      if (bannerOpen) { closeBannerModal(); return; }
+      if (settingsOpen) closeSettings();
+    }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [settingsOpen]);
+  }, [settingsOpen, notifOpen, bannerOpen, infoOpen]);
 
   function itemClick(fn) { fn(); }
 
@@ -658,73 +696,6 @@ export default function HeaderMenu({
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {/* Information — expandable list stacked under settings */}
-              <button
-                type="button"
-                className="header-menu-item touch-target"
-                style={{
-                  display: "flex", alignItems: "center", gap: 10, width: "100%",
-                  padding: "10px 10px", border: "none", background: "transparent",
-                  cursor: "pointer", color: "var(--ink)", borderRadius: 10, textAlign: "start",
-                }}
-                onClick={() => setInfoOpen((v) => !v)}
-                aria-expanded={infoOpen}
-              >
-                <span style={{
-                  width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
-                  background: "rgba(91,141,239,0.12)", color: "#5b8def", flexShrink: 0,
-                }}>
-                  <BookIcon size={14} />
-                </span>
-                <span style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{T("Information", "معلومات")}</span>
-                <span style={{ fontSize: 12, color: "var(--muted)", transform: infoOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▼</span>
-              </button>
-              {infoOpen && (
-                <div style={{
-                  display: "flex", flexDirection: "column", gap: 6,
-                  padding: "4px 6px 10px", marginBottom: 4,
-                  borderBottom: "1px solid rgba(var(--border-rgb),0.1)",
-                }}>
-                  {INFO_SECTIONS.map((s) => {
-                    const Icon = s.icon;
-                    const openSec = infoExpanded === s.id;
-                    const title = isAr ? s.titleAr : s.titleEn;
-                    const body = isAr ? s.bodyAr : s.bodyEn;
-                    return (
-                      <div key={s.id} style={{
-                        borderRadius: 10,
-                        border: "1px solid rgba(var(--border-rgb),0.12)",
-                        background: openSec ? "rgba(var(--border-rgb),0.06)" : "transparent",
-                        overflow: "hidden",
-                      }}>
-                        <button
-                          type="button"
-                          onClick={() => setInfoExpanded(openSec ? null : s.id)}
-                          style={{
-                            display: "flex", alignItems: "center", gap: 8, width: "100%",
-                            padding: "9px 10px", border: "none", background: "transparent",
-                            cursor: "pointer", color: "var(--ink)", textAlign: "start",
-                          }}
-                        >
-                          <Icon size={14} style={{ color: "var(--accent-1)", flexShrink: 0 }} />
-                          <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{title}</span>
-                          <span style={{ fontSize: 11, color: "var(--muted)" }}>{openSec ? "−" : "+"}</span>
-                        </button>
-                        {openSec && (
-                          <ul style={{
-                            margin: "0 0 10px", paddingInlineStart: 28, paddingInlineEnd: 10,
-                            fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.55,
-                          }}>
-                            {body.map((line, i) => (
-                              <li key={i} style={{ marginBottom: 5 }}>{line}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
               <Row
                 tint="#f5a623"
                 icon={theme === "dark" ? <SunIcon size={14} /> : <MoonIcon size={14} />}
@@ -771,22 +742,217 @@ export default function HeaderMenu({
                 </div>
               )}
 
-              {/* ========== Notifications section ========== */}
+              {/* ========== Information — opens small modal ========== */}
+              <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 4, paddingTop: 4 }}>
+                <Row
+                  tint="#5b8def"
+                  icon={<BookIcon size={14} />}
+                  label={T("Information", "معلومات")}
+                  onClick={openInfoModal}
+                  trailing={
+                    <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                      {isAr ? "◂" : "▸"}
+                    </span>
+                  }
+                />
+              </div>
+
+              {/* ========== Notifications — opens small modal ========== */}
               {(onEnableReminders || onDisableReminders) && (
                 <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 4, paddingTop: 4 }}>
                   <Row
                     tint={remindersOn ? "#34c759" : "#8e8e93"}
                     icon={remindersOn ? <BellIcon size={14} /> : <BellOffIcon size={14} />}
                     label={T( "Notifications", "الإشعارات")}
-                    onClick={() => setNotifOpen((v) => !v)}
+                    onClick={openNotifModal}
                     trailing={
                       <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
-                        {notifOpen ? "▾" : (isAr ? "◂" : "▸")}
+                        {isAr ? "◂" : "▸"}
                       </span>
                     }
                   />
-                  {notifOpen && (
-                    <div
+                </div>
+              )}
+
+              {/* ========== Site banner (admins) — opens small modal ========== */}
+              {isAdmin && onPersistSiteBanner && (
+                <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 4, paddingTop: 4 }}>
+                  <Row
+                    tint="#146C94"
+                    icon={<LayersIcon size={14} />}
+                    label={T( "Site banner", "بانر الموقع")}
+                    onClick={openBannerModal}
+                    trailing={
+                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {siteBanner && siteBanner.enabled && (
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, color: "#fff", background: "#34c759",
+                            borderRadius: 8, padding: "2px 6px",
+                          }}>
+                            {T( "ON", "مفعّل")}
+                          </span>
+                        )}
+                        <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                          {isAr ? "◂" : "▸"}
+                        </span>
+                      </span>
+                    }
+                  />
+                </div>
+              )}
+
+              {onChangeAccent && (
+                <div style={{ padding: "10px 12px", marginTop: 2, borderTop: "1px solid rgba(var(--border-rgb),0.12)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, color: "var(--icon-muted)", marginBottom: 9 }}>
+                    <PaletteIcon size={13} /> {T( "Color theme", "لون الواجهة")}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {Object.entries(ACCENT_THEMES).map(([key, t]) => {
+                      const swatch = (t[theme] || t.light).a1;
+                      const active = key === accentTheme;
+                      return (
+                        <button key={key} type="button" onClick={() => onChangeAccent(key)}
+                          title={T( t.label.en, t.label.ar)} aria-label={T( t.label.en, t.label.ar)}
+                          className="header-menu-swatch touch-target"
+                          style={{ width: 28, height: 28, borderRadius: "50%", background: swatch, border: active ? "2px solid var(--ink)" : "1px solid rgba(var(--border-rgb),0.3)", cursor: "pointer", padding: 0, boxShadow: active ? "0 0 0 3px var(--card), 0 0 0 4px " + swatch + "55" : "none" }} />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Information modal — same style as Settings, sized to content */}
+      {infoOpen && (
+        <div
+          onClick={closeInfoModal}
+          className="modal-backdrop"
+          style={{
+            position: "fixed", inset: 0, zIndex: 2600,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="info-modal-title"
+            className="modal-card"
+            style={{
+              width: "100%", maxWidth: "min(440px, 100%)",
+              maxHeight: "min(90dvh, 820px)", overflowY: "auto",
+              background: "var(--card)", color: "var(--ink)",
+              border: "1px solid rgba(var(--border-rgb),0.14)",
+              borderRadius: 16,
+              padding: "clamp(14px, 3vw, 22px)",
+              boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h2 id="info-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: "var(--ink)" }}>
+                {T("Information", "معلومات")}
+              </h2>
+              <button
+                type="button"
+                onClick={closeInfoModal}
+                aria-label={T("Close", "إغلاق")}
+                style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", minWidth: 36, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <XIcon size={20} />
+              </button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {INFO_SECTIONS.map((s) => {
+                const Icon = s.icon;
+                const openSec = infoExpanded === s.id;
+                const title = isAr ? s.titleAr : s.titleEn;
+                const body = isAr ? s.bodyAr : s.bodyEn;
+                return (
+                  <div key={s.id} style={{
+                    borderRadius: 10,
+                    border: "1px solid rgba(var(--border-rgb),0.12)",
+                    background: openSec ? "rgba(var(--border-rgb),0.06)" : "transparent",
+                    overflow: "hidden",
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => setInfoExpanded(openSec ? null : s.id)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 8, width: "100%",
+                        padding: "10px 12px", border: "none", background: "transparent",
+                        cursor: "pointer", color: "var(--ink)", textAlign: "start",
+                      }}
+                    >
+                      <Icon size={14} style={{ color: "var(--accent-1)", flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600 }}>{title}</span>
+                      <span style={{ fontSize: 12, color: "var(--muted)" }}>{openSec ? "−" : "+"}</span>
+                    </button>
+                    {openSec && (
+                      <ul style={{
+                        margin: "0 0 12px", paddingInlineStart: 28, paddingInlineEnd: 12,
+                        fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.55,
+                      }}>
+                        {body.map((line, i) => (
+                          <li key={i} style={{ marginBottom: 5 }}>{line}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notifications modal — same style as Settings */}
+      {notifOpen && (
+        <div
+          onClick={closeNotifModal}
+          className="modal-backdrop"
+          style={{
+            position: "fixed", inset: 0, zIndex: 2600,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="notif-modal-title"
+            className="modal-card"
+            style={{
+              width: "100%", maxWidth: "min(440px, 100%)",
+              maxHeight: "min(90dvh, 820px)", overflowY: "auto",
+              background: "var(--card)", color: "var(--ink)",
+              border: "1px solid rgba(var(--border-rgb),0.14)",
+              borderRadius: 16,
+              padding: "clamp(14px, 3vw, 22px)",
+              boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h2 id="notif-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: "var(--ink)" }}>
+                {T( "Notifications", "الإشعارات")}
+              </h2>
+              <button
+                type="button"
+                onClick={closeNotifModal}
+                aria-label={T( "Close", "إغلاق")}
+                style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", minWidth: 36, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <XIcon size={20} />
+              </button>
+            </div>
+            <div
                       onPointerDown={(e) => e.stopPropagation()}
                       style={{ padding: "6px 10px 12px", display: "flex", flexDirection: "column", gap: 10 }}
                     >
@@ -958,36 +1124,52 @@ export default function HeaderMenu({
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-              )}
+          </div>
+        </div>
+      )}
 
-              {/* ========== Site banner (admins) ========== */}
-              {isAdmin && onPersistSiteBanner && (
-                <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 4, paddingTop: 4 }}>
-                  <Row
-                    tint="#146C94"
-                    icon={<LayersIcon size={14} />}
-                    label={T( "Site banner", "بانر الموقع")}
-                    onClick={() => setBannerOpen((v) => !v)}
-                    trailing={
-                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        {siteBanner && siteBanner.enabled && (
-                          <span style={{
-                            fontSize: 10, fontWeight: 700, color: "#fff", background: "#34c759",
-                            borderRadius: 8, padding: "2px 6px",
-                          }}>
-                            {T( "ON", "مفعّل")}
-                          </span>
-                        )}
-                        <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
-                          {bannerOpen ? "▾" : (isAr ? "◂" : "▸")}
-                        </span>
-                      </span>
-                    }
-                  />
-                  {bannerOpen && (
-                    <div
+      {/* Site banner modal — same style as Settings */}
+      {bannerOpen && (
+        <div
+          onClick={closeBannerModal}
+          className="modal-backdrop"
+          style={{
+            position: "fixed", inset: 0, zIndex: 2600,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="banner-modal-title"
+            className="modal-card"
+            style={{
+              width: "100%", maxWidth: "min(440px, 100%)",
+              maxHeight: "min(90dvh, 820px)", overflowY: "auto",
+              background: "var(--card)", color: "var(--ink)",
+              border: "1px solid rgba(var(--border-rgb),0.14)",
+              borderRadius: 16,
+              padding: "clamp(14px, 3vw, 22px)",
+              boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h2 id="banner-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: "var(--ink)" }}>
+                {T( "Site banner", "بانر الموقع")}
+              </h2>
+              <button
+                type="button"
+                onClick={closeBannerModal}
+                aria-label={T( "Close", "إغلاق")}
+                style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", minWidth: 36, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <XIcon size={20} />
+              </button>
+            </div>
+            <div
                       onPointerDown={(e) => e.stopPropagation()}
                       style={{ padding: "6px 10px 12px", display: "flex", flexDirection: "column", gap: 10 }}
                     >
@@ -1310,34 +1492,10 @@ export default function HeaderMenu({
                         </button>
                       </div>
                     </div>
-                  )}
-                </div>
-              )}
-
-              {onChangeAccent && (
-                <div style={{ padding: "10px 12px", marginTop: 2, borderTop: "1px solid rgba(var(--border-rgb),0.12)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, color: "var(--icon-muted)", marginBottom: 9 }}>
-                    <PaletteIcon size={13} /> {T( "Color theme", "لون الواجهة")}
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {Object.entries(ACCENT_THEMES).map(([key, t]) => {
-                      const swatch = (t[theme] || t.light).a1;
-                      const active = key === accentTheme;
-                      return (
-                        <button key={key} type="button" onClick={() => onChangeAccent(key)}
-                          title={T( t.label.en, t.label.ar)} aria-label={T( t.label.en, t.label.ar)}
-                          className="header-menu-swatch touch-target"
-                          style={{ width: 28, height: 28, borderRadius: "50%", background: swatch, border: active ? "2px solid var(--ink)" : "1px solid rgba(var(--border-rgb),0.3)", cursor: "pointer", padding: 0, boxShadow: active ? "0 0 0 3px var(--card), 0 0 0 4px " + swatch + "55" : "none" }} />
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-            </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }

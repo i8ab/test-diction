@@ -48,6 +48,7 @@ const InfoGuideModal = lazy(() => import("./modals/InfoGuideModal"));
 const TIMER_VIEW_KEY = "twoTongues.timerView";
 const CALENDAR_VIEW_KEY = "twoTongues.calendarView";
 const TODO_VIEW_KEY = "twoTongues.todoView";
+const GOALS_VIEW_KEY = "twoTongues.goalsView";
 
 function loadTimerView() {
   try {
@@ -100,6 +101,24 @@ function saveTodoView(open, bubble) {
   try {
     if (!open) localStorage.removeItem(TODO_VIEW_KEY);
     else localStorage.setItem(TODO_VIEW_KEY, JSON.stringify({ open: true, bubble: !!bubble }));
+  } catch (e) {}
+}
+
+function loadGoalsView() {
+  try {
+    const raw = localStorage.getItem(GOALS_VIEW_KEY);
+    if (!raw) return { open: false, bubble: false };
+    const p = JSON.parse(raw);
+    return { open: !!p.open, bubble: !!p.bubble };
+  } catch (e) {
+    return { open: false, bubble: false };
+  }
+}
+
+function saveGoalsView(open, bubble) {
+  try {
+    if (!open) localStorage.removeItem(GOALS_VIEW_KEY);
+    else localStorage.setItem(GOALS_VIEW_KEY, JSON.stringify({ open: true, bubble: !!bubble }));
   } catch (e) {}
 }
 
@@ -186,8 +205,8 @@ export default function MainView({
   const [todoBubble, setTodoBubble] = useState(() => loadTodoView().bubble);
   const [focusMode, setFocusMode] = useState(() => loadFocusMode());
   const [showQuickReview, setShowQuickReview] = useState(false);
-  const [showGoals, setShowGoals] = useState(false);
-  const [goalsBubble, setGoalsBubble] = useState(false);
+  const [showGoals, setShowGoals] = useState(() => loadGoalsView().open);
+  const [goalsBubble, setGoalsBubble] = useState(() => loadGoalsView().bubble);
   const [showInfoGuide, setShowInfoGuide] = useState(false);
   const [wordNotes, setWordNotes] = useState(() => loadWordNotes(accountCode));
   const searchInputRef = useRef(null);
@@ -209,6 +228,10 @@ export default function MainView({
   useEffect(() => {
     saveTodoView(showTodo, todoBubble);
   }, [showTodo, todoBubble]);
+
+  useEffect(() => {
+    saveGoalsView(showGoals, goalsBubble);
+  }, [showGoals, goalsBubble]);
 
   // Keyboard shortcuts (desktop) — ignored while typing in inputs
   useEffect(() => {
@@ -1036,7 +1059,7 @@ export default function MainView({
     )}
 
     {/* Always-available floating Goals button (above To-do) */}
-    {!showGoals && (
+    {!showGoals && !focusMode && (
       <button
         type="button"
         onClick={() => { setGoalsBubble(false); setShowGoals(true); }}
@@ -1058,6 +1081,8 @@ export default function MainView({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          WebkitTapHighlightColor: "transparent",
+          touchAction: "manipulation",
         }}
       >
         <FlameIcon size={24} />
@@ -1065,7 +1090,7 @@ export default function MainView({
     )}
 
     {/* Always-available floating To-do button */}
-    {!showTodo && (
+    {!showTodo && !focusMode && (
       <button
         type="button"
         onClick={() => { setTodoBubble(false); setShowTodo(true); }}
@@ -1087,6 +1112,8 @@ export default function MainView({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          WebkitTapHighlightColor: "transparent",
+          touchAction: "manipulation",
         }}
       >
         <CheckIcon size={24} />

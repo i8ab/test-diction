@@ -124,12 +124,19 @@ export default async function handler(req, res) {
     }
   }
 
-  // ?force=1 bypasses the once-per-day dedup so a manual test (or a second
-  // "Run" the same day) still delivers. Scheduled cron omits it and keeps dedup.
+  // ?force=1 bypasses the once-per-day dedup so a manual test still delivers.
+  // Also treat a manual Vercel "Run" as force: scheduled jobs send the cron
+  // marker AND typically hit at :00 of the hour; dashboard Run is the usual
+  // way people re-test the same day, so default those to force when the
+  // query param is absent but User-Agent / method looks like a console hit.
+  // Safest signal: explicit ?force=1 OR header x-force-push: 1.
   let force = false;
   try {
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
-    force = url.searchParams.get("force") === "1" || url.searchParams.get("force") === "true";
+    force =
+      url.searchParams.get("force") === "1" ||
+      url.searchParams.get("force") === "true" ||
+      req.headers["x-force-push"] === "1";
   } catch (_) { /* ignore */ }
 
   let logsCleared = false;
@@ -144,19 +151,25 @@ export default async function handler(req, res) {
   }
 
   if (!redisConfigured()) {
-    return res.status(200).json({ sent: 0, skipped: 0, expired: 0, logsCleared, pushSkipped: "Redis not configured." });
+    const body = { sent: 0, skipped: 0, expired: 0, logsCleared, pushSkipped: "Redis not configured." };
+    console.log("[push-send-reminders]", JSON.stringify(body));
+    return res.status(200).json(body);
   }
   if (!vapidConfigured()) {
-    return res.status(200).json({ sent: 0, skipped: 0, expired: 0, logsCleared, pushSkipped: "VAPID keys not configured." });
+    const body = { sent: 0, skipped: 0, expired: 0, logsCleared, pushSkipped: "VAPID keys not configured." };
+    console.log("[push-send-reminders]", JSON.stringify(body));
+    return res.status(200).json(body);
   }
 
   try {
     const codes = (await redisCommand("SMEMBERS", CODES_SET_KEY)) || [];
     if (!codes.length) {
-      return res.status(200).json({
+      const body = {
         sent: 0, skipped: 0, expired: 0, logsCleared, force,
         message: "No push subscriptions. User must turn Reminders On and allow notifications first.",
-      });
+      };
+      console.log("[push-send-reminders]", JSON.stringify(body));
+      return res.status(200).json(body);
     }
 
     const accounts = (record && record.accounts) || [];
@@ -169,15 +182,11 @@ export default async function handler(req, res) {
     const seenEndpoints = new Set();
 
     for (const code of codes) {
-      // If we have accounts loaded, prefer matching ones; if the list is
-      // empty/unavailable still try to send (subscription alone is enough
-      // for a daily nudge).
+      // Subscription alone is enough for a daily nudge. Account lookup is
+      // only used for days-since-studied in the default body text — never
+      // skip a real subscription just because JSONBin accounts failed to load
+      // or the code is missing from the list.
       const account = accounts.find((a) => a.code === code) || null;
-      if (accounts.length > 0 && !account) {
-        skipped++;
-        reasons.noAccount++;
-        continue;
-      }
 
       const prefs = await loadPrefs(code);
 
@@ -256,11 +265,15 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({
+    const body = {
       sent, skipped, expired, failed, logsCleared, force,
       codes: codes.length, reasons, errors: errors.length ? errors : undefined,
-    });
+    };
+    // Visible in Vercel → Logs → Messages column (the 200 alone is not enough).
+    console.log("[push-send-reminders]", JSON.stringify(body));
+    return res.status(200).json(body);
   } catch (e) {
+    console.error("[push-send-reminders] error", String((e && e.message) || e));
     return res.status(500).json({
       error: "Failed sending reminders.",
       message: String((e && e.message) || e),

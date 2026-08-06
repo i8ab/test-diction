@@ -170,11 +170,9 @@ export default function SiteBanner({ banner, isAr }) {
     const repeats = Math.max(1, Math.min(12, Math.round(Number(banner && banner.repeats) || 4)));
     const baseMs = 16000 + (repeats - 1) * 2000;
     const durationMs = Math.max(6000, Math.min(70000, baseMs / Math.max(0.4, speed)));
-    // Scroll direction (physical, independent of CSS direction on the text):
-    //   Arabic/RTL  → text enters from the RIGHT and exits LEFT  (right→left)
-    //   English/LTR → text enters from the LEFT  and exits RIGHT (left→right)
-    // This matches Arabic news tickers (start of the sentence appears first
-    // from the right) and a classic LTR marquee for English.
+    // Arabic (RTL): enters from LEFT → exits RIGHT (يسار → يمين)
+    // English (LTR): enters from RIGHT → exits LEFT (يمين → شمال)
+    // CSS direction on the text still handles glyph/punctuation order.
     const rtl = msgRtl;
     progressRef.current = 0;
     let last = performance.now();
@@ -198,11 +196,11 @@ export default function SiteBanner({ banner, isAr }) {
       const textW = el.offsetWidth || 200;
       let x;
       if (rtl) {
-        // Enter from right (x = trackW at p=0), exit left (x = -textW at p=1)
-        x = trackW - progressRef.current * (trackW + textW);
-      } else {
-        // Enter from left (x = -textW at p=0), exit right (x = trackW at p=1)
+        // Arabic: start off-screen left, move rightward
         x = -textW + progressRef.current * (trackW + textW);
+      } else {
+        // English: start off-screen right, move leftward
+        x = trackW - progressRef.current * (trackW + textW);
       }
       el.style.transform = `translate3d(${x}px, -50%, 0)`;
 

@@ -1,6 +1,26 @@
 import { useState, useEffect, useRef } from "react";
 import { tr, UI_LANGS } from "../../lib/config/i18n";
 import { ACCENT_THEMES } from "../../lib/state/storage";
+
+function stretchArabicText(text, amount) {
+  if (!text || !amount) return text;
+  const isArabicLetter = (ch) => /[\u0600-\u06FF]/.test(ch);
+  const isNonConnecting = (ch) => /[ادذرزوآأإؤةء]/.test(ch);
+  let result = "";
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    result += ch;
+    if (i < text.length - 1) {
+      const nextCh = text[i + 1];
+      if (isArabicLetter(ch) && !isNonConnecting(ch) && isArabicLetter(nextCh) && nextCh !== " " && nextCh !== "ـ") {
+        result += "ـ".repeat(amount);
+      }
+    }
+  }
+  return result;
+}
+
+const hasArabic = (text) => /[\u0600-\u06FF]/.test(text || "");
 import {
   UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon, CheckIcon, TrashIcon, LayersIcon, LoaderIcon, SettingsIcon,
 } from "../common/Icons";
@@ -34,6 +54,7 @@ export default function HeaderMenu({
   const [bannerEnabled, setBannerEnabled] = useState(false);
   const [bannerShine, setBannerShine] = useState(40);
   const [bannerSpeed, setBannerSpeed] = useState(1);
+  const [bannerLetterSpacing, setBannerLetterSpacing] = useState(0);
   const [bannerDurationAmount, setBannerDurationAmount] = useState(0);
   const [bannerDurationUnit, setBannerDurationUnit] = useState("hours"); // minutes | hours | days
   const [bannerSaving, setBannerSaving] = useState(false);
@@ -59,6 +80,7 @@ export default function HeaderMenu({
     setBannerEnabled(!!b.enabled);
     setBannerShine(typeof b.shine === "number" ? b.shine : 40);
     setBannerSpeed(typeof b.speed === "number" ? b.speed : 1);
+    setBannerLetterSpacing(typeof b.letterSpacing === "number" ? b.letterSpacing : 0);
     // Prefer durationMinutes; fall back to legacy durationHours
     let mins = 0;
     if (typeof b.durationMinutes === "number" && b.durationMinutes > 0) mins = b.durationMinutes;
@@ -169,6 +191,7 @@ export default function HeaderMenu({
       updatedAt: Date.now(),
       shine: Math.max(0, Math.min(100, Number(bannerShine) || 0)),
       speed: Math.max(0.4, Math.min(2, Number(bannerSpeed) || 1)),
+      letterSpacing: Math.max(0, Math.min(30, Number(bannerLetterSpacing) || 0)),
       durationMinutes: (() => {
         const amt = Math.max(0, Number(bannerDurationAmount) || 0);
         if (!amt) return 0;
@@ -184,6 +207,7 @@ export default function HeaderMenu({
       siteBanner.color === next.color &&
       siteBanner.shine === next.shine &&
       siteBanner.speed === next.speed &&
+      (siteBanner.letterSpacing || 0) === (next.letterSpacing || 0) &&
       (siteBanner.durationMinutes || 0) === (next.durationMinutes || 0) &&
       siteBanner.id
     ) {
@@ -211,6 +235,7 @@ export default function HeaderMenu({
     }
     setBannerMessage("");
     setBannerEnabled(false);
+    setBannerLetterSpacing(0);
     setBannerMsg(T( "Announcement cleared.", "تم إزالة الإعلان."));
   }
 
@@ -792,6 +817,21 @@ export default function HeaderMenu({
                       </div>
                       <div>
                         <label style={fieldLabel}>
+                          {T( "Text extension", "امتداد الجملة أو الكلمة")} — {bannerLetterSpacing}
+                        </label>
+                        <input
+                          type="range" min={0} max={10} step={1}
+                          value={bannerLetterSpacing}
+                          onChange={(e) => setBannerLetterSpacing(Number(e.target.value))}
+                          style={{ width: "100%", accentColor: "var(--accent-1)" }}
+                        />
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, color: "var(--muted)", marginTop: 2 }}>
+                          <span>{T( "Normal", "طبيعي")}</span>
+                          <span>{T( "Stretched", "ممتد")}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={fieldLabel}>
                           {T( "Stay on site", "مدة الظهور")}
                         </label>
                         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -867,8 +907,14 @@ export default function HeaderMenu({
                             }} />
                           )}
                           <span style={{ width: 18, flexShrink: 0 }} />
-                          <span style={{ flex: 1, textAlign: "center", fontWeight: 700, position: "relative" }}>
-                            {bannerMessage.trim() || T( "Preview…", "معاينة…")}
+                          <span style={{
+                            flex: 1,
+                            textAlign: "center",
+                            fontWeight: 700,
+                            position: "relative",
+                            letterSpacing: bannerLetterSpacing && !hasArabic(bannerMessage) ? `${bannerLetterSpacing}px` : undefined,
+                          }}>
+                            {bannerMessage.trim() ? stretchArabicText(bannerMessage.trim(), bannerLetterSpacing) : T( "Preview…", "معاينة…")}
                           </span>
                           <span style={{ opacity: 0.7, width: 18, textAlign: "center", position: "relative" }}>×</span>
                         </div>

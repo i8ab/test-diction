@@ -15,6 +15,7 @@ import { SECTIONS } from "../lib/config/sections";
 import { loadSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory } from "../lib/state/storage";
 import EntryCard from "./common/EntryCard";
 import HeaderMenu from "./layout/HeaderMenu";
+import BrandMark from "./common/BrandMark";
 import ToolsMenu from "./layout/ToolsMenu";
 import ReminderBanner from "./layout/ReminderBanner";
 import BackupReminderBanner from "./layout/BackupReminderBanner";
@@ -595,8 +596,7 @@ export default function MainView({
         <div className="app-container" style={{ margin: "0 auto", padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px) 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <BookIcon size={20} color={BRASS} />
-              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 21, fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
+              <BrandMark size="md" />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 13, color: "var(--muted-strong)" }}><strong style={{ color: INK }}>{name}</strong></div>

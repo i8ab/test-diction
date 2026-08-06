@@ -709,7 +709,7 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
     <button id="toggle">${running ? tr(isAr, "Pause", "إيقاف") : tr(isAr, "Resume", "متابعة")}</button>
     <button id="reset">${tr(isAr, "Reset", "إعادة")}</button>
   </div>
-  <div id="label">${tr(isAr, "Two Tongues · Timer", "لسانان · مؤقّت")}</div>
+  <div id="label">${tr(isAr, "Bacaloria Community · Timer", "Bacaloria Community · مؤقّت")}</div>
 <script>
   const ch = new BroadcastChannel("${CHANNEL_NAME}");
   const t = document.getElementById("t");

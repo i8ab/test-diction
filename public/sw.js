@@ -1,5 +1,5 @@
 /* =============================================================================
-   Two Tongues — offline service worker
+   Bacaloria Community — offline service worker
    -----------------------------------------------------------------------------
    Strategy:
    - HTML / navigation requests: network-first. This is what fixes "I deployed

@@ -10,6 +10,7 @@ import {
   QuizIcon, StatsIcon, TrophyIcon, FlameIcon, SpeakerIcon, LoaderIcon, ZoomIcon,
   LayersIcon, CalendarIcon, DownloadIcon, UserIcon,
 } from "../common/Icons";
+import BrandMark from "../common/BrandMark";
 import { Shell, LanguageToggle } from "../layout/Shell";
 
 function AuthScreens({
@@ -53,10 +54,7 @@ function AuthScreens({
         <div className="auth-intro-inner" style={{ position: "relative", zIndex: 1, maxWidth: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(16px, 3vw, 28px) clamp(14px, 4vw, 32px) clamp(40px, 6vw, 72px)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "clamp(28px, 6vw, 84px)", gap: 10, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div className="auth-badge" style={{ ...authBadgeWrapStyle, width: 38, height: 38, borderRadius: 11 }}>
-                <BookIcon size={18} color="#fff" />
-              </div>
-              <span style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(16px, 2.5vw, 18px)", fontWeight: 600, color: INK }}>Two Tongues</span>
+              <BrandMark size="sm" />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <button type="button" onClick={toggleTheme} className="lift-hover touch-target" aria-label={atr("Toggle theme", "تبديل المظهر")}
@@ -175,13 +173,7 @@ function AuthScreens({
         <div className="auth-card" style={{ ...authCardStyle, maxWidth: "min(420px, 100%)" }} dir={appIsAr ? "rtl" : "ltr"}>
           <LanguageToggle lang={appLang} onChangeLang={onChangeAppLang} isAr={appIsAr} onToggle={toggleAppLang} />
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
-            <div className="auth-badge" style={authBadgeWrapStyle}>
-              <BookIcon size={24} color="#fff" />
-            </div>
-            <div>
-              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(20px, 4vw, 24px)", fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
-              <div style={{ width: 34, height: 3, borderRadius: 2, background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))", marginTop: 6, animation: "underlineGrow 0.6s ease 0.2s both" }} />
-            </div>
+            <BrandMark size="lg" showUnderline />
           </div>
           <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 18px" }}>
             {atr(
@@ -273,14 +265,7 @@ function AuthScreens({
         <div className="auth-card" style={{ ...authCardStyle, maxWidth: "min(420px, 100%)" }} dir={appIsAr ? "rtl" : "ltr"}>
           <LanguageToggle lang={appLang} onChangeLang={onChangeAppLang} isAr={appIsAr} onToggle={toggleAppLang} />
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
-            <div className="auth-badge" style={authBadgeWrapStyle}>
-              <BookIcon size={24} color="#fff" />
-              <span style={{ position: "absolute", inset: -5, borderRadius: 19, border: "1.5px solid rgba(var(--focus-rgb),0.35)", animation: "pulseGlow 2.6s ease-in-out infinite" }} />
-            </div>
-            <div>
-              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(20px, 4vw, 24px)", fontWeight: 600, color: INK, margin: 0 }}>Two Tongues</h1>
-              <div style={{ width: 34, height: 3, borderRadius: 2, background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))", marginTop: 6, animation: "underlineGrow 0.6s ease 0.2s both" }} />
-            </div>
+            <BrandMark size="lg" showUnderline />
           </div>
           <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 22px" }}>
             {atr(

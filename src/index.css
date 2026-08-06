@@ -518,3 +518,61 @@ body::-webkit-scrollbar,
   55% { opacity: 0.85; }
   100% { transform: translateX(45%) rotate(12deg); opacity: 0; }
 }
+
+/* Brand mark — Bacaloria Community */
+.brand-mark-badge {
+  animation: brandBadgePulse 2.8s ease-in-out infinite;
+}
+.brand-mark-badge-shine::after {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  background: linear-gradient(
+    115deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 60%
+  );
+  animation: brandShine 3.4s ease-in-out infinite;
+}
+.brand-mark-ring {
+  animation: brandRingPulse 2.8s ease-in-out infinite;
+}
+.brand-mark-title {
+  background: linear-gradient(
+    105deg,
+    var(--ink) 0%,
+    var(--ink) 40%,
+    color-mix(in srgb, var(--accent-1) 70%, var(--ink)) 50%,
+    var(--ink) 60%,
+    var(--ink) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: brandTitleShimmer 5s ease-in-out infinite;
+}
+.brand-mark-accent {
+  color: var(--accent-1);
+  -webkit-text-fill-color: var(--accent-1);
+}
+.brand-mark-underline {
+  animation: underlineGrow 0.65s ease both;
+}
+@keyframes brandBadgePulse {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.05); filter: brightness(1.08); }
+}
+@keyframes brandRingPulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.95; transform: scale(1.06); }
+}
+@keyframes brandShine {
+  0% { transform: translateX(-50%) rotate(12deg); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translateX(50%) rotate(12deg); opacity: 0; }
+}
+@keyframes brandTitleShimmer {
+  0%, 100% { background-position: 100% 0; }
+  50% { background-position: 0% 0; }
+}

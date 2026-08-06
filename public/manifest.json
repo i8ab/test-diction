@@ -1,7 +1,7 @@
 {
-  "name": "Two Tongues",
-  "short_name": "Two Tongues",
-  "description": "A bilingual vocabulary dictionary and quiz app.",
+  "name": "Bacaloria Community",
+  "short_name": "Bacaloria",
+  "description": "Bacaloria Community — bilingual vocabulary dictionary and study tools.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

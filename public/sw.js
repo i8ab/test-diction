@@ -21,7 +21,7 @@
    network-first, but still useful as a hard reset).
    ============================================================================= */
 
-const CACHE_VERSION = "two-tongues-v2";
+const CACHE_VERSION = "two-tongues-v3";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -115,14 +115,17 @@ self.addEventListener("push", (event) => {
   // (replaces the previous). Broadcasts send a shared tag; without it, a
   // device that was registered under two account codes would show two
   // identical banners for one "Notify all".
+  // Test pushes send a unique tag + renotify:true so re-tapping "Send test"
+  // always shows a fresh banner even with identical title/body.
   const tag = data.tag || `tt-${(data.title || "").slice(0, 40)}|${(data.body || "").slice(0, 80)}`;
+  const renotify = data.renotify === true || (typeof tag === "string" && tag.startsWith("test-"));
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
       tag,
-      renotify: false,
+      renotify,
       data: { url: data.url || "/" },
     })
   );

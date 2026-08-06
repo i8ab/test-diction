@@ -122,8 +122,11 @@ export default function SiteBanner({ banner, isAr }) {
     !(banner.id && dismissedId === banner.id) &&
     !isExpired(banner);
 
-  const msgRtl = banner && banner.message
-    ? hasArabic(banner.message) || !!isAr
+  // Direction follows the *message script*, not the UI language — so an
+  // English announcement still scrolls LTR even when the app is in Arabic
+  // (and vice versa). Falling back to isAr only when the message is empty.
+  const msgRtl = banner && banner.message && banner.message.trim()
+    ? hasArabic(banner.message)
     : !!isAr;
 
   useEffect(() => {
@@ -167,8 +170,11 @@ export default function SiteBanner({ banner, isAr }) {
     const repeats = Math.max(1, Math.min(12, Math.round(Number(banner && banner.repeats) || 4)));
     const baseMs = 16000 + (repeats - 1) * 2000;
     const durationMs = Math.max(6000, Math.min(70000, baseMs / Math.max(0.4, speed)));
-    // Scroll direction: Arabic ticker moves right→left (text enters from the right),
-    // English left→right (enters from the left) — standard news-ticker behaviour.
+    // Scroll direction (physical, independent of CSS direction on the text):
+    //   Arabic/RTL  → text enters from the RIGHT and exits LEFT  (right→left)
+    //   English/LTR → text enters from the LEFT  and exits RIGHT (left→right)
+    // This matches Arabic news tickers (start of the sentence appears first
+    // from the right) and a classic LTR marquee for English.
     const rtl = msgRtl;
     progressRef.current = 0;
     let last = performance.now();
@@ -190,10 +196,14 @@ export default function SiteBanner({ banner, isAr }) {
 
       const trackW = track.offsetWidth || window.innerWidth;
       const textW = el.offsetWidth || 200;
-      // progress 0 → just left of view, progress 1 → just right of view
-      let x = -textW + progressRef.current * (trackW + textW);
-      // RTL: mirror so text travels the opposite physical direction
-      if (rtl) x = trackW - progressRef.current * (trackW + textW);
+      let x;
+      if (rtl) {
+        // Enter from right (x = trackW at p=0), exit left (x = -textW at p=1)
+        x = trackW - progressRef.current * (trackW + textW);
+      } else {
+        // Enter from left (x = -textW at p=0), exit right (x = trackW at p=1)
+        x = -textW + progressRef.current * (trackW + textW);
+      }
       el.style.transform = `translate3d(${x}px, -50%, 0)`;
 
       rafRef.current = requestAnimationFrame(tick);

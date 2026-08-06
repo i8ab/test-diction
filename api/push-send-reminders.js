@@ -124,6 +124,14 @@ export default async function handler(req, res) {
     }
   }
 
+  // ?force=1 bypasses the once-per-day dedup so a manual test (or a second
+  // "Run" the same day) still delivers. Scheduled cron omits it and keeps dedup.
+  let force = false;
+  try {
+    const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+    force = url.searchParams.get("force") === "1" || url.searchParams.get("force") === "true";
+  } catch (_) { /* ignore */ }
+
   let logsCleared = false;
   let record = null;
   try {
@@ -145,13 +153,18 @@ export default async function handler(req, res) {
   try {
     const codes = (await redisCommand("SMEMBERS", CODES_SET_KEY)) || [];
     if (!codes.length) {
-      return res.status(200).json({ sent: 0, skipped: 0, expired: 0, logsCleared, message: "No push subscriptions." });
+      return res.status(200).json({
+        sent: 0, skipped: 0, expired: 0, logsCleared, force,
+        message: "No push subscriptions. User must turn Reminders On and allow notifications first.",
+      });
     }
 
     const accounts = (record && record.accounts) || [];
     const now = Date.now();
 
-    let sent = 0, skipped = 0, expired = 0;
+    let sent = 0, skipped = 0, expired = 0, failed = 0;
+    const reasons = { noAccount: 0, dedup: 0, noSub: 0, badSub: 0, dupEndpoint: 0, sendError: 0 };
+    const errors = [];
     // Same device under multiple account codes → only one push per endpoint.
     const seenEndpoints = new Set();
 
@@ -162,35 +175,42 @@ export default async function handler(req, res) {
       const account = accounts.find((a) => a.code === code) || null;
       if (accounts.length > 0 && !account) {
         skipped++;
+        reasons.noAccount++;
         continue;
       }
 
       const prefs = await loadPrefs(code);
 
       // Dedup: one daily reminder per account (TTL ~30h covers the day + drift).
-      const lastNotifiedRaw = await redisCommand("GET", `${NOTIFIED_PREFIX}${code}`);
-      if (lastNotifiedRaw) {
-        const lastNotified = Number(lastNotifiedRaw);
-        if (Number.isFinite(lastNotified) && now - lastNotified < DAY_MS) {
-          skipped++;
-          continue;
+      // Skipped when force=true (manual ?force=1 test run).
+      if (!force) {
+        const lastNotifiedRaw = await redisCommand("GET", `${NOTIFIED_PREFIX}${code}`);
+        if (lastNotifiedRaw) {
+          const lastNotified = Number(lastNotifiedRaw);
+          if (Number.isFinite(lastNotified) && now - lastNotified < DAY_MS) {
+            skipped++;
+            reasons.dedup++;
+            continue;
+          }
         }
       }
 
       const subRaw = await redisCommand("GET", `${SUB_PREFIX}${code}`);
-      if (!subRaw) { skipped++; continue; }
+      if (!subRaw) { skipped++; reasons.noSub++; continue; }
       let subscription;
       try {
         subscription = typeof subRaw === "string" ? JSON.parse(subRaw) : subRaw;
       } catch (_) {
         skipped++;
+        reasons.badSub++;
         continue;
       }
 
       const endpoint = subscription && subscription.endpoint;
-      if (!endpoint) { skipped++; continue; }
+      if (!endpoint) { skipped++; reasons.badSub++; continue; }
       if (seenEndpoints.has(endpoint)) {
         skipped++;
+        reasons.dupEndpoint++;
         continue;
       }
       seenEndpoints.add(endpoint);
@@ -212,7 +232,9 @@ export default async function handler(req, res) {
         title,
         body,
         url: "/",
-        tag: `reminder-${code}`,
+        // Unique tag on force runs so a re-test isn't collapsed by the SW.
+        tag: force ? `reminder-${code}-${now}` : `reminder-${code}`,
+        renotify: !!force,
       };
 
       const result = await sendPush(subscription, payload);
@@ -226,10 +248,18 @@ export default async function handler(req, res) {
         await redisCommand("SREM", CODES_SET_KEY, code);
       } else {
         skipped++;
+        failed++;
+        reasons.sendError++;
+        if (errors.length < 5) {
+          errors.push({ code, error: result.error || result.message || "send_failed" });
+        }
       }
     }
 
-    return res.status(200).json({ sent, skipped, expired, logsCleared });
+    return res.status(200).json({
+      sent, skipped, expired, failed, logsCleared, force,
+      codes: codes.length, reasons, errors: errors.length ? errors : undefined,
+    });
   } catch (e) {
     return res.status(500).json({
       error: "Failed sending reminders.",

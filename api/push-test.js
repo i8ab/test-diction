@@ -69,10 +69,14 @@ export default async function handler(req, res) {
     const title = clientTitle || (prefs && prefs.title) || DEFAULT_TITLE;
     const notifBody = clientBody || (prefs && prefs.message) || DEFAULT_BODY;
 
+    // Unique tag every time so repeated tests with the same title/body still
+    // show a new OS notification (SW collapses identical tags when renotify=false).
     const payload = {
       title,
       body: notifBody,
       url: "/",
+      tag: `test-${Date.now().toString(36)}`,
+      renotify: true,
     };
 
     const result = await sendPush(subscription, payload);

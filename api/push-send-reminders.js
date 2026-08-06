@@ -1,8 +1,8 @@
 // Called once a day by Vercel Cron (see vercel.json — 04:00 UTC = 7:00 AM Egypt (Hobby ±1h → arrives ~8 AM)
 // in summer EEST/UTC+3; with Hobby's ±1h window it lands around 8 AM).
-// Sends a REAL push notification to every account that:
-//   - has an active push subscription (api/push-subscribe.js), AND
-//   - hasn't already been sent today's daily reminder (dedup).
+// Sends a REAL push notification to every account that has an active push
+// subscription (api/push-subscribe.js). No once-per-day lock — every run
+// (scheduled or manual) attempts delivery so testing stays flexible.
 // Study activity is intentionally ignored: this is a fixed daily nudge.
 //
 // Per-account prefs (custom title/message) live in Redis under
@@ -20,7 +20,6 @@ import { sendPush, vapidConfigured } from "../lib/webpush.js";
 const CODES_SET_KEY = "twoTongues:push:codes";
 const SUB_PREFIX = "twoTongues:push:sub:";
 const PREFS_PREFIX = "twoTongues:push:prefs:";
-const NOTIFIED_PREFIX = "twoTongues:push:notifiedAt:"; // + code -> unix ms string, TTL'd
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_INTERVAL_DAYS = 1;
 const ALLOWED_DAYS = new Set([1, 2, 3, 5, 7]);
@@ -124,21 +123,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // ?force=1 bypasses the once-per-day dedup so a manual test still delivers.
-  // Also treat a manual Vercel "Run" as force: scheduled jobs send the cron
-  // marker AND typically hit at :00 of the hour; dashboard Run is the usual
-  // way people re-test the same day, so default those to force when the
-  // query param is absent but User-Agent / method looks like a console hit.
-  // Safest signal: explicit ?force=1 OR header x-force-push: 1.
-  let force = false;
-  try {
-    const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
-    force =
-      url.searchParams.get("force") === "1" ||
-      url.searchParams.get("force") === "true" ||
-      req.headers["x-force-push"] === "1";
-  } catch (_) { /* ignore */ }
-
   let logsCleared = false;
   let record = null;
   try {
@@ -165,7 +149,7 @@ export default async function handler(req, res) {
     const codes = (await redisCommand("SMEMBERS", CODES_SET_KEY)) || [];
     if (!codes.length) {
       const body = {
-        sent: 0, skipped: 0, expired: 0, logsCleared, force,
+        sent: 0, skipped: 0, expired: 0, logsCleared,
         message: "No push subscriptions. User must turn Reminders On and allow notifications first.",
       };
       console.log("[push-send-reminders]", JSON.stringify(body));
@@ -176,33 +160,17 @@ export default async function handler(req, res) {
     const now = Date.now();
 
     let sent = 0, skipped = 0, expired = 0, failed = 0;
-    const reasons = { noAccount: 0, dedup: 0, noSub: 0, badSub: 0, dupEndpoint: 0, sendError: 0 };
+    const reasons = { noSub: 0, badSub: 0, dupEndpoint: 0, sendError: 0 };
     const errors = [];
-    // Same device under multiple account codes → only one push per endpoint.
+    // Same device under multiple account codes → only one push per endpoint
+    // (still kept — otherwise one phone gets N identical banners).
     const seenEndpoints = new Set();
 
     for (const code of codes) {
-      // Subscription alone is enough for a daily nudge. Account lookup is
-      // only used for days-since-studied in the default body text — never
-      // skip a real subscription just because JSONBin accounts failed to load
-      // or the code is missing from the list.
+      // Subscription alone is enough. Account lookup is only used for
+      // days-since-studied in the default body text.
       const account = accounts.find((a) => a.code === code) || null;
-
       const prefs = await loadPrefs(code);
-
-      // Dedup: one daily reminder per account (TTL ~30h covers the day + drift).
-      // Skipped when force=true (manual ?force=1 test run).
-      if (!force) {
-        const lastNotifiedRaw = await redisCommand("GET", `${NOTIFIED_PREFIX}${code}`);
-        if (lastNotifiedRaw) {
-          const lastNotified = Number(lastNotifiedRaw);
-          if (Number.isFinite(lastNotified) && now - lastNotified < DAY_MS) {
-            skipped++;
-            reasons.dedup++;
-            continue;
-          }
-        }
-      }
 
       const subRaw = await redisCommand("GET", `${SUB_PREFIX}${code}`);
       if (!subRaw) { skipped++; reasons.noSub++; continue; }
@@ -237,20 +205,19 @@ export default async function handler(req, res) {
           : DEFAULT_BODY_TEMPLATE(Math.max(1, daysSince || 1));
       }
 
+      // Unique tag + renotify every time so a re-run always shows a fresh banner
+      // (SW collapses identical tags when renotify is false).
       const payload = {
         title,
         body,
         url: "/",
-        // Unique tag on force runs so a re-test isn't collapsed by the SW.
-        tag: force ? `reminder-${code}-${now}` : `reminder-${code}`,
-        renotify: !!force,
+        tag: `reminder-${code}-${now}`,
+        renotify: true,
       };
 
       const result = await sendPush(subscription, payload);
       if (result.ok) {
         sent++;
-        const ttlSec = 60 * 60 * 30; // 30h
-        await redisCommand("SET", `${NOTIFIED_PREFIX}${code}`, String(now), "EX", String(ttlSec));
       } else if (result.expired) {
         expired++;
         await redisCommand("DEL", `${SUB_PREFIX}${code}`);
@@ -266,7 +233,7 @@ export default async function handler(req, res) {
     }
 
     const body = {
-      sent, skipped, expired, failed, logsCleared, force,
+      sent, skipped, expired, failed, logsCleared,
       codes: codes.length, reasons, errors: errors.length ? errors : undefined,
     };
     // Visible in Vercel → Logs → Messages column (the 200 alone is not enough).

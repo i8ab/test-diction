@@ -145,9 +145,11 @@ export default function CalendarPage({
     setSelectedDay(dateKey(Date.now()));
   }
 
-  // ── Bubble drag ──────────────────────────────────────────────────────────
+  // ── Bubble drag (ignore clicks on buttons so X / expand work) ────────────
   const onBubblePointerDown = useCallback((e) => {
     if (e.button !== 0 && e.pointerType === "mouse") return;
+    // Don't start drag when pressing a control button
+    if (e.target?.closest?.("button")) return;
     const el = e.currentTarget;
     const rect = el.getBoundingClientRect();
     dragRef.current = {
@@ -156,8 +158,9 @@ export default function CalendarPage({
       origX: bubblePos.x != null ? bubblePos.x : rect.left,
       origY: bubblePos.y != null ? bubblePos.y : rect.top,
       moved: false,
+      pointerId: e.pointerId,
     };
-    el.setPointerCapture?.(e.pointerId);
+    try { el.setPointerCapture?.(e.pointerId); } catch (_) {}
   }, [bubblePos]);
 
   const onBubblePointerMove = useCallback((e) => {
@@ -167,17 +170,40 @@ export default function CalendarPage({
     const dy = e.clientY - d.startY;
     if (!d.moved && Math.hypot(dx, dy) < 6) return;
     d.moved = true;
-    const x = Math.max(8, Math.min(window.innerWidth - 160, d.origX + dx));
-    const y = Math.max(8, Math.min(window.innerHeight - 120, d.origY + dy));
+    const x = Math.max(8, Math.min(window.innerWidth - 170, d.origX + dx));
+    const y = Math.max(8, Math.min(window.innerHeight - 140, d.origY + dy));
     setBubblePos({ x, y });
   }, []);
 
-  const onBubblePointerUp = useCallback(() => {
+  const onBubblePointerUp = useCallback((e) => {
+    const d = dragRef.current;
+    if (d && e?.currentTarget) {
+      try { e.currentTarget.releasePointerCapture?.(d.pointerId); } catch (_) {}
+    }
     dragRef.current = null;
   }, []);
 
   const weekdays = isAr ? WEEKDAYS_AR : WEEKDAYS_EN;
   const monthName = isAr ? MONTHS_AR[cursor.month] : MONTHS_EN[cursor.month];
+
+  const todayLabel = useMemo(() => {
+    const n = new Date();
+    return n.toLocaleDateString(isAr ? "ar-EG" : "en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }, [isAr]);
+
+  const todayShort = useMemo(() => {
+    const n = new Date();
+    return n.toLocaleDateString(isAr ? "ar-EG" : "en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+  }, [isAr]);
 
   // ── Bubble view ──────────────────────────────────────────────────────────
   if (viewMode === "bubble") {
@@ -186,7 +212,7 @@ export default function CalendarPage({
     const style = {
       position: "fixed",
       zIndex: 55,
-      width: 148,
+      width: 168,
       borderRadius: 14,
       background: CARD,
       border: "1px solid rgba(var(--border-rgb),0.18)",
@@ -210,7 +236,7 @@ export default function CalendarPage({
         onPointerUp={onBubblePointerUp}
         onPointerCancel={onBubblePointerUp}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 5, color: BRASS }}>
             <CalendarIcon size={14} />
             <span style={{ fontSize: 12, fontWeight: 700 }}>{tr(isAr, "Calendar", "التقويم")}</span>
@@ -219,7 +245,8 @@ export default function CalendarPage({
             <button
               type="button"
               title={tr(isAr, "Expand", "توسيع")}
-              onClick={(e) => { e.stopPropagation(); setViewMode("full"); }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); setViewMode("full"); }}
               style={iconBtn}
             >
               <ChevronIcon size={14} style={{ transform: "rotate(-90deg)" }} />
@@ -227,7 +254,8 @@ export default function CalendarPage({
             <button
               type="button"
               title={tr(isAr, "Close", "إغلاق")}
-              onClick={(e) => { e.stopPropagation(); onClose(); }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); onClose(); }}
               style={iconBtn}
             >
               <XIcon size={14} />
@@ -235,7 +263,12 @@ export default function CalendarPage({
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+        {/* Today's full date */}
+        <div style={{ fontSize: 11, fontWeight: 600, color: INK, marginBottom: 6, lineHeight: 1.3 }}>
+          {todayShort}
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
           <FlameIcon size={16} style={{ color: streak > 0 ? "#e85d04" : "var(--muted)" }} />
           <span style={{ fontSize: 13, fontWeight: 700, color: INK }}>
             {streak} {tr(isAr, streak === 1 ? "day" : "days", streak === 1 ? "يوم" : "أيام")}
@@ -309,11 +342,16 @@ export default function CalendarPage({
           flexWrap: "wrap",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, flexWrap: "wrap" }}>
           <CalendarIcon size={20} style={{ color: BRASS, flexShrink: 0 }} />
-          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: INK }}>
-            {tr(isAr, "Study Calendar", "تقويم المذاكرة")}
-          </h1>
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: INK, lineHeight: 1.2 }}>
+              {tr(isAr, "Study Calendar", "تقويم المذاكرة")}
+            </h1>
+            <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, marginTop: 2 }}>
+              {todayLabel}
+            </div>
+          </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>

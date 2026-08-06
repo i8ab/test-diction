@@ -37,10 +37,12 @@ const AdminModal = lazy(() => import("./modals/AdminModal"));
 const WordZoomModal = lazy(() => import("./modals/WordZoomModal"));
 const TimerPage = lazy(() => import("./timer/TimerPage"));
 const CalendarPage = lazy(() => import("./calendar/CalendarPage"));
+const TodoPage = lazy(() => import("./todo/TodoPage"));
 
 
 const TIMER_VIEW_KEY = "twoTongues.timerView";
 const CALENDAR_VIEW_KEY = "twoTongues.calendarView";
+const TODO_VIEW_KEY = "twoTongues.todoView";
 
 function loadTimerView() {
   try {
@@ -75,6 +77,24 @@ function saveCalendarView(open, bubble) {
   try {
     if (!open) localStorage.removeItem(CALENDAR_VIEW_KEY);
     else localStorage.setItem(CALENDAR_VIEW_KEY, JSON.stringify({ open: true, bubble: !!bubble }));
+  } catch (e) {}
+}
+
+function loadTodoView() {
+  try {
+    const raw = localStorage.getItem(TODO_VIEW_KEY);
+    if (!raw) return { open: false, bubble: false };
+    const p = JSON.parse(raw);
+    return { open: !!p.open, bubble: !!p.bubble };
+  } catch (e) {
+    return { open: false, bubble: false };
+  }
+}
+
+function saveTodoView(open, bubble) {
+  try {
+    if (!open) localStorage.removeItem(TODO_VIEW_KEY);
+    else localStorage.setItem(TODO_VIEW_KEY, JSON.stringify({ open: true, bubble: !!bubble }));
   } catch (e) {}
 }
 
@@ -157,6 +177,8 @@ export default function MainView({
   const [timerBubble, setTimerBubble] = useState(() => loadTimerView().bubble);
   const [showCalendar, setShowCalendar] = useState(() => loadCalendarView().open);
   const [calendarBubble, setCalendarBubble] = useState(() => loadCalendarView().bubble);
+  const [showTodo, setShowTodo] = useState(() => loadTodoView().open);
+  const [todoBubble, setTodoBubble] = useState(() => loadTodoView().bubble);
 
   // Persist timer page across refresh until the user closes it themselves.
   useEffect(() => {
@@ -167,6 +189,10 @@ export default function MainView({
   useEffect(() => {
     saveCalendarView(showCalendar, calendarBubble);
   }, [showCalendar, calendarBubble]);
+
+  useEffect(() => {
+    saveTodoView(showTodo, todoBubble);
+  }, [showTodo, todoBubble]);
   const [undoDelete, setUndoDelete] = useState(null); // { entry, prevEntries } — cleared after UNDO_DELETE_MS or on undo
   const undoTimerRef = useRef(null);
   const importInputRef = useRef(null);
@@ -484,9 +510,9 @@ export default function MainView({
         minHeight: "100vh",
         background: PAPER,
         fontFamily: "'Source Sans 3', sans-serif",
-        display: (showTimer && !timerBubble) || (showCalendar && !calendarBubble) ? "none" : undefined,
+        display: (showTimer && !timerBubble) || (showCalendar && !calendarBubble) || (showTodo && !todoBubble) ? "none" : undefined,
       }}
-      aria-hidden={(showTimer && !timerBubble) || (showCalendar && !calendarBubble) ? true : undefined}
+      aria-hidden={(showTimer && !timerBubble) || (showCalendar && !calendarBubble) || (showTodo && !todoBubble) ? true : undefined}
     >
       <SiteBanner banner={siteBanner} isAr={appIsAr} />
       <header style={{ borderBottom: "1px solid rgba(var(--border-rgb),0.15)", background: PAPER, position: "sticky", top: 0, zIndex: 1000 }}>
@@ -620,6 +646,7 @@ export default function MainView({
               onFlashcards={() => setShowFlashcards(true)}
               onTimer={() => { setTimerBubble(false); setShowTimer(true); }}
               onCalendar={() => { setCalendarBubble(false); setShowCalendar(true); }}
+              onTodo={() => { setTodoBubble(false); setShowTodo(true); }}
               onExport={() => exportEntriesAsCsv(filtered.length ? filtered : sectionEntries, cfg, cfg.shortLabel)}
               exportDisabled={sectionEntries.length === 0}
               onImport={() => importInputRef.current && importInputRef.current.click()}
@@ -895,6 +922,17 @@ export default function MainView({
           initialBubble={calendarBubble}
           onClose={() => { setShowCalendar(false); setCalendarBubble(false); }}
           onBubbleChange={setCalendarBubble}
+        />
+      </Suspense>
+    )}
+
+    {showTodo && (
+      <Suspense fallback={null}>
+        <TodoPage
+          isAr={isAr}
+          initialBubble={todoBubble}
+          onClose={() => { setShowTodo(false); setTodoBubble(false); }}
+          onBubbleChange={setTodoBubble}
         />
       </Suspense>
     )}

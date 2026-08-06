@@ -50,12 +50,25 @@ const LOCK_KEY = "twoTongues:dictWriteLock";
 function pickBanner(record) {
   const b = record && record.siteBanner;
   if (!b || typeof b !== "object") return null;
+  let shine = typeof b.shine === "number" ? b.shine : 40;
+  if (shine < 0) shine = 0;
+  if (shine > 100) shine = 100;
+  let speed = typeof b.speed === "number" ? b.speed : 1;
+  if (speed < 0.4) speed = 0.4;
+  if (speed > 2) speed = 2;
+  // Hours the banner stays live after updatedAt. 0 = until turned off.
+  let durationHours = typeof b.durationHours === "number" ? b.durationHours : 0;
+  if (durationHours < 0) durationHours = 0;
+  if (durationHours > 720) durationHours = 720;
   return {
     id: typeof b.id === "string" ? b.id : "",
     message: typeof b.message === "string" ? b.message : "",
     color: typeof b.color === "string" ? b.color : "#146C94",
     enabled: !!b.enabled,
     updatedAt: typeof b.updatedAt === "number" ? b.updatedAt : 0,
+    shine,
+    speed,
+    durationHours,
   };
 }
 

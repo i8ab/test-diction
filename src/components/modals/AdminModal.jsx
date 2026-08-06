@@ -10,7 +10,7 @@ import {
   BookIcon, ChevronIcon, CopyIcon, DownloadIcon,
 } from "../common/Icons";
 
-function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClose, onAdd, onEdit, onDelete, siteBanner, onPersistSiteBanner, isAr }) {
+function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClose, onAdd, onEdit, onDelete, isAr }) {
   const [backupDone, setBackupDone] = useState(false);
 
   function handleDownloadBackup() {
@@ -18,7 +18,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
     setBackupDone(true);
     setTimeout(() => setBackupDone(false), 1800);
   }
-  const [mode, setMode] = useState("list"); // list | add | edit | added | log | announce | broadcast
+  const [mode, setMode] = useState("list"); // list | add | edit | added | log
   const [editingCode, setEditingCode] = useState(null);
   const [formName, setFormName] = useState("");
   const [formRole, setFormRole] = useState("user");
@@ -31,19 +31,6 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
   const [codeCopied, setCodeCopied] = useState(false);
   const [logFilter, setLogFilter] = useState("all");
   const [confirmClearLogs, setConfirmClearLogs] = useState(false);
-
-  // Site-wide announcement banner
-  const [bannerMessage, setBannerMessage] = useState("");
-  const [bannerColor, setBannerColor] = useState("#146C94");
-  const [bannerEnabled, setBannerEnabled] = useState(false);
-  const [bannerSaving, setBannerSaving] = useState(false);
-  const [bannerMsg, setBannerMsg] = useState(""); // success/error toast text
-
-  // Broadcast push to all subscribers
-  const [pushTitle, setPushTitle] = useState("");
-  const [pushBody, setPushBody] = useState("");
-  const [pushSending, setPushSending] = useState(false);
-  const [pushResult, setPushResult] = useState("");
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -65,102 +52,6 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
   }
   function startEdit(account) {
     setEditingCode(account.code); setFormName(account.name); setFormUsername(account.username || ""); setFormRole(account.role === "admin" ? "admin" : "user"); setError(""); setMode("edit");
-  }
-
-  function startAnnounce() {
-    const b = siteBanner || {};
-    setBannerMessage(b.message || "");
-    setBannerColor(b.color || "#146C94");
-    setBannerEnabled(!!b.enabled);
-    setBannerMsg("");
-    setError("");
-    setMode("announce");
-  }
-
-  function startBroadcast() {
-    setPushTitle("");
-    setPushBody("");
-    setPushResult("");
-    setError("");
-    setMode("broadcast");
-  }
-
-  async function saveBanner(e) {
-    e && e.preventDefault();
-    if (!onPersistSiteBanner) return;
-    setBannerSaving(true);
-    setBannerMsg("");
-    const msg = (bannerMessage || "").trim();
-    const next = {
-      id: (siteBanner && siteBanner.enabled && siteBanner.message === msg && siteBanner.color === bannerColor)
-        ? siteBanner.id
-        : `banner-${Date.now().toString(36)}`,
-      message: msg,
-      color: bannerColor || "#146C94",
-      enabled: !!bannerEnabled && !!msg,
-      updatedAt: Date.now(),
-    };
-    // New id whenever message/color change so previously-dismissed users see it again.
-    if (siteBanner && (siteBanner.message !== msg || siteBanner.color !== next.color)) {
-      next.id = `banner-${Date.now().toString(36)}`;
-    } else if (siteBanner && siteBanner.id) {
-      next.id = siteBanner.id;
-    }
-    const result = await onPersistSiteBanner(next.enabled ? next : { ...next, enabled: false, message: msg });
-    setBannerSaving(false);
-    if (result && result.ok === false) {
-      setBannerMsg(result.error || tr(isAr, "Save failed.", "فشل الحفظ."));
-      return;
-    }
-    setBannerMsg(tr(isAr, "Announcement saved.", "تم حفظ الإعلان."));
-  }
-
-  async function clearBanner() {
-    if (!onPersistSiteBanner) return;
-    setBannerSaving(true);
-    setBannerMsg("");
-    const result = await onPersistSiteBanner(null);
-    setBannerSaving(false);
-    if (result && result.ok === false) {
-      setBannerMsg(result.error || tr(isAr, "Save failed.", "فشل الحفظ."));
-      return;
-    }
-    setBannerMessage("");
-    setBannerEnabled(false);
-    setBannerMsg(tr(isAr, "Announcement cleared.", "تم إزالة الإعلان."));
-  }
-
-  async function sendBroadcast(e) {
-    e && e.preventDefault();
-    setPushSending(true);
-    setPushResult("");
-    setError("");
-    try {
-      const r = await fetch("/api/push-broadcast", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          adminCode: myAccountCode,
-          title: pushTitle.trim(),
-          body: pushBody.trim(),
-        }),
-      });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        setPushResult(data.error || tr(isAr, "Send failed.", "فشل الإرسال."));
-      } else {
-        setPushResult(
-          tr(
-            isAr,
-            `Sent to ${data.sent || 0} device(s). Skipped ${data.skipped || 0}, expired ${data.expired || 0}.`,
-            `اتبعت لـ ${data.sent || 0} جهاز. تم تخطي ${data.skipped || 0}، منتهي ${data.expired || 0}.`
-          )
-        );
-      }
-    } catch (err) {
-      setPushResult(tr(isAr, "Network error — try again.", "خطأ في الشبكة — حاول مرة أخرى."));
-    }
-    setPushSending(false);
   }
 
   // Nested navigation: leaving a sub-screen returns to the account list
@@ -249,8 +140,6 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
     : mode === "add" ? tr(isAr, "Add account", "إضافة حساب")
     : mode === "added" ? tr(isAr, "Account created", "تم إنشاء الحساب")
     : mode === "log" ? tr(isAr, "Activity log", "سجل النشاط")
-    : mode === "announce" ? tr(isAr, "Site announcement", "إعلان الموقع")
-    : mode === "broadcast" ? tr(isAr, "Notify all users", "إشعار لكل المستخدمين")
     : tr(isAr, "Edit account", "تعديل الحساب");
 
   return (
@@ -269,12 +158,6 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
               </button>
               <button onClick={() => { setLogFilter("all"); setMode("log"); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, color: INK, background: "none", border: "1px solid rgba(var(--border-rgb),0.25)", borderRadius: 3, cursor: "pointer" }}>
                 <BookIcon size={14} /> {tr(isAr, "Activity log", "سجل النشاط")}
-              </button>
-              <button onClick={startAnnounce} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, color: INK, background: "none", border: "1px solid rgba(var(--border-rgb),0.25)", borderRadius: 3, cursor: "pointer" }}>
-                {tr(isAr, "Announcement", "إعلان")}
-              </button>
-              <button onClick={startBroadcast} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, color: INK, background: "none", border: "1px solid rgba(var(--border-rgb),0.25)", borderRadius: 3, cursor: "pointer" }}>
-                {tr(isAr, "Notify all", "إشعار للجميع")}
               </button>
               <button onClick={handleDownloadBackup} className="lift-hover" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, color: backupDone ? "var(--success)" : INK, background: "none", border: `1px solid ${backupDone ? "var(--success)" : "rgba(var(--border-rgb),0.25)"}`, borderRadius: 3, cursor: "pointer" }}>
                 {backupDone ? <CheckIcon size={14} /> : <DownloadIcon size={14} />} {backupDone ? tr(isAr, "Downloaded", "تم التنزيل") : tr(isAr, "Download backup", "تنزيل نسخة احتياطية")}
@@ -423,108 +306,6 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
           </div>
         )}
 
-        {mode === "announce" && (
-          <form onSubmit={saveBanner} style={{ marginTop: 12 }}>
-            <p style={{ fontSize: 13, color: "var(--muted-strong)", margin: "0 0 12px" }}>
-              {tr(isAr, "Show a banner at the top of the site for every signed-in user. They can dismiss it with the X; a new message (or color change) will show again.", "اعرض شريط إعلان في أعلى الموقع لكل المستخدمين المسجّلين. يقدروا يقفلوه بعلامة X؛ رسالة أو لون جديد هيظهر تاني.")}
-            </p>
-            <label style={labelStyle}>{tr(isAr, "Message", "الرسالة")}</label>
-            <textarea
-              value={bannerMessage}
-              onChange={(e) => setBannerMessage(e.target.value)}
-              rows={3}
-              placeholder={tr(isAr, "e.g. Maintenance tonight at 10pm", "مثال: صيانة الليلة الساعة ١٠")}
-              style={{ ...inputStyle, resize: "vertical", minHeight: 72, fontFamily: "'Source Sans 3', sans-serif" }}
-            />
-            <label style={labelStyle}>{tr(isAr, "Banner color", "لون الشريط")}</label>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <input
-                type="color"
-                value={bannerColor && /^#[0-9A-Fa-f]{6}$/.test(bannerColor) ? bannerColor : "#146C94"}
-                onChange={(e) => setBannerColor(e.target.value)}
-                style={{ width: 48, height: 36, border: "1px solid rgba(var(--border-rgb),0.25)", borderRadius: 6, padding: 2, cursor: "pointer", background: CARD }}
-              />
-              <input
-                type="text"
-                value={bannerColor}
-                onChange={(e) => setBannerColor(e.target.value)}
-                placeholder="#146C94"
-                style={{ ...inputStyle, width: 120, flex: "0 0 auto" }}
-              />
-              {[
-                { c: "#146C94", label: "Blue" },
-                { c: "#B3261E", label: "Red" },
-                { c: "#2E7D32", label: "Green" },
-                { c: "#D98B2B", label: "Amber" },
-                { c: "#6E3D96", label: "Purple" },
-                { c: "#1B1B1B", label: "Dark" },
-              ].map((p) => (
-                <button
-                  key={p.c}
-                  type="button"
-                  title={p.label}
-                  onClick={() => setBannerColor(p.c)}
-                  style={{
-                    width: 28, height: 28, borderRadius: 6, border: bannerColor === p.c ? "2px solid #fff" : "1px solid rgba(0,0,0,0.2)",
-                    boxShadow: bannerColor === p.c ? `0 0 0 2px ${p.c}` : "none",
-                    background: p.c, cursor: "pointer", padding: 0,
-                  }}
-                />
-              ))}
-            </div>
-            <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 8, textTransform: "none", letterSpacing: 0, fontWeight: 600, cursor: "pointer" }}>
-              <input type="checkbox" checked={bannerEnabled} onChange={(e) => setBannerEnabled(e.target.checked)} />
-              {tr(isAr, "Show banner on the site", "إظهار الشريط على الموقع")}
-            </label>
-            {/* Live preview */}
-            <div style={{ marginTop: 14, borderRadius: 8, overflow: "hidden", border: "1px solid rgba(var(--border-rgb),0.15)" }}>
-              <div style={{ background: bannerColor || "#146C94", color: "#fff", padding: "10px 12px", fontSize: 14, display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ flex: 1 }}>{bannerMessage.trim() || tr(isAr, "Preview…", "معاينة…")}</span>
-                <span style={{ opacity: 0.7 }}>×</span>
-              </div>
-            </div>
-            {bannerMsg && (
-              <div style={{ marginTop: 10, fontSize: 13, color: bannerMsg.includes("fail") || bannerMsg.includes("فشل") ? "var(--danger)" : "var(--success)" }}>
-                {bannerMsg}
-              </div>
-            )}
-            <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
-              <button type="submit" disabled={bannerSaving} style={{ ...primaryBtnStyle, marginTop: 0, width: "auto", padding: "10px 18px", opacity: bannerSaving ? 0.7 : 1 }}>
-                {bannerSaving ? <LoaderIcon size={16} /> : null}
-                {tr(isAr, "Save announcement", "حفظ الإعلان")}
-              </button>
-              <button type="button" onClick={clearBanner} disabled={bannerSaving} style={{ padding: "10px 14px", fontSize: 14, fontWeight: 600, color: "var(--danger)", background: "none", border: "1px solid var(--danger-border, rgba(179,38,30,0.35))", borderRadius: 8, cursor: "pointer" }}>
-                {tr(isAr, "Clear", "إزالة")}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {mode === "broadcast" && (
-          <form onSubmit={sendBroadcast} style={{ marginTop: 12 }}>
-            <p style={{ fontSize: 13, color: "var(--muted-strong)", margin: "0 0 12px" }}>
-              {tr(isAr, "Sends a real push notification to every user who turned on study reminders (and allowed notifications). Users without a subscription won't receive it.", "بيبعت إشعار حقيقي لكل مستخدم فعّل تذكير المذاكرة وسمح بالإشعارات. اللي مفيش عنده اشتراك مش هيوصله.")}
-            </p>
-            <label style={labelStyle} htmlFor="push-title">{tr(isAr, "Title", "العنوان")}</label>
-            <input id="push-title" value={pushTitle} onChange={(e) => setPushTitle(e.target.value)} maxLength={120}
-              placeholder={tr(isAr, "e.g. New words added", "مثال: كلمات جديدة اتضافت")}
-              style={inputStyle} />
-            <label style={labelStyle} htmlFor="push-body">{tr(isAr, "Message", "الرسالة")}</label>
-            <textarea id="push-body" value={pushBody} onChange={(e) => setPushBody(e.target.value)} maxLength={300} rows={3}
-              placeholder={tr(isAr, "Optional body text…", "نص اختياري…")}
-              style={{ ...inputStyle, resize: "vertical", minHeight: 72 }} />
-            {pushResult && (
-              <div style={{ marginTop: 10, fontSize: 13, color: pushResult.toLowerCase().includes("fail") || pushResult.includes("فشل") || pushResult.includes("error") || pushResult.includes("خطأ") || pushResult.includes("authorized") ? "var(--danger)" : "var(--success)" }}>
-                {pushResult}
-              </div>
-            )}
-            <button type="submit" disabled={pushSending || (!pushTitle.trim() && !pushBody.trim())}
-              style={{ ...primaryBtnStyle, opacity: pushSending || (!pushTitle.trim() && !pushBody.trim()) ? 0.6 : 1 }}>
-              {pushSending ? <LoaderIcon size={16} /> : null}
-              {tr(isAr, "Send to everyone", "إرسال للجميع")}
-            </button>
-          </form>
-        )}
       </div>
     </div>
   );

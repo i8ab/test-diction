@@ -24,6 +24,15 @@ const BG_PRESETS = [
   { id: "plum", label: { en: "Plum", ar: "برقوق" }, value: "linear-gradient(160deg, #4c1d95 0%, #6d28d9 45%, #7c3aed 100%)" },
   { id: "slate", label: { en: "Slate", ar: "رمادي" }, value: "linear-gradient(160deg, #1e293b 0%, #334155 50%, #475569 100%)" },
   { id: "rose", label: { en: "Rose", ar: "وردي" }, value: "linear-gradient(160deg, #881337 0%, #be123c 45%, #e11d48 100%)" },
+  // Nature-inspired gradients
+  { id: "meadow", label: { en: "Meadow", ar: "مروج" }, value: "linear-gradient(165deg, #86efac 0%, #4ade80 35%, #22c55e 70%, #15803d 100%)" },
+  { id: "mountain", label: { en: "Mountains", ar: "جبال" }, value: "linear-gradient(180deg, #bfdbfe 0%, #93c5fd 25%, #64748b 55%, #334155 100%)" },
+  { id: "desert", label: { en: "Desert", ar: "صحراء" }, value: "linear-gradient(160deg, #fde68a 0%, #fbbf24 40%, #d97706 75%, #92400e 100%)" },
+  { id: "aurora", label: { en: "Aurora", ar: "شفق" }, value: "linear-gradient(145deg, #0f172a 0%, #14532d 30%, #0e7490 60%, #4c1d95 100%)" },
+  { id: "lake", label: { en: "Lake", ar: "بحيرة" }, value: "linear-gradient(170deg, #e0f2fe 0%, #7dd3fc 40%, #0ea5e9 75%, #0369a1 100%)" },
+  { id: "sky", label: { en: "Open sky", ar: "سماء" }, value: "linear-gradient(180deg, #38bdf8 0%, #7dd3fc 40%, #bae6fd 70%, #f0f9ff 100%)" },
+  { id: "night", label: { en: "Starry night", ar: "ليلة نجوم" }, value: "linear-gradient(160deg, #020617 0%, #1e1b4b 45%, #312e81 80%, #0f172a 100%)" },
+  { id: "mist", label: { en: "Morning mist", ar: "ضباب الصباح" }, value: "linear-gradient(160deg, #f1f5f9 0%, #cbd5e1 40%, #94a3b8 70%, #64748b 100%)" },
 ];
 
 const DEFAULT_PREFS = {
@@ -45,6 +54,10 @@ const ALARM_SOUNDS = [
   { id: "bell", en: "Bell", ar: "جرس" },
   { id: "digital", en: "Digital", ar: "رقمي" },
   { id: "soft", en: "Soft pulse", ar: "نبضة هادئة" },
+  { id: "temple", en: "Temple", ar: "معبد" },
+  { id: "xylophone", en: "Xylophone", ar: "زيلوفون" },
+  { id: "rising", en: "Rising tone", ar: "نغمة صاعدة" },
+  { id: "double", en: "Double ding", ar: "رنين مزدوج" },
   { id: "off", en: "Silent", ar: "صامت" },
 ];
 
@@ -55,6 +68,11 @@ const AMBIENT_SOUNDS = [
   { id: "waves", en: "Waves", ar: "أمواج" },
   { id: "focus", en: "Focus drone", ar: "تركيز" },
   { id: "tick", en: "Clock tick", ar: "تكتكة ساعة" },
+  { id: "birds", en: "Birds", ar: "طيور" },
+  { id: "wind", en: "Wind", ar: "رياح" },
+  { id: "fire", en: "Campfire", ar: "نار مخيم" },
+  { id: "stream", en: "Stream", ar: "جدول ماء" },
+  { id: "night", en: "Night insects", ar: "ليل" },
 ];
 
 function loadPrefs() {
@@ -168,6 +186,19 @@ function playAlarmSound(alarmId, volume = 0.7) {
       for (let i = 0; i < 4; i++) tone(ctx, { freq: 1200 - i * 80, type: "sawtooth", start: t0 + i * 0.18, dur: 0.12, gain: v * 0.7 });
     } else if (alarmId === "soft") {
       for (let i = 0; i < 2; i++) tone(ctx, { freq: 520, type: "sine", start: t0 + i * 0.55, dur: 0.45, gain: v * 0.6, freqEnd: 380 });
+    } else if (alarmId === "temple") {
+      tone(ctx, { freq: 220, type: "sine", start: t0, dur: 1.8, gain: v * 0.9, freqEnd: 110 });
+      tone(ctx, { freq: 330, type: "triangle", start: t0 + 0.05, dur: 1.5, gain: v * 0.45, freqEnd: 165 });
+      tone(ctx, { freq: 440, type: "sine", start: t0 + 0.1, dur: 1.2, gain: v * 0.25, freqEnd: 220 });
+    } else if (alarmId === "xylophone") {
+      const notes = [523, 659, 784, 1047];
+      notes.forEach((f, i) => tone(ctx, { freq: f, type: "triangle", start: t0 + i * 0.14, dur: 0.35, gain: v * 0.75, freqEnd: f * 0.85 }));
+    } else if (alarmId === "rising") {
+      tone(ctx, { freq: 300, type: "sine", start: t0, dur: 1.4, gain: v * 0.8, freqEnd: 900 });
+      tone(ctx, { freq: 450, type: "triangle", start: t0 + 0.15, dur: 1.2, gain: v * 0.4, freqEnd: 1100 });
+    } else if (alarmId === "double") {
+      tone(ctx, { freq: 880, type: "sine", start: t0, dur: 0.25, gain: v });
+      tone(ctx, { freq: 880, type: "sine", start: t0 + 0.32, dur: 0.45, gain: v * 0.9, freqEnd: 660 });
     } else {
       // chime default
       tone(ctx, { freq: 784, type: "sine", start: t0, dur: 0.35, gain: v });
@@ -223,6 +254,66 @@ function createAmbientNode(ctx, ambientId, volume) {
       timerId = setTimeout(tick, 1000);
     };
     let timerId = setTimeout(tick, 400);
+    stopFns.push(() => { cancelled = true; clearTimeout(timerId); });
+  } else if (ambientId === "birds") {
+    let cancelled = false;
+    const chirp = () => {
+      if (cancelled) return;
+      const f = 1800 + Math.random() * 1200;
+      tone(ctx, { freq: f, type: "sine", start: ctx.currentTime, dur: 0.08, gain: master.gain.value * 0.55, freqEnd: f * 1.3 });
+      tone(ctx, { freq: f * 1.2, type: "sine", start: ctx.currentTime + 0.09, dur: 0.07, gain: master.gain.value * 0.35, freqEnd: f });
+      timerId = setTimeout(chirp, 900 + Math.random() * 2200);
+    };
+    let timerId = setTimeout(chirp, 500);
+    stopFns.push(() => { cancelled = true; clearTimeout(timerId); });
+  } else if (ambientId === "wind" || ambientId === "stream") {
+    const bufferSize = 2 * ctx.sampleRate;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = ambientId === "wind" ? 550 : 900;
+    filter.Q.value = 0.4;
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = ambientId === "wind" ? 0.12 : 0.35;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = ambientId === "wind" ? 180 : 120;
+    lfo.connect(lfoGain);
+    lfoGain.connect(filter.frequency);
+    src.connect(filter);
+    filter.connect(master);
+    src.start();
+    lfo.start();
+    stopFns.push(() => { try { src.stop(); lfo.stop(); } catch {} });
+  } else if (ambientId === "fire") {
+    const bufferSize = 2 * ctx.sampleRate;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.7;
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 400;
+    filter.Q.value = 0.6;
+    src.connect(filter);
+    filter.connect(master);
+    src.start();
+    stopFns.push(() => { try { src.stop(); } catch {} });
+  } else if (ambientId === "night") {
+    let cancelled = false;
+    const chirp = () => {
+      if (cancelled) return;
+      const f = 2800 + Math.random() * 900;
+      tone(ctx, { freq: f, type: "sine", start: ctx.currentTime, dur: 0.05, gain: master.gain.value * 0.25, freqEnd: f * 0.7 });
+      timerId = setTimeout(chirp, 400 + Math.random() * 900);
+    };
+    let timerId = setTimeout(chirp, 300);
     stopFns.push(() => { cancelled = true; clearTimeout(timerId); });
   }
 

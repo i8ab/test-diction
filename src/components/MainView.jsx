@@ -817,8 +817,6 @@ export default function MainView({
             onAdd={onAdminAddAccount}
             onEdit={onAdminEditAccount}
             onDelete={onAdminDeleteAccount}
-            siteBanner={siteBanner}
-            onPersistSiteBanner={onPersistSiteBanner}
             isAr={isAr}
           />
         )}

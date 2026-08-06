@@ -70,6 +70,33 @@ export default async function handler(req, res) {
       if (!subscription || !subscription.endpoint) {
         return res.status(400).json({ error: "Missing code or subscription." });
       }
+
+      // One physical browser/device has one push endpoint. If that endpoint
+      // was previously saved under a *different* account code (user switched
+      // accounts on the same phone and turned reminders on again), strip the
+      // stale ownership so broadcast/cron don't send the same notification
+      // twice to one device.
+      try {
+        const allCodes = (await redisCommand("SMEMBERS", CODES_SET_KEY)) || [];
+        for (const other of allCodes) {
+          if (!other || other === code) continue;
+          const raw = await redisCommand("GET", `${KEY_PREFIX}${other}`);
+          if (!raw) continue;
+          let parsed;
+          try {
+            parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+          } catch (_) {
+            continue;
+          }
+          if (parsed && parsed.endpoint === subscription.endpoint) {
+            await redisCommand("DEL", `${KEY_PREFIX}${other}`);
+            await redisCommand("SREM", CODES_SET_KEY, other);
+          }
+        }
+      } catch (_) {
+        // Best-effort cleanup — still save the new subscription below.
+      }
+
       await redisCommand("SET", `${KEY_PREFIX}${code}`, JSON.stringify(subscription));
       await redisCommand("SADD", CODES_SET_KEY, code);
       return res.status(200).json({ ok: true, prefs });

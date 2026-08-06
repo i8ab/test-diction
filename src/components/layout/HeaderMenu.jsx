@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
 import { ACCENT_THEMES } from "../../lib/state/storage";
 import {
-  UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon, CheckIcon, TrashIcon, LayersIcon, LoaderIcon,
+  UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon, CheckIcon, TrashIcon, LayersIcon, LoaderIcon, SettingsIcon,
 } from "../common/Icons";
 
 export default function HeaderMenu({
@@ -23,6 +23,7 @@ export default function HeaderMenu({
   const [notifOpen, setNotifOpen] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [busyCode, setBusyCode] = useState(null);
   const ref = useRef(null);
 
@@ -30,6 +31,9 @@ export default function HeaderMenu({
   const [bannerMessage, setBannerMessage] = useState("");
   const [bannerColor, setBannerColor] = useState("#146C94");
   const [bannerEnabled, setBannerEnabled] = useState(false);
+  const [bannerShine, setBannerShine] = useState(40);
+  const [bannerSpeed, setBannerSpeed] = useState(1);
+  const [bannerDurationHours, setBannerDurationHours] = useState(0);
   const [bannerSaving, setBannerSaving] = useState(false);
   const [bannerMsg, setBannerMsg] = useState("");
 
@@ -48,13 +52,25 @@ export default function HeaderMenu({
     setBannerMessage(b.message || "");
     setBannerColor(b.color || "#146C94");
     setBannerEnabled(!!b.enabled);
+    setBannerShine(typeof b.shine === "number" ? b.shine : 40);
+    setBannerSpeed(typeof b.speed === "number" ? b.speed : 1);
+    setBannerDurationHours(typeof b.durationHours === "number" ? b.durationHours : 0);
     setBannerMsg("");
   }, [bannerOpen, siteBanner]);
 
   function closeMenu() {
     setOpen(false);
-    setNotifOpen(false);
     setRequestsOpen(false);
+  }
+
+  function openSettings() {
+    closeMenu();
+    setSettingsOpen(true);
+  }
+
+  function closeSettings() {
+    setSettingsOpen(false);
+    setNotifOpen(false);
     setBannerOpen(false);
   }
 
@@ -69,6 +85,13 @@ export default function HeaderMenu({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    function onKeyDown(e) { if (e.key === "Escape") closeSettings(); }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [settingsOpen]);
 
   function itemClick(fn) { fn(); }
 
@@ -123,10 +146,22 @@ export default function HeaderMenu({
       color: bannerColor || "#146C94",
       enabled: !!bannerEnabled && !!msg,
       updatedAt: Date.now(),
+      shine: Math.max(0, Math.min(100, Number(bannerShine) || 0)),
+      speed: Math.max(0.4, Math.min(2, Number(bannerSpeed) || 1)),
+      durationHours: Math.max(0, Math.min(720, Number(bannerDurationHours) || 0)),
     };
-    // Keep same id if message+color unchanged so dismissed users stay dismissed
-    if (siteBanner && siteBanner.message === msg && siteBanner.color === next.color && siteBanner.id) {
+    // Keep same id if content unchanged so dismissed users stay dismissed
+    if (
+      siteBanner &&
+      siteBanner.message === msg &&
+      siteBanner.color === next.color &&
+      siteBanner.shine === next.shine &&
+      siteBanner.speed === next.speed &&
+      siteBanner.durationHours === next.durationHours &&
+      siteBanner.id
+    ) {
       next.id = siteBanner.id;
+      next.updatedAt = siteBanner.updatedAt || next.updatedAt;
     }
     const result = await onPersistSiteBanner(next.enabled ? next : { ...next, enabled: false, message: msg });
     setBannerSaving(false);
@@ -240,10 +275,10 @@ export default function HeaderMenu({
             </div>
             <div style={{ overflowY: "auto", overflowX: "hidden", maxHeight: "min(480px, calc(100dvh - 100px))", overscrollBehavior: "contain", padding: "0 6px 6px", display: "flex", flexDirection: "column", gap: 1 }}>
               <Row
-                tint="#f5a623"
-                icon={theme === "dark" ? <SunIcon size={14} /> : <MoonIcon size={14} />}
-                label={theme === "dark" ? tr(isAr, "Light Mode", "الوضع الفاتح") : tr(isAr, "Dark Mode", "الوضع الداكن")}
-                onClick={onToggleTheme}
+                tint="#64748b"
+                icon={<SettingsIcon size={14} />}
+                label={tr(isAr, "Settings", "الإعدادات")}
+                onClick={openSettings}
               />
 
               {/* ========== New account requests (admins) ========== */}
@@ -314,6 +349,67 @@ export default function HeaderMenu({
                   )}
                 </div>
               )}
+
+              <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 2, paddingTop: 1 }}>
+                <Row tint="#5b8def" icon={<UserIcon size={14} />} label={tr(isAr, "My Account", "حسابي")} onClick={onOpenAccount} />
+                {isAdmin && (
+                  <Row tint="#af52de" icon={<UsersIcon size={14} />} label={tr(isAr, "Admin Panel", "لوحة التحكم")} onClick={onOpenAdmin} />
+                )}
+                <Row danger tint="var(--danger)" icon={<LogoutIcon size={14} />} label={tr(isAr, "Sign Out", "تسجيل الخروج")} onClick={onLogout} />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {settingsOpen && (
+        <div
+          onClick={closeSettings}
+          className="modal-backdrop"
+          style={{
+            position: "fixed", inset: 0, zIndex: 2500,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-modal-title"
+            className="modal-card"
+            style={{
+              width: "100%", maxWidth: "min(440px, 100%)",
+              maxHeight: "min(90dvh, 820px)", overflowY: "auto",
+              background: "var(--card)", color: "var(--ink)",
+              border: "1px solid rgba(var(--border-rgb),0.14)",
+              borderRadius: 16,
+              padding: "clamp(14px, 3vw, 22px)",
+              boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <h2 id="settings-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: "var(--ink)" }}>
+                {tr(isAr, "Settings", "الإعدادات")}
+              </h2>
+              <button
+                type="button"
+                onClick={closeSettings}
+                aria-label={tr(isAr, "Close", "إغلاق")}
+                style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", minWidth: 36, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <XIcon size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <Row
+                tint="#f5a623"
+                icon={theme === "dark" ? <SunIcon size={14} /> : <MoonIcon size={14} />}
+                label={theme === "dark" ? tr(isAr, "Light Mode", "الوضع الفاتح") : tr(isAr, "Dark Mode", "الوضع الداكن")}
+                onClick={onToggleTheme}
+              />
 
               {/* ========== Notifications section ========== */}
               {(onEnableReminders || onDisableReminders) && (
@@ -601,18 +697,73 @@ export default function HeaderMenu({
                           }} />
                         </span>
                       </button>
-                      {/* Live preview — matches real banner (bold + centered) */}
-                      <div style={{ borderRadius: 8, overflow: "hidden", border: "1px solid rgba(var(--border-rgb),0.15)" }}>
+
+                      <div>
+                        <label style={fieldLabel}>
+                          {tr(isAr, "Shine", "اللمعان")} — {bannerShine}%
+                        </label>
+                        <input
+                          type="range" min={0} max={100} step={5}
+                          value={bannerShine}
+                          onChange={(e) => setBannerShine(Number(e.target.value))}
+                          style={{ width: "100%", accentColor: "var(--accent-1)" }}
+                        />
+                      </div>
+                      <div>
+                        <label style={fieldLabel}>
+                          {tr(isAr, "Motion speed", "سرعة الحركة")} — {bannerSpeed.toFixed(1)}×
+                        </label>
+                        <input
+                          type="range" min={0.4} max={2} step={0.1}
+                          value={bannerSpeed}
+                          onChange={(e) => setBannerSpeed(Number(e.target.value))}
+                          style={{ width: "100%", accentColor: "var(--accent-1)" }}
+                        />
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, color: "var(--muted)", marginTop: 2 }}>
+                          <span>{tr(isAr, "Slow", "بطيء")}</span>
+                          <span>{tr(isAr, "Fast", "سريع")}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={fieldLabel}>
+                          {tr(isAr, "Stay on site", "مدة الظهور")}
+                        </label>
+                        <select
+                          value={String(bannerDurationHours)}
+                          onChange={(e) => setBannerDurationHours(Number(e.target.value))}
+                          style={{ ...fieldInput, cursor: "pointer" }}
+                        >
+                          <option value="0">{tr(isAr, "Until turned off", "لحد ما يتقفل")}</option>
+                          <option value="1">{tr(isAr, "1 hour", "ساعة واحدة")}</option>
+                          <option value="6">{tr(isAr, "6 hours", "٦ ساعات")}</option>
+                          <option value="12">{tr(isAr, "12 hours", "١٢ ساعة")}</option>
+                          <option value="24">{tr(isAr, "1 day", "يوم")}</option>
+                          <option value="72">{tr(isAr, "3 days", "٣ أيام")}</option>
+                          <option value="168">{tr(isAr, "1 week", "أسبوع")}</option>
+                        </select>
+                      </div>
+
+                      {/* Live preview — bold + centered + soft shine */}
+                      <div style={{ borderRadius: 8, overflow: "hidden", border: "1px solid rgba(var(--border-rgb),0.15)", position: "relative" }}>
                         <div style={{
                           background: bannerColor || "#146C94", color: "#fff",
                           padding: "10px 12px", fontSize: 14, fontWeight: 700,
                           display: "flex", alignItems: "center", gap: 8, textAlign: "center",
+                          position: "relative", overflow: "hidden",
                         }}>
+                          {bannerShine > 0 && (
+                            <span aria-hidden="true" style={{
+                              position: "absolute", inset: 0, pointerEvents: "none",
+                              background: `linear-gradient(105deg, transparent 30%, rgba(255,255,255,${Math.min(0.55, (bannerShine / 100) * 0.55)}) 50%, transparent 70%)`,
+                              backgroundSize: "200% 100%",
+                              animation: `siteBannerShimmer ${(4.5 / Math.max(0.4, bannerSpeed)).toFixed(2)}s ease-in-out infinite`,
+                            }} />
+                          )}
                           <span style={{ width: 18, flexShrink: 0 }} />
-                          <span style={{ flex: 1, textAlign: "center", fontWeight: 700 }}>
+                          <span style={{ flex: 1, textAlign: "center", fontWeight: 700, position: "relative" }}>
                             {bannerMessage.trim() || tr(isAr, "Preview…", "معاينة…")}
                           </span>
-                          <span style={{ opacity: 0.7, width: 18, textAlign: "center" }}>×</span>
+                          <span style={{ opacity: 0.7, width: 18, textAlign: "center", position: "relative" }}>×</span>
                         </div>
                       </div>
                       {bannerMsg && (
@@ -678,16 +829,10 @@ export default function HeaderMenu({
                   </div>
                 </div>
               )}
-              <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 2, paddingTop: 1 }}>
-                <Row tint="#5b8def" icon={<UserIcon size={14} />} label={tr(isAr, "My Account", "حسابي")} onClick={onOpenAccount} />
-                {isAdmin && (
-                  <Row tint="#af52de" icon={<UsersIcon size={14} />} label={tr(isAr, "Admin Panel", "لوحة التحكم")} onClick={onOpenAdmin} />
-                )}
-                <Row danger tint="var(--danger)" icon={<LogoutIcon size={14} />} label={tr(isAr, "Sign Out", "تسجيل الخروج")} onClick={onLogout} />
-              </div>
+
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

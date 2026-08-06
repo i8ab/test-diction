@@ -24,6 +24,8 @@ export function generatePersonalCode() {
    login screen shows up again on demand.
    ========================================================================= */
 export const SESSION_KEY = "twoTongues.personalCode";
+// Single-device session: cloud account.sessionId must match this, or we sign out.
+export const SESSION_ID_KEY = "twoTongues.sessionId";
 export const THEME_KEY = "twoTongues.theme";
 export const ACCENT_KEY = "twoTongues.accent";
 
@@ -184,7 +186,29 @@ export function loadPersonalCode() {
 export function clearPersonalCode() {
   try {
     localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_ID_KEY);
   } catch (e) {}
+}
+
+export function saveSessionId(id) {
+  try {
+    if (id) localStorage.setItem(SESSION_ID_KEY, id);
+    else localStorage.removeItem(SESSION_ID_KEY);
+  } catch (e) {}
+}
+
+export function loadSessionId() {
+  try {
+    const id = localStorage.getItem(SESSION_ID_KEY);
+    return id && id.trim() ? id.trim() : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** Generate a unique session token for single-device login enforcement. */
+export function generateSessionId() {
+  return `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 // follows the device's own system language, not whichever section (EN→AR /

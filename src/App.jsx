@@ -5,6 +5,7 @@ import {
   loadSavedAccent, saveAccent, applyAccentTheme, ACCENT_THEMES, THEME_KEY,
   loadSearchHistory, saveSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory,
   saveOfflineCache, loadOfflineCache, loadSavedTheme, savePersonalCode, loadPersonalCode, clearPersonalCode,
+  saveSessionId, loadSessionId, generateSessionId,
   generatePersonalCode, detectDeviceIsAr, hasInviteParam,
 } from "./lib/state/storage";
 import {
@@ -383,11 +384,46 @@ export default function DictionaryApp() {
             } catch (e2) { /* fall through */ }
           }
           if (account && account.status !== "pending" && account.status !== "rejected") {
-            setName(account.name);
-            setIsAdmin(account.role === "admin");
-            setAccountCode(account.code);
-            setAuthStage("in");
-            syncBaseHistory("in");
+            // Single-device session: if the cloud has a sessionId and it doesn't
+            // match this device, someone else signed in → force login screen.
+            const localSid = loadSessionId();
+            if (account.sessionId && localSid && account.sessionId !== localSid) {
+              clearPersonalCode();
+              setAuthStage("login");
+              syncBaseHistory("login");
+            } else if (account.sessionId && !localSid) {
+              // Cloud session exists but this device never got one → kicked.
+              clearPersonalCode();
+              setAuthStage("login");
+              syncBaseHistory("login");
+            } else {
+              setName(account.name);
+              setIsAdmin(account.role === "admin");
+              setAccountCode(account.code);
+              setAuthStage("in");
+              syncBaseHistory("in");
+              // Legacy accounts with no sessionId yet: claim one so the next
+              // login elsewhere can invalidate this device.
+              if (!account.sessionId) {
+                const sid = generateSessionId();
+                saveSessionId(sid);
+                const nextAccounts = rec.accounts.map((a) =>
+                  a.code === account.code ? { ...a, sessionId: sid, sessionAt: Date.now() } : a
+                );
+                try {
+                  const newVersion = await saveRecord(
+                    { entries: rec.entries, accounts: nextAccounts, logs: rec.logs, siteBanner: rec.siteBanner || null },
+                    rec.version || 0
+                  );
+                  setAccounts(nextAccounts);
+                  setRecordVersion(newVersion);
+                } catch (_) {
+                  setAccounts(nextAccounts);
+                }
+              } else if (localSid) {
+                saveSessionId(localSid);
+              }
+            }
           } else {
             clearPersonalCode();
             setAuthStage("login");
@@ -930,6 +966,21 @@ export default function DictionaryApp() {
     savePersonalCode(account.code);
     setPasswordInput("");
 
+    // New session token — invalidates any other device still holding the old one.
+    const sid = generateSessionId();
+    saveSessionId(sid);
+    const withSession = curAccounts.map((a) =>
+      a.code === account.code
+        ? {
+            ...a,
+            sessionId: sid,
+            sessionAt: Date.now(),
+            ...(a.role !== "admin" && !a.firstSignInAt ? { firstSignInAt: Date.now() } : {}),
+          }
+        : a
+    );
+    curAccounts = withSession;
+
     if (account.role !== "admin") {
       const isFirstSignIn = !account.firstSignInAt;
       const logEntry = makeLogEntry(
@@ -940,13 +991,13 @@ export default function DictionaryApp() {
         account.name,
         account.code
       );
-      if (isFirstSignIn) {
-        const nextAccounts = curAccounts.map((a) =>
-          a.code === account.code ? { ...a, firstSignInAt: Date.now() } : a
-        );
-        await persistAccounts(nextAccounts, logEntry);
-      } else {
-        await persistLogs(capLogs([...logs, logEntry]));
+      await persistAccounts(withSession, logEntry);
+    } else {
+      // Admins still need the sessionId written so other devices get kicked.
+      try {
+        await persistAccounts(withSession, null);
+      } catch (_) {
+        setAccounts(withSession);
       }
     }
     goToStage("in");
@@ -969,6 +1020,48 @@ export default function DictionaryApp() {
     setShowAdmin(false);
     goToStage("login");
   }
+
+  // While signed in: periodically re-check that this device still owns the
+  // account session. If the same account signed in elsewhere, kick this tab.
+  useEffect(() => {
+    if (authStage !== "in" || !accountCode) return;
+    let cancelled = false;
+
+    async function checkSession() {
+      try {
+        const rec = await fetchRecord({ fresh: true });
+        if (cancelled) return;
+        if (rec.accounts) setAccounts(rec.accounts);
+        if (rec.siteBanner !== undefined) setSiteBanner(rec.siteBanner || null);
+        if (typeof rec.version === "number") setRecordVersion(rec.version);
+        const account = (rec.accounts || []).find((a) => a.code === accountCode);
+        if (!account || account.status === "pending" || account.status === "rejected") {
+          handleLogout();
+          return;
+        }
+        const localSid = loadSessionId();
+        if (account.sessionId && localSid && account.sessionId !== localSid) {
+          handleLogout();
+        } else if (account.sessionId && !localSid) {
+          handleLogout();
+        }
+      } catch (_) {
+        // Offline — don't kick the user just because the network dropped.
+      }
+    }
+
+    const onFocus = () => checkSession();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") checkSession();
+    });
+    const interval = setInterval(checkSession, 45000);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+      clearInterval(interval);
+    };
+  }, [authStage, accountCode]);
 
   async function handleUpdateOwnAccount({ name: newName, password: newPassword }) {
     const trimmed = (newName || "").trim();

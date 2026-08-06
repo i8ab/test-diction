@@ -10,6 +10,11 @@
 // Verifies the caller is an admin by looking up adminCode in the shared
 // JSONBin accounts list. No shared secret beyond that — anyone who knows an
 // admin personal code can already do everything in the Admin panel.
+//
+// IMPORTANT — endpoint dedup: the same browser/device can end up registered
+// under several account codes (user switched accounts, re-enabled reminders,
+// etc.). Without dedup, one physical device would receive the broadcast once
+// per code that points at its push endpoint → double/triple notifications.
 
 import { redisConfigured, redisCommand } from "../lib/redis.js";
 import { sendPush, vapidConfigured } from "../lib/webpush.js";
@@ -67,13 +72,18 @@ export default async function handler(req, res) {
       return res.status(200).json({ sent: 0, skipped: 0, expired: 0, message: "No push subscriptions." });
     }
 
+    const tag = `broadcast-${Date.now().toString(36)}`;
     const payload = {
       title: title || "Two Tongues",
       body: notifBody || "",
       url: "/",
+      tag, // service worker uses this so OS collapses duplicates
     };
 
     let sent = 0, skipped = 0, expired = 0;
+    // One send per unique push endpoint — same device under multiple account
+    // codes must only ring once.
+    const seenEndpoints = new Set();
 
     for (const code of codes) {
       const subRaw = await redisCommand("GET", `${SUB_PREFIX}${code}`);
@@ -85,6 +95,17 @@ export default async function handler(req, res) {
         skipped++;
         continue;
       }
+
+      const endpoint = subscription && subscription.endpoint;
+      if (!endpoint) { skipped++; continue; }
+      if (seenEndpoints.has(endpoint)) {
+        // Same browser already queued for this broadcast — skip the duplicate
+        // account-code row. Leave Redis as-is (subscribe path cleans stale
+        // ownership); we just don't send twice.
+        skipped++;
+        continue;
+      }
+      seenEndpoints.add(endpoint);
 
       const result = await sendPush(subscription, payload);
       if (result.ok) {

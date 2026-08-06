@@ -111,11 +111,18 @@ self.addEventListener("push", (event) => {
   } catch (e) {
     // payload wasn't JSON — fall back to the defaults above
   }
+  // `tag` collapses duplicate notifications with the same tag into one
+  // (replaces the previous). Broadcasts send a shared tag; without it, a
+  // device that was registered under two account codes would show two
+  // identical banners for one "Notify all".
+  const tag = data.tag || `tt-${(data.title || "").slice(0, 40)}|${(data.body || "").slice(0, 80)}`;
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
+      tag,
+      renotify: false,
       data: { url: data.url || "/" },
     })
   );

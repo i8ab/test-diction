@@ -120,6 +120,8 @@ export default async function handler(req, res) {
     const now = Date.now();
 
     let sent = 0, skipped = 0, expired = 0;
+    // Same device under multiple account codes → only one push per endpoint.
+    const seenEndpoints = new Set();
 
     for (const code of codes) {
       const account = accounts.find((a) => a.code === code);
@@ -139,7 +141,21 @@ export default async function handler(req, res) {
 
       const subRaw = await redisCommand("GET", `${SUB_PREFIX}${code}`);
       if (!subRaw) { skipped++; continue; }
-      const subscription = typeof subRaw === "string" ? JSON.parse(subRaw) : subRaw;
+      let subscription;
+      try {
+        subscription = typeof subRaw === "string" ? JSON.parse(subRaw) : subRaw;
+      } catch (_) {
+        skipped++;
+        continue;
+      }
+
+      const endpoint = subscription && subscription.endpoint;
+      if (!endpoint) { skipped++; continue; }
+      if (seenEndpoints.has(endpoint)) {
+        skipped++;
+        continue;
+      }
+      seenEndpoints.add(endpoint);
 
       const studiedAt = account.studiedAt || {};
       const values = Object.values(studiedAt);
@@ -154,7 +170,12 @@ export default async function handler(req, res) {
           : DEFAULT_BODY_TEMPLATE(Math.max(1, daysSince || 1));
       }
 
-      const payload = { title, body, url: "/" };
+      const payload = {
+        title,
+        body,
+        url: "/",
+        tag: `reminder-${code}`,
+      };
 
       const result = await sendPush(subscription, payload);
       if (result.ok) {

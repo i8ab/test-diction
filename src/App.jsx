@@ -10,7 +10,7 @@ import {
   loadAppLang, saveAppLang,
 } from "./lib/state/storage";
 import {
-  validateUsername, validatePassword, hashPassword, verifyPassword, migrateAccounts, normalizeUsername,
+  validateUsername, validatePassword, hashPassword, verifyPassword, verifyPasswordDetailed, migrateAccounts, normalizeUsername,
 } from "./lib/utils/authUtils";
 import { SRS_LEVEL_INTERVALS_MS, srsLevelFromStats, computeStreak } from "./lib/utils/quizHelpers";
 import { evaluateAchievements } from "./lib/state/achievements";
@@ -991,7 +991,27 @@ export default function DictionaryApp() {
     let passwordOk = false;
     try {
       if (account.passwordHash) {
-        passwordOk = await verifyPassword(passwordInput, account.code, account.passwordHash);
+        const result = await verifyPasswordDetailed(passwordInput, account.code, account.passwordHash);
+        passwordOk = result.ok;
+        // If an older hash scheme matched, upgrade to the canonical form so
+        // future logins are fast and consistent.
+        if (result.ok && result.needsUpgrade) {
+          const newHash = await hashPassword(passwordInput, account.code);
+          curAccounts = curAccounts.map((a) =>
+            a.code === account.code ? { ...a, passwordHash: newHash } : a
+          );
+          account = curAccounts.find((a) => a.code === account.code) || account;
+          try {
+            const newVersion = await saveRecord(
+              { entries, accounts: curAccounts, logs, siteBanner },
+              recordVersion
+            );
+            setAccounts(curAccounts);
+            setRecordVersion(newVersion);
+          } catch (e) {
+            setAccounts(curAccounts);
+          }
+        }
       } else {
         // Legacy account: accept the old personal code as a one-time password.
         passwordOk = passwordInput.trim() === String(account.code);

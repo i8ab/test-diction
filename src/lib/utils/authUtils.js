@@ -25,22 +25,68 @@ export function validatePassword(raw) {
 }
 
 async function sha256(text) {
-  const data = new TextEncoder().encode(text);
+  const data = new TextEncoder().encode(String(text));
   const buf = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(buf))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
 
-/** Hash password with personal code as salt */
+/**
+ * Canonical hash: SHA-256 of `${salt}::${password}` (hex).
+ * New signups and password changes always use this form.
+ */
 export async function hashPassword(password, saltCode) {
-  return sha256(`${saltCode}::${password}`);
+  const pw = String(password ?? "");
+  const salt = String(saltCode ?? "");
+  return sha256(`${salt}::${pw}`);
 }
 
+/**
+ * Verify against stored hash. Tries the canonical scheme first, then several
+ * legacy variants that older builds of this app may have used — so a deploy
+ * that rebuilt authUtils doesn't lock existing users out.
+ *
+ * Returns { ok, needsUpgrade } so the caller can re-save the canonical hash.
+ */
 export async function verifyPassword(password, saltCode, expectedHash) {
   if (!expectedHash) return false;
-  const h = await hashPassword(password, saltCode);
-  return h === expectedHash;
+  const result = await verifyPasswordDetailed(password, saltCode, expectedHash);
+  return result.ok;
+}
+
+export async function verifyPasswordDetailed(password, saltCode, expectedHash) {
+  if (!expectedHash) return { ok: false, needsUpgrade: false };
+  const pw = String(password ?? "");
+  const salt = String(saltCode ?? "");
+  const expected = String(expectedHash).toLowerCase().trim();
+
+  // Candidates in priority order (canonical first).
+  const candidates = [
+    `${salt}::${pw}`,
+    `${pw}::${salt}`,
+    `${salt}:${pw}`,
+    `${pw}:${salt}`,
+    `${salt}${pw}`,
+    `${pw}${salt}`,
+    pw, // unsalted
+    `${salt}|${pw}`,
+    `${salt}::${pw.trim()}`,
+    `${salt}::${pw.trim().toLowerCase()}`,
+  ];
+
+  // De-dupe while preserving order
+  const seen = new Set();
+  for (const c of candidates) {
+    if (seen.has(c)) continue;
+    seen.add(c);
+    const h = (await sha256(c)).toLowerCase();
+    if (h === expected) {
+      const canonical = (await hashPassword(pw, salt)).toLowerCase();
+      return { ok: true, needsUpgrade: h !== canonical || String(expectedHash) !== (await hashPassword(pw, salt)) };
+    }
+  }
+  return { ok: false, needsUpgrade: false };
 }
 
 /**

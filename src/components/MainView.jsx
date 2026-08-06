@@ -44,6 +44,9 @@ const TodoPage = lazy(() => import("./todo/TodoPage"));
 const QuickReviewModal = lazy(() => import("./modals/QuickReviewModal"));
 const GoalsPage = lazy(() => import("./goals/GoalsPage"));
 const InfoGuideModal = lazy(() => import("./modals/InfoGuideModal"));
+const DictationModal = lazy(() => import("./modals/DictationModal"));
+const AchievementsModal = lazy(() => import("./modals/AchievementsModal"));
+const RandomWordModal = lazy(() => import("./modals/RandomWordModal"));
 
 
 const TIMER_VIEW_KEY = "twoTongues.timerView";
@@ -209,6 +212,9 @@ export default function MainView({
   const [showGoals, setShowGoals] = useState(() => loadGoalsView().open);
   const [goalsBubble, setGoalsBubble] = useState(() => loadGoalsView().bubble);
   const [showInfoGuide, setShowInfoGuide] = useState(false);
+  const [showDictation, setShowDictation] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
+  const [showRandomWord, setShowRandomWord] = useState(false);
   const [wordNotes, setWordNotes] = useState(() => loadWordNotes(accountCode));
   const searchInputRef = useRef(null);
 
@@ -617,6 +623,7 @@ export default function MainView({
                 focusMode={focusMode}
                 onToggleFocus={() => setFocusMode((v) => !v)}
                 onOpenInfo={() => setShowInfoGuide(true)}
+                onOpenAchievements={() => setShowAchievements(true)}
               />
             </div>
           </div>
@@ -730,6 +737,9 @@ export default function MainView({
               onTodo={() => { setTodoBubble(false); setShowTodo(true); }}
               onGoals={() => { setGoalsBubble(false); setShowGoals(true); }}
               onQuickReview={() => setShowQuickReview(true)}
+              onDictation={() => setShowDictation(true)}
+              onAchievements={() => setShowAchievements(true)}
+              onRandomWord={() => setShowRandomWord(true)}
               onExport={() => exportEntriesAsCsv(filtered.length ? filtered : sectionEntries, cfg, cfg.shortLabel)}
               exportDisabled={sectionEntries.length === 0}
               onImport={() => importInputRef.current && importInputRef.current.click()}
@@ -1054,6 +1064,50 @@ export default function MainView({
           onClose={() => setShowQuickReview(false)}
           onToggleStudied={onToggleStudied}
           onRecordSrsAnswer={onRecordSrsAnswer}
+        />
+      </Suspense>
+    )}
+
+    {showDictation && (
+      <Suspense fallback={null}>
+        <DictationModal
+          entries={sectionEntries}
+          studiedIds={studiedIds}
+          isAr={isAr}
+          onClose={() => setShowDictation(false)}
+          onRecordSrsAnswer={onRecordSrsAnswer}
+          onFinishRound={() => {
+            try {
+              const k = "twoTongues.dictationRounds." + accountCode;
+              const n = Number(localStorage.getItem(k) || 0) + 1;
+              localStorage.setItem(k, String(n));
+            } catch (_) {}
+          }}
+        />
+      </Suspense>
+    )}
+
+    {showAchievements && (
+      <Suspense fallback={null}>
+        <AchievementsModal
+          unlockedIds={(accounts.find((a) => a.code === accountCode) || {}).achievements || []}
+          isAr={isAr}
+          onClose={() => setShowAchievements(false)}
+        />
+      </Suspense>
+    )}
+
+    {showRandomWord && (
+      <Suspense fallback={null}>
+        <RandomWordModal
+          entries={sectionEntries}
+          studiedIds={studiedIds}
+          srsDueAt={srsDueAt}
+          isAr={isAr}
+          section={section}
+          onClose={() => setShowRandomWord(false)}
+          onRecordSrsAnswer={onRecordSrsAnswer}
+          onToggleStudied={onToggleStudied}
         />
       </Suspense>
     )}

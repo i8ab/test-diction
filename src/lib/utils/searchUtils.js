@@ -1,85 +1,69 @@
-// Fuzzy word search, direction/font detection, and A-Z / alef-ya letter-key
-// helpers used by the search box and the letter index.
+// Search, letter keys, and text direction helpers.
 
-const EN_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-const AR_LETTERS = "ابتثجحخدذرزسشصضطظعغفقكلمنهوي".split("");
+export const EN_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+export const AR_LETTERS = [
+  "ا", "ب", "ت", "ث", "ج", "ح", "خ", "د", "ذ", "ر", "ز", "س", "ش",
+  "ص", "ض", "ط", "ظ", "ع", "غ", "ف", "ق", "ك", "ل", "م", "ن", "ه", "و", "ي",
+];
 
-function firstLetterKey(word, section) {
-  if (!word) return "#";
-  const w = word.trim();
-  if (section === "en-ar") {
-    const c = w[0].toUpperCase();
-    return /[A-Z]/.test(c) ? c : "#";
-  } else {
-    const c = w[0];
-    return AR_LETTERS.includes(c) ? c : "#";
+export function firstLetterKey(word, section) {
+  if (!word) return "";
+  const ch = String(word).trim().charAt(0);
+  if (section === "ar-ar" || /[\u0600-\u06FF]/.test(ch)) {
+    // Normalize Arabic alef variants
+    const n = ch.replace(/[أإآٱ]/g, "ا").replace(/[ى]/g, "ي");
+    return n;
   }
+  return ch.toUpperCase();
 }
 
-// Classic edit-distance calculation — used to tolerate small typos in search.
-function levenshtein(a, b) {
-  a = a || ""; b = b || "";
-  const m = a.length, n = b.length;
-  if (m === 0) return n;
-  if (n === 0) return m;
-  const dp = new Array(n + 1);
-  for (let j = 0; j <= n; j++) dp[j] = j;
-  for (let i = 1; i <= m; i++) {
-    let prev = dp[0];
-    dp[0] = i;
-    for (let j = 1; j <= n; j++) {
-      const temp = dp[j];
-      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
-      prev = temp;
-    }
-  }
-  return dp[n];
+function normalizeForSearch(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/[ة]/g, "ه")
+    .replace(/[ى]/g, "ي")
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-// How many typos we tolerate scales with the query length — short queries
-// need to stay strict or everything would match.
-function typoBudget(len) {
-  if (len <= 3) return 0;
-  if (len <= 5) return 1;
-  if (len <= 9) return 2;
-  return 3;
-}
-
-// True if `needle` appears in `haystack` as a substring, OR is a close-enough
-// typo of any whitespace-separated word inside it.
-function fuzzyIncludes(haystack, needle) {
-  const h = (haystack || "").toLowerCase();
-  const n = (needle || "").trim().toLowerCase();
-  if (!n) return false;
+export function fuzzyIncludes(haystack, needle) {
+  const h = normalizeForSearch(haystack);
+  const n = normalizeForSearch(needle);
+  if (!n) return true;
   if (h.includes(n)) return true;
-  const budget = typoBudget(n.length);
-  if (budget === 0) return false;
-  return h.split(/\s+/).some((tok) => Math.abs(tok.length - n.length) <= budget && levenshtein(tok, n) <= budget);
+  // simple subsequence match for typos
+  let i = 0;
+  for (const ch of h) {
+    if (ch === n[i]) i += 1;
+    if (i >= n.length) return true;
+  }
+  return false;
 }
 
-// Scores how well a single word matches the query, for ranking autocomplete
-// suggestions (lower is better; null means "not a match").
-function matchScore(word, needle) {
-  const w = (word || "").toLowerCase();
-  const n = (needle || "").trim().toLowerCase();
-  if (!n) return null;
-  if (w.startsWith(n)) return 0;
-  if (w.includes(n)) return 1;
-  const budget = typoBudget(n.length);
-  if (budget === 0) return null;
-  const dist = levenshtein(w, n);
-  return dist <= budget ? 2 + dist : null;
+export function matchScore(entry, query) {
+  if (!query) return 0;
+  const q = normalizeForSearch(query);
+  const word = normalizeForSearch(entry.word);
+  const meaning = normalizeForSearch(entry.meaning);
+  const def = normalizeForSearch(entry.definition || "");
+  if (word === q) return 100;
+  if (word.startsWith(q)) return 90;
+  if (word.includes(q)) return 70;
+  if (meaning.startsWith(q)) return 60;
+  if (meaning.includes(q)) return 50;
+  if (def.includes(q)) return 30;
+  if (fuzzyIncludes(word, q)) return 25;
+  if (fuzzyIncludes(meaning, q)) return 15;
+  return 0;
 }
 
-function detectDir(text) {
+export function detectDir(text) {
+  if (!text) return "ltr";
   return /[\u0600-\u06FF]/.test(text) ? "rtl" : "ltr";
 }
-function detectFont(text) {
-  return /[\u0600-\u06FF]/.test(text) ? "'Amiri', serif" : "'Source Sans 3', sans-serif";
-}
 
-export {
-  EN_LETTERS, AR_LETTERS, firstLetterKey,
-  levenshtein, typoBudget, fuzzyIncludes, matchScore,
-  detectDir, detectFont,
-};
+export function detectFont(text) {
+  return detectDir(text) === "rtl" ? "'Amiri', serif" : "'Fraunces', serif";
+}

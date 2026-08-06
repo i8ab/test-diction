@@ -4,6 +4,7 @@ import { tr } from "../../lib/config/i18n";
 import {
   MoreIcon, XIcon, TrophyIcon, StatsIcon, QuizIcon, LayersIcon,
   DownloadIcon, UploadIcon, LoaderIcon, ClockIcon, CalendarIcon, CheckIcon, FlameIcon,
+  MicIcon, StarIcon, WandIcon,
 } from "../common/Icons";
 
 // Always a readable list (bottom sheet on narrow screens, anchored panel on desktop).
@@ -29,7 +30,7 @@ function useIsCompact() {
 
 export default function ToolsMenu({
   accent, onLeaderboard, onStats, onQuiz, onFlashcards, onTimer, onCalendar, onTodo,
-  onGoals, onQuickReview,
+  onGoals, onQuickReview, onDictation, onAchievements, onRandomWord,
   onExport, exportDisabled, onImport, importing, isAr,
 }) {
   const [open, setOpen] = useState(false);
@@ -89,8 +90,11 @@ export default function ToolsMenu({
   const items = [
     { key: "leaderboard", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Leaderboard", "الترتيب"), onClick: onLeaderboard },
     { key: "stats", icon: <StatsIcon size={18} />, tint: "#5b8def", label: tr(isAr, "Stats", "إحصائياتي"), onClick: onStats },
+    { key: "achievements", icon: <StarIcon size={18} />, tint: "#f4a261", label: tr(isAr, "Achievements", "الإنجازات"), onClick: onAchievements },
     { key: "quiz", icon: <QuizIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quiz", "اختبار"), onClick: onQuiz },
     { key: "flashcards", icon: <LayersIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Flashcards", "بطاقات تعليمية"), onClick: onFlashcards },
+    { key: "dictation", icon: <MicIcon size={18} />, tint: "#e76f51", label: tr(isAr, "Dictation", "استماع وإملاء"), onClick: onDictation },
+    { key: "random", icon: <WandIcon size={18} />, tint: "#7b2cbf", label: tr(isAr, "Random word", "كلمة عشوائية"), onClick: onRandomWord },
     { key: "timer", icon: <ClockIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Timer", "مؤقّت"), onClick: onTimer },
     { key: "calendar", icon: <CalendarIcon size={18} />, tint: "#e85d04", label: tr(isAr, "Calendar", "التقويم"), onClick: onCalendar },
     { key: "goals", icon: <FlameIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Goals", "الأهداف"), onClick: onGoals },

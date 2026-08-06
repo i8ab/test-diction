@@ -1,26 +1,24 @@
-// Synonym/antonym "pair" normalization — see normalizePairs() for the
-// shapes it accepts and upgrades.
-import { uid } from "./quizHelpers";
+// Synonym / antonym pair list helpers.
 
-function normalizePairs(list, cfg) {
-  if (!Array.isArray(list)) return [];
-  const wordIsLtr = !cfg || cfg.wordDir === "ltr";
-  return list
-    .map((item) => {
-      if (item && typeof item === "object") {
-        if ("word" in item || "meaning" in item) {
-          return { id: item.id || uid(), word: item.word || "", meaning: item.meaning || "" };
-        }
-        // legacy {en, ar} shape
-        if (wordIsLtr) return { id: item.id || uid(), word: item.en || "", meaning: item.ar || "" };
-        return { id: item.id || uid(), word: item.ar || item.en || "", meaning: item.ar ? "" : item.en || "" };
-      }
-      const str = String(item || "").trim();
-      if (!str) return null;
-      return { id: uid(), word: str, meaning: "" };
+export function normalizePairs(pairs, cfg) {
+  if (!Array.isArray(pairs)) return [];
+  return pairs
+    .map((p) => {
+      if (typeof p === "string") return { word: p, meaning: "" };
+      return {
+        word: (p && p.word) || "",
+        meaning: (p && p.meaning) || "",
+      };
     })
-    .filter(Boolean)
-    .filter((p) => p.word || p.meaning);
+    .filter((p) => p.word.trim());
 }
 
-export { normalizePairs };
+export function cleanPairs(pairs) {
+  if (!Array.isArray(pairs)) return [];
+  return pairs
+    .map((p) => ({
+      word: String(p.word || "").trim(),
+      meaning: String(p.meaning || "").trim(),
+    }))
+    .filter((p) => p.word);
+}

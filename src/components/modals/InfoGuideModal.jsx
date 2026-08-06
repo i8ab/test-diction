@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
-import { XIcon, BookIcon, QuizIcon, ClockIcon, CalendarIcon, CheckIcon, StatsIcon, FlameIcon, SearchIcon, MicIcon, LayersIcon } from "../common/Icons";
+import { XIcon, BookIcon, QuizIcon, ClockIcon, CalendarIcon, CheckIcon, StatsIcon, FlameIcon, SearchIcon, MicIcon, LayersIcon, StarIcon, WandIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 const SECTIONS = [
@@ -189,6 +189,58 @@ const SECTIONS = [
     bodyAr: [
       "أيقونات السماعة = نطق آلي (TTS).",
       "عرض التكبير: الميكروفون تمرين نطق الكلمة مع تقييم.",
+    ],
+  },
+  {
+    id: "dictation",
+    icon: MicIcon,
+    titleEn: "Listening & Dictation",
+    titleAr: "استماع وإملاء",
+    bodyEn: [
+      "Open from More ⋯ → Dictation.",
+      "Mode 1: Hear the word (TTS) → type its meaning.",
+      "Mode 2: See the meaning → type the word.",
+      "Each answer updates spaced-repetition (SRS) for that word.",
+    ],
+    bodyAr: [
+      "من المزيد ⋯ → استماع وإملاء.",
+      "وضع ١: اسمع الكلمة (TTS) → اكتب معناها.",
+      "وضع ٢: شوف المعنى → اكتب الكلمة.",
+      "كل إجابة بتحدّث التكرار المتباعد (SRS) للكلمة.",
+    ],
+  },
+  {
+    id: "random",
+    icon: WandIcon,
+    titleEn: "Random word",
+    titleAr: "كلمة عشوائية",
+    bodyEn: [
+      "More ⋯ → Random word for fast one-by-one practice.",
+      "Prefers due words when available. Tap the card to reveal the meaning.",
+      "“Knew it” / “Forgot” updates SRS immediately.",
+      "Keyboard: Space/Enter = reveal · 1 = knew · 2 = forgot.",
+    ],
+    bodyAr: [
+      "المزيد ⋯ → كلمة عشوائية لممارسة سريعة كلمة بكلمة.",
+      "يفضّل الكلمات المستحقة. اضغط الكرت لإظهار المعنى.",
+      "«عرفتها» / «نسيتها» بيحدّثوا SRS فورًا.",
+      "كيبورد: مسافة/Enter = إظهار · 1 = عرفتها · 2 = نسيتها.",
+    ],
+  },
+  {
+    id: "achievements",
+    icon: StarIcon,
+    titleEn: "Achievements",
+    titleAr: "الإنجازات",
+    bodyEn: [
+      "Header menu (☰) → Achievements, or More ⋯ → Achievements.",
+      "Badges unlock automatically as you study, quiz, keep streaks, and use the timer.",
+      "Examples: first word, 50/200 words, 7/30-day streak, perfect quiz, mastered SRS words.",
+    ],
+    bodyAr: [
+      "قائمة الهيدر (☰) → الإنجازات، أو المزيد ⋯ → الإنجازات.",
+      "الشارات بتتفتح لوحدها مع المذاكرة والاختبارات والسلاسل والمؤقّت.",
+      "أمثلة: أول كلمة، ٥٠/٢٠٠ كلمة، سلسلة ٧/٣٠ يوم، اختبار كامل، كلمات متقنة في SRS.",
     ],
   },
 ];

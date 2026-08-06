@@ -1,77 +1,117 @@
-// CSV import/export helpers for bulk-adding and exporting dictionary entries.
-import { normalizePairs } from "./pairUtils";
+// CSV import / export for dictionary entries.
 
-function csvEscape(value) {
-  const str = value == null ? "" : String(value);
-  // Quote whenever the field has a comma, a quote, OR any kind of line
-  // break — including a lone \r (some paste sources use old Mac-style \r
-  // only). Missing that case used to let an un-quoted \r slip through,
-  // which parseCsv (correctly) treats as a row terminator on import — so a
-  // meaning/definition containing a bare \r would silently split into two
-  // bogus rows instead of staying one field.
-  if (/[",\n\r]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
-  return str;
+function escapeCsv(val) {
+  const s = String(val == null ? "" : val);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
 }
 
-// Minimal CSV parser (handles quoted fields, escaped "" quotes, and both
-// \n and \r\n line endings) — the counterpart to entriesToCsv() above, used
-// by the "Import CSV" bulk-add feature. Good enough for the flat,
-// non-nested rows this app itself exports; not a general-purpose parser.
-function parseCsv(text) {
-  const rows = [];
-  let row = [];
-  let field = "";
-  let inQuotes = false;
-  const src = text.replace(/^\uFEFF/, ""); // strip BOM if present
-  for (let i = 0; i < src.length; i++) {
-    const c = src[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (src[i + 1] === '"') { field += '"'; i++; }
-        else inQuotes = false;
-      } else field += c;
-    } else if (c === '"') {
-      inQuotes = true;
-    } else if (c === ",") {
-      row.push(field); field = "";
-    } else if (c === "\n" || c === "\r") {
-      if (c === "\r" && src[i + 1] === "\n") i++;
-      row.push(field); field = "";
-      if (row.length > 1 || row[0] !== "") rows.push(row);
-      row = [];
-    } else field += c;
+export function exportEntriesAsCsv(entries) {
+  const headers = [
+    "id",
+    "section",
+    "word",
+    "meaning",
+    "definition",
+    "example",
+    "examples",
+    "synonyms",
+    "antonyms",
+    "addedAt",
+  ];
+  const rows = [headers.join(",")];
+  for (const e of entries || []) {
+    rows.push(
+      [
+        e.id,
+        e.section,
+        e.word,
+        e.meaning,
+        e.definition || "",
+        e.example || "",
+        (e.examples || []).join(" | "),
+        (e.synonyms || []).map((p) => (typeof p === "string" ? p : p.word)).join(" | "),
+        (e.antonyms || []).map((p) => (typeof p === "string" ? p : p.word)).join(" | "),
+        e.addedAt || "",
+      ]
+        .map(escapeCsv)
+        .join(",")
+    );
   }
-  if (field !== "" || row.length) { row.push(field); rows.push(row); }
-  return rows;
+  return rows.join("\n");
 }
 
-function entriesToCsv(entries, cfg) {
-  const header = ["word", "meaning", "definition", "synonyms", "antonyms"];
-  const rows = entries.map((e) => {
-    const syn = normalizePairs(e.synonyms, cfg).map((p) => p.word).filter(Boolean).join("; ");
-    const ant = normalizePairs(e.antonyms, cfg).map((p) => p.word).filter(Boolean).join("; ");
-    return [e.word, e.meaning, e.definition || "", syn, ant];
-  });
-  const lines = [header, ...rows].map((row) => row.map(csvEscape).join(","));
-  return "\uFEFF" + lines.join("\r\n");
+export function parseCsv(text) {
+  const lines = String(text || "").replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return [];
+  const headers = splitCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
+  const out = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = splitCsvLine(lines[i]);
+    const row = {};
+    headers.forEach((h, idx) => {
+      row[h] = cols[idx] != null ? cols[idx] : "";
+    });
+    if (!row.word && !row.meaning) continue;
+    out.push({
+      word: row.word || "",
+      meaning: row.meaning || "",
+      definition: row.definition || "",
+      example: row.example || "",
+      examples: row.examples
+        ? String(row.examples)
+            .split("|")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [],
+      synonyms: row.synonyms
+        ? String(row.synonyms)
+            .split("|")
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((w) => ({ word: w, meaning: "" }))
+        : [],
+      antonyms: row.antonyms
+        ? String(row.antonyms)
+            .split("|")
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((w) => ({ word: w, meaning: "" }))
+        : [],
+      section: row.section === "ar-ar" ? "ar-ar" : "en-ar",
+      id: row.id || undefined,
+      addedAt: row.addedat ? Number(row.addedat) || Date.now() : Date.now(),
+    });
+  }
+  return out;
 }
 
-function downloadTextFile(filename, text, mimeType) {
-  const blob = new Blob([text], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+function splitCsvLine(line) {
+  const result = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') {
+          cur += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        cur += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ",") {
+      result.push(cur);
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  result.push(cur);
+  return result;
 }
-
-function exportEntriesAsCsv(entries, cfg, sectionLabel) {
-  const csv = entriesToCsv(entries, cfg);
-  const date = new Date().toISOString().slice(0, 10);
-  downloadTextFile(`two-tongues-${sectionLabel}-${date}.csv`, csv, "text/csv;charset=utf-8;");
-}
-
-export { csvEscape, parseCsv, entriesToCsv, downloadTextFile, exportEntriesAsCsv };

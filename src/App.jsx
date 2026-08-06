@@ -12,7 +12,9 @@ import {
 import {
   validateUsername, validatePassword, hashPassword, verifyPassword, migrateAccounts, normalizeUsername,
 } from "./lib/utils/authUtils";
-import { SRS_LEVEL_INTERVALS_MS, srsLevelFromStats } from "./lib/utils/quizHelpers";
+import { SRS_LEVEL_INTERVALS_MS, srsLevelFromStats, computeStreak } from "./lib/utils/quizHelpers";
+import { evaluateAchievements } from "./lib/state/achievements";
+import { getTodayTimerMinutes } from "./lib/state/goals";
 import {
   pushSupported, getPushStatus, subscribeToPush, unsubscribeFromPush, savePushPrefs,
   loadRemindersEnabled, saveRemindersEnabled,
@@ -424,16 +426,18 @@ export default function DictionaryApp() {
             } catch (e2) { /* fall through */ }
           }
           if (account && account.status !== "pending" && account.status !== "rejected") {
-            // Single-device session: if the cloud has a sessionId and it doesn't
-            // match this device, someone else signed in → force login screen.
+            // Session rules:
+            // - If this browser has a sessionId AND it differs from the cloud →
+            //   another device signed in → force login.
+            // - If local sessionId is missing (refresh, new tab, cleared storage)
+            //   but personalCode is still saved → stay signed in and re-bind
+            //   the local session to the cloud one (or claim a new one).
+            //   Logging out on missing localSid was kicking users on every
+            //   refresh / new tab.
             const localSid = loadSessionId();
             if (account.sessionId && localSid && account.sessionId !== localSid) {
               clearPersonalCode();
-              setAuthStage("login");
-              syncBaseHistory("login");
-            } else if (account.sessionId && !localSid) {
-              // Cloud session exists but this device never got one → kicked.
-              clearPersonalCode();
+              try { localStorage.removeItem("twoTongues.sessionId"); } catch (_) {}
               setAuthStage("login");
               syncBaseHistory("login");
             } else {
@@ -442,9 +446,8 @@ export default function DictionaryApp() {
               setAccountCode(account.code);
               setAuthStage("in");
               syncBaseHistory("in");
-              // Legacy accounts with no sessionId yet: claim one so the next
-              // login elsewhere can invalidate this device.
               if (!account.sessionId) {
+                // First bind: claim a session token for this account.
                 const sid = generateSessionId();
                 saveSessionId(sid);
                 const nextAccounts = rec.accounts.map((a) =>
@@ -460,7 +463,11 @@ export default function DictionaryApp() {
                 } catch (_) {
                   setAccounts(nextAccounts);
                 }
-              } else if (localSid) {
+              } else if (!localSid) {
+                // Same browser, lost local token (or new tab before write) —
+                // adopt the cloud session so refresh stays signed in.
+                saveSessionId(account.sessionId);
+              } else {
                 saveSessionId(localSid);
               }
             }
@@ -848,7 +855,23 @@ export default function DictionaryApp() {
       await persistAccounts((curAccounts) => curAccounts.map((a) => {
         if (a.code !== accountCode) return a;
         const nextHistory = [...((a.quizHistory) || []), result].slice(-50);
-        return { ...a, quizHistory: nextHistory };
+        let next = { ...a, quizHistory: nextHistory };
+        try {
+          let dictationRounds = 0;
+          try { dictationRounds = Number(localStorage.getItem("twoTongues.dictationRounds." + accountCode) || 0); } catch (_) {}
+          const box = {};
+          for (const id of Object.keys(next.srsStats || {})) box[id] = srsLevelFromStats(next.srsStats[id]);
+          const newly = evaluateAchievements(next, {
+            streak: computeStreak(next.studiedAt || {}),
+            srsBox: box,
+            timerMinutesTotal: getTodayTimerMinutes(),
+            dictationRounds,
+          });
+          if (newly.length) {
+            next = { ...next, achievements: [...new Set([...(next.achievements || []), ...newly])] };
+          }
+        } catch (_) {}
+        return next;
       }));
     } catch (e) { /* best-effort */ }
   }
@@ -1068,6 +1091,7 @@ export default function DictionaryApp() {
       logEvent("sign_out", `${name} signed out`, name, accountCode);
     }
     clearPersonalCode();
+    try { localStorage.removeItem("twoTongues.sessionId"); } catch (_) {}
     setName("");
     setIsAdmin(false);
     setAccountCode("");
@@ -1100,10 +1124,13 @@ export default function DictionaryApp() {
           return;
         }
         const localSid = loadSessionId();
+        // Only kick when this browser has a token that no longer matches
+        // the cloud (signed in elsewhere). Missing local token = re-bind,
+        // never logout — otherwise refresh / new tab boots the user out.
         if (account.sessionId && localSid && account.sessionId !== localSid) {
           handleLogout();
         } else if (account.sessionId && !localSid) {
-          handleLogout();
+          saveSessionId(account.sessionId);
         }
       } catch (_) {
         // Offline — don't kick the user just because the network dropped.

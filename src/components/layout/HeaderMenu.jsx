@@ -23,7 +23,7 @@ function stretchArabicText(text, amount) {
 const hasArabic = (text) => /[\u0600-\u06FF]/.test(text || "");
 import {
   UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon, CheckIcon, TrashIcon, LayersIcon, LoaderIcon, SettingsIcon, BookIcon,
-  SearchIcon, QuizIcon, ClockIcon, CalendarIcon, FlameIcon, StatsIcon, MicIcon,
+  SearchIcon, QuizIcon, ClockIcon, CalendarIcon, FlameIcon, StatsIcon, MicIcon, StarIcon, WandIcon,
 } from "../common/Icons";
 import NumberStepper from "../common/NumberStepper";
 import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
@@ -215,6 +215,58 @@ const INFO_SECTIONS = [
       "عرض التكبير: الميكروفون لتمرين نطق الكلمة مع درجة.",
     ],
   },
+  {
+    id: "dictation",
+    icon: MicIcon,
+    titleEn: "Listening & Dictation",
+    titleAr: "استماع وإملاء",
+    bodyEn: [
+      "Open from More ⋯ → Dictation, or practice typing what you hear.",
+      "Mode 1: Hear the word (TTS) → type its meaning.",
+      "Mode 2: See the meaning → type the word.",
+      "Each answer updates spaced-repetition (SRS) for that word.",
+    ],
+    bodyAr: [
+      "من المزيد ⋯ → استماع وإملاء.",
+      "وضع ١: اسمع الكلمة (TTS) → اكتب معناها.",
+      "وضع ٢: شوف المعنى → اكتب الكلمة.",
+      "كل إجابة بتحدّث التكرار المتباعد (SRS) للكلمة.",
+    ],
+  },
+  {
+    id: "random",
+    icon: WandIcon,
+    titleEn: "Random word",
+    titleAr: "كلمة عشوائية",
+    bodyEn: [
+      "More ⋯ → Random word for fast one-by-one practice.",
+      "Prefer due words when available. Tap the card to reveal the meaning.",
+      "“Knew it” / “Forgot” updates SRS immediately.",
+      "Keyboard: Space/Enter = reveal · 1 = knew · 2 = forgot.",
+    ],
+    bodyAr: [
+      "المزيد ⋯ → كلمة عشوائية لممارسة سريعة كلمة بكلمة.",
+      "يفضّل الكلمات المستحقة. اضغط الكرت لإظهار المعنى.",
+      "«عرفتها» / «نسيتها» بيحدّثوا SRS فورًا.",
+      "كيبورد: مسافة/Enter = إظهار · 1 = عرفتها · 2 = نسيتها.",
+    ],
+  },
+  {
+    id: "achievements",
+    icon: StarIcon,
+    titleEn: "Achievements",
+    titleAr: "الإنجازات",
+    bodyEn: [
+      "Header menu (☰) → Achievements, or More ⋯ → Achievements.",
+      "Badges unlock automatically as you study, quiz, keep streaks, and use the timer.",
+      "Examples: first word, 50/200 words, 7/30-day streak, perfect quiz, mastered SRS words.",
+    ],
+    bodyAr: [
+      "قائمة الهيدر (☰) → الإنجازات، أو المزيد ⋯ → الإنجازات.",
+      "الشارات بتتفتح لوحدها مع المذاكرة والاختبارات والسلاسل والمؤقّت.",
+      "أمثلة: أول كلمة، ٥٠/٢٠٠ كلمة، سلسلة ٧/٣٠ يوم، اختبار كامل، كلمات متقنة في SRS.",
+    ],
+  },
 ];
 
 export default function HeaderMenu({
@@ -234,6 +286,7 @@ export default function HeaderMenu({
   focusMode = false,
   onToggleFocus = null,
   onOpenInfo = null,
+  onOpenAchievements = null,
 }) {
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -648,6 +701,14 @@ export default function HeaderMenu({
               )}
 
               <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 2, paddingTop: 1 }}>
+                {typeof onOpenAchievements === "function" && (
+                  <Row
+                    tint="#f4a261"
+                    icon={<StarIcon size={14} />}
+                    label={T("Achievements", "الإنجازات")}
+                    onClick={() => { setOpen(false); onOpenAchievements(); }}
+                  />
+                )}
                 <Row tint="#5b8def" icon={<UserIcon size={14} />} label={T( "My Account", "حسابي")} onClick={onOpenAccount} />
                 {isAdmin && (
                   <Row tint="#af52de" icon={<UsersIcon size={14} />} label={T( "Admin Panel", "لوحة التحكم")} onClick={onOpenAdmin} />

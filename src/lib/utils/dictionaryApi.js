@@ -1,57 +1,48 @@
-// Auto-suggest a definition/example/synonyms for an English word from the
-// free, keyless dictionaryapi.dev service, so someone adding a word to the
-// EN -> AR section doesn't always have to type the definition by hand.
-// Only useful for the English word side — there's no equivalent free API
-// for Arabic-Arabic definitions, so callers should only offer this button
-// when cfg.wordDir === "ltr".
+// Free English dictionary lookup (dictionaryapi.dev).
 
-const DICTIONARY_API_BASE = "https://api.dictionaryapi.dev/api/v2/entries/en/";
+export class DictionaryLookupError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "DictionaryLookupError";
+  }
+}
 
-class DictionaryLookupError extends Error {}
-
-// Returns { definition, example, synonyms } built from the first entry/
-// meaning/definition the API has for that word. Any of the three fields
-// may come back empty if the API just doesn't have that info. Throws
-// DictionaryLookupError with a friendly message on "not found" or network
-// failure, so callers can show it directly as a toast.
-async function fetchDictionarySuggestion(word) {
-  const clean = (word || "").trim();
-  if (!clean) throw new DictionaryLookupError("Type a word first.");
-
+/**
+ * Returns { definition, example, synonyms: string[] }
+ */
+export async function fetchDictionarySuggestion(word) {
+  const q = String(word || "").trim();
+  if (!q) throw new DictionaryLookupError("empty");
+  const url = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(q)}`;
   let res;
   try {
-    res = await fetch(DICTIONARY_API_BASE + encodeURIComponent(clean));
-  } catch (e) {
+    res = await fetch(url);
+  } catch (_) {
     throw new DictionaryLookupError("network");
   }
-
   if (res.status === 404) throw new DictionaryLookupError("not_found");
-  if (!res.ok) throw new DictionaryLookupError("network");
-
+  if (!res.ok) throw new DictionaryLookupError("http");
   const data = await res.json();
-  const entry = Array.isArray(data) ? data[0] : null;
-  if (!entry) throw new DictionaryLookupError("not_found");
+  if (!Array.isArray(data) || !data.length) throw new DictionaryLookupError("not_found");
 
   let definition = "";
   let example = "";
-  const synonyms = [];
+  const synonyms = new Set();
 
-  for (const meaning of entry.meanings || []) {
-    if (Array.isArray(meaning.synonyms)) {
-      for (const s of meaning.synonyms) if (!synonyms.includes(s)) synonyms.push(s);
-    }
-    for (const def of meaning.definitions || []) {
-      if (!definition && def.definition) definition = def.definition;
-      if (!example && def.example) example = def.example;
-      if (Array.isArray(def.synonyms)) {
-        for (const s of def.synonyms) if (!synonyms.includes(s)) synonyms.push(s);
+  for (const entry of data) {
+    for (const m of entry.meanings || []) {
+      for (const d of m.definitions || []) {
+        if (!definition && d.definition) definition = d.definition;
+        if (!example && d.example) example = d.example;
+        (d.synonyms || []).forEach((s) => synonyms.add(s));
       }
-      if (definition && example) break;
+      (m.synonyms || []).forEach((s) => synonyms.add(s));
     }
-    if (definition && example) break;
   }
 
-  return { definition, example, synonyms: synonyms.slice(0, 5) };
+  return {
+    definition,
+    example,
+    synonyms: Array.from(synonyms).slice(0, 12),
+  };
 }
-
-export { fetchDictionarySuggestion, DictionaryLookupError };

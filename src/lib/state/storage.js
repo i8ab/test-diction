@@ -117,21 +117,33 @@ export function clearPersonalCode() {
   } catch (_) {}
 }
 
-// Shared ACCESS_CODE is kept in sessionStorage only (survives refresh within
-// the same tab/window session, cleared when the tab is closed). Never put it
-// in localStorage so it doesn't persist across browser restarts.
-const ACCESS_SESSION_KEY = "twoTongues.accessCode";
+// Shared ACCESS_CODE is kept in localStorage so it works across tabs and
+// survives browser restarts (user preference: stay signed in normally).
+const ACCESS_CODE_KEY = "twoTongues.accessCode";
 
 export function saveAccessCode(code) {
   try {
-    if (code) sessionStorage.setItem(ACCESS_SESSION_KEY, String(code).trim());
-    else sessionStorage.removeItem(ACCESS_SESSION_KEY);
+    if (code) localStorage.setItem(ACCESS_CODE_KEY, String(code).trim());
+    else localStorage.removeItem(ACCESS_CODE_KEY);
   } catch (_) {}
 }
 
 export function loadAccessCode() {
   try {
-    return sessionStorage.getItem(ACCESS_SESSION_KEY) || "";
+    let v = localStorage.getItem(ACCESS_CODE_KEY) || "";
+    // One-time migration: if an older build left the code in sessionStorage only,
+    // copy it to localStorage so existing sessions keep working across tabs.
+    if (!v) {
+      try {
+        const legacy = sessionStorage.getItem(ACCESS_CODE_KEY) || "";
+        if (legacy) {
+          localStorage.setItem(ACCESS_CODE_KEY, legacy);
+          sessionStorage.removeItem(ACCESS_CODE_KEY);
+          v = legacy;
+        }
+      } catch (_) {}
+    }
+    return v;
   } catch (_) {
     return "";
   }
@@ -139,7 +151,7 @@ export function loadAccessCode() {
 
 export function clearAccessCode() {
   try {
-    sessionStorage.removeItem(ACCESS_SESSION_KEY);
+    localStorage.removeItem(ACCESS_CODE_KEY);
   } catch (_) {}
 }
 

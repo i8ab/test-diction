@@ -95,9 +95,19 @@ export default function DictionaryApp() {
   const [logsLoaded, setLogsLoaded] = useState(false);
   const [siteBanner, setSiteBanner] = useState(null); // admin-published site-wide announcement
   const [accountCode, setAccountCode] = useState(""); // this browser's signed-in account's personal code
-  // Shared ACCESS_CODE: sessionStorage so refresh still works within the same
-  // browser session; never localStorage (cleared when the tab/window closes).
-  const [accessCode, setAccessCode] = useState(() => loadAccessCode());
+  // Shared ACCESS_CODE: localStorage so it works across tabs and survives
+  // browser restarts. Ref mirrors state so save helpers always see the latest
+  // value even when called in the same turn as setAccessCode (React state
+  // updates are async).
+  const [accessCode, setAccessCodeState] = useState(() => loadAccessCode());
+  const accessCodeRef = useRef(accessCode);
+  function setAccessCode(code) {
+    const v = code ? String(code).trim() : "";
+    accessCodeRef.current = v;
+    setAccessCodeState(v);
+    if (v) saveAccessCode(v);
+    else clearAccessCode();
+  }
   const [section, setSection] = useState("en-ar");
   const [query, setQuery] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -396,14 +406,15 @@ export default function DictionaryApp() {
     // Only persist migration when we already hold a verified access code
     // (otherwise the PUT would be rejected). In-memory migration still
     // applies so the UI works; a later authenticated save will write it.
-    if (!accessCode) {
+    const code = accessCodeRef.current;
+    if (!code) {
       return { ...rec, accounts: migrated };
     }
     try {
       const newVersion = await saveRecord(
         { entries: rec.entries || [], accounts: migrated, logs: rec.logs || [], siteBanner: rec.siteBanner || null },
         rec.version || 0,
-        accessCode
+        code
       );
       return { ...rec, accounts: migrated, version: newVersion };
     } catch (e) {
@@ -453,7 +464,6 @@ export default function DictionaryApp() {
             const localSid = loadSessionId();
             if (account.sessionId && localSid && account.sessionId !== localSid) {
               clearPersonalCode();
-              clearAccessCode();
               setAccessCode("");
               try { localStorage.removeItem("twoTongues.sessionId"); } catch (_) {}
               setAuthStage("login");
@@ -472,11 +482,12 @@ export default function DictionaryApp() {
                   a.code === account.code ? { ...a, sessionId: sid, sessionAt: Date.now() } : a
                 );
                 try {
-                  if (accessCode) {
+                  const code = accessCodeRef.current;
+                  if (code) {
                     const newVersion = await saveRecord(
                       { entries: rec.entries, accounts: nextAccounts, logs: rec.logs, siteBanner: rec.siteBanner || null },
                       rec.version || 0,
-                      accessCode
+                      code
                     );
                     setAccounts(nextAccounts);
                     setRecordVersion(newVersion);
@@ -496,7 +507,6 @@ export default function DictionaryApp() {
             }
           } else {
             clearPersonalCode();
-            clearAccessCode();
             setAccessCode("");
             setAuthStage("login");
             syncBaseHistory("login");
@@ -674,7 +684,7 @@ export default function DictionaryApp() {
       if (logEntry) setLogs(nextLogs);
 
       try {
-        const newVersion = await saveRecord({ entries: next, accounts: curAccounts, logs: nextLogs, siteBanner }, curVersion, accessCode);
+        const newVersion = await saveRecord({ entries: next, accounts: curAccounts, logs: nextLogs, siteBanner }, curVersion, accessCodeRef.current);
         setRecordVersion(newVersion);
         saveOfflineCache({ entries: next, accounts: curAccounts, logs: nextLogs, siteBanner });
         setSaveError("");
@@ -696,7 +706,7 @@ export default function DictionaryApp() {
         return;
       }
     }
-  }, [entries, accounts, logs, siteBanner, recordVersion, accessCode]);
+  }, [entries, accounts, logs, siteBanner, recordVersion]);
 
   const persistAccounts = useCallback(async (accountsFn, logEntryFn) => {
     let curEntries = entries;
@@ -713,7 +723,7 @@ export default function DictionaryApp() {
       if (logEntry) setLogs(nextLogs);
 
       try {
-        const newVersion = await saveRecord({ entries: curEntries, accounts: next, logs: nextLogs, siteBanner }, curVersion, accessCode);
+        const newVersion = await saveRecord({ entries: curEntries, accounts: next, logs: nextLogs, siteBanner }, curVersion, accessCodeRef.current);
         setRecordVersion(newVersion);
         saveOfflineCache({ entries: curEntries, accounts: next, logs: nextLogs, siteBanner });
         setSaveError("");
@@ -733,21 +743,21 @@ export default function DictionaryApp() {
         return;
       }
     }
-  }, [entries, accounts, logs, siteBanner, recordVersion, accessCode]);
+  }, [entries, accounts, logs, siteBanner, recordVersion]);
 
   // For events that don't touch entries/accounts (sign in/out) — still saved
   // into the same shared record so it stays in sync with everything else.
   const persistLogs = useCallback(async (next) => {
     setLogs(next);
     try {
-      const newVersion = await saveRecord({ entries, accounts, logs: next, siteBanner }, recordVersion, accessCode);
+      const newVersion = await saveRecord({ entries, accounts, logs: next, siteBanner }, recordVersion, accessCodeRef.current);
       setRecordVersion(newVersion);
     } catch (e) {
       // Best-effort: a failed log write shouldn't block sign-in/out. On a
       // conflict, still resync so we don't keep hammering a stale version.
       if (e instanceof SaveConflictError) handleSaveConflict(e);
     }
-  }, [entries, accounts, siteBanner, recordVersion, accessCode]);
+  }, [entries, accounts, siteBanner, recordVersion]);
 
   function logEvent(action, message, actorName, actorCode) {
     persistLogs(capLogs([...logs, makeLogEntry(action, message, actorName, actorCode)]));
@@ -762,7 +772,7 @@ export default function DictionaryApp() {
         const newVersion = await saveRecord(
           { entries, accounts, logs, siteBanner: nextBanner },
           curVersion,
-          accessCode
+          accessCodeRef.current
         );
         setRecordVersion(newVersion);
         saveOfflineCache({ entries, accounts, logs, siteBanner: nextBanner });
@@ -781,7 +791,7 @@ export default function DictionaryApp() {
       }
     }
     return { ok: false, error: "Couldn't save the announcement — try again." };
-  }, [entries, accounts, logs, recordVersion, accessCode]);
+  }, [entries, accounts, logs, recordVersion]);
 
 
   // Admin action: wipe the activity log down to just the "first sign in"
@@ -940,7 +950,6 @@ export default function DictionaryApp() {
         return;
       }
       setAccessCode(sharedCode);
-      saveAccessCode(sharedCode);
     } catch (err) {
       setSignupError("Couldn't verify the access code — check your connection and try again.");
       setSignupSaving(false);
@@ -1103,8 +1112,7 @@ export default function DictionaryApp() {
     setName(account.name);
     setIsAdmin(account.role === "admin");
     setAccountCode(account.code);
-    setAccessCode(accessCode);
-    saveAccessCode(accessCode);
+    setAccessCode(accessCode); // also updates ref + localStorage immediately
     savePersonalCode(account.code);
     // Keep password field until login fully succeeds — cleared after session is saved.
 
@@ -1114,7 +1122,7 @@ export default function DictionaryApp() {
         const newVersion = await saveRecord(
           { entries, accounts: curAccounts, logs, siteBanner },
           recordVersion,
-          accessCode
+          accessCodeRef.current || accessCode
         );
         setAccounts(curAccounts);
         setRecordVersion(newVersion);
@@ -1166,12 +1174,11 @@ export default function DictionaryApp() {
       logEvent("sign_out", `${name} signed out`, name, accountCode);
     }
     clearPersonalCode();
-    clearAccessCode();
     try { localStorage.removeItem("twoTongues.sessionId"); } catch (_) {}
     setName("");
     setIsAdmin(false);
     setAccountCode("");
-    setAccessCode("");
+    setAccessCode(""); // clears ref + localStorage
     setCodeInput("");
     setUsernameInput("");
     setPasswordInput("");

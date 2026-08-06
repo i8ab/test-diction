@@ -208,36 +208,21 @@
     .toolbar-search-wrap { flex: 1 1 100% !important; width: 100%; z-index: 9999 !important; }
   }
 
-  /* ================= Site banner (plane + paper streamer) ================= */
+  /* ================= Site banner (news ticker) ================= */
   .site-banner {
     position: sticky;
     top: 0;
     z-index: 3000;
-    height: 52px;
+    height: 40px;
     overflow: hidden;
   }
-  .site-banner-flight {
+  .site-banner-ticker {
     position: absolute;
     top: 50%;
     left: 0;
-    display: flex;
-    align-items: center;
     will-change: transform;
     white-space: nowrap;
     pointer-events: none;
-  }
-  .site-banner-paper {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-  }
-  @keyframes siteBannerFlutter {
-    0%, 100% { transform: rotate(-1.2deg) skewX(-1deg); }
-    50%      { transform: rotate(1.4deg) skewX(1.2deg); }
-  }
-  @keyframes siteBannerWind {
-    0%   { background-position: 0 0; }
-    100% { background-position: 60px 0; }
   }
 
 

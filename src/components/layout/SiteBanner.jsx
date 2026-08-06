@@ -2,12 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { XIcon } from "../common/Icons";
 
 /* =========================================================================
-   SITE BANNER — paper streamer pulled by a plane
+   SITE BANNER — simple news-ticker strip
    -------------------------------------------------------------------------
-   Position is driven by requestAnimationFrame (not CSS keyframes) so the
-   flight always moves even when the OS has "reduce motion" enabled — the
-   whole point of this banner is the continuous pass across the screen.
-   Direction follows UI language (RTL ↔ LTR). Speed = admin `speed` setting.
+   Plain scrolling text (like a TV news ticker). No plane, no flutter, no
+   wind streaks. Direction follows UI language (RTL ↔ LTR). Speed comes
+   from the admin `speed` setting.
    ========================================================================= */
 const DISMISS_KEY = "twoTongues.siteBannerDismissedId";
 
@@ -67,47 +66,13 @@ function isExpired(banner) {
   return Date.now() > from + mins * 60 * 1000;
 }
 
-function PlaneIcon({ color, flip }) {
-  return (
-    <svg
-      width="44"
-      height="28"
-      viewBox="0 0 44 28"
-      fill="none"
-      aria-hidden="true"
-      style={{
-        display: "block",
-        transform: flip ? "scaleX(-1)" : "none",
-        filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.25))",
-      }}
-    >
-      <path
-        d="M2 15.5 L28 13.2 L40 11.8 C41.5 11.5 42.5 12.2 42.2 13.5 C41.9 14.8 40.5 15.5 38.8 15.6 L28 16.2 L18 24.5 C17.4 25 16.6 24.7 16.5 24 L17.2 17.2 L8 18.5 C7.2 18.6 6.6 18.1 6.6 17.4 L6.8 16.2 L2 16.6 C1.3 16.7 1 16.2 1.2 15.7 Z"
-        fill={color}
-      />
-      <path
-        d="M14 14.5 L26 7.5 C26.8 7 27.6 7.3 27.5 8.2 L26.2 14.8 L14.5 15.3 Z"
-        fill={color}
-        opacity="0.92"
-      />
-      <path
-        d="M4 12.5 L8 9.2 C8.5 8.8 9.1 9.1 9 9.8 L8.2 14.5 L4.5 14.8 Z"
-        fill={color}
-        opacity="0.88"
-      />
-      <circle cx="31" cy="13.8" r="1.1" fill="rgba(255,255,255,0.55)" />
-      <circle cx="34.5" cy="13.4" r="1.1" fill="rgba(255,255,255,0.45)" />
-    </svg>
-  );
-}
-
 export default function SiteBanner({ banner, isAr }) {
   const [dismissedId, setDismissedId] = useState(loadDismissedId);
   const [live, setLive] = useState(true);
   const trackRef = useRef(null);
-  const flightRef = useRef(null);
+  const tickRef = useRef(null);
   const rafRef = useRef(0);
-  const progressRef = useRef(0); // 0 → 1 across one full pass
+  const progressRef = useRef(0);
   const hideTimer = useRef(null);
 
   const hasTimedDuration = durationMinutesOf(banner) > 0;
@@ -147,7 +112,7 @@ export default function SiteBanner({ banner, isAr }) {
     };
   }, [shouldShow, banner && banner.id, banner && banner.updatedAt, banner && banner.durationMinutes, banner && banner.durationHours]);
 
-  // Continuous flight via rAF — always runs while visible
+  // Continuous ticker via rAF
   useEffect(() => {
     if (!shouldShow) {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -155,14 +120,14 @@ export default function SiteBanner({ banner, isAr }) {
     }
 
     const speed = typeof (banner && banner.speed) === "number" ? banner.speed : 1;
-    // Full crossing duration in ms (speed 1 ≈ 14s)
-    const durationMs = Math.max(5000, Math.min(45000, 14000 / Math.max(0.4, speed)));
+    // Full crossing duration in ms (speed 1 ≈ 16s)
+    const durationMs = Math.max(6000, Math.min(50000, 16000 / Math.max(0.4, speed)));
     const rtl = !!isAr;
-    progressRef.current = rtl ? 1 : 0; // start just off the entry side
+    progressRef.current = rtl ? 1 : 0;
     let last = performance.now();
 
     function tick(now) {
-      const el = flightRef.current;
+      const el = tickRef.current;
       const track = trackRef.current;
       if (!el || !track) {
         rafRef.current = requestAnimationFrame(tick);
@@ -181,12 +146,10 @@ export default function SiteBanner({ banner, isAr }) {
         if (progressRef.current > 1) progressRef.current -= 1;
       }
 
-      // progress 0 = fully off the left (plane+banner width past left edge)
-      // progress 1 = fully off the right
       const trackW = track.offsetWidth || window.innerWidth;
-      const flightW = el.offsetWidth || 200;
-      // Travel distance: enter from -flightW to exit at trackW
-      const x = -flightW + progressRef.current * (trackW + flightW);
+      const textW = el.offsetWidth || 200;
+      // Enter from -textW, exit at trackW
+      const x = -textW + progressRef.current * (trackW + textW);
       el.style.transform = `translate3d(${x}px, -50%, 0)`;
 
       rafRef.current = requestAnimationFrame(tick);
@@ -202,12 +165,6 @@ export default function SiteBanner({ banner, isAr }) {
 
   const bg = (banner && banner.color) || "#146C94";
   const c = contrastFor(bg);
-  const shine = typeof (banner && banner.shine) === "number" ? banner.shine : 40;
-  const speed = typeof (banner && banner.speed) === "number" ? banner.speed : 1;
-  const rtl = !!isAr;
-  const planeColor = c.text === "#fff" ? "rgba(255,255,255,0.95)" : "rgba(30,30,30,0.9)";
-  const flutterSec = Math.max(0.9, 2.2 / Math.max(0.4, speed));
-  const windSec = Math.max(3, 8 / Math.max(0.4, speed));
 
   function dismiss() {
     if (hasTimedDuration) return;
@@ -228,107 +185,35 @@ export default function SiteBanner({ banner, isAr }) {
         position: "sticky",
         top: 0,
         zIndex: 3000,
-        height: 52,
+        height: 40,
         overflow: "hidden",
-        background: `linear-gradient(180deg, ${bg}dd 0%, ${bg} 55%, ${bg}ee 100%)`,
+        background: bg,
         borderBottom: `1px solid ${c.border}`,
-        boxShadow: "0 2px 12px -4px rgba(0,0,0,0.22)",
         direction: "ltr",
       }}
     >
-      {/* Wind streaks */}
+      {/* Scrolling text — position updated every frame by rAF */}
       <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: 0,
-          pointerEvents: "none",
-          opacity: Math.min(0.55, 0.15 + (shine / 100) * 0.4),
-          background:
-            "repeating-linear-gradient(90deg, transparent 0 28px, rgba(255,255,255,0.07) 28px 30px, transparent 30px 62px)",
-          animation: `siteBannerWind ${windSec}s linear infinite`,
-          animationDirection: rtl ? "reverse" : "normal",
-        }}
-      />
-
-      {/* Flying group — transform updated every frame by rAF */}
-      <div
-        ref={flightRef}
-        className="site-banner-flight"
+        ref={tickRef}
+        className="site-banner-ticker"
         style={{
           position: "absolute",
           top: "50%",
           left: 0,
-          display: "flex",
-          alignItems: "center",
           transform: "translate3d(-200px, -50%, 0)",
           willChange: "transform",
           whiteSpace: "nowrap",
           pointerEvents: "none",
+          color: c.text,
+          fontFamily: "'Source Sans 3', sans-serif",
+          fontSize: 14.5,
+          fontWeight: 700,
+          lineHeight: 1.35,
+          paddingInline: 12,
+          direction: isAr ? "rtl" : "ltr",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            flexDirection: rtl ? "row-reverse" : "row",
-          }}
-        >
-          <div style={{ flexShrink: 0, marginInline: 4 }}>
-            <PlaneIcon color={planeColor} flip={rtl} />
-          </div>
-
-          <span
-            aria-hidden="true"
-            style={{
-              width: 18,
-              height: 2,
-              background: c.text === "#fff" ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.3)",
-              flexShrink: 0,
-              borderRadius: 1,
-            }}
-          />
-
-          <div
-            className="site-banner-paper"
-            style={{
-              position: "relative",
-              display: "inline-flex",
-              alignItems: "center",
-              maxWidth: "min(72vw, 520px)",
-              padding: "8px 18px",
-              marginInlineStart: 2,
-              background: `
-                linear-gradient(180deg, rgba(255,255,255,0.22) 0%, transparent 40%),
-                linear-gradient(135deg, ${bg} 0%, ${bg}ee 50%, ${bg} 100%)
-              `,
-              color: c.text,
-              border: `1px solid ${c.border}`,
-              borderRadius: 4,
-              boxShadow:
-                "2px 3px 0 rgba(0,0,0,0.12), 0 1px 0 rgba(255,255,255,0.15) inset, 0 -1px 0 rgba(0,0,0,0.08) inset",
-              fontFamily: "'Source Sans 3', sans-serif",
-              fontSize: 14.5,
-              fontWeight: 700,
-              lineHeight: 1.35,
-              animation: `siteBannerFlutter ${flutterSec}s ease-in-out infinite`,
-              transformOrigin: rtl ? "100% 50%" : "0% 50%",
-            }}
-          >
-            <span
-              style={{
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                direction: isAr ? "rtl" : "ltr",
-                textAlign: "center",
-                minWidth: 80,
-              }}
-            >
-              {banner.message}
-            </span>
-          </div>
-        </div>
+        {banner.message}
       </div>
 
       {!hasTimedDuration && (
@@ -340,29 +225,25 @@ export default function SiteBanner({ banner, isAr }) {
           style={{
             position: "absolute",
             top: "50%",
-            insetInlineEnd: 8,
+            insetInlineEnd: 6,
             transform: "translateY(-50%)",
             zIndex: 2,
             border: "none",
-            background: "rgba(0,0,0,0.15)",
+            background: "rgba(0,0,0,0.18)",
             color: c.muted,
             cursor: "pointer",
-            width: 32,
-            height: 32,
+            width: 28,
+            height: 28,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            borderRadius: 8,
+            borderRadius: 6,
             pointerEvents: "auto",
           }}
         >
-          <XIcon size={16} />
+          <XIcon size={14} />
         </button>
       )}
-
-      {/* Keyframes live in src/index.css (siteBannerFlutter / siteBannerWind).
-          Kept out of the component so reduced-motion overrides can target them
-          cleanly and the CSS stays in one place. */}
     </div>
   );
 }

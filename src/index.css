@@ -400,3 +400,39 @@
   width: 0;
   height: 0;
 }
+
+/* Hide native number input spinners (we use NumberStepper instead) */
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Hide scrollbars site-wide while keeping scroll */
+html, body, * {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge legacy */
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent;
+}
+
+/* Modal backdrops: block overscroll chaining to the page behind */
+.modal-backdrop {
+  overscroll-behavior: contain;
+  touch-action: none;
+}
+.modal-backdrop .modal-card,
+.modal-card {
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}

@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { dateKey, computeStreak } from "../../lib/utils/quizHelpers";
 import { XIcon, CalendarIcon, FlameIcon, ChevronIcon } from "../common/Icons";
+import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 const WEEKDAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WEEKDAYS_AR = ["أحد", "إثن", "ثلا", "أرب", "خمي", "جمع", "سبت"];
@@ -74,6 +75,8 @@ export default function CalendarPage({
   useEffect(() => {
     onBubbleChange?.(viewMode === "bubble");
   }, [viewMode, onBubbleChange]);
+
+  useBodyScrollLock(viewMode === "full");
 
   const { map: dayMap, entryById } = useMemo(
     () => buildDayMap(studiedAt, entries),

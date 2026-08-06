@@ -6,6 +6,7 @@ import { detectDir, detectFont } from "../../lib/utils/searchUtils";
 import { getSpeechRecognitionCtor, scorePronunciation, AR_DIALECTS, loadArDialect, saveArDialect, startMicLevelMeter } from "../../lib/utils/speech";
 import { LoaderIcon, ShareIcon, SpeakButton, XIcon, MicIcon } from "../common/Icons";
 import { PairListDisplay } from "../common/PairList";
+import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 // Big, centered "zoom" view of a single word — just the word and its meaning
 // (plus definition, if any) in a large, readable font. Opened via the zoom
@@ -64,6 +65,7 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
 
   return (
     <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 2000 }}>
+      <BodyScrollLock />
       <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={cfg.dir} role="dialog" aria-modal="true" aria-labelledby="zoom-modal-word"
         style={{ width: "100%", maxWidth: 560, background: CARD, borderRadius: 6, padding: "48px 32px 40px", boxShadow: "0 24px 60px -12px rgba(0,0,0,0.45)", textAlign: "center", position: "relative" }}>
         <button onClick={handleShare} disabled={sharing} aria-label={tr(cfg.dir === "rtl", "Share this word", "شارك الكلمة دي")}

@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { shuffleArray } from "../../lib/utils/quizHelpers";
 import { XIcon, LayersIcon } from "../common/Icons";
+import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, onToggleStudied, isAr, onClose }) {
   const [filterKey, setFilterKey] = useState("all"); // all | studied | favorites
@@ -85,6 +86,7 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
 
   return (
     <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 2000 }}>
+      <BodyScrollLock />
       <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={isAr ? "rtl" : "ltr"} role="dialog" aria-modal="true" aria-labelledby="flashcards-modal-title"
         style={{ width: "100%", maxWidth: 480, maxHeight: "88vh", overflowY: "auto", background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>

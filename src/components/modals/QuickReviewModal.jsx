@@ -4,6 +4,7 @@ import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { isSrsDue } from "../../lib/utils/quizHelpers";
 import { XIcon, CheckIcon, SpeakButton } from "../common/Icons";
 import { SECTIONS } from "../../lib/config/sections";
+import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 /**
  * Quick review — short flash session for words that are "due" (need review).
@@ -86,6 +87,7 @@ export default function QuickReviewModal({
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
+      <BodyScrollLock />
       <div
         style={{
           width: "100%", maxWidth: 440, background: CARD,

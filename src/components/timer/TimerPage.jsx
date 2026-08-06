@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import { XIcon, ClockIcon } from "../common/Icons";
+import NumberStepper from "../common/NumberStepper";
+import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { addTimerMinutes } from "../../lib/state/goals";
 
 const TIMER_PREFS_KEY = "twoTongues.timerPrefs";
@@ -352,6 +354,8 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
   const [viewMode, setViewMode] = useState(initialBubble ? "bubble" : "full");
   const [bubblePos, setBubblePos] = useState({ x: null, y: null }); // null = default bottom-end
   const dragRef = useRef(null);
+
+  useBodyScrollLock(viewMode === "full");
 
   const endAtRef = useRef(null); // absolute timestamp when countdown ends
   const startedAtRef = useRef(null); // for stopwatch
@@ -1227,37 +1231,28 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
                 <Label muted={muted}>{tr(isAr, "Duration (no limit — set any time)", "المدة (بدون قيد — اختر أي وقت)")}</Label>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                    <input
-                      type="number"
-                      min={0}
-                      max={999}
-                      value={hours}
-                      onChange={(e) => setHours(Math.max(0, Math.min(999, Number(e.target.value) || 0)))}
-                      style={field}
+                    <NumberStepper
+                      min={0} max={999} value={hours} width={100}
+                      onChange={(v) => setHours(v)}
+                      aria-label={tr(isAr, "Hours", "ساعات")}
                     />
                     <span style={{ fontSize: 11, opacity: 0.7 }}>{tr(isAr, "Hours", "ساعات")}</span>
                   </div>
                   <span style={{ fontSize: 22, fontWeight: 700, opacity: 0.5 }}>:</span>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                    <input
-                      type="number"
-                      min={0}
-                      max={59}
-                      value={mins}
-                      onChange={(e) => setMins(Math.max(0, Math.min(59, Number(e.target.value) || 0)))}
-                      style={field}
+                    <NumberStepper
+                      min={0} max={59} value={mins} width={100}
+                      onChange={(v) => setMins(v)}
+                      aria-label={tr(isAr, "Minutes", "دقائق")}
                     />
                     <span style={{ fontSize: 11, opacity: 0.7 }}>{tr(isAr, "Minutes", "دقائق")}</span>
                   </div>
                   <span style={{ fontSize: 22, fontWeight: 700, opacity: 0.5 }}>:</span>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                    <input
-                      type="number"
-                      min={0}
-                      max={59}
-                      value={secs}
-                      onChange={(e) => setSecs(Math.max(0, Math.min(59, Number(e.target.value) || 0)))}
-                      style={field}
+                    <NumberStepper
+                      min={0} max={59} value={secs} width={100}
+                      onChange={(v) => setSecs(v)}
+                      aria-label={tr(isAr, "Seconds", "ثوانٍ")}
                     />
                     <span style={{ fontSize: 11, opacity: 0.7 }}>{tr(isAr, "Seconds", "ثوانٍ")}</span>
                   </div>

@@ -6,6 +6,7 @@ import {
   getTodayTimerMinutes, loadWeeklyChallenge, markChallengeCompleted,
 } from "../../lib/state/goals";
 import { FlameIcon } from "../common/Icons";
+import NumberStepper from "../common/NumberStepper";
 
 function ProgressBar({ value, max, color }) {
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
@@ -100,26 +101,23 @@ export default function GoalsBanner({ studiedAt, quizHistory, streak, isAr, cfg 
         <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ flex: 1 }}>{tr(isAr, "Words / day", "كلمات / يوم")}</span>
-            <input
-              type="number" min={1} max={100} value={goals.dailyWords}
-              onChange={(e) => updateGoal({ dailyWords: Number(e.target.value) || 5 })}
-              style={numInput}
+            <NumberStepper
+              min={1} max={100} value={goals.dailyWords} width={108}
+              onChange={(v) => updateGoal({ dailyWords: v || 5 })}
             />
           </label>
           <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ flex: 1 }}>{tr(isAr, "Minutes / day", "دقائق / يوم")}</span>
-            <input
-              type="number" min={5} max={240} value={goals.dailyMinutes}
-              onChange={(e) => updateGoal({ dailyMinutes: Number(e.target.value) || 15 })}
-              style={numInput}
+            <NumberStepper
+              min={5} max={240} value={goals.dailyMinutes} width={108}
+              onChange={(v) => updateGoal({ dailyMinutes: v || 15 })}
             />
           </label>
           <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ flex: 1 }}>{tr(isAr, "Words / week", "كلمات / أسبوع")}</span>
-            <input
-              type="number" min={5} max={500} value={goals.weeklyWords}
-              onChange={(e) => updateGoal({ weeklyWords: Number(e.target.value) || 30 })}
-              style={numInput}
+            <NumberStepper
+              min={5} max={500} value={goals.weeklyWords} width={108}
+              onChange={(v) => updateGoal({ weeklyWords: v || 30 })}
             />
           </label>
           <label style={{ display: "flex", alignItems: "center", gap: 8 }}>

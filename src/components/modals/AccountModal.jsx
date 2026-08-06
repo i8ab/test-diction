@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { XIcon, CheckIcon, LoaderIcon, KeyIcon, UserIcon } from "../common/Icons";
+import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 function AccountModal({ account, onClose, onSave, isAr, lang }) {
   const L = lang || (isAr ? "ar" : "en");
@@ -44,6 +45,7 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
 
   return (
     <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: "max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))", zIndex: 2000 }}>
+      <BodyScrollLock />
       <div onClick={(e) => e.stopPropagation()} className="modal-card responsive-modal" role="dialog" aria-modal="true" aria-labelledby="account-modal-title" style={{ width: "100%", maxWidth: 440, background: CARD, borderRadius: 12, padding: "clamp(16px, 3vw, 24px)", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)", maxHeight: "90dvh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, gap: 8 }}>
           <h2 id="account-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(17px, 3vw, 19px)", fontWeight: 600, color: INK, margin: 0 }}>{T( "My account", "حسابي")}</h2>

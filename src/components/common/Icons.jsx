@@ -39,7 +39,17 @@ const GlobeIcon = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><p
 const QuizIcon = (p) => <Icon {...p} path={<><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8"/><path d="M8 13h5"/><path d="m8 17 2 2 4-4"/></>} />;
 const StatsIcon = (p) => <Icon {...p} path={<><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></>} />;
 const TrophyIcon = (p) => <Icon {...p} path={<><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4a2 2 0 0 0 0 4h3"/><path d="M17 5h3a2 2 0 0 1 0 4h-3"/></>} />;
-const FlameIcon = (p) => <Icon {...p} path={<path d="M8.5 14.5A2.5 2.5 0 0 0 11 17a2.5 2.5 0 0 0 2.5-2.5c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7.5 7.5 0 1 1-15 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5"/>} />;
+const FlameIcon = (p) => (
+  <Icon
+    {...p}
+    path={
+      <>
+        <path d="M12 22c4.2-1.2 7-4.8 7-9.2 0-3.6-2-6.2-3.8-8-1.2 2.8-2.2 3.8-2.2 3.8S12.4 5.5 10.8 2.5C8 5.2 5 8.6 5 12.8 5 17.2 7.8 20.8 12 22Z" />
+        <path d="M12 22c-1.4-1-2.8-2.8-2.8-5.2 0-1.8.9-3.2 1.8-4.2.4 1.4 1.3 2.4 1.8 3.4.5-1 1.4-2 1.9-3.4.9 1 1.8 2.4 1.8 4.2 0 2.4-1.4 4.2-2.8 5.2" />
+      </>
+    }
+  />
+);
 const ExternalLinkIcon = (p) => <Icon {...p} path={<><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></>} />;
 const SpeakerIcon = (p) => <Icon {...p} path={<><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></>} />;
 const MoreIcon = (p) => <Icon {...p} path={<><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/></>} />;

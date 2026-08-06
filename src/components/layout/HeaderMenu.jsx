@@ -25,6 +25,8 @@ import {
   UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon, CheckIcon, TrashIcon, LayersIcon, LoaderIcon, SettingsIcon, BookIcon,
   SearchIcon, QuizIcon, ClockIcon, CalendarIcon, FlameIcon, StatsIcon, MicIcon,
 } from "../common/Icons";
+import NumberStepper from "../common/NumberStepper";
+import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 const INFO_SECTIONS = [
   {
@@ -374,6 +376,9 @@ export default function HeaderMenu({
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [settingsOpen, notifOpen, bannerOpen, infoOpen]);
+
+  // Lock background scroll for any open settings-style modal (click-outside still closes).
+  useBodyScrollLock(settingsOpen || notifOpen || bannerOpen || infoOpen);
 
   function itemClick(fn) { fn(); }
 
@@ -1336,15 +1341,13 @@ export default function HeaderMenu({
                           {T( "Stay on site", "مدة الظهور")}
                         </label>
                         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                          <input
-                            type="number"
+                          <NumberStepper
                             min={0}
                             max={9999}
-                            step={1}
                             value={bannerDurationAmount}
-                            onChange={(e) => setBannerDurationAmount(Math.max(0, Number(e.target.value) || 0))}
-                            placeholder="0"
-                            style={{ ...fieldInput, width: 90, flex: "0 0 auto" }}
+                            onChange={(v) => setBannerDurationAmount(v)}
+                            width={120}
+                            aria-label={T("Stay on site", "مدة الظهور")}
                           />
                           <select
                             value={bannerDurationUnit}

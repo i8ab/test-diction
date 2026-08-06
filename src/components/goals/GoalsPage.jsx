@@ -6,6 +6,8 @@ import {
   getTodayTimerMinutes, loadWeeklyChallenge,
 } from "../../lib/state/goals";
 import { XIcon, FlameIcon, CheckIcon } from "../common/Icons";
+import NumberStepper from "../common/NumberStepper";
+import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 function ProgressBar({ value, max, color }) {
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
@@ -32,6 +34,8 @@ export default function GoalsPage({
   useEffect(() => {
     onBubbleChange?.(viewMode === "bubble");
   }, [viewMode, onBubbleChange]);
+
+  useBodyScrollLock(viewMode === "full");
 
   const dailyWordsDone = useMemo(() => countStudiedInRange(studiedAt, todayStartMs()), [studiedAt]);
   const weeklyWordsDone = useMemo(() => countStudiedInRange(studiedAt, weekStartMs()), [studiedAt]);
@@ -191,18 +195,27 @@ export default function GoalsPage({
         <Section title={tr(isAr, "Edit targets", "تعديل الأهداف")}>
           <label style={rowLabel}>
             <span>{tr(isAr, "Words per day", "كلمات في اليوم")}</span>
-            <input type="number" min={1} max={100} value={goals.dailyWords}
-              onChange={(e) => updateGoal({ dailyWords: Number(e.target.value) || 5 })} style={numInput} />
+            <NumberStepper
+              min={1} max={100} value={goals.dailyWords}
+              onChange={(v) => updateGoal({ dailyWords: v || 5 })}
+              aria-label={tr(isAr, "Words per day", "كلمات في اليوم")}
+            />
           </label>
           <label style={rowLabel}>
             <span>{tr(isAr, "Minutes per day", "دقائق في اليوم")}</span>
-            <input type="number" min={5} max={240} value={goals.dailyMinutes}
-              onChange={(e) => updateGoal({ dailyMinutes: Number(e.target.value) || 15 })} style={numInput} />
+            <NumberStepper
+              min={5} max={240} value={goals.dailyMinutes}
+              onChange={(v) => updateGoal({ dailyMinutes: v || 15 })}
+              aria-label={tr(isAr, "Minutes per day", "دقائق في اليوم")}
+            />
           </label>
           <label style={rowLabel}>
             <span>{tr(isAr, "Words per week", "كلمات في الأسبوع")}</span>
-            <input type="number" min={5} max={500} value={goals.weeklyWords}
-              onChange={(e) => updateGoal({ weeklyWords: Number(e.target.value) || 30 })} style={numInput} />
+            <NumberStepper
+              min={5} max={500} value={goals.weeklyWords}
+              onChange={(v) => updateGoal({ weeklyWords: v || 30 })}
+              aria-label={tr(isAr, "Words per week", "كلمات في الأسبوع")}
+            />
           </label>
         </Section>
 

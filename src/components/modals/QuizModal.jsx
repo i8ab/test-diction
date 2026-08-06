@@ -6,6 +6,8 @@ import {
   quizQuestionLabel, isSrsDue, quizResultCategory, QUIZ_RESULT_CATEGORIES, formatQuizDuration,
 } from "../../lib/utils/quizHelpers";
 import { SpeakButton, XIcon, CheckIcon, EyeIcon, QuizIcon } from "../common/Icons";
+import NumberStepper from "../common/NumberStepper";
+import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 function ReviewRow({ item, isAr }) {
   return (
@@ -176,6 +178,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
 
   return (
     <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 2000 }}>
+      <BodyScrollLock />
       <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={isAr ? "rtl" : "ltr"} role="dialog" aria-modal="true" aria-labelledby="quiz-modal-title"
         style={{ width: "100%", maxWidth: 540, maxHeight: "88vh", overflowY: "auto", background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
@@ -204,8 +207,15 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
             {rangeKey === "custom" && (
               <>
                 <label style={labelStyle} htmlFor="quiz-custom-minutes">{tr(isAr, "Minutes", "عدد الدقائق")}</label>
-                <input id="quiz-custom-minutes" type="number" min="1" max="10080" value={customMinutes}
-                  onChange={(e) => setCustomMinutes(e.target.value)} style={{ ...inputStyle, maxWidth: 140 }} inputMode="numeric" />
+                <div style={{ marginTop: 4 }}>
+                  <NumberStepper
+                    min={1} max={10080}
+                    value={Number(customMinutes) || 1}
+                    onChange={(v) => setCustomMinutes(String(v))}
+                    width={140}
+                    aria-label={tr(isAr, "Minutes", "عدد الدقائق")}
+                  />
+                </div>
               </>
             )}
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 16, fontSize: 13, color: "var(--muted-strong)" }}>

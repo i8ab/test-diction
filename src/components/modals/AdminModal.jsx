@@ -6,6 +6,7 @@ import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle }
 import { translateAdminError, LOG_ACTION_META, LOG_SECTIONS } from "../../lib/state/logs";
 import { downloadFullBackup } from "../../lib/utils/backupUtils";
 import {
+import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
   XIcon, CheckIcon, LoaderIcon, PlusIcon, EditIcon, TrashIcon, LinkIcon,
   BookIcon, ChevronIcon, CopyIcon, DownloadIcon,
 } from "../common/Icons";
@@ -144,6 +145,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
 
   return (
     <div onClick={requestClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 2000 }}>
+      <BodyScrollLock />
       <div onClick={(e) => e.stopPropagation()} className="modal-card" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title" style={{ width: "100%", maxWidth: "min(520px, 100%)", maxHeight: "min(90dvh, 900px)", overflowY: "auto", background: CARD, borderRadius: 12, padding: "clamp(14px, 3vw, 24px)", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <h2 id="admin-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: INK, margin: 0 }}>{title}</h2>

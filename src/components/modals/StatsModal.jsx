@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle } from "../../lib/config/theme";
 import { isSrsDue, SRS_BOX_LABELS, computeStreak, formatDueIn } from "../../lib/utils/quizHelpers";
 import { XIcon, StatsIcon, FlameIcon } from "../common/Icons";
+import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 // Builds a cumulative "words studied over time" series from `studiedAt`
 // ({ entryId: timestamp }), one point per day from the first studied day
@@ -138,6 +139,7 @@ function StatsModal({ entries, sectionLabel, studiedIds, studiedAt, srsBox, srsD
 
   return (
     <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 2000 }}>
+      <BodyScrollLock />
       <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={isAr ? "rtl" : "ltr"} role="dialog" aria-modal="true" aria-labelledby="stats-modal-title"
         style={{ width: "100%", maxWidth: 540, maxHeight: "88vh", overflowY: "auto", background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>

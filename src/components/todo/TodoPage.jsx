@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { XIcon, CheckIcon, PlusIcon, TrashIcon } from "../common/Icons";
+import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 const TODO_KEY = "twoTongues.todos";
 
@@ -59,6 +60,8 @@ export default function TodoPage({
   useEffect(() => {
     onBubbleChange?.(viewMode === "bubble");
   }, [viewMode, onBubbleChange]);
+
+  useBodyScrollLock(viewMode === "full");
 
   useEffect(() => {
     if (viewMode === "full") {

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { XIcon, BookIcon, QuizIcon, ClockIcon, CalendarIcon, CheckIcon, StatsIcon, FlameIcon, SearchIcon, MicIcon, LayersIcon } from "../common/Icons";
+import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 const SECTIONS = [
   {
@@ -218,6 +219,7 @@ export default function InfoGuideModal({ isAr, onClose }) {
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
+      <BodyScrollLock />
       <div
         style={{
           width: "100%", maxWidth: 720, maxHeight: "min(88dvh, 720px)",

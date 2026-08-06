@@ -14,12 +14,18 @@ export default async function handler(req, res) {
     return;
   }
 
+  const trimmed = text.trim().slice(0, 200);
+  if (!trimmed) {
+    res.status(400).json({ error: "Empty 'text' query param" });
+    return;
+  }
+
   const voiceLang = lang === "en" ? "en" : "ar";
 
   const url =
     "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob" +
     "&tl=" + encodeURIComponent(voiceLang) +
-    "&q=" + encodeURIComponent(text);
+    "&q=" + encodeURIComponent(trimmed);
 
   try {
     const upstream = await fetch(url, {

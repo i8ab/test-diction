@@ -204,11 +204,15 @@ export function saveReminderMessage(message, accountCode) {
   } catch (_) {}
 }
 
-export function buildReminderPayload({ title, message, dueCount }) {
+export function buildReminderPayload({ title, message, body, dueCount } = {}) {
+  const custom =
+    (typeof message === "string" && message.trim()) ||
+    (typeof body === "string" && body.trim()) ||
+    "";
   return {
-    title: title || "Study reminder",
+    title: (title && String(title).trim()) || "Study reminder",
     body:
-      message ||
+      custom ||
       (dueCount
         ? `${dueCount} words due for review`
         : "Time to review your words"),

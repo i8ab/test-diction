@@ -42,12 +42,19 @@ export class SaveConflictError extends Error {
   }
 }
 
-export async function saveRecord(record, expectedVersion) {
+export async function saveRecord(record, expectedVersion, accessCode) {
+  const headers = { "Content-Type": "application/json" };
+  if (accessCode) {
+    headers["x-access-code"] = String(accessCode).trim();
+  }
   const res = await fetch("/api/jsonbin", {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ ...record, expectedVersion }),
   });
+  if (res.status === 401) {
+    throw new Error("unauthorized");
+  }
   if (res.status === 409) {
     const data = await res.json().catch(() => null);
     throw new SaveConflictError(data || { entries: [], accounts: [], logs: [], siteBanner: null, version: expectedVersion });

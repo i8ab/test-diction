@@ -45,8 +45,8 @@ export default function ReminderBanner({
       if (localStorage.getItem(REMINDER_NOTIFIED_KEY) === todayKey()) return;
       const payload = buildReminderPayload({
         title: reminderTitle,
-        body: reminderMessage,
-        daysSince,
+        message: reminderMessage,
+        dueCount: daysSince,
       });
       new Notification(payload.title, { body: payload.body });
       localStorage.setItem(REMINDER_NOTIFIED_KEY, todayKey());

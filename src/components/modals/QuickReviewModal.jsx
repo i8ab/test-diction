@@ -29,7 +29,6 @@ export default function QuickReviewModal({
   const [phase, setPhase] = useState("prompt"); // prompt | revealed | done
   const [knew, setKnew] = useState(0);
   const [learning, setLearning] = useState(0);
-  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     function onKey(e) {
@@ -109,33 +108,10 @@ export default function QuickReviewModal({
                 "جلسة قصيرة للكلمات اللي محتاجة مراجعة دلوقتي (مستحقة).")}
             </p>
           </div>
-          <div style={{ display: "flex", gap: 4 }}>
-            <button
-              type="button"
-              onClick={() => setShowHelp((h) => !h)}
-              style={{ ...iconBtn, fontSize: 12, fontWeight: 700, width: "auto", padding: "4px 8px" }}
-            >
-              {tr(isAr, "How?", "إزاي؟")}
-            </button>
-            <button type="button" onClick={onClose} style={iconBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
-              <XIcon size={18} />
-            </button>
-          </div>
+          <button type="button" onClick={onClose} style={iconBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
+            <XIcon size={18} />
+          </button>
         </div>
-
-        {showHelp && (
-          <div style={{
-            marginBottom: 14, padding: "12px 14px", borderRadius: 12,
-            background: "rgba(var(--border-rgb),0.08)", fontSize: 13, color: "var(--muted-strong)", lineHeight: 1.55,
-          }}>
-            <ol style={{ margin: 0, paddingInlineStart: 18 }}>
-              <li>{tr(isAr, "Read the word — try to remember the meaning without looking.", "اقرا الكلمة — حاول تفتكر المعنى من غير ما تبص.")}</li>
-              <li>{tr(isAr, "Tap “Show meaning” when ready.", "اضغط «إظهار المعنى» لما تبقى جاهز.")}</li>
-              <li>{tr(isAr, "“I knew it” = you remembered correctly. “Still learning” = needs more practice.", "«عرفتها» = افتكرت صح. «لسه بتعلّم» = محتاجة تمرين تاني.")}</li>
-              <li>{tr(isAr, "Only studied words that are due for review appear here.", "بتظهر هنا بس الكلمات المدروسة والمستحقة للمراجعة.")}</li>
-            </ol>
-          </div>
-        )}
 
         {total === 0 ? (
           <div style={{ textAlign: "center", padding: "28px 12px" }}>

@@ -23,7 +23,197 @@ function stretchArabicText(text, amount) {
 const hasArabic = (text) => /[\u0600-\u06FF]/.test(text || "");
 import {
   UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon, CheckIcon, TrashIcon, LayersIcon, LoaderIcon, SettingsIcon, BookIcon,
+  SearchIcon, QuizIcon, ClockIcon, CalendarIcon, FlameIcon, StatsIcon, MicIcon,
 } from "../common/Icons";
+
+const INFO_SECTIONS = [
+  {
+    id: "basics",
+    icon: BookIcon,
+    titleEn: "Dictionary basics",
+    titleAr: "أساسيات القاموس",
+    bodyEn: [
+      "Switch EN→AR / AR→AR from the section tabs.",
+      "Search by word or meaning. Use the mic for voice search when available.",
+      "Tap a card to expand definition, examples, synonyms.",
+      "Star = favorite · Eye = mark as studied · Zoom = big view + pronunciation practice.",
+    ],
+    bodyAr: [
+      "بدّل EN→AR / AR→AR من تبويبات القسم.",
+      "ابحث بالكلمة أو المعنى. الميكروفون للبحث الصوتي لو متاح.",
+      "اضغط الكرت لفتح التعريف والأمثلة والمرادفات.",
+      "نجمة = مفضلة · عين = علّم كمدروسة · تكبير = عرض كبير + تمرين نطق.",
+    ],
+  },
+  {
+    id: "filters",
+    icon: SearchIcon,
+    titleEn: "Filters",
+    titleAr: "الفلاتر",
+    bodyEn: [
+      "All / Studied / Not studied / Favorites / Due today.",
+      "Due today = studied words scheduled for review by spaced repetition (SRS).",
+    ],
+    bodyAr: [
+      "الكل / درست / لسه / مفضلة / مستحقة.",
+      "مستحقة = كلمات مدروسة جاهزة للمراجعة حسب نظام التكرار المتباعد.",
+    ],
+  },
+  {
+    id: "quick",
+    icon: LayersIcon,
+    titleEn: "Quick review",
+    titleAr: "مراجعة سريعة",
+    bodyEn: [
+      "Open from More ⋯ → Quick review.",
+      "You see the word first — try to recall the meaning.",
+      "Show meaning → then choose “I knew it” or “Still learning”.",
+      "Best for a 2–5 minute refresh of due words.",
+    ],
+    bodyAr: [
+      "من المزيد ⋯ → مراجعة سريعة.",
+      "تشوف الكلمة الأول — حاول تفتكر المعنى.",
+      "إظهار المعنى → بعدين «عرفتها» أو «لسه بتعلّم».",
+      "مناسبة لمراجعة سريعة ٢–٥ دقايق للكلمات المستحقة.",
+    ],
+  },
+  {
+    id: "quiz",
+    icon: QuizIcon,
+    titleEn: "Quiz & flashcards",
+    titleAr: "اختبار وبطاقات",
+    bodyEn: [
+      "Quiz builds questions from your studied words (meaning, synonyms, antonyms).",
+      "Flashcards flip through cards for passive review.",
+      "Answers update spaced-repetition levels automatically.",
+    ],
+    bodyAr: [
+      "الاختبار بيبني أسئلة من كلماتك المدروسة (معنى، مرادفات، مضادات).",
+      "البطاقات لتمرير سريع ومراجعة خفيفة.",
+      "الإجابات بتحدّث مستوى التكرار المتباعد تلقائيًا.",
+    ],
+  },
+  {
+    id: "timer",
+    icon: ClockIcon,
+    titleEn: "Timer",
+    titleAr: "المؤقّت",
+    bodyEn: [
+      "Countdown or stopwatch for study sessions.",
+      "Pin shrinks it to a floating bubble so you can keep browsing the dictionary.",
+      "Finished countdown minutes count toward Goals.",
+    ],
+    bodyAr: [
+      "عدّ تنازلي أو ساعة توقيت لجلسات المذاكرة.",
+      "التثبيت يصغّره لفقاعة عائمة وتقدر تتصفح القاموس.",
+      "دقائق العدّ التنازلي بتتحسب في الأهداف.",
+    ],
+  },
+  {
+    id: "calendar",
+    icon: CalendarIcon,
+    titleEn: "Calendar",
+    titleAr: "التقويم",
+    bodyEn: [
+      "Monthly map of days you marked words as studied.",
+      "Tap a day to see the words. Pin = mini widget.",
+    ],
+    bodyAr: [
+      "خريطة شهرية للأيام اللي علّمت فيها كلمات كمدروسة.",
+      "اضغط يوم عشان تشوف الكلمات. تثبيت = ودجت صغير.",
+    ],
+  },
+  {
+    id: "goals",
+    icon: FlameIcon,
+    titleEn: "Goals & challenges",
+    titleAr: "أهداف وتحديات",
+    bodyEn: [
+      "Orange floating button (or More ⋯ → Goals): daily words, timer minutes, weekly targets.",
+      "Weekly challenge rotates automatically.",
+      "Pin keeps a small progress bubble on screen.",
+    ],
+    bodyAr: [
+      "الزرار البرتقالي العائم (أو المزيد ⋯ → أهداف): كلمات يومية، دقائق مؤقّت، هدف أسبوعي.",
+      "تحدي الأسبوع بيتغيّر لوحده.",
+      "تثبيت = فقاعة تقدّم صغيرة على الشاشة.",
+    ],
+  },
+  {
+    id: "todo",
+    icon: CheckIcon,
+    titleEn: "To-do list",
+    titleAr: "قائمة المهام",
+    bodyEn: [
+      "Green floating button (bottom corner) opens to-dos anywhere.",
+      "Also under More ⋯. Export/Import JSON for backup.",
+      "Pin for a floating mini list.",
+    ],
+    bodyAr: [
+      "الزرار الأخضر العائم (تحت) بيفتح المهام من أي مكان.",
+      "كمان من المزيد ⋯. تصدير/استيراد JSON للنسخ الاحتياطي.",
+      "تثبيت = قائمة مصغّرة عائمة.",
+    ],
+  },
+  {
+    id: "focus",
+    icon: StatsIcon,
+    titleEn: "Focus mode",
+    titleAr: "وضع التركيز",
+    bodyEn: [
+      "Header menu (☰) → Focus mode hides banners and extras.",
+      "Keeps search + word list for distraction-free study.",
+      "Shortcut: F · Exit chip at the top while active.",
+    ],
+    bodyAr: [
+      "قائمة الهيدر (☰) → وضع التركيز يخفي البنرات والإضافات.",
+      "يفضل البحث + قائمة الكلمات للمذاكرة من غير تشتيت.",
+      "اختصار: F · شريحة خروج فوق وانت فيه.",
+    ],
+  },
+  {
+    id: "keys",
+    icon: SearchIcon,
+    titleEn: "Keyboard shortcuts",
+    titleAr: "اختصارات الكيبورد",
+    bodyEn: [
+      "/ focus search · N add word · Q quiz · T to-do · R quick review · F focus.",
+      "Ignored while typing in an input field.",
+    ],
+    bodyAr: [
+      "/ تركيز البحث · N إضافة · Q اختبار · T مهام · R مراجعة سريعة · F تركيز.",
+      "متشتغلش وانت بتكتب جوه خانة إدخال.",
+    ],
+  },
+  {
+    id: "notes",
+    icon: BookIcon,
+    titleEn: "Personal notes",
+    titleAr: "ملاحظات شخصية",
+    bodyEn: [
+      "Expand any word card → “My note” field.",
+      "Saved on this device for your account (local).",
+    ],
+    bodyAr: [
+      "افتح أي كرت كلمة → حقل «ملاحظتي».",
+      "بتتحفظ على الجهاز لحسابك (محلي).",
+    ],
+  },
+  {
+    id: "pron",
+    icon: MicIcon,
+    titleEn: "Pronunciation",
+    titleAr: "النطق",
+    bodyEn: [
+      "Speaker icons play TTS.",
+      "Zoom view: mic practices saying the word; you get a score.",
+    ],
+    bodyAr: [
+      "أيقونات السماعة بتشغّل النطق الآلي.",
+      "عرض التكبير: الميكروفون لتمرين نطق الكلمة مع درجة.",
+    ],
+  },
+];
 
 export default function HeaderMenu({
   theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin, onLogout, isAr,
@@ -48,6 +238,8 @@ export default function HeaderMenu({
   const [requestsOpen, setRequestsOpen] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [infoExpanded, setInfoExpanded] = useState(null);
   const [busyCode, setBusyCode] = useState(null);
   const ref = useRef(null);
 
@@ -122,6 +314,8 @@ export default function HeaderMenu({
     setSettingsOpen(false);
     setNotifOpen(false);
     setBannerOpen(false);
+    setInfoOpen(false);
+    setInfoExpanded(null);
   }
 
   useEffect(() => {
@@ -464,13 +658,72 @@ export default function HeaderMenu({
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {typeof onOpenInfo === "function" && (
-                <Row
-                  tint="#5b8def"
-                  icon={<BookIcon size={14} />}
-                  label={T( "Information", "معلومات")}
-                  onClick={() => { closeSettings(); onOpenInfo(); }}
-                />
+              {/* Information — expandable list stacked under settings */}
+              <button
+                type="button"
+                className="header-menu-item touch-target"
+                style={{
+                  display: "flex", alignItems: "center", gap: 10, width: "100%",
+                  padding: "10px 10px", border: "none", background: "transparent",
+                  cursor: "pointer", color: "var(--ink)", borderRadius: 10, textAlign: "start",
+                }}
+                onClick={() => setInfoOpen((v) => !v)}
+                aria-expanded={infoOpen}
+              >
+                <span style={{
+                  width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "rgba(91,141,239,0.12)", color: "#5b8def", flexShrink: 0,
+                }}>
+                  <BookIcon size={14} />
+                </span>
+                <span style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{T("Information", "معلومات")}</span>
+                <span style={{ fontSize: 12, color: "var(--muted)", transform: infoOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▼</span>
+              </button>
+              {infoOpen && (
+                <div style={{
+                  display: "flex", flexDirection: "column", gap: 6,
+                  padding: "4px 6px 10px", marginBottom: 4,
+                  borderBottom: "1px solid rgba(var(--border-rgb),0.1)",
+                }}>
+                  {INFO_SECTIONS.map((s) => {
+                    const Icon = s.icon;
+                    const openSec = infoExpanded === s.id;
+                    const title = isAr ? s.titleAr : s.titleEn;
+                    const body = isAr ? s.bodyAr : s.bodyEn;
+                    return (
+                      <div key={s.id} style={{
+                        borderRadius: 10,
+                        border: "1px solid rgba(var(--border-rgb),0.12)",
+                        background: openSec ? "rgba(var(--border-rgb),0.06)" : "transparent",
+                        overflow: "hidden",
+                      }}>
+                        <button
+                          type="button"
+                          onClick={() => setInfoExpanded(openSec ? null : s.id)}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 8, width: "100%",
+                            padding: "9px 10px", border: "none", background: "transparent",
+                            cursor: "pointer", color: "var(--ink)", textAlign: "start",
+                          }}
+                        >
+                          <Icon size={14} style={{ color: "var(--accent-1)", flexShrink: 0 }} />
+                          <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{title}</span>
+                          <span style={{ fontSize: 11, color: "var(--muted)" }}>{openSec ? "−" : "+"}</span>
+                        </button>
+                        {openSec && (
+                          <ul style={{
+                            margin: "0 0 10px", paddingInlineStart: 28, paddingInlineEnd: 10,
+                            fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.55,
+                          }}>
+                            {body.map((line, i) => (
+                              <li key={i} style={{ marginBottom: 5 }}>{line}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
               <Row
                 tint="#f5a623"

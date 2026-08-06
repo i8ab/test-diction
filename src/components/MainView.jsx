@@ -5,7 +5,7 @@ import { getSpeechRecognitionCtor, recognizeSpeech, loadArDialect, startMicLevel
 import { uid, isSrsDue, computeStreak } from "../lib/utils/quizHelpers";
 import {
   SearchIcon, PlusIcon, XIcon, LoaderIcon, CheckIcon, WifiOffIcon,
-  UndoIcon, ClockIcon, MicIcon, BookIcon,
+  UndoIcon, ClockIcon, MicIcon, BookIcon, FlameIcon,
 } from "./common/Icons";
 import { firstLetterKey, fuzzyIncludes, matchScore } from "../lib/utils/searchUtils";
 import { normalizePairs } from "../lib/utils/pairUtils";
@@ -1033,6 +1033,35 @@ export default function MainView({
           onRecordSrsAnswer={onRecordSrsAnswer}
         />
       </Suspense>
+    )}
+
+    {/* Always-available floating Goals button (above To-do) */}
+    {!showGoals && (
+      <button
+        type="button"
+        onClick={() => { setGoalsBubble(false); setShowGoals(true); }}
+        title={tr(isAr, "Goals", "الأهداف")}
+        aria-label={tr(isAr, "Open goals", "فتح الأهداف")}
+        style={{
+          position: "fixed",
+          bottom: "calc(88px + env(safe-area-inset-bottom, 0px))",
+          insetInlineEnd: 16,
+          zIndex: 45,
+          width: 56,
+          height: 56,
+          borderRadius: "50%",
+          border: "none",
+          background: "linear-gradient(135deg, #ff9f0a, #ff6b00)",
+          color: "#fff",
+          boxShadow: "0 10px 28px -8px rgba(255,159,10,0.55)",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <FlameIcon size={24} />
+      </button>
     )}
 
     {/* Always-available floating To-do button */}

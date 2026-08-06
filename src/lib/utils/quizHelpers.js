@@ -7,6 +7,22 @@ export function uid() {
   );
 }
 
+/** Fisher–Yates shuffle (returns a new array). */
+export function shuffleArray(arr) {
+  const a = [...(arr || [])];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/** Local calendar day key: "YYYY-M-D" (month is 0-based like Date#getMonth). */
+export function dateKey(ms = Date.now()) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
 /** Intervals (ms) for SRS boxes 0..5 */
 export const SRS_LEVEL_INTERVALS_MS = [
   10 * 60 * 1000, // 0 — 10 min (relearn)

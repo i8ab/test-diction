@@ -1,6 +1,26 @@
 import { useState, useEffect, useRef } from "react";
 import { tr, UI_LANGS } from "../../lib/config/i18n";
 import { ACCENT_THEMES } from "../../lib/state/storage";
+
+function stretchArabicText(text, amount) {
+  if (!text || !amount) return text;
+  const isArabicLetter = (ch) => /[\u0600-\u06FF]/.test(ch);
+  const isNonConnecting = (ch) => /[ادذرزوآأإؤةء]/.test(ch);
+  let result = "";
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    result += ch;
+    if (i < text.length - 1) {
+      const nextCh = text[i + 1];
+      if (isArabicLetter(ch) && !isNonConnecting(ch) && isArabicLetter(nextCh) && nextCh !== " " && nextCh !== "ـ") {
+        result += "ـ".repeat(amount);
+      }
+    }
+  }
+  return result;
+}
+
+const hasArabic = (text) => /[\u0600-\u06FF]/.test(text || "");
 import {
   UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon, CheckIcon, TrashIcon, LayersIcon, LoaderIcon, SettingsIcon,
 } from "../common/Icons";
@@ -797,10 +817,10 @@ export default function HeaderMenu({
                       </div>
                       <div>
                         <label style={fieldLabel}>
-                          {T( "Text extension", "امتداد الجملة أو الكلمة")} — {bannerLetterSpacing}px
+                          {T( "Text extension", "امتداد الجملة أو الكلمة")} — {bannerLetterSpacing}
                         </label>
                         <input
-                          type="range" min={0} max={30} step={1}
+                          type="range" min={0} max={10} step={1}
                           value={bannerLetterSpacing}
                           onChange={(e) => setBannerLetterSpacing(Number(e.target.value))}
                           style={{ width: "100%", accentColor: "var(--accent-1)" }}
@@ -887,8 +907,14 @@ export default function HeaderMenu({
                             }} />
                           )}
                           <span style={{ width: 18, flexShrink: 0 }} />
-                          <span style={{ flex: 1, textAlign: "center", fontWeight: 700, position: "relative", letterSpacing: bannerLetterSpacing ? `${bannerLetterSpacing}px` : undefined }}>
-                            {bannerMessage.trim() || T( "Preview…", "معاينة…")}
+                          <span style={{
+                            flex: 1,
+                            textAlign: "center",
+                            fontWeight: 700,
+                            position: "relative",
+                            letterSpacing: bannerLetterSpacing && !hasArabic(bannerMessage) ? `${bannerLetterSpacing}px` : undefined,
+                          }}>
+                            {bannerMessage.trim() ? stretchArabicText(bannerMessage.trim(), bannerLetterSpacing) : T( "Preview…", "معاينة…")}
                           </span>
                           <span style={{ opacity: 0.7, width: 18, textAlign: "center", position: "relative" }}>×</span>
                         </div>

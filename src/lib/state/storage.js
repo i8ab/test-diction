@@ -150,6 +150,7 @@ export function loadOfflineCache() {
       entries: parsed.entries || [],
       accounts: parsed.accounts || [],
       logs: parsed.logs || [],
+      siteBanner: parsed.siteBanner || null,
       cachedAt: parsed.cachedAt || null,
     };
   } catch (e) {

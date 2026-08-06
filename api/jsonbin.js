@@ -13,10 +13,10 @@
 // ---------------------------------------------------------------------------
 // CONCURRENCY — a real distributed lock (Redis) + a `version` counter
 // ---------------------------------------------------------------------------
-// The whole dictionary (entries + accounts + logs) lives in a single
-// JSONBin record, so without any guard, two people saving around the same
-// moment could silently clobber each other: A reads, B reads, B writes, A
-// writes — A's write overwrites B's change with no warning ("last write
+// The whole dictionary (entries + accounts + logs + siteBanner) lives in a
+// single JSONBin record, so without any guard, two people saving around the
+// same moment could silently clobber each other: A reads, B reads, B writes,
+// A writes — A's write overwrites B's change with no warning ("last write
 // wins").
 //
 //   - Every record carries a `version` integer, bumped by 1 on every PUT.
@@ -47,6 +47,28 @@ import { redisConfigured, acquireLock, releaseLock } from "../lib/redis.js";
 
 const LOCK_KEY = "twoTongues:dictWriteLock";
 
+function pickBanner(record) {
+  const b = record && record.siteBanner;
+  if (!b || typeof b !== "object") return null;
+  return {
+    id: typeof b.id === "string" ? b.id : "",
+    message: typeof b.message === "string" ? b.message : "",
+    color: typeof b.color === "string" ? b.color : "#146C94",
+    enabled: !!b.enabled,
+    updatedAt: typeof b.updatedAt === "number" ? b.updatedAt : 0,
+  };
+}
+
+function shapeRecord(record) {
+  return {
+    entries: (record && record.entries) || [],
+    accounts: (record && record.accounts) || [],
+    logs: (record && record.logs) || [],
+    siteBanner: pickBanner(record),
+    version: (record && record.version) || 0,
+  };
+}
+
 export default async function handler(req, res) {
   const { JSONBIN_BIN_ID, JSONBIN_MASTER_KEY } = process.env;
 
@@ -71,12 +93,7 @@ export default async function handler(req, res) {
       // refresh it in the background) means most visits get a near-instant
       // response instead of waiting on JSONBin at all.
       res.setHeader("Cache-Control", "public, max-age=0, s-maxage=10, stale-while-revalidate=55");
-      return res.status(200).json({
-        entries: (data.record && data.record.entries) || [],
-        accounts: (data.record && data.record.accounts) || [],
-        logs: (data.record && data.record.logs) || [],
-        version: (data.record && data.record.version) || 0,
-      });
+      return res.status(200).json(shapeRecord(data.record));
     }
 
     if (req.method === "PUT") {
@@ -112,10 +129,7 @@ export default async function handler(req, res) {
           return res.status(409).json({
             error: "conflict",
             message: "The dictionary is busy — please try again.",
-            entries: (busyData.record && busyData.record.entries) || [],
-            accounts: (busyData.record && busyData.record.accounts) || [],
-            logs: (busyData.record && busyData.record.logs) || [],
-            version: (busyData.record && busyData.record.version) || 0,
+            ...shapeRecord(busyData.record),
           });
         }
       }
@@ -140,18 +154,33 @@ export default async function handler(req, res) {
           return res.status(409).json({
             error: "conflict",
             message: "The dictionary changed since you last loaded it.",
-            entries: (freshData.record && freshData.record.entries) || [],
-            accounts: (freshData.record && freshData.record.accounts) || [],
-            logs: (freshData.record && freshData.record.logs) || [],
-            version: currentVersion,
+            ...shapeRecord(freshData.record),
           });
         }
 
         const nextVersion = currentVersion + 1;
+        // Preserve siteBanner from body when provided (including null to
+        // clear); otherwise keep the existing one so older clients that
+        // don't know about the field don't wipe an active announcement.
+        let nextBanner;
+        if (body.siteBanner !== undefined) {
+          nextBanner = body.siteBanner === null ? null : pickBanner({ siteBanner: body.siteBanner });
+        } else {
+          nextBanner = pickBanner(freshData.record);
+        }
+
+        const payload = {
+          entries: body.entries,
+          accounts: body.accounts,
+          logs: body.logs,
+          version: nextVersion,
+          siteBanner: nextBanner,
+        };
+
         const r = await fetch(API_BASE, {
           method: "PUT",
           headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_MASTER_KEY },
-          body: JSON.stringify({ entries: body.entries, accounts: body.accounts, logs: body.logs, version: nextVersion }),
+          body: JSON.stringify(payload),
         });
         if (!r.ok) return res.status(502).json({ error: "Upstream save failed" });
         return res.status(200).json({ ok: true, version: nextVersion });

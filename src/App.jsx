@@ -72,6 +72,7 @@ export default function DictionaryApp() {
   const [accountsLoaded, setAccountsLoaded] = useState(false);
   const [logs, setLogs] = useState([]);
   const [logsLoaded, setLogsLoaded] = useState(false);
+  const [siteBanner, setSiteBanner] = useState(null); // admin-published site-wide announcement
   const [accountCode, setAccountCode] = useState(""); // this browser's signed-in account's personal code
   const [section, setSection] = useState("en-ar");
   const [query, setQuery] = useState("");
@@ -342,7 +343,7 @@ export default function DictionaryApp() {
     migrationDoneRef.current = true;
     try {
       const newVersion = await saveRecord(
-        { entries: rec.entries || [], accounts: migrated, logs: rec.logs || [] },
+        { entries: rec.entries || [], accounts: migrated, logs: rec.logs || [], siteBanner: rec.siteBanner || null },
         rec.version || 0
       );
       return { ...rec, accounts: migrated, version: newVersion };
@@ -361,6 +362,7 @@ export default function DictionaryApp() {
         setEntries(rec.entries);
         setAccounts(rec.accounts);
         setLogs(rec.logs);
+        setSiteBanner(rec.siteBanner || null);
         setLogsLoaded(true);
         setRecordVersion(rec.version);
         saveOfflineCache(rec);
@@ -374,6 +376,7 @@ export default function DictionaryApp() {
               setEntries(freshRec.entries);
               setAccounts(freshRec.accounts);
               setLogs(freshRec.logs);
+              setSiteBanner(freshRec.siteBanner || null);
               setRecordVersion(freshRec.version);
               saveOfflineCache(freshRec);
               account = freshRec.accounts.find((a) => a.code === savedPersonalCode);
@@ -398,6 +401,7 @@ export default function DictionaryApp() {
           setEntries(cached.entries);
           setAccounts(migrated);
           setLogs(cached.logs);
+          setSiteBanner(cached.siteBanner || null);
           setIsOffline(true);
           setOfflineCachedAt(cached.cachedAt);
           if (savedPersonalCode) {
@@ -526,6 +530,7 @@ export default function DictionaryApp() {
     setEntries(err.fresh.entries || []);
     setAccounts(err.fresh.accounts || []);
     setLogs(err.fresh.logs || []);
+    if (err.fresh.siteBanner !== undefined) setSiteBanner(err.fresh.siteBanner || null);
     setRecordVersion(err.fresh.version || 0);
     setSaveError("Someone else updated the dictionary at the same time — your last change wasn't saved. The list has been refreshed; please try again.");
   }
@@ -561,9 +566,9 @@ export default function DictionaryApp() {
       if (logEntry) setLogs(nextLogs);
 
       try {
-        const newVersion = await saveRecord({ entries: next, accounts: curAccounts, logs: nextLogs }, curVersion);
+        const newVersion = await saveRecord({ entries: next, accounts: curAccounts, logs: nextLogs, siteBanner }, curVersion);
         setRecordVersion(newVersion);
-        saveOfflineCache({ entries: next, accounts: curAccounts, logs: nextLogs });
+        saveOfflineCache({ entries: next, accounts: curAccounts, logs: nextLogs, siteBanner });
         setSaveError("");
         return;
       } catch (e) {
@@ -581,7 +586,7 @@ export default function DictionaryApp() {
         return;
       }
     }
-  }, [entries, accounts, logs, recordVersion]);
+  }, [entries, accounts, logs, siteBanner, recordVersion]);
 
   const persistAccounts = useCallback(async (accountsFn, logEntryFn) => {
     let curEntries = entries;
@@ -598,9 +603,9 @@ export default function DictionaryApp() {
       if (logEntry) setLogs(nextLogs);
 
       try {
-        const newVersion = await saveRecord({ entries: curEntries, accounts: next, logs: nextLogs }, curVersion);
+        const newVersion = await saveRecord({ entries: curEntries, accounts: next, logs: nextLogs, siteBanner }, curVersion);
         setRecordVersion(newVersion);
-        saveOfflineCache({ entries: curEntries, accounts: next, logs: nextLogs });
+        saveOfflineCache({ entries: curEntries, accounts: next, logs: nextLogs, siteBanner });
         setSaveError("");
         return;
       } catch (e) {
@@ -616,25 +621,55 @@ export default function DictionaryApp() {
         return;
       }
     }
-  }, [entries, accounts, logs, recordVersion]);
+  }, [entries, accounts, logs, siteBanner, recordVersion]);
 
   // For events that don't touch entries/accounts (sign in/out) — still saved
   // into the same shared record so it stays in sync with everything else.
   const persistLogs = useCallback(async (next) => {
     setLogs(next);
     try {
-      const newVersion = await saveRecord({ entries, accounts, logs: next }, recordVersion);
+      const newVersion = await saveRecord({ entries, accounts, logs: next, siteBanner }, recordVersion);
       setRecordVersion(newVersion);
     } catch (e) {
       // Best-effort: a failed log write shouldn't block sign-in/out. On a
       // conflict, still resync so we don't keep hammering a stale version.
       if (e instanceof SaveConflictError) handleSaveConflict(e);
     }
-  }, [entries, accounts, recordVersion]);
+  }, [entries, accounts, siteBanner, recordVersion]);
 
   function logEvent(action, message, actorName, actorCode) {
     persistLogs(capLogs([...logs, makeLogEntry(action, message, actorName, actorCode)]));
   }
+
+  // Admin publishes / clears the site-wide announcement banner.
+  const persistSiteBanner = useCallback(async (nextBanner) => {
+    setSiteBanner(nextBanner);
+    let curVersion = recordVersion;
+    for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+      try {
+        const newVersion = await saveRecord(
+          { entries, accounts, logs, siteBanner: nextBanner },
+          curVersion
+        );
+        setRecordVersion(newVersion);
+        saveOfflineCache({ entries, accounts, logs, siteBanner: nextBanner });
+        return { ok: true };
+      } catch (e) {
+        if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
+          setEntries(e.fresh.entries || []);
+          setAccounts(e.fresh.accounts || []);
+          setLogs(e.fresh.logs || []);
+          curVersion = e.fresh.version || 0;
+          // Keep trying to write OUR banner on top of the fresh record.
+          continue;
+        }
+        if (e instanceof SaveConflictError) handleSaveConflict(e);
+        return { ok: false, error: "Couldn't save the announcement — try again." };
+      }
+    }
+    return { ok: false, error: "Couldn't save the announcement — try again." };
+  }, [entries, accounts, logs, recordVersion]);
+
 
   // Admin action: wipe the activity log down to just the "first sign in"
   // entries (keeps the account-creation history, drops everything else —
@@ -748,6 +783,7 @@ export default function DictionaryApp() {
         setAccounts(rec.accounts);
         setEntries(rec.entries);
         setLogs(rec.logs);
+        setSiteBanner(rec.siteBanner || null);
         setRecordVersion(rec.version);
         return;
       }
@@ -775,7 +811,7 @@ export default function DictionaryApp() {
         ),
       ]);
       const newVersion = await saveRecord(
-        { entries: rec.entries, accounts: nextAccounts, logs: nextLogs },
+        { entries: rec.entries, accounts: nextAccounts, logs: nextLogs, siteBanner: rec.siteBanner || null },
         rec.version
       );
       setEntries(rec.entries);
@@ -817,6 +853,7 @@ export default function DictionaryApp() {
         setAccounts(rec.accounts);
         setEntries(rec.entries);
         setLogs(rec.logs);
+        setSiteBanner(rec.siteBanner || null);
         setRecordVersion(rec.version);
         account = curAccounts.find((a) => normalizeUsername(a.username) === uCheck.username);
       } catch (e) { /* fall through */ }
@@ -847,7 +884,7 @@ export default function DictionaryApp() {
           account = curAccounts.find((a) => a.code === account.code);
           try {
             const newVersion = await saveRecord(
-              { entries, accounts: curAccounts, logs },
+              { entries, accounts: curAccounts, logs, siteBanner },
               recordVersion
             );
             setAccounts(curAccounts);
@@ -1123,6 +1160,7 @@ export default function DictionaryApp() {
       srsBox={srsBox} srsDueAt={srsDueAt} quizHistory={quizHistory}
       onRecordSrsAnswer={handleRecordSrsAnswer} onSaveQuizResult={handleSaveQuizResult}
       showAccount={showAccount} onOpenAccount={openAccountModal} onCloseAccount={closeAccountModal} onUpdateOwnAccount={handleUpdateOwnAccount}
+      siteBanner={siteBanner} onPersistSiteBanner={persistSiteBanner}
       showAdmin={showAdmin} onOpenAdmin={openAdminModal} onCloseAdmin={closeAdminModal}
       onAdminAddAccount={handleAdminAddAccount} onAdminEditAccount={handleAdminEditAccount} onAdminDeleteAccount={handleAdminDeleteAccount}
       onApproveRequest={handleApproveRequest} onRejectRequest={handleRejectRequest}

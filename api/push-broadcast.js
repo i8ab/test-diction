@@ -1,0 +1,105 @@
+// Admin-only: send one Web Push notification to every account that has an
+// active push subscription (same Redis set as the daily study reminders).
+//
+// POST body: {
+//   adminCode: "<personal code of an admin account>",
+//   title: string,
+//   body: string,
+// }
+//
+// Verifies the caller is an admin by looking up adminCode in the shared
+// JSONBin accounts list. No shared secret beyond that — anyone who knows an
+// admin personal code can already do everything in the Admin panel.
+
+import { redisConfigured, redisCommand } from "../lib/redis.js";
+import { sendPush, vapidConfigured } from "../lib/webpush.js";
+
+const CODES_SET_KEY = "twoTongues:push:codes";
+const SUB_PREFIX = "twoTongues:push:sub:";
+
+async function fetchRecord(req) {
+  const proto = req.headers["x-forwarded-proto"] || "https";
+  const host = req.headers.host;
+  const r = await fetch(`${proto}://${host}/api/jsonbin`, { cache: "no-store" });
+  if (!r.ok) throw new Error("Could not load dictionary record");
+  return r.json();
+}
+
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  if (!redisConfigured()) {
+    return res.status(501).json({ error: "Redis not configured." });
+  }
+  if (!vapidConfigured()) {
+    return res.status(501).json({ error: "VAPID keys not configured." });
+  }
+
+  let body = req.body;
+  if (typeof body === "string") {
+    try { body = JSON.parse(body); } catch (e) { body = null; }
+  }
+
+  const adminCode = body && typeof body.adminCode === "string" ? body.adminCode.trim() : "";
+  const title = body && typeof body.title === "string" ? body.title.trim().slice(0, 120) : "";
+  const notifBody = body && typeof body.body === "string" ? body.body.trim().slice(0, 300) : "";
+
+  if (!adminCode) {
+    return res.status(400).json({ error: "Missing adminCode." });
+  }
+  if (!title && !notifBody) {
+    return res.status(400).json({ error: "Provide a title or body." });
+  }
+
+  try {
+    const record = await fetchRecord(req);
+    const accounts = record.accounts || [];
+    const admin = accounts.find((a) => a.code === adminCode && a.role === "admin");
+    if (!admin) {
+      return res.status(403).json({ error: "Not authorized — admin account required." });
+    }
+
+    const codes = (await redisCommand("SMEMBERS", CODES_SET_KEY)) || [];
+    if (!codes.length) {
+      return res.status(200).json({ sent: 0, skipped: 0, expired: 0, message: "No push subscriptions." });
+    }
+
+    const payload = {
+      title: title || "Two Tongues",
+      body: notifBody || "",
+      url: "/",
+    };
+
+    let sent = 0, skipped = 0, expired = 0;
+
+    for (const code of codes) {
+      const subRaw = await redisCommand("GET", `${SUB_PREFIX}${code}`);
+      if (!subRaw) { skipped++; continue; }
+      let subscription;
+      try {
+        subscription = typeof subRaw === "string" ? JSON.parse(subRaw) : subRaw;
+      } catch (e) {
+        skipped++;
+        continue;
+      }
+
+      const result = await sendPush(subscription, payload);
+      if (result.ok) {
+        sent++;
+      } else if (result.expired) {
+        expired++;
+        await redisCommand("DEL", `${SUB_PREFIX}${code}`);
+        await redisCommand("SREM", CODES_SET_KEY, code);
+      } else {
+        skipped++;
+      }
+    }
+
+    return res.status(200).json({ sent, skipped, expired });
+  } catch (e) {
+    return res.status(500).json({ error: "Failed to broadcast push.", message: String((e && e.message) || e) });
+  }
+}

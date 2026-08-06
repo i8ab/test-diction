@@ -18,6 +18,7 @@ import HeaderMenu from "./layout/HeaderMenu";
 import ToolsMenu from "./layout/ToolsMenu";
 import ReminderBanner from "./layout/ReminderBanner";
 import BackupReminderBanner from "./layout/BackupReminderBanner";
+import SiteBanner from "./layout/SiteBanner";
 import WordOfTheDay from "./layout/WordOfTheDay";
 import EmptyState from "./layout/EmptyState";
 
@@ -62,6 +63,7 @@ export default function MainView({
   showAdd, onOpenAdd, onCloseAdd, persistEntries, saveError, onLogout,
   accounts, accountCode, logs, onClearLogs, studiedIds, studiedAt, onToggleStudied, favoriteIds, onToggleFavorite, showAccount, onOpenAccount, onCloseAccount, onUpdateOwnAccount,
   srsBox, srsDueAt, quizHistory, onRecordSrsAnswer, onSaveQuizResult,
+  siteBanner, onPersistSiteBanner,
   showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount, onApproveRequest, onRejectRequest,
   toast, showToast, theme, onToggleTheme, accentTheme, onChangeAccent,
   appIsAr, onToggleAppLang,
@@ -459,6 +461,7 @@ export default function MainView({
       }}
       aria-hidden={showTimer && !timerBubble ? true : undefined}
     >
+      <SiteBanner banner={siteBanner} isAr={appIsAr} />
       <header style={{ borderBottom: "1px solid rgba(var(--border-rgb),0.15)", background: PAPER, position: "sticky", top: 0, zIndex: 1000 }}>
         <div className="app-container" style={{ margin: "0 auto", padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px) 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
@@ -810,6 +813,8 @@ export default function MainView({
             onAdd={onAdminAddAccount}
             onEdit={onAdminEditAccount}
             onDelete={onAdminDeleteAccount}
+            siteBanner={siteBanner}
+            onPersistSiteBanner={onPersistSiteBanner}
             isAr={isAr}
           />
         )}

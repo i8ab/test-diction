@@ -27,7 +27,14 @@ function vercelApiDevPlugin(env) {
     name: "vercel-api-dev",
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        const routed = ["/api/login", "/api/jsonbin", "/api/push-subscribe", "/api/push-test", "/api/tts"];
+        const routed = [
+          "/api/login",
+          "/api/jsonbin",
+          "/api/push-subscribe",
+          "/api/push-test",
+          "/api/push-broadcast",
+          "/api/tts",
+        ];
         if (!routed.some((p) => req.url.startsWith(p))) {
           return next();
         }
@@ -56,6 +63,9 @@ function vercelApiDevPlugin(env) {
             } else if (req.url.startsWith("/api/push-test")) {
               const { default: pushTestHandler } = await import("./api/push-test.js");
               await pushTestHandler(req, res);
+            } else if (req.url.startsWith("/api/push-broadcast")) {
+              const { default: pushBroadcastHandler } = await import("./api/push-broadcast.js");
+              await pushBroadcastHandler(req, res);
             } else {
               await ttsHandler(req, res);
             }

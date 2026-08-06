@@ -55,6 +55,8 @@ export default function HeaderMenu({
   const [bannerShine, setBannerShine] = useState(40);
   const [bannerSpeed, setBannerSpeed] = useState(1);
   const [bannerLetterSpacing, setBannerLetterSpacing] = useState(0);
+  const [bannerFlash, setBannerFlash] = useState(false);
+  const [bannerRepeats, setBannerRepeats] = useState(4);
   const [bannerDurationAmount, setBannerDurationAmount] = useState(0);
   const [bannerDurationUnit, setBannerDurationUnit] = useState("hours"); // minutes | hours | days
   const [bannerSaving, setBannerSaving] = useState(false);
@@ -81,6 +83,8 @@ export default function HeaderMenu({
     setBannerShine(typeof b.shine === "number" ? b.shine : 40);
     setBannerSpeed(typeof b.speed === "number" ? b.speed : 1);
     setBannerLetterSpacing(typeof b.letterSpacing === "number" ? b.letterSpacing : 0);
+    setBannerFlash(!!b.flash);
+    setBannerRepeats(typeof b.repeats === "number" ? Math.max(1, Math.min(12, b.repeats)) : 4);
     // Prefer durationMinutes; fall back to legacy durationHours
     let mins = 0;
     if (typeof b.durationMinutes === "number" && b.durationMinutes > 0) mins = b.durationMinutes;
@@ -192,6 +196,8 @@ export default function HeaderMenu({
       shine: Math.max(0, Math.min(100, Number(bannerShine) || 0)),
       speed: Math.max(0.4, Math.min(2, Number(bannerSpeed) || 1)),
       letterSpacing: Math.max(0, Math.min(30, Number(bannerLetterSpacing) || 0)),
+      flash: !!bannerFlash,
+      repeats: Math.max(1, Math.min(12, Math.round(Number(bannerRepeats) || 4))),
       durationMinutes: (() => {
         const amt = Math.max(0, Number(bannerDurationAmount) || 0);
         if (!amt) return 0;
@@ -208,6 +214,8 @@ export default function HeaderMenu({
       siteBanner.shine === next.shine &&
       siteBanner.speed === next.speed &&
       (siteBanner.letterSpacing || 0) === (next.letterSpacing || 0) &&
+      !!siteBanner.flash === !!next.flash &&
+      (siteBanner.repeats || 4) === (next.repeats || 4) &&
       (siteBanner.durationMinutes || 0) === (next.durationMinutes || 0) &&
       siteBanner.id
     ) {
@@ -236,6 +244,8 @@ export default function HeaderMenu({
     setBannerMessage("");
     setBannerEnabled(false);
     setBannerLetterSpacing(0);
+    setBannerFlash(false);
+    setBannerRepeats(4);
     setBannerMsg(T( "Announcement cleared.", "تم إزالة الإعلان."));
   }
 
@@ -799,7 +809,57 @@ export default function HeaderMenu({
                           onChange={(e) => setBannerShine(Number(e.target.value))}
                           style={{ width: "100%", accentColor: "var(--accent-1)" }}
                         />
+                        <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 2 }}>
+                          {T( "Sweeping highlight + soft text glow", "لمعة متحركة + توهج خفيف للنص")}
+                        </div>
                       </div>
+                      <div>
+                        <label style={fieldLabel}>
+                          {T( "Repeat count", "عدد التكرارات")} — {bannerRepeats}×
+                        </label>
+                        <input
+                          type="range" min={1} max={12} step={1}
+                          value={bannerRepeats}
+                          onChange={(e) => setBannerRepeats(Number(e.target.value))}
+                          style={{ width: "100%", accentColor: "var(--accent-1)" }}
+                        />
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, color: "var(--muted)", marginTop: 2 }}>
+                          <span>{T( "Once", "مرة واحدة")}</span>
+                          <span>{T( "12×", "١٢×")}</span>
+                        </div>
+                        <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 2 }}>
+                          {T( "How many times the message is chained in the ticker", "كام مرة الجملة تتكرر ورا بعض في شريط الأخبار")}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="touch-target"
+                        onClick={() => setBannerFlash((v) => !v)}
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          width: "100%", padding: "9px 12px", minHeight: 44, borderRadius: 10, cursor: "pointer",
+                          border: "1px solid rgba(var(--border-rgb),0.18)", background: "var(--input-bg)",
+                          fontSize: 13, fontWeight: 600, color: "var(--ink)",
+                        }}
+                      >
+                        <span>
+                          {T( "Ambulance flash", "وميض إسعاف")}
+                          <span style={{ display: "block", fontSize: 10.5, fontWeight: 500, color: "var(--muted)", marginTop: 2 }}>
+                            {T( "Red / blue strobes + brightness pulse", "وميض أحمر/أزرق + نبض سطوع")}
+                          </span>
+                        </span>
+                        <span style={{
+                          width: 36, height: 20, borderRadius: 10, position: "relative", flexShrink: 0,
+                          background: bannerFlash ? "#34c759" : "rgba(var(--border-rgb),0.35)",
+                          transition: "background 0.2s ease",
+                        }}>
+                          <span style={{
+                            position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff",
+                            insetInlineStart: bannerFlash ? 18 : 2, transition: "inset-inline-start 0.2s ease",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+                          }} />
+                        </span>
+                      </button>
                       <div>
                         <label style={fieldLabel}>
                           {T( "Motion speed", "سرعة الحركة")} — {bannerSpeed.toFixed(1)}×
@@ -890,33 +950,65 @@ export default function HeaderMenu({
                         </div>
                       </div>
 
-                      {/* Live preview — bold + centered + soft shine */}
+                      {/* Live preview — shine + optional ambulance flash */}
                       <div style={{ borderRadius: 8, overflow: "hidden", border: "1px solid rgba(var(--border-rgb),0.15)", position: "relative" }}>
-                        <div style={{
-                          background: bannerColor || "#146C94", color: "#fff",
-                          padding: "10px 12px", fontSize: 14, fontWeight: 700,
-                          display: "flex", alignItems: "center", gap: 8, textAlign: "center",
-                          position: "relative", overflow: "hidden",
-                        }}>
+                        <div
+                          className={bannerFlash ? "site-banner--flash" : undefined}
+                          style={{
+                            background: bannerColor || "#146C94", color: "#fff",
+                            padding: "10px 12px", fontSize: 14, fontWeight: 700,
+                            display: "flex", alignItems: "center", gap: 8, textAlign: "center",
+                            position: "relative", overflow: "hidden",
+                            direction: hasArabic(bannerMessage) ? "rtl" : "ltr",
+                            unicodeBidi: "isolate",
+                            boxShadow: bannerShine > 0
+                              ? `inset 0 0 ${8 + bannerShine * 0.18}px rgba(255,255,255,${(bannerShine / 100) * 0.22})`
+                              : undefined,
+                          }}
+                        >
                           {bannerShine > 0 && (
                             <span aria-hidden="true" style={{
                               position: "absolute", inset: 0, pointerEvents: "none",
-                              background: `linear-gradient(105deg, transparent 30%, rgba(255,255,255,${Math.min(0.55, (bannerShine / 100) * 0.55)}) 50%, transparent 70%)`,
-                              backgroundSize: "200% 100%",
-                              animation: `siteBannerShimmer ${(4.5 / Math.max(0.4, bannerSpeed)).toFixed(2)}s ease-in-out infinite`,
+                              background: `linear-gradient(105deg, transparent 30%, rgba(255,255,255,${Math.min(0.65, (bannerShine / 100) * 0.6)}) 50%, transparent 70%)`,
+                              backgroundSize: "220% 100%",
+                              animation: `siteBannerShimmer ${(5 / Math.max(0.4, bannerSpeed)).toFixed(2)}s ease-in-out infinite`,
                             }} />
                           )}
-                          <span style={{ width: 18, flexShrink: 0 }} />
+                          {bannerFlash && (
+                            <>
+                              <span aria-hidden="true" className="site-banner-strobe site-banner-strobe--left" />
+                              <span aria-hidden="true" className="site-banner-strobe site-banner-strobe--right" />
+                              <span aria-hidden="true" className="site-banner-flash-pulse" />
+                            </>
+                          )}
+                          <span style={{ width: 18, flexShrink: 0, position: "relative", zIndex: 2 }} />
                           <span style={{
                             flex: 1,
                             textAlign: "center",
                             fontWeight: 700,
                             position: "relative",
+                            zIndex: 2,
+                            unicodeBidi: "isolate",
                             letterSpacing: bannerLetterSpacing && !hasArabic(bannerMessage) ? `${bannerLetterSpacing}px` : undefined,
+                            textShadow: bannerShine > 30
+                              ? `0 0 ${Math.round(bannerShine / 12)}px rgba(255,255,255,${(bannerShine / 100) * 0.45})`
+                              : undefined,
                           }}>
-                            {bannerMessage.trim() ? stretchArabicText(bannerMessage.trim(), bannerLetterSpacing) : T( "Preview…", "معاينة…")}
+                            {bannerMessage.trim()
+                              ? (() => {
+                                  const rtl = hasArabic(bannerMessage);
+                                  const base = stretchArabicText(bannerMessage.trim(), bannerLetterSpacing);
+                                  const fixed = rtl
+                                    ? base.replace(/([.!?…]+)\s*$/u, "$1\u200F")
+                                    : base.replace(/([.!?…]+)\s*$/u, "$1\u200E");
+                                  if (bannerRepeats <= 1) return fixed;
+                                  const sep = rtl ? "   ❋   " : "   •   ";
+                                  return Array(Math.min(3, bannerRepeats)).fill(fixed).join(sep)
+                                    + (bannerRepeats > 3 ? sep + "…" : "");
+                                })()
+                              : T( "Preview…", "معاينة…")}
                           </span>
-                          <span style={{ opacity: 0.7, width: 18, textAlign: "center", position: "relative" }}>×</span>
+                          <span style={{ opacity: 0.7, width: 18, textAlign: "center", position: "relative", zIndex: 2 }}>×</span>
                         </div>
                       </div>
                       {bannerMsg && (

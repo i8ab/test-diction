@@ -223,6 +223,53 @@
     will-change: transform;
     white-space: nowrap;
     pointer-events: none;
+    unicode-bidi: isolate;
+  }
+  @keyframes siteBannerShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .site-banner-strobe {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 28%;
+    max-width: 120px;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+  }
+  .site-banner-strobe--left {
+    left: 0;
+    background: linear-gradient(90deg, rgba(220, 20, 40, 0.85), transparent 85%);
+    animation: siteBannerStrobeRed 0.7s steps(1, end) infinite;
+  }
+  .site-banner-strobe--right {
+    right: 0;
+    background: linear-gradient(270deg, rgba(20, 80, 255, 0.85), transparent 85%);
+    animation: siteBannerStrobeBlue 0.7s steps(1, end) infinite;
+  }
+  @keyframes siteBannerStrobeRed {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+  }
+  @keyframes siteBannerStrobeBlue {
+    0%, 49% { opacity: 0; }
+    50%, 100% { opacity: 1; }
+  }
+  .site-banner-flash-pulse {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background: rgba(255, 255, 255, 0.22);
+    animation: siteBannerFlashPulse 0.7s ease-in-out infinite;
+  }
+  @keyframes siteBannerFlashPulse {
+    0%, 100% { opacity: 0; }
+    25% { opacity: 0.55; }
+    50% { opacity: 0; }
+    75% { opacity: 0.4; }
   }
 
 

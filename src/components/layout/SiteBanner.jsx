@@ -21,13 +21,28 @@ function stretchArabicText(text, amount) {
 
 const hasArabic = (text) => /[\u0600-\u06FF]/.test(text || "");
 
-/* =========================================================================
-   SITE BANNER — simple news-ticker strip
-   -------------------------------------------------------------------------
-   Plain scrolling text (like a TV news ticker). No plane, no flutter, no
-   wind streaks. Direction follows UI language (RTL ↔ LTR). Speed comes
-   from the admin `speed` setting.
-   ========================================================================= */
+/* Keep trailing . ? ! at the logical END of RTL text. */
+function fixBidiPunctuation(text, rtl) {
+  if (!text) return text;
+  if (rtl) {
+    return text.replace(/([.!?…]+)\s*$/u, "$1\u200F");
+  }
+  return text.replace(/([.!?…]+)\s*$/u, "$1\u200E");
+}
+
+/** Build continuous news-ticker content: message repeated `times` with a separator. */
+function buildTickerMessage(raw, letterSpacing, rtl, times) {
+  const base = fixBidiPunctuation(
+    stretchArabicText((raw || "").trim(), letterSpacing),
+    rtl
+  );
+  if (!base) return "";
+  const n = Math.max(1, Math.min(12, Math.round(Number(times) || 1)));
+  if (n === 1) return base;
+  const sep = rtl ? "   ❋   " : "   •   ";
+  return Array(n).fill(base).join(sep);
+}
+
 const DISMISS_KEY = "twoTongues.siteBannerDismissedId";
 
 function loadDismissedId() {
@@ -106,12 +121,15 @@ export default function SiteBanner({ banner, isAr }) {
     !(banner.id && dismissedId === banner.id) &&
     !isExpired(banner);
 
+  const msgRtl = banner && banner.message
+    ? hasArabic(banner.message) || !!isAr
+    : !!isAr;
+
   useEffect(() => {
     setDismissedId(loadDismissedId());
     setLive(true);
   }, [banner && banner.id]);
 
-  // Auto-hide after timed duration
   useEffect(() => {
     if (hideTimer.current) {
       clearTimeout(hideTimer.current);
@@ -132,7 +150,6 @@ export default function SiteBanner({ banner, isAr }) {
     };
   }, [shouldShow, banner && banner.id, banner && banner.updatedAt, banner && banner.durationMinutes, banner && banner.durationHours]);
 
-  // Continuous ticker via rAF
   useEffect(() => {
     if (!shouldShow) {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -140,9 +157,10 @@ export default function SiteBanner({ banner, isAr }) {
     }
 
     const speed = typeof (banner && banner.speed) === "number" ? banner.speed : 1;
-    // Full crossing duration in ms (speed 1 ≈ 16s)
-    const durationMs = Math.max(6000, Math.min(50000, 16000 / Math.max(0.4, speed)));
-    const rtl = !!isAr;
+    const repeats = Math.max(1, Math.min(12, Math.round(Number(banner && banner.repeats) || 4)));
+    const baseMs = 16000 + (repeats - 1) * 2000;
+    const durationMs = Math.max(6000, Math.min(70000, baseMs / Math.max(0.4, speed)));
+    const rtl = msgRtl;
     progressRef.current = rtl ? 1 : 0;
     let last = performance.now();
 
@@ -168,7 +186,6 @@ export default function SiteBanner({ banner, isAr }) {
 
       const trackW = track.offsetWidth || window.innerWidth;
       const textW = el.offsetWidth || 200;
-      // Enter from -textW, exit at trackW
       const x = -textW + progressRef.current * (trackW + textW);
       el.style.transform = `translate3d(${x}px, -50%, 0)`;
 
@@ -179,12 +196,17 @@ export default function SiteBanner({ banner, isAr }) {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [shouldShow, isAr, banner && banner.speed, banner && banner.id]);
+  }, [shouldShow, msgRtl, banner && banner.speed, banner && banner.id, banner && banner.message, banner && banner.letterSpacing, banner && banner.repeats]);
 
   if (!shouldShow) return null;
 
   const bg = (banner && banner.color) || "#146C94";
   const c = contrastFor(bg);
+  const shine = typeof (banner && banner.shine) === "number" ? banner.shine : 40;
+  const flashOn = !!(banner && banner.flash);
+  const letterSpacing = typeof (banner && banner.letterSpacing) === "number" ? banner.letterSpacing : 0;
+  const repeats = Math.max(1, Math.min(12, Math.round(Number(banner && banner.repeats) || 4)));
+  const tickerText = buildTickerMessage(banner.message, letterSpacing, msgRtl, repeats);
 
   function dismiss() {
     if (hasTimedDuration) return;
@@ -200,7 +222,7 @@ export default function SiteBanner({ banner, isAr }) {
       ref={trackRef}
       role="status"
       aria-live="polite"
-      className="site-banner"
+      className={`site-banner${flashOn ? " site-banner--flash" : ""}`}
       style={{
         position: "sticky",
         top: 0,
@@ -210,9 +232,35 @@ export default function SiteBanner({ banner, isAr }) {
         background: bg,
         borderBottom: `1px solid ${c.border}`,
         direction: "ltr",
+        boxShadow: shine > 0
+          ? `inset 0 0 ${8 + shine * 0.18}px rgba(255,255,255,${(shine / 100) * 0.22})`
+          : undefined,
       }}
     >
-      {/* Scrolling text — position updated every frame by rAF */}
+      {shine > 0 && (
+        <span
+          aria-hidden="true"
+          className="site-banner-shine"
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            zIndex: 1,
+            background: `linear-gradient(105deg, transparent 28%, rgba(255,255,255,${Math.min(0.65, (shine / 100) * 0.6)}) 50%, transparent 72%)`,
+            backgroundSize: "220% 100%",
+            animation: `siteBannerShimmer ${(5 / Math.max(0.4, (banner && banner.speed) || 1)).toFixed(2)}s ease-in-out infinite`,
+          }}
+        />
+      )}
+
+      {flashOn && (
+        <>
+          <span aria-hidden="true" className="site-banner-strobe site-banner-strobe--left" />
+          <span aria-hidden="true" className="site-banner-strobe site-banner-strobe--right" />
+          <span aria-hidden="true" className="site-banner-flash-pulse" />
+        </>
+      )}
+
       <div
         ref={tickRef}
         className="site-banner-ticker"
@@ -225,16 +273,22 @@ export default function SiteBanner({ banner, isAr }) {
           whiteSpace: "nowrap",
           pointerEvents: "none",
           color: c.text,
-          fontFamily: "'Source Sans 3', sans-serif",
+          fontFamily: msgRtl ? "'Amiri', 'Source Sans 3', serif" : "'Source Sans 3', sans-serif",
           fontSize: 14.5,
           fontWeight: 700,
           lineHeight: 1.35,
           paddingInline: 12,
-          direction: isAr ? "rtl" : "ltr",
-          letterSpacing: banner.letterSpacing && !hasArabic(banner.message) ? `${banner.letterSpacing}px` : undefined,
+          direction: msgRtl ? "rtl" : "ltr",
+          unicodeBidi: "isolate",
+          textAlign: msgRtl ? "right" : "left",
+          letterSpacing: letterSpacing && !hasArabic(banner.message) ? `${letterSpacing}px` : undefined,
+          zIndex: 2,
+          textShadow: shine > 30
+            ? `0 0 ${Math.round(shine / 12)}px rgba(255,255,255,${(shine / 100) * 0.45})`
+            : undefined,
         }}
       >
-        {stretchArabicText(banner.message, banner.letterSpacing)}
+        {tickerText}
       </div>
 
       {!hasTimedDuration && (
@@ -248,7 +302,7 @@ export default function SiteBanner({ banner, isAr }) {
             top: "50%",
             insetInlineEnd: 6,
             transform: "translateY(-50%)",
-            zIndex: 2,
+            zIndex: 3,
             border: "none",
             background: "rgba(0,0,0,0.18)",
             color: c.muted,

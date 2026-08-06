@@ -56,6 +56,13 @@ function pickBanner(record) {
   let speed = typeof b.speed === "number" ? b.speed : 1;
   if (speed < 0.4) speed = 0.4;
   if (speed > 2) speed = 2;
+  let letterSpacing = typeof b.letterSpacing === "number" ? b.letterSpacing : 0;
+  if (letterSpacing < 0) letterSpacing = 0;
+  if (letterSpacing > 30) letterSpacing = 30;
+  let repeats = typeof b.repeats === "number" ? b.repeats : 4;
+  if (repeats < 1) repeats = 1;
+  if (repeats > 12) repeats = 12;
+  repeats = Math.round(repeats);
   // How long the banner stays live after updatedAt.
   // Prefer durationMinutes; keep durationHours for older records.
   let durationMinutes = typeof b.durationMinutes === "number" ? b.durationMinutes : 0;
@@ -72,6 +79,9 @@ function pickBanner(record) {
     updatedAt: typeof b.updatedAt === "number" ? b.updatedAt : 0,
     shine,
     speed,
+    letterSpacing,
+    flash: !!b.flash,
+    repeats,
     durationMinutes,
   };
 }

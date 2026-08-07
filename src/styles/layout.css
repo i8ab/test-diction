@@ -1,0 +1,320 @@
+/* Responsive layout, density, brand mark */
+/* ================= Responsive layout (fluid, non-breaking) ================= */
+:root {
+  --app-max: 920px;
+}
+@media (min-width: 1200px) {
+  :root { --app-max: 1040px; }
+}
+@media (min-width: 1600px) {
+  :root { --app-max: 1200px; }
+}
+
+.app-container {
+  width: 100%;
+  max-width: var(--app-max);
+  box-sizing: border-box;
+}
+
+/* Prefer larger tap area on coarse pointers without forcing every button bigger */
+@media (pointer: coarse) {
+  .toolbar-row > button,
+  .section-tab,
+  .header-menu-item,
+  .tools-menu-item {
+    min-height: 42px;
+  }
+  .letter-rail-btn {
+    min-height: 30px;
+    min-width: 28px;
+    padding: 4px 6px;
+  }
+}
+
+/* Auth / modals stay within viewport */
+.auth-card,
+.responsive-modal {
+  width: 100%;
+  max-width: min(440px, 100%);
+  box-sizing: border-box;
+}
+
+
+/* section tabs on phone */
+@media (max-width: 640px) {
+  header .section-tab {
+    flex: 1 1 auto;
+    text-align: center;
+    padding-inline: 12px !important;
+  }
+}
+
+/* Touch devices: no hover chrome at all */
+@media (hover: none) and (pointer: coarse) {
+  button:not(:disabled):hover {
+    filter: none;
+    box-shadow: none;
+  }
+  .btn-shine:hover:not(:disabled) {
+    filter: none;
+    box-shadow: none;
+  }
+}
+
+
+/* Toolbar: keep search + actions readable on narrow screens */
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+@media (max-width: 640px) {
+  .toolbar-row {
+    align-items: stretch;
+  }
+  .toolbar-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .toolbar-actions > button.btn-shine {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 44px;
+  }
+}
+
+
+/* Hide scrollbar on A–Z letter rail (scroll still works) */
+.letter-rail {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.letter-rail::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Hide native number input spinners (we use NumberStepper instead) */
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Hide scrollbars site-wide while keeping scroll */
+html, body, * {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge legacy */
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent;
+}
+
+/* Modal backdrops: block overscroll chaining to the page behind */
+.modal-backdrop {
+  overscroll-behavior: contain;
+  touch-action: none;
+}
+.modal-backdrop .modal-card,
+.modal-card {
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+/* Floating action buttons — glow + pulse */
+.fab-glow {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  animation: fabPulse 2.4s ease-in-out infinite;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+.fab-glow:hover {
+  transform: scale(1.08);
+  animation-play-state: paused;
+}
+.fab-glow:active {
+  transform: scale(0.94);
+}
+.fab-glow--goals {
+  box-shadow:
+    0 0 0 0 rgba(255, 159, 10, 0.45),
+    0 10px 28px -6px rgba(255, 107, 0, 0.55),
+    0 0 22px 2px rgba(255, 159, 10, 0.35);
+  animation-name: fabPulseGoals;
+}
+.fab-glow--todo {
+  box-shadow:
+    0 0 0 0 rgba(48, 209, 88, 0.45),
+    0 10px 28px -6px rgba(40, 167, 69, 0.5),
+    0 0 22px 2px rgba(48, 209, 88, 0.35);
+  animation-name: fabPulseTodo;
+}
+.fab-glow-shine {
+  pointer-events: none;
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(
+    115deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.55) 48%,
+    rgba(255, 255, 255, 0.15) 52%,
+    transparent 65%
+  );
+  animation: fabShine 3.2s ease-in-out infinite;
+  z-index: 0;
+}
+@keyframes fabPulseGoals {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 rgba(255, 159, 10, 0.5),
+      0 10px 28px -6px rgba(255, 107, 0, 0.55),
+      0 0 18px 1px rgba(255, 159, 10, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 12px rgba(255, 159, 10, 0),
+      0 14px 32px -4px rgba(255, 107, 0, 0.65),
+      0 0 32px 4px rgba(255, 180, 50, 0.5);
+    transform: scale(1.04);
+  }
+}
+@keyframes fabPulseTodo {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 rgba(48, 209, 88, 0.5),
+      0 10px 28px -6px rgba(40, 167, 69, 0.5),
+      0 0 18px 1px rgba(48, 209, 88, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 12px rgba(48, 209, 88, 0),
+      0 14px 32px -4px rgba(40, 167, 69, 0.6),
+      0 0 32px 4px rgba(90, 255, 140, 0.45);
+    transform: scale(1.04);
+  }
+}
+@keyframes fabShine {
+  0% { transform: translateX(-45%) rotate(12deg); opacity: 0; }
+  20% { opacity: 1; }
+  55% { opacity: 0.85; }
+  100% { transform: translateX(45%) rotate(12deg); opacity: 0; }
+}
+
+/* Brand mark — Bacaloria Community */
+.brand-mark-badge {
+  animation: brandBadgePulse 2.8s ease-in-out infinite;
+}
+.brand-mark-badge-shine::after {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  background: linear-gradient(
+    115deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 60%
+  );
+  animation: brandShine 3.4s ease-in-out infinite;
+}
+.brand-mark-ring {
+  animation: brandRingPulse 2.8s ease-in-out infinite;
+}
+.brand-mark-title {
+  background: linear-gradient(
+    105deg,
+    var(--ink) 0%,
+    var(--ink) 40%,
+    color-mix(in srgb, var(--accent-1) 70%, var(--ink)) 50%,
+    var(--ink) 60%,
+    var(--ink) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: brandTitleShimmer 5s ease-in-out infinite;
+}
+.brand-mark-accent {
+  color: var(--accent-1);
+  -webkit-text-fill-color: var(--accent-1);
+}
+.brand-mark-underline {
+  animation: underlineGrow 0.65s ease both;
+}
+@keyframes brandBadgePulse {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.05); filter: brightness(1.08); }
+}
+@keyframes brandRingPulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.95; transform: scale(1.06); }
+}
+@keyframes brandShine {
+  0% { transform: translateX(-50%) rotate(12deg); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translateX(50%) rotate(12deg); opacity: 0; }
+}
+@keyframes brandTitleShimmer {
+  0%, 100% { background-position: 100% 0; }
+  50% { background-position: 0% 0; }
+}
+
+
+/* UI density (user preference from Settings → Appearance) */
+html[data-density="compact"] .word-card,
+html[data-density="compact"] .modal-card {
+  /* tighter padding where components opt in */
+}
+html[data-density="compact"] {
+  --ui-pad: 8px;
+  --ui-gap: 6px;
+  --ui-radius: 10px;
+}
+html[data-density="comfortable"],
+html:not([data-density]) {
+  --ui-pad: 12px;
+  --ui-gap: 10px;
+  --ui-radius: 12px;
+}
+
+
+/* Modal corner roundness (Settings → Appearance) */
+html {
+  --modal-radius: 16px;
+}
+html[data-radius="sharp"] {
+  --modal-radius: 6px;
+}
+html[data-radius="soft"] {
+  --modal-radius: 16px;
+}
+html[data-radius="round"] {
+  --modal-radius: 28px;
+}
+.modal-backdrop .modal-card,
+.modal-card {
+  border-radius: var(--modal-radius) !important;
+}
+
+
+@keyframes brandGlyphPop {
+  0% { transform: scale(0.72); opacity: 0.4; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.brand-mark-glyph {
+  /* selection uses brandGlyphPop; continuous pulse stays on .brand-mark-badge */
+}
+

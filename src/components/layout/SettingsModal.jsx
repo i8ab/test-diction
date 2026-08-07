@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { XIcon, SettingsIcon, GlobeIcon, PaletteIcon, UserIcon, LogoutIcon, BellIcon, BellOffIcon, BookIcon, LayersIcon, SunIcon, MoonIcon, MicIcon } from "../common/Icons";
 import { UI_LANGS } from "../../lib/config/i18n";
 import { EN_ACCENTS, saveEnAccent } from "../../lib/utils/speech";
@@ -70,12 +71,12 @@ export default function SettingsModal({
     );
   }
 
-  return (
+  const node = (
         <div
           onClick={onClose}
           className="modal-backdrop"
           style={{
-            position: "fixed", inset: 0, zIndex: 3300,
+            position: "fixed", inset: 0, zIndex: 3600,
             background: "rgba(0,0,0,0.45)",
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: 16,
@@ -239,4 +240,5 @@ export default function SettingsModal({
           </div>
         </div>
   );
+  return (typeof document !== "undefined" ? createPortal(node, document.body) : null);
 }

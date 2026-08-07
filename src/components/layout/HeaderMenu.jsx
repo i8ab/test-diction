@@ -163,6 +163,12 @@ function HeaderMenu({
       if (ref.current && ref.current.contains(e.target)) return;
       const panel = document.getElementById("header-menu-modal");
       if (panel && panel.contains(e.target)) return;
+      // Don't close menu when interacting with a child overlay on top (Admin, Settings, …)
+      const t = e.target;
+      if (t && typeof t.closest === "function") {
+        const other = t.closest('.modal-backdrop, .modal-card, [role="dialog"], [aria-modal="true"]');
+        if (other && other !== panel && !(panel && panel.contains(other))) return;
+      }
       closeMenu();
     }
     function onKeyDown(e) { if (e.key === "Escape") closeMenu(); }

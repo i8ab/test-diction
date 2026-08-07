@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { XIcon, BellIcon, BellOffIcon, LoaderIcon } from "../common/Icons";
 import { tr } from "../../lib/config/i18n";
 
@@ -33,7 +34,7 @@ export default function NotificationsModal({
   onSendBroadcast,
 }) {
   if (!open) return null;
-  return (
+  const node = (
         <div
           onClick={onClose}
           className="modal-backdrop"
@@ -248,4 +249,5 @@ export default function NotificationsModal({
           </div>
         </div>
   );
+  return (typeof document !== "undefined" ? createPortal(node, document.body) : null);
 }

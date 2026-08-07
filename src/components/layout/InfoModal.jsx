@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { XIcon } from "../common/Icons";
 import { INFO_SECTIONS } from "../../lib/config/infoSections";
 import { useState } from "react";
@@ -10,7 +11,7 @@ export default function InfoModal({
 }) {
   const [expanded, setExpanded] = useState(null);
   if (!open) return null;
-  return (
+  const node = (
         <div
           onClick={onClose}
           className="modal-backdrop"
@@ -93,4 +94,5 @@ export default function InfoModal({
           </div>
         </div>
   );
+  return (typeof document !== "undefined" ? createPortal(node, document.body) : null);
 }

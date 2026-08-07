@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { XIcon, CheckIcon, SunIcon, MoonIcon, PaletteIcon } from "../common/Icons";
 import {
   BRAND_PRESETS,
@@ -31,7 +32,7 @@ export default function AppearanceModal({
   setUiRadius,
 }) {
   if (!open) return null;
-  return (
+  const node = (
         <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="appearance-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, maxHeight: "min(90dvh, 820px)", overflowY: "auto", background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
@@ -359,4 +360,5 @@ export default function AppearanceModal({
           </div>
         </div>
   );
+  return (typeof document !== "undefined" ? createPortal(node, document.body) : null);
 }

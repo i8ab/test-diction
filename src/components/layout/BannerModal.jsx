@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useState, useEffect } from "react";
 import { tr } from "../../lib/config/i18n";
 import { stretchArabicText, hasArabic } from "../../lib/utils/arabicText";
@@ -154,7 +155,7 @@ export default function BannerModal({
 
   if (!open) return null;
 
-  return (
+  const node = (
     <div
       onClick={onClose}
       className="modal-backdrop"
@@ -473,4 +474,5 @@ export default function BannerModal({
       </div>
     </div>
   );
+  return (typeof document !== "undefined" ? createPortal(node, document.body) : null);
 }

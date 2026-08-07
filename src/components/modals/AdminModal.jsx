@@ -1,5 +1,6 @@
 // Modern admin panel: accounts, activity log, invite & backup tools.
 import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { translateAdminError, LOG_ACTION_META, LOG_SECTIONS } from "../../lib/state/logs";
@@ -197,7 +198,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
     { id: "tools", label: tr(isAr, "Tools", "أدوات"), icon: SettingsIcon },
   ];
 
-  return (
+  const node = (
     <div
       onClick={goBack}
       className="modal-backdrop"
@@ -857,6 +858,5 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
       </div>
     </div>
   );
+  return (typeof document !== "undefined" ? createPortal(node, document.body) : null);
 }
-
-export default AdminModal;

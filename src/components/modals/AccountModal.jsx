@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { XIcon, CheckIcon, LoaderIcon, KeyIcon, UserIcon, EyeIcon, EyeOffIcon, EditIcon } from "../common/Icons";
@@ -128,7 +129,7 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
     return n.slice(0, 2).toUpperCase();
   })();
 
-  return (
+  const node = (
     <div
       onClick={onClose}
       className="modal-backdrop"
@@ -343,6 +344,5 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
       </div>
     </div>
   );
+  return (typeof document !== "undefined" ? createPortal(node, document.body) : null);
 }
-
-export default AccountModal;

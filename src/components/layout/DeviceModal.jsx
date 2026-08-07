@@ -1,9 +1,10 @@
+import { createPortal } from "react-dom";
 import { XIcon } from "../common/Icons";
 import DevicePicker from "./DevicePicker";
 
 export default function DeviceModal({ open, onClose, T, isAr, deviceMode, onChangeDeviceMode }) {
   if (!open || typeof onChangeDeviceMode !== "function") return null;
-  return (
+  const node = (
         <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div onClick={(e) => e.stopPropagation()} className="modal-card" role="dialog" aria-modal="true" aria-labelledby="device-modal-title" style={{ background: "var(--card)", borderRadius: 16, padding: 20, width: "100%", maxWidth: 440, boxShadow: "0 24px 60px -20px rgba(0,0,0,0.4)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -19,4 +20,5 @@ export default function DeviceModal({ open, onClose, T, isAr, deviceMode, onChan
           </div>
         </div>
   );
+  return (typeof document !== "undefined" ? createPortal(node, document.body) : null);
 }

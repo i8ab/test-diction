@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { EN_ACCENTS, loadEnAccent, saveEnAccent } from "../../lib/utils/speech";
 import { tr, UI_LANGS } from "../../lib/config/i18n";
-import { ACCENT_THEMES } from "../../lib/state/storage";
+import { ACCENT_THEMES, loadCustomAccentHex, saveCustomAccentHex, applyAccentTheme, saveAccent } from "../../lib/state/storage";
 
 function stretchArabicText(text, amount) {
   if (!text || !amount) return text;
@@ -597,7 +597,7 @@ export default function HeaderMenu({
               )}
 {/* ========== New account requests (admins) ========== */}
               {isAdmin && (
-                <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 4, paddingTop: 4 }}>
+                <div style={{ marginTop: 0 }}>
                   <Row
                     tint="#af52de"
                     icon={<UsersIcon size={14} />}
@@ -724,7 +724,7 @@ export default function HeaderMenu({
               </button>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <Row
                 tint="#f5a623"
                 icon={theme === "dark" ? <SunIcon size={14} /> : <MoonIcon size={14} />}
@@ -766,41 +766,36 @@ export default function HeaderMenu({
                 }
               />
 
-              {/* ========== Information — opens small modal ========== */}
-              <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 4, paddingTop: 4 }}>
+              <Row
+                tint="#5b8def"
+                icon={<BookIcon size={14} />}
+                label={T("Information", "معلومات")}
+                onClick={openInfoModal}
+                trailing={
+                  <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                    {isAr ? "◂" : "▸"}
+                  </span>
+                }
+              />
+
+              {/* ========== Notifications — opens small modal ========== */}
+              {(onEnableReminders || onDisableReminders) && (
                 <Row
-                  tint="#5b8def"
-                  icon={<BookIcon size={14} />}
-                  label={T("Information", "معلومات")}
-                  onClick={openInfoModal}
+                  tint={remindersOn ? "#34c759" : "#8e8e93"}
+                  icon={remindersOn ? <BellIcon size={14} /> : <BellOffIcon size={14} />}
+                  label={T("Notifications", "الإشعارات")}
+                  onClick={openNotifModal}
                   trailing={
                     <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
                       {isAr ? "◂" : "▸"}
                     </span>
                   }
                 />
-              </div>
-
-              {/* ========== Notifications — opens small modal ========== */}
-              {(onEnableReminders || onDisableReminders) && (
-                <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 4, paddingTop: 4 }}>
-                  <Row
-                    tint={remindersOn ? "#34c759" : "#8e8e93"}
-                    icon={remindersOn ? <BellIcon size={14} /> : <BellOffIcon size={14} />}
-                    label={T( "Notifications", "الإشعارات")}
-                    onClick={openNotifModal}
-                    trailing={
-                      <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
-                        {isAr ? "◂" : "▸"}
-                      </span>
-                    }
-                  />
-                </div>
               )}
 
               {/* ========== Site banner (admins) — opens small modal ========== */}
               {isAdmin && onPersistSiteBanner && (
-                <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 4, paddingTop: 4 }}>
+                <div style={{ marginTop: 0 }}>
                   <Row
                     tint="#146C94"
                     icon={<LayersIcon size={14} />}
@@ -1711,22 +1706,51 @@ export default function HeaderMenu({
                 <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
                   {T("Color theme", "لون الواجهة")}
                 </div>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
+                  {T("Pick a vibrant palette, or choose any custom color.", "اختار لوحة ألوان زاهية، أو لون مخصص بالكامل.")}
+                </p>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
                   {Object.entries(ACCENT_THEMES).map(([key, th]) => {
                     const swatch = (th[theme] || th.light).a1;
                     const active = key === accentTheme;
+                    const lab = th.label && typeof th.label === "object" ? T(th.label.en, th.label.ar) : (th.label || key);
                     return (
                       <button key={key} type="button" onClick={() => onChangeAccent(key)}
-                        title={T(th.label.en, th.label.ar)} aria-label={T(th.label.en, th.label.ar)}
+                        title={lab} aria-label={lab}
                         className="header-menu-swatch touch-target"
                         style={{
                           width: 36, height: 36, borderRadius: "50%", background: swatch, cursor: "pointer", padding: 0,
                           border: active ? "2px solid var(--ink)" : "1px solid rgba(var(--border-rgb),0.3)",
-                          boxShadow: active ? `0 0 0 3px var(--card), 0 0 0 5px ${swatch}55` : "none",
+                          boxShadow: active ? `0 0 0 3px var(--card), 0 0 0 5px ${swatch}66` : "none",
                         }}
                       />
                     );
                   })}
+                </div>
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+                  padding: "10px 12px", borderRadius: 12, background: "var(--input-bg)",
+                  border: accentTheme === "custom" ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.12)",
+                }}>
+                  <label style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", flex: 1 }}>
+                    {T("Custom color", "لون مخصص")}
+                  </label>
+                  <input
+                    type="color"
+                    defaultValue={typeof loadCustomAccentHex === "function" ? loadCustomAccentHex() : "#19A7CE"}
+                    onChange={(e) => {
+                      const hex = e.target.value;
+                      try { saveCustomAccentHex(hex); } catch (_) {}
+                      try { saveAccent("custom"); } catch (_) {}
+                      if (onChangeAccent) onChangeAccent("custom");
+                      try { applyAccentTheme("custom", theme, hex); } catch (_) {}
+                    }}
+                    style={{
+                      width: 44, height: 36, border: "1px solid rgba(var(--border-rgb),0.25)",
+                      borderRadius: 8, padding: 2, cursor: "pointer", background: "var(--card)",
+                    }}
+                    aria-label={T("Pick custom color", "اختيار لون مخصص")}
+                  />
                 </div>
               </>
             )}

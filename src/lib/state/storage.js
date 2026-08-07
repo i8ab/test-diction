@@ -11,31 +11,93 @@ const HISTORY_KEY = "twoTongues.searchHistory";
 // Accents must work on both light and dark (soft colors differ).
 export const ACCENT_THEMES = {
   ocean: {
-    label: "Ocean",
-    light: { a1: "#19A7CE", a2: "#146C94", soft1: "#D3E7EF", soft2: "#E4EEF2", focus: "25,167,206", meaning: "#1F7A9E" },
-    dark:  { a1: "#3FC1E8", a2: "#6BAFD1", soft1: "#163642", soft2: "#142A34", focus: "63,193,232", meaning: "#6FCCEE" },
+    label: { en: "Ocean", ar: "محيطي" },
+    light: { a1: "#19A7CE", a2: "#146C94", soft1: "rgba(25,167,206,0.14)", soft2: "rgba(20,108,148,0.10)", focus: "25,167,206", meaning: "#1F7A9E" },
+    dark:  { a1: "#3FC1E8", a2: "#6BAFD1", soft1: "rgba(63,193,232,0.18)", soft2: "rgba(107,175,209,0.14)", focus: "63,193,232", meaning: "#6FCCEE" },
   },
   brass: {
-    label: "Brass",
-    light: { a1: "#b08d57", a2: "#8a6a3a", soft1: "rgba(176,141,87,0.15)", soft2: "rgba(138,106,58,0.12)", focus: "176,141,87", meaning: "#7a5c2e" },
-    dark:  { a1: "#d4b483", a2: "#c4a574", soft1: "rgba(212,180,131,0.18)", soft2: "rgba(196,165,116,0.14)", focus: "212,180,131", meaning: "#e0c9a0" },
+    label: { en: "Brass", ar: "نحاسي" },
+    light: { a1: "#C9A227", a2: "#A67C00", soft1: "rgba(201,162,39,0.16)", soft2: "rgba(166,124,0,0.12)", focus: "201,162,39", meaning: "#8a6a00" },
+    dark:  { a1: "#E8C547", a2: "#D4A017", soft1: "rgba(232,197,71,0.18)", soft2: "rgba(212,160,23,0.14)", focus: "232,197,71", meaning: "#f0d56a" },
   },
   berry: {
-    label: "Berry",
-    light: { a1: "#9b5de5", a2: "#f15bb5", soft1: "rgba(155,93,229,0.12)", soft2: "rgba(241,91,181,0.12)", focus: "155,93,229", meaning: "#7b3db5" },
+    label: { en: "Berry", ar: "توتي" },
+    light: { a1: "#9b5de5", a2: "#f15bb5", soft1: "rgba(155,93,229,0.14)", soft2: "rgba(241,91,181,0.12)", focus: "155,93,229", meaning: "#7b3db5" },
     dark:  { a1: "#c77dff", a2: "#ff85c8", soft1: "rgba(199,125,255,0.18)", soft2: "rgba(255,133,200,0.14)", focus: "199,125,255", meaning: "#e0aaff" },
   },
   forest: {
-    label: "Forest",
-    light: { a1: "#40916c", a2: "#2d6a4f", soft1: "rgba(64,145,108,0.12)", soft2: "rgba(45,106,79,0.12)", focus: "64,145,108", meaning: "#2d6a4f" },
-    dark:  { a1: "#52b788", a2: "#74c69d", soft1: "rgba(82,183,136,0.18)", soft2: "rgba(116,198,157,0.14)", focus: "82,183,136", meaning: "#95d5b2" },
+    label: { en: "Forest", ar: "غابة" },
+    light: { a1: "#2ecc71", a2: "#27ae60", soft1: "rgba(46,204,113,0.14)", soft2: "rgba(39,174,96,0.12)", focus: "46,204,113", meaning: "#1e8449" },
+    dark:  { a1: "#58d68d", a2: "#2ecc71", soft1: "rgba(88,214,141,0.18)", soft2: "rgba(46,204,113,0.14)", focus: "88,214,141", meaning: "#82e0aa" },
   },
   sunset: {
-    label: "Sunset",
-    light: { a1: "#e85d04", a2: "#f48c06", soft1: "rgba(232,93,4,0.12)", soft2: "rgba(244,140,6,0.12)", focus: "232,93,4", meaning: "#c2410c" },
-    dark:  { a1: "#fb923c", a2: "#fdba74", soft1: "rgba(251,146,60,0.18)", soft2: "rgba(253,186,116,0.14)", focus: "251,146,60", meaning: "#fdba74" },
+    label: { en: "Sunset", ar: "غروب" },
+    light: { a1: "#ff6b35", a2: "#f7c59f", soft1: "rgba(255,107,53,0.14)", soft2: "rgba(247,197,159,0.14)", focus: "255,107,53", meaning: "#e85d04" },
+    dark:  { a1: "#ff8c5a", a2: "#ffb347", soft1: "rgba(255,140,90,0.18)", soft2: "rgba(255,179,71,0.14)", focus: "255,140,90", meaning: "#ffb347" },
+  },
+  coral: {
+    label: { en: "Coral", ar: "مرجاني" },
+    light: { a1: "#ff4d6d", a2: "#c9184a", soft1: "rgba(255,77,109,0.14)", soft2: "rgba(201,24,74,0.12)", focus: "255,77,109", meaning: "#c9184a" },
+    dark:  { a1: "#ff6b8a", a2: "#ff8fab", soft1: "rgba(255,107,138,0.18)", soft2: "rgba(255,143,171,0.14)", focus: "255,107,138", meaning: "#ff8fab" },
+  },
+  violet: {
+    label: { en: "Violet", ar: "بنفسجي" },
+    light: { a1: "#7c3aed", a2: "#4c1d95", soft1: "rgba(124,58,237,0.14)", soft2: "rgba(76,29,149,0.12)", focus: "124,58,237", meaning: "#5b21b6" },
+    dark:  { a1: "#a78bfa", a2: "#8b5cf6", soft1: "rgba(167,139,250,0.18)", soft2: "rgba(139,92,246,0.14)", focus: "167,139,250", meaning: "#c4b5fd" },
+  },
+  mint: {
+    label: { en: "Mint", ar: "نعناعي" },
+    light: { a1: "#00c9a7", a2: "#00a896", soft1: "rgba(0,201,167,0.14)", soft2: "rgba(0,168,150,0.12)", focus: "0,201,167", meaning: "#00897b" },
+    dark:  { a1: "#2dd4bf", a2: "#5eead4", soft1: "rgba(45,212,191,0.18)", soft2: "rgba(94,234,212,0.14)", focus: "45,212,191", meaning: "#99f6e4" },
+  },
+  rose: {
+    label: { en: "Rose", ar: "وردي" },
+    light: { a1: "#e11d48", a2: "#fb7185", soft1: "rgba(225,29,72,0.14)", soft2: "rgba(251,113,133,0.12)", focus: "225,29,72", meaning: "#be123c" },
+    dark:  { a1: "#fb7185", a2: "#fda4af", soft1: "rgba(251,113,133,0.18)", soft2: "rgba(253,164,175,0.14)", focus: "251,113,133", meaning: "#fecdd3" },
+  },
+  sky: {
+    label: { en: "Sky", ar: "سماوي" },
+    light: { a1: "#0ea5e9", a2: "#38bdf8", soft1: "rgba(14,165,233,0.14)", soft2: "rgba(56,189,248,0.12)", focus: "14,165,233", meaning: "#0284c7" },
+    dark:  { a1: "#38bdf8", a2: "#7dd3fc", soft1: "rgba(56,189,248,0.18)", soft2: "rgba(125,211,252,0.14)", focus: "56,189,248", meaning: "#bae6fd" },
   },
 };
+
+function hexToRgb(hex) {
+  const h = String(hex || "").replace("#", "");
+  if (h.length !== 6) return null;
+  const n = parseInt(h, 16);
+  if (Number.isNaN(n)) return null;
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+/** Build a full accent palette from a single hex color (custom theme). */
+export function buildCustomAccent(hex) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return null;
+  const { r, g, b } = rgb;
+  const a1 = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+  const a2r = Math.max(0, Math.round(r * 0.75));
+  const a2g = Math.max(0, Math.round(g * 0.75));
+  const a2b = Math.max(0, Math.round(b * 0.75));
+  const a2 = `#${((1 << 24) + (a2r << 16) + (a2g << 8) + a2b).toString(16).slice(1)}`;
+  return {
+    label: { en: "Custom", ar: "مخصص" },
+    light: {
+      a1, a2,
+      soft1: `rgba(${r},${g},${b},0.14)`,
+      soft2: `rgba(${a2r},${a2g},${a2b},0.12)`,
+      focus: `${r},${g},${b}`,
+      meaning: a2,
+    },
+    dark: {
+      a1, a2,
+      soft1: `rgba(${r},${g},${b},0.22)`,
+      soft2: `rgba(${a2r},${a2g},${a2b},0.16)`,
+      focus: `${r},${g},${b}`,
+      meaning: a1,
+    },
+  };
+}
 
 export function loadSavedTheme() {
   try {
@@ -49,10 +111,26 @@ export function loadSavedTheme() {
 export function loadSavedAccent() {
   try {
     const id = localStorage.getItem(ACCENT_KEY) || "ocean";
+    if (id === "custom") return "custom";
     return ACCENT_THEMES[id] ? id : "ocean";
   } catch (_) {
     return "ocean";
   }
+}
+
+export function loadCustomAccentHex() {
+  try {
+    const h = localStorage.getItem("tt_custom_accent");
+    return h && /^#[0-9A-Fa-f]{6}$/.test(h) ? h : "#19A7CE";
+  } catch (_) {
+    return "#19A7CE";
+  }
+}
+
+export function saveCustomAccentHex(hex) {
+  try {
+    if (hex && /^#[0-9A-Fa-f]{6}$/.test(hex)) localStorage.setItem("tt_custom_accent", hex);
+  } catch (_) {}
 }
 
 export function saveAccent(id) {
@@ -62,8 +140,12 @@ export function saveAccent(id) {
 }
 
 /** Apply accent CSS vars. Second arg is light/dark mode from the app theme. */
-export function applyAccentTheme(id, mode) {
-  const theme = ACCENT_THEMES[id] || ACCENT_THEMES.ocean;
+export function applyAccentTheme(id, mode, customHex) {
+  let theme = ACCENT_THEMES[id] || ACCENT_THEMES.ocean;
+  if (id === "custom") {
+    const built = buildCustomAccent(customHex || (typeof localStorage !== "undefined" ? localStorage.getItem("tt_custom_accent") : null) || "#19A7CE");
+    if (built) theme = built;
+  }
   const isDark = mode === "dark" || (typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "dark");
   const colors = isDark ? theme.dark : theme.light;
   try {

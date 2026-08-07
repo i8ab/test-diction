@@ -658,6 +658,26 @@ export default function MainView({
                 onOpenInfo={() => setShowInfoGuide(true)}
                 onOpenAchievements={() => setShowAchievements(true)}
               />
+              <ToolsMenu
+              accent={cfg.accent}
+              onLeaderboard={() => setShowLeaderboard(true)}
+              onStats={() => setShowStats(true)}
+              onQuiz={() => setShowQuiz(true)}
+              onFlashcards={() => setShowFlashcards(true)}
+              onTimer={() => { setTimerBubble(false); setShowTimer(true); }}
+              onCalendar={() => { setCalendarBubble(false); setShowCalendar(true); }}
+              onTodo={() => { setTodoBubble(false); setShowTodo(true); }}
+              onGoals={() => { setGoalsBubble(false); setShowGoals(true); }}
+              onQuickReview={() => setShowQuickReview(true)}
+              onDictation={() => setShowDictation(true)}
+              onAchievements={() => setShowAchievements(true)}
+              onRandomWord={() => setShowRandomWord(true)}
+              onExport={() => exportEntriesAsCsv(filtered.length ? filtered : sectionEntries, cfg, cfg.shortLabel)}
+              exportDisabled={sectionEntries.length === 0}
+              onImport={() => importInputRef.current && importInputRef.current.click()}
+              importing={importing}
+              isAr={isAr}
+            />
             </div>
           </div>
           <div style={{ display: "flex", gap: 4, marginTop: 16 }}>
@@ -759,26 +779,7 @@ export default function MainView({
             <button onClick={onOpenAdd} className="btn-shine lift-hover" style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: "#fff", background: cfg.accent, border: "none", borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
               <PlusIcon size={16} /> {tr(isAr, "Add word", "إضافة كلمة")}
             </button>
-            <ToolsMenu
-              accent={cfg.accent}
-              onLeaderboard={() => setShowLeaderboard(true)}
-              onStats={() => setShowStats(true)}
-              onQuiz={() => setShowQuiz(true)}
-              onFlashcards={() => setShowFlashcards(true)}
-              onTimer={() => { setTimerBubble(false); setShowTimer(true); }}
-              onCalendar={() => { setCalendarBubble(false); setShowCalendar(true); }}
-              onTodo={() => { setTodoBubble(false); setShowTodo(true); }}
-              onGoals={() => { setGoalsBubble(false); setShowGoals(true); }}
-              onQuickReview={() => setShowQuickReview(true)}
-              onDictation={() => setShowDictation(true)}
-              onAchievements={() => setShowAchievements(true)}
-              onRandomWord={() => setShowRandomWord(true)}
-              onExport={() => exportEntriesAsCsv(filtered.length ? filtered : sectionEntries, cfg, cfg.shortLabel)}
-              exportDisabled={sectionEntries.length === 0}
-              onImport={() => importInputRef.current && importInputRef.current.click()}
-              importing={importing}
-              isAr={isAr}
-            />
+            
             </div>
             <input
               ref={importInputRef}

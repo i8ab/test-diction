@@ -35,7 +35,7 @@ export default function ReminderBanner({
   const daysSince = lastStudied == null ? null : Math.floor((Date.now() - lastStudied) / (24 * 60 * 60 * 1000));
   // In-app banner still only nudges when they haven't studied in a day+
   // (the real daily push at 5 AM is independent and always sends).
-  const shouldShow = daysSince !== null && daysSince >= 1 && !dismissed;
+  const shouldShow = !dismissed && (daysSince === null || daysSince >= 1);
 
   useEffect(() => {
     if (!remindersOn || daysSince === null || daysSince < 1) return;
@@ -60,16 +60,56 @@ export default function ReminderBanner({
 
   if (!shouldShow) return null;
 
+  const timeLabel = daysSince === null
+    ? tr(isAr, "You haven't reviewed yet", "لسه ما راجعتش")
+    : daysSince === 0
+    ? tr(isAr, "earlier today", "بدري النهارده")
+    : daysSince === 1
+    ? tr(isAr, "1 day ago", "من يوم واحد")
+    : tr(isAr, `${daysSince} days ago`, `من ${daysSince} يوم`);
+
   return (
-    <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: cfg.accentSoft, border: `1px solid ${cfg.accent}`, borderRadius: 8, padding: "10px 14px" }}>
-      <FlameIcon size={17} color={cfg.accent} style={{ flexShrink: 0 }} />
-      <span style={{ flex: 1, minWidth: 200, fontSize: 13.5, color: "var(--muted-strong)" }}>
-        {tr(isAr,
-          `It's been ${daysSince} day${daysSince === 1 ? "" : "s"} since your last review — a quick quiz keeps it fresh.`,
-          `عدّى ${daysSince} يوم من غير ما تراجع — اختبار سريع هيفضّل الكلام طازة.`)}
-      </span>
-      <button type="button" onClick={onOpenQuiz} style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700, color: "#fff", background: cfg.accent, border: "none", borderRadius: 6, cursor: "pointer" }}>
-        {tr(isAr, "Review now", "راجع دلوقتي")}
+    <div
+      style={{
+        marginTop: 12,
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        flexWrap: "wrap",
+        background: `linear-gradient(135deg, ${cfg.accent}22, ${cfg.accent}10)`,
+        border: `1px solid ${cfg.accent}55`,
+        borderRadius: "var(--modal-radius, 14px)",
+        padding: "12px 16px",
+        boxShadow: `0 8px 24px -12px ${cfg.accent}66`,
+      }}
+    >
+      <FlameIcon size={20} color={cfg.accent} style={{ flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 180 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: "var(--ink)", lineHeight: 1.3 }}>
+          {tr(isAr, "Let's review now!", "يلا راجع حالا!")}
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--muted-strong)", marginTop: 3, lineHeight: 1.4 }}>
+          {tr(isAr,
+            `Last time you reviewed: ${timeLabel}. A short quiz keeps words fresh.`,
+            `آخر مرة راجعت: ${timeLabel}. اختبار سريع بيخلّي الكلام طازة.`)}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onOpenQuiz}
+        style={{
+          padding: "10px 16px",
+          fontSize: 13.5,
+          fontWeight: 800,
+          color: "#fff",
+          background: `linear-gradient(135deg, ${cfg.accent}, ${cfg.accent})`,
+          border: "none",
+          borderRadius: 10,
+          cursor: "pointer",
+          boxShadow: `0 6px 16px -6px ${cfg.accent}99`,
+        }}
+      >
+        {tr(isAr, "Review now", "يلا راجع حالا")}
       </button>
       {!remindersOn && (
         <span style={{ fontSize: 12, color: "var(--icon-muted)" }}>

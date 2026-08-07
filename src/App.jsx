@@ -3,6 +3,7 @@ import { tr } from "./lib/config/i18n";
 import { fetchRecord, saveRecord, SaveConflictError } from "./lib/state/cloudApi";
 import {
   loadSavedAccent, saveAccent, applyAccentTheme, ACCENT_THEMES, THEME_KEY,
+  loadCustomAccentHex, saveCustomAccentHex,
   loadSearchHistory, saveSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory,
   saveOfflineCache, loadOfflineCache, loadSavedTheme, savePersonalCode, loadPersonalCode, clearPersonalCode,
   saveSessionId, loadSessionId, generateSessionId,
@@ -153,7 +154,7 @@ export default function DictionaryApp() {
   // or the light/dark mode changes (each accent has its own light+dark
   // variant so contrast stays correct either way).
   useEffect(() => {
-    applyAccentTheme(accentTheme, theme);
+    applyAccentTheme(accentTheme, theme, accentTheme === 'custom' ? loadCustomAccentHex() : null);
     saveAccent(accentTheme);
   }, [accentTheme, theme]);
 

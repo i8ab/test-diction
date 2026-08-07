@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import {
-  MoreIcon, XIcon, TrophyIcon, StatsIcon, QuizIcon, LayersIcon,
+  ChevronIcon, XIcon, TrophyIcon, StatsIcon, QuizIcon, LayersIcon,
   DownloadIcon, UploadIcon, LoaderIcon, ClockIcon, CalendarIcon, CheckIcon, FlameIcon,
   MicIcon, StarIcon, WandIcon,
 } from "../common/Icons";
@@ -231,7 +231,7 @@ export default function ToolsMenu({
         gap: 6,
       }}
     >
-      {/* More button — always shows ⋯, never turns into X */}
+      {/* More dropdown — down arrow (not three dots) */}
       <button
         ref={btnRef}
         onClick={toggleOpen}
@@ -241,16 +241,26 @@ export default function ToolsMenu({
         aria-haspopup="menu"
         className="lift-hover"
         style={{
-          display: "flex", alignItems: "center", justifyContent: "center",
-          width: 40, height: 40, borderRadius: "50%",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+          minWidth: 40, height: 40, padding: "0 10px", borderRadius: 12,
           color: open ? "#fff" : accent,
           background: open ? accent : "var(--card)",
           border: `1px solid ${accent}40`,
           cursor: "pointer",
-          transition: "none",
+          transition: "transform 0.15s ease, background 0.15s ease",
+          fontWeight: 700, fontSize: 13, fontFamily: "inherit",
         }}
       >
-        <MoreIcon size={18} />
+        <span style={{ display: "none" }} className="tools-more-label">{tr(isAr, "More", "المزيد")}</span>
+        <span
+          style={{
+            display: "inline-flex",
+            transform: open ? "rotate(-90deg)" : "rotate(90deg)",
+            transition: "transform 0.2s ease",
+          }}
+        >
+          <ChevronIcon size={18} />
+        </span>
       </button>
 
       {/* X sits next to the More button (only while open) — closes the menu */}

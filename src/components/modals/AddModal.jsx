@@ -50,34 +50,22 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
     setSuggesting(true);
     setSuggestError("");
     try {
-      const result = await fetchDictionarySuggestion(word);
-      // Only definition + examples — never synonyms, antonyms, or meaning.
-      const defs = (result.definitions && result.definitions.length)
-        ? result.definitions
-        : (result.definition ? [result.definition] : []);
-      const exs = (result.examples && result.examples.length)
-        ? result.examples
-        : (result.example ? [result.example] : []);
+      // Prefer the primary meaning field; if multi-sense is on, use the first filled sense.
+      const meaningForMatch = (
+        meaning.trim()
+        || (senses || []).map((s) => (s.meaning || "").trim()).find(Boolean)
+        || ""
+      );
+      const result = await fetchDictionarySuggestion(word, { meaning: meaningForMatch });
+      // Exactly one definition + one example, matched to the written meaning.
+      const def = (result.definition || "").trim();
+      const ex = (result.example || "").trim();
 
-      if (defs.length) {
-        // Primary definition field; extra senses joined if the field was empty.
-        if (!definition.trim()) {
-          setDefinition(defs.length === 1 ? defs[0] : defs.map((d, i) => `${i + 1}. ${d}`).join("\n"));
-        }
-      }
-      if (exs.length) {
-        if (!example.trim()) setExample(exs[0]);
-        const rest = exs.slice(1);
-        if (rest.length) {
-          setExtraExamples((prev) => {
-            const existing = new Set(prev.map((x) => x.trim().toLowerCase()).filter(Boolean));
-            if (example.trim()) existing.add(example.trim().toLowerCase());
-            const additions = rest.filter((x) => !existing.has(x.toLowerCase()));
-            return additions.length ? [...prev, ...additions] : prev;
-          });
-        }
-      }
-      if (!defs.length && !exs.length) {
+      if (def && !definition.trim()) setDefinition(def);
+      if (ex && !example.trim()) setExample(ex);
+      // Do not touch extraExamples — user asked for a single example only.
+
+      if (!def && !ex) {
         setSuggestError(tr(isAr, "No definition or examples found for that word.", "مفيش تعريف أو أمثلة للكلمة دي."));
       }
     } catch (e) {

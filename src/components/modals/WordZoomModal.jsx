@@ -110,15 +110,18 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
     <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 3000 }}>
       <BodyScrollLock />
       <div onClick={(e) => e.stopPropagation()} onTouchStart={swipe.onTouchStart} onTouchMove={swipe.onTouchMove} onTouchEnd={swipe.onTouchEnd} className="modal-card word-zoom-modal" dir={cfg.dir} role="dialog" aria-modal="true" aria-labelledby="zoom-modal-word"
-        style={{ width: "100%", maxWidth: 560, background: CARD, borderRadius: 6, padding: "48px 32px 40px", boxShadow: "0 24px 60px -12px rgba(0,0,0,0.45)", textAlign: "center", position: "relative" }}>
-        <button onClick={handleShare} disabled={sharing} aria-label={tr(cfg.dir === "rtl", "Share this word", "شارك الكلمة دي")}
-          title={tr(cfg.dir === "rtl", "Share this word", "شارك الكلمة دي")}
-          style={{ position: "absolute", top: 14, insetInlineStart: 14, border: "none", background: "none", cursor: sharing ? "default" : "pointer", color: "var(--icon-muted)" }}>
-          {sharing ? <LoaderIcon size={19} /> : <ShareIcon size={19} />}
-        </button>
-        <button onClick={onClose} aria-label={tr(cfg.dir === "rtl", "Close", "إغلاق")} style={{ position: "absolute", top: 14, insetInlineEnd: 14, border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}>
-          <XIcon size={20} />
-        </button>
+        style={{ width: "100%", maxWidth: 560, maxHeight: "min(92dvh, 92vh)", overflowY: "auto", WebkitOverflowScrolling: "touch", background: CARD, borderRadius: 6, padding: "16px 32px 40px", boxShadow: "0 24px 60px -12px rgba(0,0,0,0.45)", textAlign: "center", position: "relative" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 3, margin: "0 -8px 12px", padding: "4px 8px", background: "color-mix(in srgb, var(--card, #fff) 94%, transparent)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}>
+          <button onClick={handleShare} disabled={sharing} aria-label={tr(cfg.dir === "rtl", "Share this word", "شارك الكلمة دي")}
+            title={tr(cfg.dir === "rtl", "Share this word", "شارك الكلمة دي")}
+            style={{ border: "none", background: "none", cursor: sharing ? "default" : "pointer", color: "var(--icon-muted)", padding: 6, borderRadius: 8 }}>
+            {sharing ? <LoaderIcon size={19} /> : <ShareIcon size={19} />}
+          </button>
+          <button onClick={onClose} aria-label={tr(cfg.dir === "rtl", "Close", "إغلاق")}
+            style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 6, borderRadius: 8 }}>
+            <XIcon size={20} />
+          </button>
+        </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
           <div dir={cfg.wordDir} id="zoom-modal-word" style={{ fontFamily: cfg.wordFont, fontSize: "clamp(30px, 6vw, 46px)", fontWeight: 700, color: INK, lineHeight: 1.2, wordBreak: "break-word" }}>
             {entry.word}

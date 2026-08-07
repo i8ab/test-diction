@@ -1257,8 +1257,8 @@ html[data-device="mobile"] .app-main-row {
 }
 
 
-/* Entry cards — mobile: hide long definition/examples until Zoom */
-.entry-card--mobile .entry-longform {
+/* Entry cards — hide long definition/examples/syn-ant until Zoom (all layouts) */
+.entry-card .entry-longform {
   display: none !important;
 }
 .entry-card--mobile .entry-mobile-zoom-hint {
@@ -1392,20 +1392,25 @@ html[data-device="mobile"] .app-main-row {
   padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)) !important;
 }
 
+/* Zoom modal: scrollable on ALL devices (PC was missing max-height/overflow) */
+.word-zoom-modal {
+  max-height: min(92dvh, 92vh) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 /* Zoom modal more comfortable on phones */
 @media (max-width: 640px) {
   .word-zoom-modal {
     padding: 28px 18px 24px !important;
-    max-height: min(92dvh, 92vh) !important;
-    overflow-y: auto !important;
     border-radius: 16px !important;
     margin: 8px !important;
   }
 }
 html[data-device="mobile"] .word-zoom-modal {
   padding: 28px 18px 24px !important;
-  max-height: min(92dvh, 92vh) !important;
-  overflow-y: auto !important;
   border-radius: 16px !important;
   margin: 8px !important;
 }
@@ -1655,6 +1660,8 @@ html[data-device="tablet"] .word-zoom-modal {
   max-width: 640px !important;
   padding: 36px 28px 32px !important;
   border-radius: 16px !important;
+  max-height: min(92dvh, 92vh) !important;
+  overflow-y: auto !important;
 }
 
 /* Portrait tablet: dock at bottom-end cluster instead of center if short */
@@ -1701,8 +1708,9 @@ html[data-device="tablet"] .search-clear-btn {
   width: 32px !important;
   height: 32px !important;
 }
+/* tablet: longform stays hidden — details live in Zoom modal only */
 html[data-device="tablet"] .entry-card--tablet .entry-longform {
-  display: block !important; /* keep expand details on tablet */
+  display: none !important;
 }
 
 
@@ -1723,7 +1731,7 @@ html[data-device="tablet"] .entry-card--tablet .entry-longform {
 .entry-card--mobile > div:last-child {
   gap: 2px !important;
 }
-/* Hide PairList dual columns if any leak on mobile */
+/* Hide PairList dual columns if any leak on mobile (covered by global .entry-longform rule) */
 .entry-card--mobile .entry-longform {
   display: none !important;
 }

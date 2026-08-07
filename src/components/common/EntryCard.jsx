@@ -207,7 +207,10 @@ function EntryCard({
           </div>
         )}
 
-        <div style={{ marginTop: 10 }}>{renderMeaning()}</div>
+        {/* Meanings: only on phone list. On tablet/PC they appear in Zoom modal only. */}
+        {mobileLayout && (
+          <div style={{ marginTop: 10 }}>{renderMeaning()}</div>
+        )}
 
         {(isStudied || isFavorite) && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
@@ -226,9 +229,18 @@ function EntryCard({
 
         {open && (
           <div className="entry-card-expanded" style={{ marginTop: 12 }} onClick={(e) => e.stopPropagation()}>
-            {mobileLayout && (hasDefinition || hasExample || hasSynAnt) && (
+            {/* All layouts: push full meaning / definition / pronunciation details into Zoom */}
+            {(hasDefinition || hasExample || hasSynAnt || !mobileLayout) && (
               <p style={{ margin: "0 0 10px", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.5 }}>
-                {tr(isAr, "Open Zoom for full definition, examples, and pair details.", "افتح التكبير للتعريف والأمثلة وتفاصيل المرادفات/المضادات.")}
+                {tr(
+                  isAr,
+                  mobileLayout
+                    ? "Open Zoom for full definition, examples, and pair details."
+                    : "Open Zoom for meaning, pronunciation, definition, examples, and more.",
+                  mobileLayout
+                    ? "افتح التكبير للتعريف والأمثلة وتفاصيل المرادفات/المضادات."
+                    : "افتح التكبير للمعنى والنطق والتعريف والأمثلة والمزيد."
+                )}
                 {" "}
                 <button
                   type="button"
@@ -252,8 +264,8 @@ function EntryCard({
               </a>
             )}
 
-            {/* Full definition/examples: hidden on phone list, visible on tablet/desktop expand */}
-            <div className={mobileLayout ? "entry-longform" : undefined}>
+            {/* Full definition/examples: only in Zoom on every layout */}
+            <div className="entry-longform">
               {hasDefinition && (
                 <p dir={detectDir(entry.definition)} style={{ fontFamily: detectFont(entry.definition), fontSize: 13, color: "var(--muted-strong)", margin: "8px 0 0", lineHeight: 1.6 }}>
                   {entry.definition}
@@ -272,13 +284,14 @@ function EntryCard({
                 ))}
             </div>
 
+            {/* Syn/ant details live in Zoom; keep light chips only on touch layouts if desired — hidden via CSS with longform */}
             {mobileLayout || tabletLayout ? (
-              <>
+              <div className="entry-longform">
                 <MobilePairChips label={tr(isAr, "Synonyms", "مرادفات")} pairs={entry.synonyms} tone="success" />
                 <MobilePairChips label={tr(isAr, "Antonyms", "مضادات")} pairs={entry.antonyms} tone="danger" />
-              </>
+              </div>
             ) : (
-              <>
+              <div className="entry-longform">
                 {!!(entry.synonyms && entry.synonyms.length) && (
                   <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 8 }}>
                     <strong style={{ color: "var(--success)" }}>{tr(isAr, "Synonyms", "مرادفات")}</strong>
@@ -291,7 +304,7 @@ function EntryCard({
                     <PairListDisplay cfg={cfg} pairs={entry.antonyms} />
                   </div>
                 )}
-              </>
+              </div>
             )}
 
             {isAdmin && (

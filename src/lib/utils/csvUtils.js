@@ -115,3 +115,35 @@ function splitCsvLine(line) {
   result.push(cur);
   return result;
 }
+
+/**
+ * Anki-compatible TSV export.
+ * Columns: Front, Back, Tags (section + pos)
+ * Users can import via Anki → File → Import → choose "Tab" separator.
+ */
+export function exportEntriesAsAnkiTsv(entries) {
+  const rows = ["#separator:tab", "#html:false", "Front\tBack\tTags"];
+  for (const e of entries || []) {
+    const front = String(e.word || "").replace(/[\t\n\r]/g, " ").trim();
+    const backParts = [e.meaning, e.definition, e.example].filter(Boolean).map((s) => String(s).replace(/[\t\n\r]/g, " ").trim());
+    const back = backParts.join(" — ");
+    const tags = [e.section || "", e.pos || ""].filter(Boolean).join(" ");
+    if (!front && !back) continue;
+    rows.push(`${front}\t${back}\t${tags}`);
+  }
+  return rows.join("\n");
+}
+
+export function downloadTextFile(filename, text, mime = "text/plain;charset=utf-8") {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    a.remove();
+  }, 500);
+}

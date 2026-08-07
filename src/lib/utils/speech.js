@@ -264,3 +264,67 @@ export function startMicLevelMeter(onLevel) {
     } catch (_) {}
   };
 }
+
+/** Record microphone audio with MediaRecorder. Returns { stop, promise }. */
+export function startVoiceRecording() {
+  let mediaRecorder = null;
+  let stream = null;
+  const chunks = [];
+  let resolveFn = null;
+  let rejectFn = null;
+  const promise = new Promise((resolve, reject) => {
+    resolveFn = resolve;
+    rejectFn = reject;
+  });
+
+  const ready = (async () => {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : MediaRecorder.isTypeSupported("audio/mp4")
+          ? "audio/mp4"
+          : "";
+      mediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+      mediaRecorder.onstop = () => {
+        try {
+          stream.getTracks().forEach((t) => t.stop());
+        } catch (_) {}
+        const blob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
+        const url = URL.createObjectURL(blob);
+        resolveFn({ blob, url, mimeType: blob.type });
+      };
+      mediaRecorder.onerror = (e) => rejectFn(e.error || new Error("record failed"));
+      mediaRecorder.start();
+    } catch (err) {
+      rejectFn(err);
+    }
+  })();
+
+  return {
+    ready,
+    stop: async () => {
+      await ready;
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+      } else {
+        try {
+          if (stream) stream.getTracks().forEach((t) => t.stop());
+        } catch (_) {}
+        rejectFn(new Error("not recording"));
+      }
+      return promise;
+    },
+    cancel: () => {
+      try {
+        if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+      } catch (_) {}
+      try {
+        if (stream) stream.getTracks().forEach((t) => t.stop());
+      } catch (_) {}
+    },
+  };
+}

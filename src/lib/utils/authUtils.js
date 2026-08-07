@@ -175,6 +175,10 @@ export function migrateAccounts(accounts) {
       copy.srsDueAt = {};
       changed = true;
     }
+    if (!copy.srsCards || typeof copy.srsCards !== "object") {
+      copy.srsCards = {};
+      changed = true;
+    }
     if (!Array.isArray(copy.quizHistory)) {
       copy.quizHistory = [];
       changed = true;

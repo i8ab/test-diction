@@ -257,3 +257,119 @@ export function formatQuizDuration(ms, isAr) {
   const rem = s % 60;
   return isAr ? `${m}:${String(rem).padStart(2, "0")}` : `${m}:${String(rem).padStart(2, "0")}`;
 }
+
+// ─── SM-2 style SRS (backward-compatible with box levels) ───────────────────
+// Per-card state shape stored in account.srsCards[id]:
+//   { ease: number, interval: number /*days*/, reps: number, lapses: number, dueAt: number }
+
+export const SRS_DEFAULT_EASE = 2.5;
+export const SRS_MIN_EASE = 1.3;
+
+/** Load custom interval multipliers (user preference). Keys: learning, graduating, easyBonus */
+const SRS_PREFS_KEY = "twoTongues.srsPrefs";
+
+export function loadSrsPrefs() {
+  try {
+    const raw = localStorage.getItem(SRS_PREFS_KEY);
+    if (!raw) return { learningMinutes: 10, graduatingDays: 1, easyBonus: 1.3, hardFactor: 1.2 };
+    const p = JSON.parse(raw);
+    return {
+      learningMinutes: Math.max(1, Number(p.learningMinutes) || 10),
+      graduatingDays: Math.max(1, Number(p.graduatingDays) || 1),
+      easyBonus: Math.max(1.1, Number(p.easyBonus) || 1.3),
+      hardFactor: Math.max(1.05, Number(p.hardFactor) || 1.2),
+    };
+  } catch (_) {
+    return { learningMinutes: 10, graduatingDays: 1, easyBonus: 1.3, hardFactor: 1.2 };
+  }
+}
+
+export function saveSrsPrefs(prefs) {
+  try {
+    localStorage.setItem(SRS_PREFS_KEY, JSON.stringify(prefs));
+  } catch (_) {}
+}
+
+/**
+ * Apply SM-2-like update.
+ * quality: 0 = again (fail), 1 = hard, 2 = good, 3 = easy
+ * Returns { card, dueAt, boxLevel }
+ */
+export function applySm2(prevCard, quality, prefs) {
+  const p = prefs || loadSrsPrefs();
+  const q = Math.max(0, Math.min(3, Number(quality) || 0));
+  let ease = (prevCard && prevCard.ease) || SRS_DEFAULT_EASE;
+  let interval = (prevCard && prevCard.interval) || 0; // days
+  let reps = (prevCard && prevCard.reps) || 0;
+  let lapses = (prevCard && prevCard.lapses) || 0;
+
+  if (q === 0) {
+    // Again — reset to learning
+    reps = 0;
+    lapses += 1;
+    interval = 0;
+    ease = Math.max(SRS_MIN_EASE, ease - 0.2);
+    const dueAt = Date.now() + p.learningMinutes * 60 * 1000;
+    return {
+      card: { ease, interval, reps, lapses, dueAt },
+      dueAt,
+      boxLevel: 0,
+    };
+  }
+
+  // Adjust ease (SM-2 formula variant)
+  // quality mapped: 1→hard(2), 2→good(3), 3→easy(4) in classic SM-2 0-5 scale
+  const sm2q = q + 1; // 2, 3, 4
+  ease = ease + (0.1 - (5 - sm2q) * (0.08 + (5 - sm2q) * 0.02));
+  ease = Math.max(SRS_MIN_EASE, ease);
+
+  if (reps === 0) {
+    // Graduating from learning
+    interval = q === 3 ? Math.max(p.graduatingDays, 2) : p.graduatingDays;
+  } else if (reps === 1) {
+    interval = q === 1 ? Math.max(1, Math.round(interval * p.hardFactor)) : (q === 3 ? 6 : 3);
+  } else {
+    const factor = q === 1 ? p.hardFactor : ease;
+    interval = Math.max(1, Math.round(interval * factor * (q === 3 ? p.easyBonus : 1)));
+  }
+  reps += 1;
+
+  const dueAt = Date.now() + interval * 24 * 60 * 60 * 1000;
+  // Map interval days → display box 0..5 for UI compatibility
+  let boxLevel = 0;
+  if (interval < 0.1) boxLevel = 0;
+  else if (interval < 1) boxLevel = 1;
+  else if (interval < 3) boxLevel = 2;
+  else if (interval < 7) boxLevel = 3;
+  else if (interval < 21) boxLevel = 4;
+  else boxLevel = 5;
+
+  return {
+    card: { ease, interval, reps, lapses, dueAt },
+    dueAt,
+    boxLevel,
+  };
+}
+
+/** Convert boolean correct (legacy callers) → SM-2 quality */
+export function correctToQuality(correct) {
+  return correct ? 2 : 0; // good vs again
+}
+
+/**
+ * Prefer srsCards[id] when present; fall back to legacy srsStats + srsDueAt.
+ */
+export function getCardState(entryId, srsCards, srsStats, srsDueAt) {
+  if (srsCards && srsCards[entryId]) return srsCards[entryId];
+  const stats = srsStats && srsStats[entryId];
+  const due = srsDueAt && srsDueAt[entryId];
+  const level = srsLevelFromStats(stats);
+  const intervalDays = [0, 0, 1, 3, 7, 30][level] || 0;
+  return {
+    ease: SRS_DEFAULT_EASE,
+    interval: intervalDays,
+    reps: stats ? stats.correct || 0 : 0,
+    lapses: stats ? Math.max(0, (stats.total || 0) - (stats.correct || 0)) : 0,
+    dueAt: due != null ? Number(due) : Date.now(),
+  };
+}

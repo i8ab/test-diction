@@ -32,6 +32,7 @@ export default function ToolsMenu({
   accent, onLeaderboard, onStats, onQuiz, onFlashcards, onTimer, onCalendar, onTodo,
   onGoals, onQuickReview, onDictation, onAchievements, onRandomWord,
   onExport, exportDisabled, onImport, importing, isAr,
+  onExportAnki, onDashboard, onWordLists, onChallenges,
 }) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState(null);
@@ -100,7 +101,11 @@ export default function ToolsMenu({
     { key: "goals", icon: <FlameIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Goals", "الأهداف"), onClick: onGoals },
     { key: "quick", icon: <LayersIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quick review", "مراجعة سريعة"), onClick: onQuickReview },
     { key: "todo", icon: <CheckIcon size={18} />, tint: "#30d158", label: tr(isAr, "To-do list", "قائمة المهام"), onClick: onTodo },
+    { key: "dashboard", icon: <StatsIcon size={18} />, tint: "#5b8def", label: tr(isAr, "Dashboard", "لوحة القيادة"), onClick: onDashboard },
+    { key: "lists", icon: <LayersIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Word lists", "قوائم الكلمات"), onClick: onWordLists },
+    { key: "challenges", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Challenges", "تحديات"), onClick: onChallenges },
     { key: "export", icon: <DownloadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Export CSV", "تصدير CSV"), onClick: onExport, disabled: exportDisabled },
+    { key: "exportAnki", icon: <DownloadIcon size={18} />, tint: "#30d158", label: tr(isAr, "Export Anki", "تصدير Anki"), onClick: onExportAnki, disabled: exportDisabled },
     { key: "import", icon: importing ? <LoaderIcon size={18} /> : <UploadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Import CSV", "استيراد CSV"), onClick: onImport, disabled: importing },
   ];
 

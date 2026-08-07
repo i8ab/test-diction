@@ -8,8 +8,9 @@ import {
   UndoIcon, ClockIcon, MicIcon, BookIcon, FlameIcon,
 } from "./common/Icons";
 import { firstLetterKey, fuzzyIncludes, matchScore } from "../lib/utils/searchUtils";
+import { WORD_TYPES, entryPosList } from "../lib/utils/wordTypes";
 import { normalizePairs } from "../lib/utils/pairUtils";
-import { parseCsv, exportEntriesAsCsv } from "../lib/utils/csvUtils";
+import { parseCsv, exportEntriesAsCsv, exportEntriesAsAnkiTsv, downloadTextFile } from "../lib/utils/csvUtils";
 import { makeLogEntry } from "../lib/state/logs";
 import { SECTIONS } from "../lib/config/sections";
 import { loadSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory } from "../lib/state/storage";
@@ -47,6 +48,9 @@ const InfoGuideModal = lazy(() => import("./modals/InfoGuideModal"));
 const DictationModal = lazy(() => import("./modals/DictationModal"));
 const AchievementsModal = lazy(() => import("./modals/AchievementsModal"));
 const RandomWordModal = lazy(() => import("./modals/RandomWordModal"));
+const DashboardPage = lazy(() => import("./dashboard/DashboardPage"));
+const WordListsModal = lazy(() => import("./modals/WordListsModal"));
+const ChallengeModal = lazy(() => import("./modals/ChallengeModal"));
 
 
 const TIMER_VIEW_KEY = "twoTongues.timerView";
@@ -200,6 +204,12 @@ export default function MainView({
   const [quizDueOnly, setQuizDueOnly] = useState(false);
   const [showFlashcards, setShowFlashcards] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [showWordLists, setShowWordLists] = useState(false);
+  const [showChallenges, setShowChallenges] = useState(false);
+  const [posFilter, setPosFilter] = useState("all"); // all | noun | verb | ...
+  const [dateFilter, setDateFilter] = useState("all"); // all | today | week | month
+  const [sortKey, setSortKey] = useState("alpha"); // alpha | newest | oldest | weak
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showTimer, setShowTimer] = useState(() => loadTimerView().open);
   const [timerBubble, setTimerBubble] = useState(() => loadTimerView().bubble);
@@ -300,14 +310,31 @@ export default function MainView({
   const filtered = useMemo(() => {
     const q = query.trim();
     let base = q
-      ? sectionEntries.filter((e) => fuzzyIncludes(e.word, q) || fuzzyIncludes(e.meaning, q) || fuzzyIncludes(e.definition, q))
-      : sectionEntries;
+      ? sectionEntries.filter((e) => fuzzyIncludes(e.word, q) || fuzzyIncludes(e.meaning, q) || fuzzyIncludes(e.definition || "") || fuzzyIncludes(e.example || ""))
+      : sectionEntries.slice();
     if (studyFilter === "studied") base = base.filter((e) => studiedIds.has(e.id));
     else if (studyFilter === "not-studied") base = base.filter((e) => !studiedIds.has(e.id));
     else if (studyFilter === "favorites") base = base.filter((e) => favoriteIds.has(e.id));
     else if (studyFilter === "due") base = base.filter((e) => studiedIds.has(e.id) && isSrsDue(e.id, srsDueAt));
+    else if (studyFilter === "weak") base = base.filter((e) => studiedIds.has(e.id) && ((srsBox && srsBox[e.id]) || 0) <= 1);
+    if (posFilter !== "all") {
+      base = base.filter((e) => entryPosList(e).includes(posFilter) || e.pos === posFilter);
+    }
+    if (dateFilter !== "all") {
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+      let minT = 0;
+      if (dateFilter === "today") {
+        const d = new Date(); d.setHours(0, 0, 0, 0); minT = d.getTime();
+      } else if (dateFilter === "week") minT = now - 7 * day;
+      else if (dateFilter === "month") minT = now - 30 * day;
+      base = base.filter((e) => typeof e.addedAt === "number" && e.addedAt >= minT);
+    }
+    if (sortKey === "newest") base = [...base].sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+    else if (sortKey === "oldest") base = [...base].sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+    else if (sortKey === "weak") base = [...base].sort((a, b) => ((srsBox && srsBox[a.id]) || 0) - ((srsBox && srsBox[b.id]) || 0));
     return base;
-  }, [sectionEntries, query, studyFilter, studiedIds, favoriteIds, srsDueAt]);
+  }, [sectionEntries, query, studyFilter, studiedIds, favoriteIds, srsDueAt, srsBox, posFilter, dateFilter, sortKey]);
 
   useEffect(() => { setActiveIndex(-1); }, [query]);
 
@@ -393,7 +420,7 @@ export default function MainView({
   // Reset how many words are rendered whenever the underlying result set
   // changes (new search, new filter, switched section) — otherwise a
   // previous "load more" position could hide brand-new matches.
-  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [query, studyFilter, section]);
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [query, studyFilter, section, posFilter, dateFilter, sortKey]);
 
   // The letter → entries map actually rendered right now, capped to
   // visibleCount words total (in flatSorted order).
@@ -672,7 +699,19 @@ export default function MainView({
               onDictation={() => setShowDictation(true)}
               onAchievements={() => setShowAchievements(true)}
               onRandomWord={() => setShowRandomWord(true)}
-              onExport={() => exportEntriesAsCsv(filtered.length ? filtered : sectionEntries, cfg, cfg.shortLabel)}
+              onExport={() => {
+                const list = filtered.length ? filtered : sectionEntries;
+                const csv = exportEntriesAsCsv(list);
+                downloadTextFile(`dictionary-${section}.csv`, csv, "text/csv;charset=utf-8");
+              }}
+              onExportAnki={() => {
+                const list = filtered.length ? filtered : sectionEntries;
+                const tsv = exportEntriesAsAnkiTsv(list);
+                downloadTextFile(`anki-${section}.txt`, tsv, "text/tab-separated-values;charset=utf-8");
+              }}
+              onDashboard={() => setShowDashboard(true)}
+              onWordLists={() => setShowWordLists(true)}
+              onChallenges={() => setShowChallenges(true)}
               exportDisabled={sectionEntries.length === 0}
               onImport={() => importInputRef.current && importInputRef.current.click()}
               importing={importing}
@@ -841,6 +880,7 @@ export default function MainView({
             { key: "not-studied", label: tr(isAr, "Not Studied", "لم تُدرس بعد") },
             { key: "favorites", label: tr(isAr, "Favorites", "المفضلة") },
             { key: "due", label: tr(isAr, "Due today", "مستحقة") },
+            { key: "weak", label: tr(isAr, "Weak", "ضعيفة") },
           ].map((f) => {
             const active = studyFilter === f.key;
             return (
@@ -850,6 +890,32 @@ export default function MainView({
               </button>
             );
           })}
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <select value={posFilter} onChange={(e) => setPosFilter(e.target.value)}
+            aria-label={tr(isAr, "Part of speech", "نوع الكلمة")}
+            style={{ fontSize: 12, padding: "5px 10px", borderRadius: 16, border: "1px solid rgba(var(--border-rgb),0.25)", background: "var(--card)", color: "var(--ink)", fontWeight: 600 }}>
+            <option value="all">{tr(isAr, "All types", "كل الأنواع")}</option>
+            {WORD_TYPES.map((t) => (
+              <option key={t.id} value={t.id}>{isAr ? t.ar : t.en}</option>
+            ))}
+          </select>
+          <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}
+            aria-label={tr(isAr, "Added date", "تاريخ الإضافة")}
+            style={{ fontSize: 12, padding: "5px 10px", borderRadius: 16, border: "1px solid rgba(var(--border-rgb),0.25)", background: "var(--card)", color: "var(--ink)", fontWeight: 600 }}>
+            <option value="all">{tr(isAr, "Any time", "أي وقت")}</option>
+            <option value="today">{tr(isAr, "Added today", "أُضيفت اليوم")}</option>
+            <option value="week">{tr(isAr, "Last 7 days", "آخر ٧ أيام")}</option>
+            <option value="month">{tr(isAr, "Last 30 days", "آخر ٣٠ يوم")}</option>
+          </select>
+          <select value={sortKey} onChange={(e) => setSortKey(e.target.value)}
+            aria-label={tr(isAr, "Sort", "ترتيب")}
+            style={{ fontSize: 12, padding: "5px 10px", borderRadius: 16, border: "1px solid rgba(var(--border-rgb),0.25)", background: "var(--card)", color: "var(--ink)", fontWeight: 600 }}>
+            <option value="alpha">{tr(isAr, "A–Z", "أ–ي")}</option>
+            <option value="newest">{tr(isAr, "Newest", "الأحدث")}</option>
+            <option value="oldest">{tr(isAr, "Oldest", "الأقدم")}</option>
+            <option value="weak">{tr(isAr, "Weakest first", "الأضعف أولاً")}</option>
+          </select>
         </div>
         {loadError && <div style={{ ...errorStyle, marginTop: 10 }} role="alert" aria-live="assertive">{tr(isAr, loadError, "تعذر تحميل القاموس المشترك. تحقق من اتصالك وحاول تحديث الصفحة.")}</div>}
         {saveError && <div style={{ ...errorStyle, marginTop: 10 }} role="alert" aria-live="assertive">{tr(isAr, saveError, "تعذر الحفظ — تحقق من اتصالك وحاول مرة أخرى.")}</div>}
@@ -999,6 +1065,81 @@ export default function MainView({
             isAr={isAr}
             cfg={cfg}
             onClose={() => setShowLeaderboard(false)}
+          />
+        )}
+        {showDashboard && (
+          <DashboardPage
+            onClose={() => setShowDashboard(false)}
+            isAr={isAr}
+            entries={entries}
+            studiedIds={studiedIds}
+            studiedAt={studiedAt}
+            favoriteIds={favoriteIds}
+            srsBox={srsBox}
+            srsDueAt={srsDueAt}
+            quizHistory={quizHistory}
+            streak={computeStreak(studiedAt)}
+            section={section}
+            name={name}
+            onOpenQuiz={() => { setShowDashboard(false); setShowQuiz(true); }}
+            onOpenDue={() => { setShowDashboard(false); setStudyFilter("due"); setQuizDueOnly(true); setShowQuiz(true); }}
+            onOpenStats={() => { setShowDashboard(false); setShowStats(true); }}
+            onOpenGoals={() => { setShowDashboard(false); setGoalsBubble(false); setShowGoals(true); }}
+            onOpenCalendar={() => { setShowDashboard(false); setCalendarBubble(false); setShowCalendar(true); }}
+            onOpenFlashcards={() => { setShowDashboard(false); setShowFlashcards(true); }}
+          />
+        )}
+        {showWordLists && (
+          <WordListsModal
+            accountCode={accountCode}
+            entries={entries}
+            section={section}
+            isAr={isAr}
+            onClose={() => setShowWordLists(false)}
+            showToast={showToast}
+            onImportWords={async (words, listSection) => {
+              if (!words || !words.length) return;
+              const sec = listSection || section;
+              const existing = new Set(entries.filter((e) => e.section === sec).map((e) => (e.word || "").trim().toLowerCase()));
+              const newEntries = [];
+              for (const w of words) {
+                const key = (w.word || "").trim().toLowerCase();
+                if (!key || !w.meaning || existing.has(key)) continue;
+                existing.add(key);
+                newEntries.push({
+                  id: uid(),
+                  section: sec,
+                  word: w.word,
+                  meaning: w.meaning,
+                  definition: w.definition || "",
+                  example: w.example || "",
+                  pos: w.pos || "",
+                  synonyms: [],
+                  antonyms: [],
+                  addedBy: accountCode,
+                  addedAt: Date.now(),
+                });
+              }
+              if (!newEntries.length) {
+                showToast(tr(isAr, "No new words to import", "لا توجد كلمات جديدة للاستيراد"));
+                return;
+              }
+              await persistEntries(
+                (cur) => [...cur, ...newEntries],
+                () => makeLogEntry("word_add", `${name} imported ${newEntries.length} word(s) from shared list`, name, accountCode)
+              );
+              showToast(tr(isAr, `Imported ${newEntries.length} word(s)`, `تم استيراد ${newEntries.length} كلمة`));
+            }}
+          />
+        )}
+        {showChallenges && (
+          <ChallengeModal
+            accountCode={accountCode}
+            accountName={name}
+            accounts={accounts}
+            isAr={isAr}
+            onClose={() => setShowChallenges(false)}
+            showToast={showToast}
           />
         )}
         {showAccount && (

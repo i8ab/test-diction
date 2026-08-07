@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD } from "../../lib/config/theme";
 import { cambridgeUrl, shareWordCard } from "../../lib/utils/wordCard";
 import { detectDir, detectFont } from "../../lib/utils/searchUtils";
-import { getSpeechRecognitionCtor, scorePronunciation, AR_DIALECTS, loadArDialect, saveArDialect, EN_ACCENTS, loadEnAccent, saveEnAccent, enAccentLang, startMicLevelMeter } from "../../lib/utils/speech";
+import { getSpeechRecognitionCtor, scorePronunciation, AR_DIALECTS, loadArDialect, saveArDialect, EN_ACCENTS, loadEnAccent, saveEnAccent, enAccentLang, startMicLevelMeter, startVoiceRecording } from "../../lib/utils/speech";
 import { LoaderIcon, ShareIcon, SpeakButton, XIcon, MicIcon } from "../common/Icons";
 import { PairListDisplay } from "../common/PairList";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
@@ -32,6 +32,46 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
   const [pronError, setPronError] = useState("");
   const [arDialect, setArDialect] = useState(loadArDialect);
   const [enAccent, setEnAccent] = useState(loadEnAccent);
+  const [recState, setRecState] = useState("idle"); // idle | recording | ready
+  const [recUrl, setRecUrl] = useState(null);
+  const recCtlRef = useRef(null);
+
+  async function handleToggleRecord() {
+    if (recState === "recording") {
+      try {
+        const ctl = recCtlRef.current;
+        const result = ctl ? await ctl.stop() : null;
+        if (result && result.url) {
+          setRecUrl((prev) => {
+            if (prev) try { URL.revokeObjectURL(prev); } catch (_) {}
+            return result.url;
+          });
+          setRecState("ready");
+        } else {
+          setRecState("idle");
+        }
+      } catch (_) {
+        setRecState("idle");
+      }
+      recCtlRef.current = null;
+      return;
+    }
+    // start
+    if (recUrl) {
+      try { URL.revokeObjectURL(recUrl); } catch (_) {}
+      setRecUrl(null);
+    }
+    try {
+      const ctl = startVoiceRecording();
+      recCtlRef.current = ctl;
+      setRecState("recording");
+      await ctl.ready;
+    } catch (_) {
+      setRecState("idle");
+      setPronError(tr(isAr, "Microphone permission denied", "تم رفض إذن الميكروفون"));
+    }
+  }
+
 
   async function handlePracticePronunciation() {
     if (micState !== "idle") return;
@@ -150,7 +190,38 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
             )}
           </div>
         )}
+        {/* Record your voice and play it back next to the model pronunciation */}
+        <div style={{ marginTop: 16, padding: "12px 12px 10px", borderRadius: 12, background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.14)" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-strong)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            {tr(isAr, "Record & compare", "سجّل وقارن")}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "center" }}>
+            <button
+              type="button"
+              onClick={handleToggleRecord}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "8px 14px", borderRadius: 20, border: "none", cursor: "pointer",
+                fontWeight: 700, fontSize: 13,
+                color: "#fff",
+                background: recState === "recording" ? "var(--danger, #c0392b)" : "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+              }}
+            >
+              <MicIcon size={14} />
+              {recState === "recording"
+                ? tr(isAr, "Stop", "إيقاف")
+                : tr(isAr, "Record my voice", "سجّل صوتي")}
+            </button>
+            {recUrl && (
+              <audio controls src={recUrl} style={{ height: 32, maxWidth: "100%" }} />
+            )}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--muted-strong)", marginTop: 6, textAlign: "center" }}>
+            {tr(isAr, "Play the speaker icon above, then your recording, to compare.", "شغّل أيقونة النطق فوق، ثم تسجيلك، للمقارنة.")}
+          </div>
+        </div>
         {cfg.wordDir === "ltr" && (
+
           <a
             href={cambridgeUrl(entry.word)}
             target="_blank"

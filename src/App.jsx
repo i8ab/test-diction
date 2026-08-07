@@ -13,7 +13,7 @@ import {
 import {
   validateUsername, validatePassword, hashPassword, verifyPassword, verifyPasswordDetailed, migrateAccounts, normalizeUsername,
 } from "./lib/utils/authUtils";
-import { SRS_LEVEL_INTERVALS_MS, srsLevelFromStats, computeStreak } from "./lib/utils/quizHelpers";
+import { SRS_LEVEL_INTERVALS_MS, srsLevelFromStats, computeStreak, applySm2, correctToQuality, getCardState, loadSrsPrefs } from "./lib/utils/quizHelpers";
 import { evaluateAchievements } from "./lib/state/achievements";
 import { getTodayTimerMinutes } from "./lib/state/goals";
 import {
@@ -1076,22 +1076,24 @@ export default function DictionaryApp() {
   // srsLevelFromStats) and reschedules its next due date based on the
   // resulting level. Best-effort: a failed save shouldn't interrupt the
   // quiz the user is in the middle of taking.
-  async function handleRecordSrsAnswer(entryId, correct) {
-    // Passed as a function (not a precomputed array) so persistAccounts can
-    // safely auto-retry on a version conflict, re-deriving the update from
-    // the freshest accounts each time. This matters a lot here: quiz
-    // questions fire these calls back-to-back without waiting for the
-    // previous save to finish, so consecutive calls routinely race against
-    // each other's own in-flight save — not actually a different user.
+  async function handleRecordSrsAnswer(entryId, correct, qualityOverride) {
+    // SM-2 style scheduling with backward-compatible srsStats / srsDueAt / srsBox.
+    // qualityOverride: 0 again, 1 hard, 2 good, 3 easy — optional.
     try {
       await persistAccounts((curAccounts) => curAccounts.map((a) => {
         if (a.code !== accountCode) return a;
         const prevStats = (a.srsStats && a.srsStats[entryId]) || { correct: 0, total: 0 };
-        const nextStats = { correct: prevStats.correct + (correct ? 1 : 0), total: prevStats.total + 1 };
-        const nextLevel = correct ? srsLevelFromStats(nextStats) : 0; // a miss always means "re-test soon", regardless of the word's overall level
-        const levelIdx = Math.max(0, Math.min(nextLevel, SRS_LEVEL_INTERVALS_MS.length - 1));
-        const nextDue = Date.now() + SRS_LEVEL_INTERVALS_MS[levelIdx];
-        return { ...a, srsStats: { ...(a.srsStats || {}), [entryId]: nextStats }, srsDueAt: { ...(a.srsDueAt || {}), [entryId]: nextDue } };
+        const isCorrect = qualityOverride != null ? qualityOverride > 0 : !!correct;
+        const nextStats = { correct: prevStats.correct + (isCorrect ? 1 : 0), total: prevStats.total + 1 };
+        const quality = qualityOverride != null ? qualityOverride : correctToQuality(!!correct);
+        const prevCard = getCardState(entryId, a.srsCards, a.srsStats, a.srsDueAt);
+        const { card, dueAt } = applySm2(prevCard, quality, loadSrsPrefs());
+        return {
+          ...a,
+          srsStats: { ...(a.srsStats || {}), [entryId]: nextStats },
+          srsDueAt: { ...(a.srsDueAt || {}), [entryId]: dueAt },
+          srsCards: { ...(a.srsCards || {}), [entryId]: card },
+        };
       }));
     } catch (e) { /* best-effort, quiz keeps going */ }
   }

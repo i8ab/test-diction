@@ -911,9 +911,9 @@ export default function HeaderMenu({
         document.body
       )}
 
-      {settingsOpen && (
+      {settingsOpen && typeof document !== "undefined" && createPortal(
         <div
-          onClick={closeSettings}
+          onClick={() => { /* Settings stays open unless user presses X */ }}
           className="modal-backdrop"
           style={{
             position: "fixed", inset: 0, zIndex: 3400,
@@ -962,8 +962,7 @@ export default function HeaderMenu({
                   setBrandCustomGlyph(loadCustomGlyph());
                   setBrandAddMode(false);
                   setBrandDraftCustom("");
-                  // Close settings first so only one modal paints (was stacking → lag)
-                  setSettingsOpen(false);
+                  // Keep settings open underneath — appearance stacks above it
                   setAppearanceModalOpen(true);
                 }}
                 trailing={
@@ -1078,16 +1077,17 @@ export default function HeaderMenu({
 
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Information modal — same style as Settings, sized to content */}
-      {infoOpen && (
+      {infoOpen && typeof document !== "undefined" && createPortal(
         <div
-          onClick={closeInfoModal}
+          onClick={() => { /* Stay open unless X */ }}
           className="modal-backdrop"
           style={{
-            position: "fixed", inset: 0, zIndex: 3400,
+            position: "fixed", inset: 0, zIndex: 3600,
             background: "rgba(0,0,0,0.45)",
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: 16,
@@ -1163,16 +1163,17 @@ export default function HeaderMenu({
               })}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Notifications modal — same style as Settings */}
-      {notifOpen && (
+      {notifOpen && typeof document !== "undefined" && createPortal(
         <div
-          onClick={closeNotifModal}
+          onClick={() => { /* Stay open unless X */ }}
           className="modal-backdrop"
           style={{
-            position: "fixed", inset: 0, zIndex: 3400,
+            position: "fixed", inset: 0, zIndex: 3600,
             background: "rgba(0,0,0,0.45)",
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: 16,
@@ -1380,16 +1381,17 @@ export default function HeaderMenu({
                       )}
                     </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Site banner modal — same style as Settings */}
-      {bannerOpen && (
+      {bannerOpen && typeof document !== "undefined" && createPortal(
         <div
-          onClick={closeBannerModal}
+          onClick={() => { /* Stay open unless X */ }}
           className="modal-backdrop"
           style={{
-            position: "fixed", inset: 0, zIndex: 3400,
+            position: "fixed", inset: 0, zIndex: 3600,
             background: "rgba(0,0,0,0.45)",
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: 16,
@@ -1784,12 +1786,13 @@ export default function HeaderMenu({
                       </div>
                     </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
 
-      {deviceModalOpen && typeof onChangeDeviceMode === "function" && (
-        <div onClick={() => setDeviceModalOpen(false)} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3400, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      {deviceModalOpen && typeof onChangeDeviceMode === "function" && typeof document !== "undefined" && createPortal(
+        <div onClick={() => { /* Stay open unless X */ }} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div onClick={(e) => e.stopPropagation()} className="modal-card" role="dialog" aria-modal="true" aria-labelledby="device-modal-title" style={{ background: "var(--card)", borderRadius: 16, padding: 20, width: "100%", maxWidth: 440, boxShadow: "0 24px 60px -20px rgba(0,0,0,0.4)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
               <h2 id="device-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Device layout", "واجهة الجهاز")}</h2>
@@ -1802,12 +1805,13 @@ export default function HeaderMenu({
               compact
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Language settings — dedicated modal */}
-      {langModalOpen && (
-        <div onClick={() => setLangModalOpen(false)} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3400, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      {langModalOpen && typeof document !== "undefined" && createPortal(
+        <div onClick={() => { /* Stay open unless X */ }} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="lang-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, maxHeight: "min(90dvh, 820px)", overflowY: "auto", background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <h2 id="lang-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Language", "اللغة")}</h2>
@@ -1835,12 +1839,13 @@ export default function HeaderMenu({
               })}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Accent / dialect — dedicated modal */}
-      {accentModalOpen && (
-        <div onClick={() => setAccentModalOpen(false)} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3400, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      {accentModalOpen && typeof document !== "undefined" && createPortal(
+        <div onClick={() => { /* Stay open unless X */ }} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="accent-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, maxHeight: "min(90dvh, 820px)", overflowY: "auto", background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <h2 id="accent-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Accent / dialect", "اللهجة / النطق")}</h2>
@@ -1868,12 +1873,13 @@ export default function HeaderMenu({
               })}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Appearance — theme + color scheme */}
-      {appearanceModalOpen && (
-        <div onClick={() => setAppearanceModalOpen(false)} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3400, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      {appearanceModalOpen && typeof document !== "undefined" && createPortal(
+        <div onClick={() => { /* Stay open unless X */ }} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="appearance-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, maxHeight: "min(90dvh, 820px)", overflowY: "auto", background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <h2 id="appearance-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Appearance", "المظهر")}</h2>
@@ -2198,7 +2204,8 @@ export default function HeaderMenu({
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
 

@@ -348,3 +348,5 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
   );
   return (typeof document !== "undefined" ? createPortal(node, document.body) : null);
 }
+
+export default AccountModal;

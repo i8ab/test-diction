@@ -1,4 +1,9 @@
 /** Persist overlay open/bubble state across refresh */
+const TIMER_VIEW_KEY = "twoTongues.view.timer";
+const CALENDAR_VIEW_KEY = "twoTongues.view.calendar";
+const TODO_VIEW_KEY = "twoTongues.view.todo";
+const GOALS_VIEW_KEY = "twoTongues.view.goals";
+
 export function loadTimerView() {
   try {
     const raw = localStorage.getItem(TIMER_VIEW_KEY);

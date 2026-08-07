@@ -1,3 +1,5 @@
+const MAX_AVATAR_BYTES = 200000; // ~200KB cap for a compressed avatar data URL
+
 export function compressImageFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

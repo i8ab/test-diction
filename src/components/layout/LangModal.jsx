@@ -16,7 +16,7 @@ export default function LangModal({ open, onClose, T, appLang, onChangeAppLang }
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {UI_LANGS.map((l) => {
-                const active = lang === l.id;
+                const active = appLang === l.id;
                 return (
                   <button key={l.id} type="button" onClick={() => { onChangeAppLang && onChangeAppLang(l.id); onClose(); }} className="touch-target"
                     style={{

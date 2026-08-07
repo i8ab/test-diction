@@ -860,3 +860,5 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
   );
   return (typeof document !== "undefined" ? createPortal(node, document.body) : null);
 }
+
+export default AdminModal;

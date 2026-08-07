@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { XIcon, CheckIcon, SunIcon, MoonIcon, PaletteIcon } from "../common/Icons";
+import { XIcon, CheckIcon, SunIcon, MoonIcon, PaletteIcon, PlusIcon, GlobeIcon } from "../common/Icons";
 import {
   BRAND_PRESETS,
   loadPresetId,

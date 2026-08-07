@@ -1754,3 +1754,41 @@ html[data-device="tablet"] .entry-card--tablet .entry-longform {
   border: 1px solid rgba(var(--border-rgb), 0.12) !important;
   justify-content: center;
 }
+
+
+/* Stacked word cards — all devices */
+.entry-card--stack {
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+.entry-action-bar {
+  gap: 8px;
+}
+.entry-action-btn {
+  flex: 0 0 auto !important;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.entry-action-btn:active {
+  transform: scale(0.96);
+  opacity: 0.92;
+}
+/* Speak button isolated slot on mobile */
+.entry-card--mobile .entry-speak-slot button {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 12px !important;
+  background: var(--input-bg) !important;
+  border: 1px solid rgba(var(--border-rgb), 0.12) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.entry-card--mobile .entry-longform {
+  display: none !important;
+}

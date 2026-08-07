@@ -647,7 +647,6 @@ export default function HeaderMenu({
                     onClick={() => { setOpen(false); onOpenAchievements(); }}
                   />
                 )}
-                <Row tint="#5b8def" icon={<UserIcon size={14} />} label={T( "My Account", "حسابي")} onClick={onOpenAccount} />
                 {isAdmin && (
                   <Row tint="#af52de" icon={<UsersIcon size={14} />} label={T( "Admin Panel", "لوحة التحكم")} onClick={onOpenAdmin} />
                 )}

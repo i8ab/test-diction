@@ -42,6 +42,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
   const [editingCode, setEditingCode] = useState(null);
   const [formName, setFormName] = useState("");
   const [formRole, setFormRole] = useState("user");
+  const [formStatus, setFormStatus] = useState("active");
   const [formUsername, setFormUsername] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -81,6 +82,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
     setFormName(account.name);
     setFormUsername(account.username || "");
     setFormRole(account.role === "admin" ? "admin" : "user");
+    setFormStatus(account.status === "blocked" ? "blocked" : (account.status === "pending" ? "pending" : "active"));
     setError("");
     setMode("edit");
   }
@@ -112,7 +114,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
     e.preventDefault();
     setSaving(true);
     setError("");
-    const result = await onEdit(editingCode, { name: formName, role: formRole, username: formUsername });
+    const result = await onEdit(editingCode, { name: formName, role: formRole, username: formUsername, status: formStatus });
     setSaving(false);
     if (result && result.error) {
       setError(translateAdminError(result.error, isAr));
@@ -412,6 +414,11 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                               {tr(isAr, "Pending", "معلّق")}
                             </span>
                           )}
+                          {a.status === "blocked" && (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "var(--danger-bg)", color: "var(--danger)" }}>
+                              {tr(isAr, "Blocked", "محظور")}
+                            </span>
+                          )}
                         </div>
                         <div style={{ fontSize: 12, color: "var(--muted-strong)", fontFamily: "ui-monospace, monospace", marginTop: 2 }} dir="ltr">
                           @{a.username || "—"}
@@ -706,6 +713,25 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                 <option value="user">{tr(isAr, "User", "مستخدم")}</option>
                 <option value="admin">{tr(isAr, "Admin", "مسؤول")}</option>
               </select>
+              {mode === "edit" && (
+                <>
+                  <label style={labelStyle} htmlFor="acct-form-status">
+                    {tr(isAr, "Access", "الوصول للموقع")}
+                  </label>
+                  <select
+                    id="acct-form-status"
+                    value={formStatus === "pending" ? "active" : formStatus}
+                    onChange={(e) => setFormStatus(e.target.value)}
+                    style={{ ...inputStyle, borderRadius: 12, fontFamily: "inherit" }}
+                  >
+                    <option value="active">{tr(isAr, "Allowed — can open the site", "مسموح — يقدر يفتح الموقع")}</option>
+                    <option value="blocked">{tr(isAr, "Blocked — cannot open the site", "محظور — مش يقدر يفتح الموقع")}</option>
+                  </select>
+                  <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--muted)", lineHeight: 1.4 }}>
+                    {tr(isAr, "Blocked users are logged out and cannot sign in until you allow them again.", "المحظورون بيتسجل خروجهم ومش يقدروا يدخلوا لحد ما تسمح لهم تاني.")}
+                  </p>
+                </>
+              )}
               {error && (
                 <div style={errorStyle} role="alert" aria-live="assertive">
                   {error}

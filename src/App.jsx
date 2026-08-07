@@ -470,7 +470,7 @@ export default function DictionaryApp() {
               account = freshRec.accounts.find((a) => a.code === savedPersonalCode);
             } catch (e2) { /* fall through */ }
           }
-          if (account && account.status !== "pending" && account.status !== "rejected") {
+          if (account && account.status !== "pending" && account.status !== "rejected" && account.status !== "blocked") {
             // Session rules:
             // - If this browser has a sessionId AND it differs from the cloud →
             //   another device signed in → force login.
@@ -553,7 +553,7 @@ export default function DictionaryApp() {
           setOfflineCachedAt(cached.cachedAt);
           if (savedPersonalCode) {
             const account = migrated.find((a) => a.code === savedPersonalCode);
-            if (account && account.status !== "pending" && account.status !== "rejected") {
+            if (account && account.status !== "pending" && account.status !== "rejected" && account.status !== "blocked") {
               setName(account.name);
               setIsAdmin(account.role === "admin");
               setAccountCode(account.code);
@@ -1231,6 +1231,12 @@ export default function DictionaryApp() {
       setAuthError("Your account request was declined. Contact an admin.");
       return;
     }
+    if (account.status === "blocked") {
+      setAuthError(appIsAr
+        ? "تم حظر حسابك من دخول الموقع. تواصل مع المسؤول."
+        : "Your account is blocked from accessing the site. Contact an admin.");
+      return;
+    }
 
     setLoggingIn(true);
     let passwordOk = false;
@@ -1364,7 +1370,7 @@ export default function DictionaryApp() {
         if (rec.siteBanner !== undefined) setSiteBanner(rec.siteBanner || null);
         if (typeof rec.version === "number") commitRecordVersion(rec.version);
         const account = (rec.accounts || []).find((a) => a.code === accountCode);
-        if (!account || account.status === "pending" || account.status === "rejected") {
+        if (!account || account.status === "pending" || account.status === "rejected" || account.status === "blocked") {
           handleLogout();
           return;
         }
@@ -1382,10 +1388,13 @@ export default function DictionaryApp() {
     };
   }, [authStage, accountCode]);
 
-  async function handleUpdateOwnAccount({ name: newName, password: newPassword }) {
+  async function handleUpdateOwnAccount({ name: newName, password: newPassword, avatar: nextAvatar }) {
     const trimmed = (newName || "").trim();
     if (!trimmed) return { error: "Enter your name." };
     const updates = { name: trimmed };
+    if (typeof nextAvatar === "string") {
+      updates.avatar = nextAvatar.slice(0, 400000);
+    }
     if (newPassword) {
       const pCheck = validatePassword(newPassword);
       if (!pCheck.ok) return { error: pCheck.error };
@@ -1496,19 +1505,27 @@ export default function DictionaryApp() {
       nextUsername = uCheck.username;
     }
     const target = accounts.find((a) => a.code === targetCode);
+    let nextStatus = target && target.status === "pending" ? "active" : (target && target.status) || "active";
+    if (updates.status === "blocked" || updates.status === "active") {
+      nextStatus = updates.status;
+    }
+    // Never block yourself from the admin panel by accident
+    if (targetCode === accountCode && nextStatus === "blocked") {
+      return { error: appIsAr ? "لا يمكنك حظر حسابك أنت." : "You cannot block your own account." };
+    }
     const nextAccounts = accounts.map((a) => {
       if (a.code !== targetCode) return a;
       const patch = {
         name: trimmedName,
         role: nextRole,
-        status: a.status === "pending" ? "active" : a.status || "active",
+        status: nextStatus,
       };
       if (nextUsername) patch.username = nextUsername;
       return { ...a, ...patch };
     });
     const logEntry = makeLogEntry(
       "account_edit",
-      `${name} edited account "${(target && target.name) || targetCode}" → name: "${trimmedName}", role: ${nextRole === "admin" ? "Admin" : "User"}`,
+      `${name} edited account "${(target && target.name) || targetCode}" → name: "${trimmedName}", role: ${nextRole === "admin" ? "Admin" : "User"}, access: ${nextStatus}`,
       name,
       accountCode
     );

@@ -604,8 +604,41 @@ export default function MainView({
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
               <BrandMark size="md" />
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ fontSize: 13, color: "var(--muted-strong)" }}><strong style={{ color: INK }}>{name}</strong></div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button
+                type="button"
+                onClick={onOpenAccount}
+                title={tr(appIsAr, "My account", "حسابي")}
+                aria-label={tr(appIsAr, "My account", "حسابي")}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  border: "2px solid color-mix(in srgb, var(--accent-1) 45%, transparent)",
+                  padding: 0,
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+                  color: "#fff",
+                  fontWeight: 800,
+                  fontSize: 13,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {(() => {
+                  const me = (accounts || []).find((a) => a.code === accountCode);
+                  if (me && me.avatar) {
+                    return <img src={me.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />;
+                  }
+                  const n = String(name || "?").trim();
+                  const parts = n.split(/\s+/).filter(Boolean);
+                  const ini = parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]) : n.slice(0, 2);
+                  return ini.toUpperCase();
+                })()}
+              </button>
               <HeaderMenu theme={theme} onToggleTheme={onToggleTheme} isAdmin={isAdmin}
                 onOpenAccount={onOpenAccount} onOpenAdmin={onOpenAdmin} onLogout={onLogout} isAr={appIsAr}
                 appLang={appLang} onChangeAppLang={onChangeAppLang}

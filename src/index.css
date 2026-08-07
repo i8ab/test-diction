@@ -718,3 +718,95 @@ button,
   flex-wrap: wrap;
   gap: 10px !important;
 }
+
+/* ============================================================
+   شارات الجنس — أنيميشن ناعم للذكر والأنثى
+   ============================================================ */
+@keyframes genderFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-3px) scale(1.06); }
+}
+@keyframes genderGlowMale {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.35), 0 0 12px rgba(59, 130, 246, 0.25); }
+  50% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0), 0 0 18px rgba(59, 130, 246, 0.45); }
+}
+@keyframes genderGlowFemale {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.35), 0 0 12px rgba(236, 72, 153, 0.25); }
+  50% { box-shadow: 0 0 0 6px rgba(236, 72, 153, 0), 0 0 18px rgba(236, 72, 153, 0.45); }
+}
+@keyframes genderSpinSoft {
+  0% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
+  100% { transform: rotate(-8deg); }
+}
+.gender-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+  user-select: none;
+  animation: genderFloat 2.8s ease-in-out infinite;
+}
+.gender-badge.male {
+  color: #93c5fd;
+  background: rgba(37, 99, 235, 0.18);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  animation: genderFloat 2.8s ease-in-out infinite, genderGlowMale 2.4s ease-in-out infinite;
+}
+.gender-badge.female {
+  color: #f9a8d4;
+  background: rgba(219, 39, 119, 0.16);
+  border: 1px solid rgba(236, 72, 153, 0.35);
+  animation: genderFloat 2.8s ease-in-out infinite, genderGlowFemale 2.4s ease-in-out infinite;
+}
+.gender-badge .gender-symbol {
+  display: inline-flex;
+  font-size: 15px;
+  animation: genderSpinSoft 3.2s ease-in-out infinite;
+}
+.gender-pick {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.gender-pick-btn {
+  flex: 1;
+  min-width: 120px;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(var(--border-rgb), 0.22);
+  background: var(--input-bg);
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease, background 0.15s ease;
+}
+.gender-pick-btn:hover {
+  transform: translateY(-2px);
+}
+.gender-pick-btn.selected.male {
+  border-color: rgba(59, 130, 246, 0.7);
+  background: rgba(37, 99, 235, 0.15);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15), 0 8px 20px -10px rgba(59, 130, 246, 0.45);
+  color: #93c5fd;
+}
+.gender-pick-btn.selected.female {
+  border-color: rgba(236, 72, 153, 0.7);
+  background: rgba(219, 39, 119, 0.14);
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15), 0 8px 20px -10px rgba(236, 72, 153, 0.45);
+  color: #f9a8d4;
+}
+.gender-pick-btn .gender-symbol {
+  font-size: 20px;
+  animation: genderSpinSoft 3.2s ease-in-out infinite;
+}

@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { XIcon, CheckIcon, LoaderIcon, KeyIcon, UserIcon, EyeIcon, EyeOffIcon, EditIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
+import { GenderBadge, GenderPicker } from "../common/GenderUI";
 
 const MAX_AVATAR_BYTES = 180000; // ~180KB after compress
 
@@ -48,6 +49,7 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
   const T = (en, ar, de, fr) => tr(L, en, ar, de, fr);
   const [nameInput, setNameInput] = useState(account.name || "");
   const [avatar, setAvatar] = useState(account.avatar || "");
+  const [gender, setGender] = useState(account.gender === "male" || account.gender === "female" ? account.gender : "");
   const [changePassword, setChangePassword] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [password2, setPassword2] = useState("");
@@ -193,6 +195,11 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
           <div style={{ fontSize: 13, color: "var(--muted-strong)", fontFamily: "ui-monospace, monospace" }} dir="ltr">
             @{account.username || "—"}
           </div>
+          {gender ? (
+            <div style={{ marginTop: 2 }}>
+              <GenderBadge gender={gender} isAr={isAr} />
+            </div>
+          ) : null}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
             <button
               type="button"
@@ -242,6 +249,11 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
             autoCapitalize="off"
             autoCorrect="off"
           />
+
+          <label style={{ ...labelStyle, marginTop: 14 }}>{T("Gender", "الجنس")}</label>
+          <div style={{ marginTop: 8, marginBottom: 6 }}>
+            <GenderPicker value={gender} onChange={setGender} isAr={isAr} />
+          </div>
 
           {account.role === "admin" && (
             <>

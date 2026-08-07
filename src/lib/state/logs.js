@@ -46,6 +46,7 @@ function translateAdminError(msg, isAr) {
     "Enter your password.": "أدخل كلمة المرور.",
     "Someone else just made a change — please try again.": "شخص آخر عدّل للتو — حاول مرة أخرى.",
     "Couldn't create the account — check your connection and try again.": "تعذّر إنشاء الحساب — تحقق من اتصالك وحاول مرة أخرى.",
+    "Please select Male or Female.": "من فضلك اختر ذكر أو أنثى.",
   };
   return map[msg] || msg;
 }

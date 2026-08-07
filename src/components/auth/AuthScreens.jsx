@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 // Full-screen auth flow: intro landing, signup (name + username + password),
 // pending-approval screen, restoring-session spinner, and login
 // (username + password).
@@ -13,6 +13,47 @@ import {
 } from "../common/Icons";
 import BrandMark from "../common/BrandMark";
 import { Shell, LanguageToggle } from "../layout/Shell";
+import { GenderPicker } from "../common/GenderUI";
+
+const MAX_AVATAR_BYTES = 180000;
+
+function compressImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("img"));
+      img.onload = () => {
+        const maxSide = 256;
+        let w = img.width;
+        let h = img.height;
+        const scale = Math.min(1, maxSide / Math.max(w, h));
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        let quality = 0.85;
+        let dataUrl = canvas.toDataURL("image/jpeg", quality);
+        while (dataUrl.length > MAX_AVATAR_BYTES && quality > 0.4) {
+          quality -= 0.1;
+          dataUrl = canvas.toDataURL("image/jpeg", quality);
+        }
+        if (dataUrl.length > MAX_AVATAR_BYTES * 1.2) {
+          reject(new Error("too_large"));
+          return;
+        }
+        resolve(dataUrl);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 
 function AuthScreens({
   authStage, appIsAr, appLang = "en", atr, theme, toggleTheme, toggleAppLang, onChangeAppLang,
@@ -21,6 +62,8 @@ function AuthScreens({
   signupUsername, setSignupUsername,
   signupPassword, setSignupPassword,
   signupPassword2, setSignupPassword2,
+  signupAvatar = "", setSignupAvatar,
+  signupGender = "", setSignupGender,
   signupError, setSignupError, signupSaving, handleSignup,
   usernameInput, setUsernameInput,
   passwordInput, setPasswordInput,
@@ -29,6 +72,51 @@ function AuthScreens({
   const [showLoginPw, setShowLoginPw] = useState(false);
   const [showSignupPw, setShowSignupPw] = useState(false);
   const [showSignupPw2, setShowSignupPw2] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [spot, setSpot] = useState({ x: "50%", y: "50%" });
+  const loginPwWrapRef = useRef(null);
+  const signupFileRef = useRef(null);
+
+  // تتبع موضع حقل كلمة المرور لتوجيه ضوء الكشاف
+  useEffect(() => {
+    if (!showLoginPw) return undefined;
+    function updateSpot() {
+      const el = loginPwWrapRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setSpot({
+        x: `${r.left + r.width / 2}px`,
+        y: `${r.top + r.height / 2}px`,
+      });
+    }
+    updateSpot();
+    window.addEventListener("resize", updateSpot);
+    window.addEventListener("scroll", updateSpot, true);
+    return () => {
+      window.removeEventListener("resize", updateSpot);
+      window.removeEventListener("scroll", updateSpot, true);
+    };
+  }, [showLoginPw, passwordInput]);
+
+  async function onPickSignupPhoto(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file || !setSignupAvatar) return;
+    if (!file.type.startsWith("image/")) {
+      setSignupError(atr("Choose an image file.", "اختار ملف صورة."));
+      return;
+    }
+    setAvatarBusy(true);
+    try {
+      const dataUrl = await compressImageFile(file);
+      setSignupAvatar(dataUrl);
+      setSignupError("");
+    } catch (_) {
+      setSignupError(atr("Could not process that image — try a smaller photo.", "تعذر معالجة الصورة — جرّب صورة أصغر."));
+    } finally {
+      setAvatarBusy(false);
+    }
+  }
 
   if (authStage === "intro") {
     const introFeatures = [
@@ -191,6 +279,98 @@ function AuthScreens({
               <label style={labelStyle} htmlFor="signup-name">{atr("Display name", "الاسم الظاهر")}</label>
               <input id="signup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={atr("e.g. Omar", "مثال: عمر")} style={authInputStyle} autoFocus autoCapitalize="words" autoCorrect="off" />
             </div>
+
+            {/* صورة الحساب (اختياري) */}
+            <div className="auth-field-1" style={{ marginTop: 14, marginBottom: 4 }}>
+              <label style={labelStyle}>{atr("Profile photo (optional)", "صورة الحساب (اختياري)")}</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 8 }}>
+                <div
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: "50%",
+                    overflow: "hidden",
+                    background: "var(--input-bg)",
+                    border: "2px solid rgba(var(--border-rgb),0.2)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    color: "var(--muted)",
+                    fontWeight: 700,
+                    fontSize: 18,
+                  }}
+                >
+                  {signupAvatar ? (
+                    <img src={signupAvatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    (name || "?").trim().charAt(0).toUpperCase()
+                  )}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <button
+                    type="button"
+                    disabled={avatarBusy}
+                    onClick={() => signupFileRef.current && signupFileRef.current.click()}
+                    style={{
+                      padding: "9px 14px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      borderRadius: 10,
+                      border: "1px solid rgba(var(--border-rgb),0.25)",
+                      background: "var(--input-bg)",
+                      color: INK,
+                      cursor: avatarBusy ? "default" : "pointer",
+                      minHeight: 40,
+                    }}
+                  >
+                    {avatarBusy
+                      ? atr("Processing…", "جارٍ المعالجة…")
+                      : signupAvatar
+                      ? atr("Change photo", "تغيير الصورة")
+                      : atr("Add photo", "إضافة صورة")}
+                  </button>
+                  {signupAvatar && (
+                    <button
+                      type="button"
+                      onClick={() => setSignupAvatar && setSignupAvatar("")}
+                      style={{
+                        border: "none",
+                        background: "none",
+                        color: "var(--danger)",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        padding: 0,
+                        textAlign: "start",
+                      }}
+                    >
+                      {atr("Remove photo", "إزالة الصورة")}
+                    </button>
+                  )}
+                </div>
+                <input
+                  ref={signupFileRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={onPickSignupPhoto}
+                />
+              </div>
+            </div>
+
+            <div className="auth-field-1" style={{ marginTop: 16, marginBottom: 4 }}>
+              <label style={labelStyle}>{atr("Gender", "الجنس")} *</label>
+              <div style={{ marginTop: 8 }}>
+                <GenderPicker
+                  value={signupGender}
+                  onChange={(g) => setSignupGender && setSignupGender(g)}
+                  isAr={appIsAr}
+                  atr={atr}
+                />
+              </div>
+            </div>
+
             <div className="auth-field-2">
               <label style={labelStyle} htmlFor="signup-username"><UserIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Username", "اسم المستخدم")}</label>
               <input id="signup-username" value={signupUsername} onChange={(e) => setSignupUsername(e.target.value.replace(/\s/g, "").toLowerCase())} placeholder={atr("e.g. omar_23", "مثال: omar_23")} style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace", letterSpacing: "0.02em" }} autoCapitalize="off" autoCorrect="off" autoComplete="username" spellCheck={false} dir="ltr" />
@@ -237,12 +417,27 @@ function AuthScreens({
               <div style={{ width: 34, height: 3, borderRadius: 2, background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))", marginTop: 6 }} />
             </div>
           </div>
-          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 18px", lineHeight: 1.6 }}>
+          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 18px", lineHeight: 1.7 }}>
             {atr(
-              "Your account request is waiting for an admin to approve it. Once approved, sign in with your username and password.",
-              "طلب حسابك في انتظار موافقة الأدمن. بعد الموافقة سجّل دخول باليوزرنيم وكلمة المرور."
+              "Please wait for your request to be reviewed — up to 24 hours. Your details will be verified before activation.",
+              "يُرجى انتظار مراجعة طلبك لمدة تصل إلى ٢٤ ساعة. سيتم التحقق من بياناتك قبل تفعيل الحساب."
             )}
           </p>
+          <div style={{
+            background: "var(--input-bg)",
+            border: "1px solid rgba(var(--border-rgb),0.15)",
+            borderRadius: 12,
+            padding: "12px 14px",
+            marginBottom: 16,
+            fontSize: 13,
+            color: "var(--muted-strong)",
+            lineHeight: 1.55,
+          }}>
+            {atr(
+              "You will be able to sign in with your username and password once an admin approves your request.",
+              "هتقدر تسجّل دخول باليوزرنيم وكلمة المرور بعد موافقة الأدمن على الطلب."
+            )}
+          </div>
           <button
             onClick={() => { setAuthError(""); goToStage("login"); }}
             className="btn-shine touch-target"
@@ -267,7 +462,38 @@ function AuthScreens({
   if (authStage === "login") {
     return (
       <Shell>
-        <div className="auth-card" style={{ ...authCardStyle, maxWidth: "min(420px, 100%)" }} dir={appIsAr ? "rtl" : "ltr"}>
+        {/* ستارة سوداء + ضوء كشاف أصفر على كلمة المرور */}
+        {showLoginPw && (
+          <div
+            aria-hidden="true"
+            onClick={() => setShowLoginPw(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 5000,
+              background: `radial-gradient(circle 140px at ${spot.x} ${spot.y}, rgba(255, 200, 40, 0.14) 0%, rgba(255, 180, 0, 0.06) 28%, rgba(0, 0, 0, 0.72) 55%, rgba(0, 0, 0, 0.94) 75%, #000 100%)`,
+              transition: "background 0.2s ease",
+              cursor: "pointer",
+            }}
+          />
+        )}
+        <div
+          className="auth-card"
+          style={{
+            ...authCardStyle,
+            maxWidth: "min(420px, 100%)",
+            position: "relative",
+            zIndex: showLoginPw ? 5001 : "auto",
+            ...(showLoginPw
+              ? {
+                  background: "rgba(12, 10, 0, 0.92)",
+                  border: "1px solid rgba(255, 200, 0, 0.2)",
+                  boxShadow: "0 0 40px rgba(255, 180, 0, 0.12)",
+                }
+              : {}),
+          }}
+          dir={appIsAr ? "rtl" : "ltr"}
+        >
           <LanguageToggle lang={appLang} onChangeLang={onChangeAppLang} isAr={appIsAr} onToggle={toggleAppLang} />
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
             <BrandMark size="lg" showUnderline />
@@ -283,16 +509,66 @@ function AuthScreens({
               <label style={labelStyle} htmlFor="login-username"><UserIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Username", "اسم المستخدم")}</label>
               <input id="login-username" value={usernameInput} onChange={(e) => setUsernameInput(e.target.value.replace(/\s/g, "").toLowerCase())} placeholder={atr("Your username", "اسم المستخدم")} style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace" }} autoFocus autoCapitalize="off" autoCorrect="off" autoComplete="username" spellCheck={false} dir="ltr" />
             </div>
-            <div className="auth-field-2">
-              <label style={labelStyle} htmlFor="login-password"><KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Password", "كلمة المرور")}</label>
+            <div className="auth-field-2" ref={loginPwWrapRef} style={{ position: "relative", zIndex: showLoginPw ? 5002 : "auto" }}>
+              <label
+                style={{
+                  ...labelStyle,
+                  ...(showLoginPw ? { color: "#ffd54a", textShadow: "0 0 10px rgba(255, 200, 0, 0.7)" } : {}),
+                }}
+                htmlFor="login-password"
+              >
+                <KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />
+                {atr("Password", "كلمة المرور")}
+              </label>
               <div style={{ position: "relative" }}>
-                <input id="login-password" type={showLoginPw ? "text" : "password"} value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} placeholder={atr("Your password", "كلمة المرور")} style={{ ...authInputStyle, paddingInlineEnd: 44 }} autoComplete="current-password" />
-                <button type="button" onClick={() => setShowLoginPw((v) => !v)} aria-label={showLoginPw ? atr("Hide", "إخفاء") : atr("Show", "إظهار")} style={{ position: "absolute", insetInlineEnd: 8, top: "50%", transform: "translateY(-50%)", border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 6, display: "flex" }}>
+                <input
+                  id="login-password"
+                  type={showLoginPw ? "text" : "password"}
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder={atr("Your password", "كلمة المرور")}
+                  style={{
+                    ...authInputStyle,
+                    paddingInlineEnd: 44,
+                    ...(showLoginPw
+                      ? {
+                          color: "#ffe566",
+                          caretColor: "#ffd54a",
+                          background: "#1a1400",
+                          borderColor: "#e6b800",
+                          boxShadow: "0 0 0 2px rgba(255, 200, 0, 0.25), 0 0 28px rgba(255, 190, 0, 0.45)",
+                          textShadow: "0 0 8px rgba(255, 220, 80, 0.55)",
+                          fontWeight: 700,
+                          letterSpacing: "0.06em",
+                        }
+                      : {}),
+                  }}
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowLoginPw((v) => !v)}
+                  aria-label={showLoginPw ? atr("Hide", "إخفاء") : atr("Show", "إظهار")}
+                  style={{
+                    position: "absolute",
+                    insetInlineEnd: 8,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    border: "none",
+                    background: "none",
+                    cursor: "pointer",
+                    color: showLoginPw ? "#ffd54a" : "var(--icon-muted)",
+                    padding: 6,
+                    display: "flex",
+                    zIndex: 1,
+                    filter: showLoginPw ? "drop-shadow(0 0 6px rgba(255,200,0,0.8))" : "none",
+                  }}
+                >
                   {showLoginPw ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
                 </button>
               </div>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
-                {atr("Legacy accounts: use your old personal code as the password once.", "الحسابات القديمة: استخدم الرمز الشخصي القديم ككلمة مرور مرة واحدة.")}
+              <div style={{ fontSize: 11, color: showLoginPw ? "rgba(255,220,100,0.7)" : "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
+                {atr("Legacy accounts: use your old personal code as the password once.", "الحسابات القديمة: استخدم الرمز الشخصي السابق ككلمة مرور مرة واحدة.")}
               </div>
             </div>
             {authError && <div style={errorStyle} role="alert" aria-live="assertive">{translateAdminError(authError, appIsAr)}</div>}

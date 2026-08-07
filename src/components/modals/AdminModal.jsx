@@ -8,6 +8,7 @@ import {
   XIcon, CheckIcon, LoaderIcon, PlusIcon, EditIcon, TrashIcon, LinkIcon,
   BookIcon, ChevronIcon, CopyIcon, DownloadIcon, UsersIcon, SettingsIcon,
 } from "../common/Icons";
+import { GenderBadge } from "../common/GenderUI";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 function initials(name) {
@@ -418,6 +419,9 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                             <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "var(--accent-1-soft)", color: "var(--accent-1)" }}>
                               {tr(isAr, "You", "أنت")}
                             </span>
+                          )}
+                          {(a.gender === "male" || a.gender === "female") && (
+                            <GenderBadge gender={a.gender} isAr={isAr} size="sm" />
                           )}
                           {pending && (
                             <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "var(--danger-bg)", color: "var(--danger)" }}>

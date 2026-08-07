@@ -44,6 +44,8 @@ export default function DictionaryApp() {
   const [signupUsername, setSignupUsername] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [signupPassword2, setSignupPassword2] = useState("");
+  const [signupAvatar, setSignupAvatar] = useState("");
+  const [signupGender, setSignupGender] = useState(""); // "male" | "female"
   const [authError, setAuthError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
   const [signupError, setSignupError] = useState("");
@@ -1140,6 +1142,10 @@ export default function DictionaryApp() {
       setSignupError("Passwords do not match.");
       return;
     }
+    if (signupGender !== "male" && signupGender !== "female") {
+      setSignupError("Please select Male or Female.");
+      return;
+    }
 
     setSignupSaving(true);
     try {
@@ -1168,6 +1174,8 @@ export default function DictionaryApp() {
           role: "user",
           status: "pending",
           createdAt: Date.now(),
+          ...(signupAvatar ? { avatar: signupAvatar } : {}),
+          gender: signupGender,
         },
       ];
       const nextLogs = capLogs([
@@ -1189,6 +1197,8 @@ export default function DictionaryApp() {
       commitRecordVersion(newVersion);
       setSignupPassword("");
       setSignupPassword2("");
+      setSignupAvatar("");
+      setSignupGender("");
       goToStage("pendingShown");
     } catch (err) {
       if (err instanceof SaveConflictError) {
@@ -1391,12 +1401,15 @@ export default function DictionaryApp() {
     };
   }, [authStage, accountCode]);
 
-  async function handleUpdateOwnAccount({ name: newName, password: newPassword, avatar: nextAvatar }) {
+  async function handleUpdateOwnAccount({ name: newName, password: newPassword, avatar: nextAvatar, gender: nextGender }) {
     const trimmed = (newName || "").trim();
     if (!trimmed) return { error: "Enter your name." };
     const updates = { name: trimmed };
     if (typeof nextAvatar === "string") {
       updates.avatar = nextAvatar.slice(0, 400000);
+    }
+    if (nextGender === "male" || nextGender === "female") {
+      updates.gender = nextGender;
     }
     if (newPassword) {
       const pCheck = validatePassword(newPassword);
@@ -1562,6 +1575,8 @@ export default function DictionaryApp() {
         signupUsername={signupUsername} setSignupUsername={setSignupUsername}
         signupPassword={signupPassword} setSignupPassword={setSignupPassword}
         signupPassword2={signupPassword2} setSignupPassword2={setSignupPassword2}
+        signupAvatar={signupAvatar} setSignupAvatar={setSignupAvatar}
+        signupGender={signupGender} setSignupGender={setSignupGender}
         signupError={signupError} setSignupError={setSignupError} signupSaving={signupSaving} handleSignup={handleSignup}
         usernameInput={usernameInput} setUsernameInput={setUsernameInput}
         passwordInput={passwordInput} setPasswordInput={setPasswordInput}

@@ -741,6 +741,8 @@ export default function MainView({
               onDashboard={() => setShowDashboard(true)}
               onWordLists={() => setShowWordLists(true)}
               onChallenges={() => setShowChallenges(true)}
+              focusMode={focusMode}
+              onToggleFocus={() => setFocusMode((v) => !v)}
               exportDisabled={sectionEntries.length === 0}
               onImport={() => importInputRef.current && importInputRef.current.click()}
               importing={importing}

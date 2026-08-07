@@ -55,6 +55,8 @@ export default function ToolsMenu({
   onDashboard,
   onWordLists,
   onChallenges,
+  focusMode = false,
+  onToggleFocus = null,
 }) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState(null);
@@ -135,6 +137,17 @@ export default function ToolsMenu({
         { key: "todo", icon: <CheckIcon size={18} />, tint: "#30d158", label: tr(isAr, "To-do list", "قائمة المهام"), onClick: onTodo },
         { key: "lists", icon: <LayersIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Word lists", "قوائم الكلمات"), onClick: onWordLists },
         { key: "challenges", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Challenges", "تحديات"), onClick: onChallenges },
+        ...(typeof onToggleFocus === "function"
+          ? [{
+              key: "focus",
+              icon: <LayersIcon size={18} />,
+              tint: focusMode ? "#6366f1" : "#6366f1",
+              label: focusMode
+                ? tr(isAr, "Exit focus mode", "إغلاق وضع التركيز")
+                : tr(isAr, "Focus mode", "وضع التركيز"),
+              onClick: onToggleFocus,
+            }]
+          : []),
       ],
     },
     {

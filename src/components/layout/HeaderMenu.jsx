@@ -202,6 +202,7 @@ export default function HeaderMenu({
   onSetMainAccount = null,
   onUnlinkVaultAccount = null,
   onLogoutAll = null,
+  onLinkAccount = null,
 }) {
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -814,13 +815,25 @@ export default function HeaderMenu({
                         );
                       })}
                     </div>
-                    {isAdmin && vaultAccounts.length > 1 && (
-                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6, lineHeight: 1.4 }}>
-                        {T(
-                          "Tip: sign in with another admin account to link it here — no full sign-out needed to switch.",
-                          "تلميح: سجّل دخول بحساب أدمن آخر لربطه هنا — التبديل بدون تسجيل خروج كامل."
-                        )}
-                      </div>
+                    {isAdmin && typeof onLinkAccount === "function" && (
+                      <button
+                        type="button"
+                        onClick={() => { setOpen(false); onLinkAccount(); }}
+                        style={{
+                          marginTop: 8,
+                          width: "100%",
+                          minHeight: 40,
+                          borderRadius: 10,
+                          border: "1px dashed rgba(var(--border-rgb),0.35)",
+                          background: "transparent",
+                          color: "var(--accent-1)",
+                          fontWeight: 700,
+                          fontSize: 13,
+                          cursor: "pointer",
+                        }}
+                      >
+                        + {T("Add another account", "إضافة حساب آخر")}
+                      </button>
                     )}
                     {!isAdmin && (
                       <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6, lineHeight: 1.4 }}>

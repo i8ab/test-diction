@@ -144,7 +144,7 @@ export default function MainView({
   reminderTitle, onChangeReminderTitle,
   reminderMessage, onChangeReminderMessage,
   vaultAccounts = [], mainAccountCode = "",
-  onSwitchAccount, onSetMainAccount, onUnlinkVaultAccount, onLogoutAll,
+  onSwitchAccount, onSetMainAccount, onUnlinkVaultAccount, onLogoutAll, onLinkAccount,
 }) {
   const cfg = SECTIONS[section];
   const isAr = section === "ar-ar";
@@ -674,7 +674,7 @@ export default function MainView({
                 onOpenAccount={onOpenAccount} onOpenAdmin={onOpenAdmin} onLogout={onLogout} isAr={appIsAr}
                 vaultAccounts={vaultAccounts} mainAccountCode={mainAccountCode} accountCode={accountCode}
                 onSwitchAccount={onSwitchAccount} onSetMainAccount={onSetMainAccount}
-                onUnlinkVaultAccount={onUnlinkVaultAccount} onLogoutAll={onLogoutAll}
+                onUnlinkVaultAccount={onUnlinkVaultAccount} onLogoutAll={onLogoutAll} onLinkAccount={onLinkAccount}
                 appLang={appLang} onChangeAppLang={onChangeAppLang}
                 accentTheme={accentTheme} onChangeAccent={onChangeAccent}
                 remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={onEnableReminders} onDisableReminders={onDisableReminders} onTestReminder={onTestReminder}
@@ -936,7 +936,7 @@ export default function MainView({
         )}
       </div>
 
-      <div className="app-container app-main-row" style={{ margin: "0 auto", padding: "clamp(14px, 2.5vw, 22px) clamp(12px, 3vw, 24px) clamp(40px, 8vw, 72px)", display: "flex", gap: "clamp(12px, 2vw, 20px)" }}>
+      <div className="app-container app-main-row" style={{ margin: "0 auto", padding: "clamp(14px, 2.5vw, 22px) clamp(12px, 3vw, 24px) clamp(40px, 8vw, 72px)" }}>
         <nav
           className="letter-rail"
           aria-label="Alphabet"

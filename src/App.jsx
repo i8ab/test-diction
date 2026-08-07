@@ -130,6 +130,7 @@ export default function DictionaryApp() {
   const [accountCode, setAccountCode] = useState(""); // this browser's signed-in account's personal code
   const [vaultAccounts, setVaultAccounts] = useState(() => loadAccountVault());
   const [mainAccountCode, setMainAccountCodeState] = useState(() => getMainAccountCode());
+  const [linkMode, setLinkMode] = useState(false);
   const [section, setSection] = useState("en-ar");
   const [query, setQuery] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -1309,8 +1310,14 @@ export default function DictionaryApp() {
     setAccountCode(account.code);
     savePersonalCode(account.code);
     // حفظ تسجيل الدخول على الجهاز — تعدد الحسابات للأدمن فقط
-    const nextVault = upsertVaultAccount(account, { allowMulti: account.role === "admin" });
+    let linking = false;
+    try { linking = sessionStorage.getItem("twoTongues.linkMode") === "1"; } catch (_) {}
+    const nextVault = upsertVaultAccount(account, {
+      allowMulti: account.role === "admin" || linking || linkMode,
+    });
     setVaultAccounts(nextVault);
+    try { sessionStorage.removeItem("twoTongues.linkMode"); } catch (_) {}
+    setLinkMode(false);
     if (!getMainAccountCode()) {
       setMainAccountCode(account.code);
       setMainAccountCodeState(account.code);
@@ -1410,7 +1417,41 @@ export default function DictionaryApp() {
     return { ok: true };
   }
 
-  function markMainAccount(code) {
+  /** أدمن فقط: ربط حساب إضافي بدون مسح الخزنة */
+  function beginLinkAccount() {
+    if (!isAdmin) return;
+    try { sessionStorage.setItem("twoTongues.linkMode", "1"); } catch (_) {}
+    setLinkMode(true);
+    // نخرج من الجلسة الحالية فقط — الخزنة تفضل
+    clearPersonalCode();
+    try { localStorage.removeItem("twoTongues.sessionId"); } catch (_) {}
+    setAccountCode("");
+    setName("");
+    // نبقي isAdmin مؤقتاً للسماح بالواجهة؛ الدخول الجديد هيظبط الدور
+    setUsernameInput("");
+    setPasswordInput("");
+    setAuthError("");
+    setShowAdd(false);
+    setShowAccount(false);
+    setShowAdmin(false);
+    goToStage("login");
+  }
+
+  function cancelLinkAccount() {
+    try { sessionStorage.removeItem("twoTongues.linkMode"); } catch (_) {}
+    setLinkMode(false);
+    const main = getMainAccountCode() || (loadAccountVault()[0] && loadAccountVault()[0].code);
+    if (main) {
+      const r = switchToVaultAccount(main);
+      if (r && r.ok) {
+        setAuthStage("in");
+        return;
+      }
+    }
+    goToStage("login");
+  }
+
+    function markMainAccount(code) {
     if (!isAdmin) return { ok: false, error: "Only admins can set a main account." };
     if (!code) return { ok: false };
     const vault = loadAccountVault();
@@ -1677,6 +1718,7 @@ export default function DictionaryApp() {
         usernameInput={usernameInput} setUsernameInput={setUsernameInput}
         passwordInput={passwordInput} setPasswordInput={setPasswordInput}
         authError={authError} setAuthError={setAuthError} loggingIn={loggingIn} handleLogin={handleLogin} onGuest={handleGuest}
+        linkMode={linkMode} onCancelLink={cancelLinkAccount}
       />
     );
   }
@@ -1712,6 +1754,7 @@ export default function DictionaryApp() {
       onSetMainAccount={markMainAccount}
       onUnlinkVaultAccount={unlinkVaultAccount}
       onLogoutAll={() => handleLogout({ clearVault: true })}
+      onLinkAccount={beginLinkAccount}
       siteBanner={siteBanner} onPersistSiteBanner={persistSiteBanner}
       showAdmin={showAdmin} onOpenAdmin={openAdminModal} onCloseAdmin={closeAdminModal}
       onAdminAddAccount={handleAdminAddAccount} onAdminEditAccount={handleAdminEditAccount} onAdminDeleteAccount={handleAdminDeleteAccount}

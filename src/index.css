@@ -1029,40 +1029,88 @@ canvas {
 }
 
 
-/* ===== سكة الحروف A–Z على الديسكتوب: عمود ثابت مرتب ===== */
-@media (min-width: 641px) {
+
+/* ===== سكة الحروف مدمجة في تخطيط الصفحة ===== */
+.app-main-row {
+  display: grid !important;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: clamp(12px, 2vw, 20px);
+  align-items: start;
+  width: 100%;
+  max-width: var(--app-max, 920px);
+  box-sizing: border-box;
+}
+
+.letter-rail {
+  grid-column: 1;
+  display: flex !important;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  gap: 1px;
+  width: 36px;
+  max-width: 36px;
+  position: sticky;
+  top: 120px;
+  max-height: calc(100dvh - 140px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  z-index: 2;
+}
+
+.letter-rail::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+.letter-rail-btn {
+  display: block;
+  width: 100%;
+  max-width: 36px;
+  line-height: 1.3;
+  padding: 2px 0;
+  margin: 0;
+  text-align: center;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.app-main-row > div:last-child {
+  grid-column: 2;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
   .app-main-row {
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: flex-start;
-  }
-  .letter-rail {
-    flex: 0 0 36px !important;
-    width: 36px !important;
-    max-width: 36px !important;
-    min-width: 36px !important;
     display: flex !important;
     flex-direction: column !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    gap: 1px !important;
-    position: sticky !important;
-    top: 120px !important;
-    align-self: flex-start !important;
-    max-height: calc(100dvh - 140px) !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: none !important;
+    gap: 10px !important;
+  }
+  .letter-rail {
+    position: relative !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-start;
+    gap: 2px 4px !important;
+    padding: 2px 0 8px;
+    border-bottom: 1px solid rgba(var(--border-rgb), 0.1);
+    margin-bottom: 2px;
   }
   .letter-rail-btn {
-    display: block !important;
-    width: 100% !important;
-    max-width: 36px !important;
-    line-height: 1.25 !important;
-    padding: 1px 0 !important;
-    margin: 0 !important;
-    text-align: center !important;
+    width: auto;
+    max-width: none;
+    min-width: 28px;
+    padding: 4px 6px;
+  }
+  .app-main-row > div:last-child {
+    width: 100%;
   }
 }

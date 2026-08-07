@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 // Full-screen auth flow: intro landing, signup (name + username + password),
 // pending-approval screen, restoring-session spinner, and login
 // (username + password).
@@ -68,13 +69,44 @@ function AuthScreens({
   usernameInput, setUsernameInput,
   passwordInput, setPasswordInput,
   authError, setAuthError, loggingIn, handleLogin, onGuest,
+  linkMode = false, onCancelLink = null,
 }) {
   const [showLoginPw, setShowLoginPw] = useState(false);
   const [showSignupPw, setShowSignupPw] = useState(false);
   const [showSignupPw2, setShowSignupPw2] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [pwRect, setPwRect] = useState(null);
   const loginPwWrapRef = useRef(null);
   const signupFileRef = useRef(null);
+
+  // قياس موضع حقل الباسورد لعرضه فوق الستارة السودة (Portal)
+  useEffect(() => {
+    if (!showLoginPw) {
+      setPwRect(null);
+      return undefined;
+    }
+    function measure() {
+      const el = loginPwWrapRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setPwRect({
+        top: r.top,
+        left: r.left,
+        width: Math.max(r.width, 200),
+        height: r.height,
+      });
+    }
+    measure();
+    // إعادة القياس بعد فريم عشان الـ layout يستقر
+    const id = requestAnimationFrame(measure);
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    return () => {
+      cancelAnimationFrame(id);
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
+  }, [showLoginPw, passwordInput, appIsAr]);
 
   async function onPickSignupPhoto(e) {
     const file = e.target.files && e.target.files[0];
@@ -441,19 +473,97 @@ function AuthScreens({
     return (
       <Shell>
         {/* ستارة سوداء + ضوء كشاف أصفر على كلمة المرور */}
-        {/* ستارة سودة كاملة — تتقفل فقط من أيقونة العين، مش من الضغط برا */}
-        {showLoginPw && (
-          <div
-            aria-hidden="true"
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 5000,
-              background: "#000000",
-              opacity: 0.97,
-              pointerEvents: "none",
-            }}
-          />
+        {/* ستارة سودة + حقل باسورد منوّر عبر Portal فوق كل حاجة */}
+        {showLoginPw && typeof document !== "undefined" && createPortal(
+          <>
+            <div
+              aria-hidden="true"
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 20000,
+                background: "#000",
+                pointerEvents: "none",
+              }}
+            />
+            {pwRect && (
+              <div
+                style={{
+                  position: "fixed",
+                  top: pwRect.top - 8,
+                  left: pwRect.left - 8,
+                  width: pwRect.width + 16,
+                  zIndex: 20001,
+                  padding: "12px 14px",
+                  borderRadius: 14,
+                  background: "linear-gradient(165deg, #3d3200 0%, #1f1800 100%)",
+                  border: "1.5px solid rgba(255, 210, 60, 0.75)",
+                  boxShadow:
+                    "0 0 0 1px rgba(255, 220, 80, 0.35), 0 0 28px rgba(255, 200, 0, 0.55), 0 0 60px rgba(255, 180, 0, 0.3)",
+                  pointerEvents: "auto",
+                }}
+              >
+                <label
+                  style={{
+                    ...labelStyle,
+                    color: "#ffd54a",
+                    textShadow: "0 0 10px rgba(255, 200, 0, 0.7)",
+                    marginBottom: 6,
+                    display: "block",
+                  }}
+                  htmlFor="login-password-lit"
+                >
+                  <KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />
+                  {atr("Password", "كلمة المرور")}
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    id="login-password-lit"
+                    type="text"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder={atr("Your password", "كلمة المرور")}
+                    style={{
+                      ...authInputStyle,
+                      paddingInlineEnd: 44,
+                      width: "100%",
+                      color: "#ffe566",
+                      caretColor: "#ffd54a",
+                      background: "#0d0a00",
+                      borderColor: "#e6b800",
+                      boxShadow: "0 0 0 2px rgba(255, 200, 0, 0.25)",
+                      textShadow: "0 0 8px rgba(255, 220, 80, 0.45)",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                    }}
+                    autoComplete="current-password"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPw(false)}
+                    aria-label={atr("Hide", "إخفاء")}
+                    style={{
+                      position: "absolute",
+                      insetInlineEnd: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      border: "none",
+                      background: "none",
+                      cursor: "pointer",
+                      color: "#ffd54a",
+                      padding: 6,
+                      display: "flex",
+                      filter: "drop-shadow(0 0 6px rgba(255,200,0,0.8))",
+                    }}
+                  >
+                    <EyeOffIcon size={18} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>,
+          document.body
         )}
         <div
           className="auth-card"
@@ -469,41 +579,66 @@ function AuthScreens({
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
             <BrandMark size="lg" showUnderline />
           </div>
-          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 22px" }}>
-            {atr(
-              "Enter your username and password.",
-              "أدخل اسم المستخدم وكلمة المرور."
-            )}
-          </p>
+          {linkMode ? (
+            <div style={{
+              margin: "14px 0 18px",
+              padding: "12px 14px",
+              borderRadius: 12,
+              background: "var(--accent-1-soft)",
+              border: "1px solid color-mix(in srgb, var(--accent-1) 35%, transparent)",
+              fontSize: 13,
+              lineHeight: 1.55,
+              color: "var(--ink)",
+            }}>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                {atr("Link another account", "ربط حساب إضافي")}
+              </div>
+              {atr(
+                "Sign in with the account you want to add. Your saved accounts stay on this device.",
+                "سجّل دخول بالحساب اللي عايز تضيفه. الحسابات المحفوظة هتفضل على الجهاز."
+              )}
+              {typeof onCancelLink === "function" && (
+                <button
+                  type="button"
+                  onClick={onCancelLink}
+                  style={{
+                    marginTop: 10,
+                    border: "none",
+                    background: "none",
+                    color: "var(--accent-1)",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    padding: 0,
+                    fontSize: 13,
+                  }}
+                >
+                  {atr("Cancel & return", "إلغاء والرجوع")}
+                </button>
+              )}
+            </div>
+          ) : (
+            <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 22px" }}>
+              {atr(
+                "Enter your username and password.",
+                "أدخل اسم المستخدم وكلمة المرور."
+              )}
+            </p>
+          )}
           <form onSubmit={handleLogin}>
             <div className="auth-field-1">
               <label style={labelStyle} htmlFor="login-username"><UserIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Username", "اسم المستخدم")}</label>
               <input id="login-username" value={usernameInput} onChange={(e) => setUsernameInput(e.target.value.replace(/\s/g, "").toLowerCase())} placeholder={atr("Your username", "اسم المستخدم")} style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace" }} autoFocus autoCapitalize="off" autoCorrect="off" autoComplete="username" spellCheck={false} dir="ltr" />
             </div>
-            <div className="auth-field-2" ref={loginPwWrapRef}
+            <div
+              className="auth-field-2"
+              ref={loginPwWrapRef}
               style={{
                 position: "relative",
-                zIndex: showLoginPw ? 5002 : "auto",
-                ...(showLoginPw
-                  ? {
-                      padding: "14px 14px 12px",
-                      marginInline: -4,
-                      borderRadius: 14,
-                      background: "linear-gradient(180deg, #2a2200 0%, #1a1400 100%)",
-                      border: "1px solid rgba(255, 200, 40, 0.55)",
-                      boxShadow:
-                        "0 0 0 1px rgba(255, 210, 60, 0.25), 0 0 24px rgba(255, 190, 0, 0.55), 0 0 48px rgba(255, 170, 0, 0.25)",
-                    }
-                  : {}),
+                /* عند الإظهار: نخفي الحقل الأصلي ونعرض النسخة المنوّرة عبر Portal */
+                visibility: showLoginPw ? "hidden" : "visible",
               }}
             >
-              <label
-                style={{
-                  ...labelStyle,
-                  ...(showLoginPw ? { color: "#ffd54a", textShadow: "0 0 10px rgba(255, 200, 0, 0.7)" } : {}),
-                }}
-                htmlFor="login-password"
-              >
+              <label style={labelStyle} htmlFor="login-password">
                 <KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />
                 {atr("Password", "كلمة المرور")}
               </label>
@@ -514,22 +649,7 @@ function AuthScreens({
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
                   placeholder={atr("Your password", "كلمة المرور")}
-                  style={{
-                    ...authInputStyle,
-                    paddingInlineEnd: 44,
-                    ...(showLoginPw
-                      ? {
-                          color: "#ffe566",
-                          caretColor: "#ffd54a",
-                          background: "#1a1400",
-                          borderColor: "#e6b800",
-                          boxShadow: "0 0 0 2px rgba(255, 200, 0, 0.25), 0 0 28px rgba(255, 190, 0, 0.45)",
-                          textShadow: "0 0 8px rgba(255, 220, 80, 0.55)",
-                          fontWeight: 700,
-                          letterSpacing: "0.06em",
-                        }
-                      : {}),
-                  }}
+                  style={{ ...authInputStyle, paddingInlineEnd: 44 }}
                   autoComplete="current-password"
                 />
                 <button
@@ -544,17 +664,15 @@ function AuthScreens({
                     border: "none",
                     background: "none",
                     cursor: "pointer",
-                    color: showLoginPw ? "#ffd54a" : "var(--icon-muted)",
+                    color: "var(--icon-muted)",
                     padding: 6,
                     display: "flex",
-                    zIndex: 1,
-                    filter: showLoginPw ? "drop-shadow(0 0 6px rgba(255,200,0,0.8))" : "none",
                   }}
                 >
                   {showLoginPw ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
                 </button>
               </div>
-              <div style={{ fontSize: 11, color: showLoginPw ? "rgba(255,220,100,0.7)" : "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
                 {atr("Legacy accounts: use your old personal code as the password once.", "الحسابات القديمة: استخدم الرمز الشخصي السابق ككلمة مرور مرة واحدة.")}
               </div>
             </div>

@@ -204,6 +204,7 @@ export default function MainView({
   const [editingEntry, setEditingEntry] = useState(null);
   const [zoomEntry, setZoomEntry] = useState(null);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [quizDueOnly, setQuizDueOnly] = useState(false);
   const [showFlashcards, setShowFlashcards] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -765,7 +766,16 @@ export default function MainView({
               aria-controls="search-suggestions" aria-activedescendant={activeIndex >= 0 ? `search-suggestion-${activeIndex}` : undefined}
               autoComplete="off"
               className="toolbar-search-input"
-              style={{ width: "100%", padding: "10px 12px", paddingInlineStart: 36, paddingInlineEnd: speechSupported ? 38 : 12, fontSize: 14, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, background: "var(--input-bg)", color: INK }} />
+              style={{ width: "100%", padding: "11px 12px", paddingInlineStart: 36, paddingInlineEnd: (query.trim() ? 68 : 0) + (speechSupported ? 38 : 12), fontSize: 15, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 12, background: "var(--input-bg)", color: INK }} />
+            {!!query.trim() && (
+              <button
+                type="button"
+                onClick={() => { setQuery(""); setShowSuggestions(false); setShowHistory(searchHistory.length > 0); searchInputRef.current?.focus?.(); }}
+                aria-label={tr(isAr, "Clear search", "مسح البحث")}
+                className="search-clear-btn"
+                style={{ position: "absolute", insetInlineEnd: speechSupported ? 40 : 8, top: "50%", transform: "translateY(-50%)", width: 28, height: 28, borderRadius: "50%", border: "none", background: "rgba(var(--border-rgb),0.12)", color: "var(--icon-muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, lineHeight: 1, padding: 0 }}
+              >×</button>
+            )}
             {speechSupported && (
               <button type="button" onClick={handleVoiceSearch} disabled={voiceListening}
                 title={voiceMicState === "listening" ? tr(isAr, "Listening — speak now", "بسمع دلوقتي — اتكلم") : tr(isAr, "Search by voice", "بحث صوتي")}
@@ -823,7 +833,7 @@ export default function MainView({
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <div className="toolbar-actions toolbar-anim" style={{ animationDelay: "0.04s" }}>
-            <button onClick={onOpenAdd} className="btn-shine lift-hover" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: "#fff", background: cfg.accent, border: "none", borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
+            <button onClick={onOpenAdd} className="btn-shine lift-hover toolbar-add-word" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: "#fff", background: cfg.accent, border: "none", borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
               <PlusIcon size={16} /> {tr(isAr, "Add word", "إضافة كلمة")}
             </button>
             
@@ -851,9 +861,13 @@ export default function MainView({
             </button>
           </div>
         )}
-        {!focusMode && <WordOfTheDay entries={sectionEntries} section={section} cfg={cfg} isAr={appIsAr} onOpenZoom={(id) => setZoomEntry(sectionEntries.find((e) => e.id === id) || null)} />}
-        {!focusMode && <ReminderBanner studiedAt={studiedAt} isAr={appIsAr} cfg={cfg} remindersOn={remindersOn} reminderTitle={reminderTitle} reminderMessage={reminderMessage} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />}
-        {isAdmin && !focusMode && <BackupReminderBanner isAr={appIsAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
+        {!focusMode && (
+          <div className="mobile-banners-stack">
+            <WordOfTheDay entries={sectionEntries} section={section} cfg={cfg} isAr={appIsAr} onOpenZoom={(id) => setZoomEntry(sectionEntries.find((e) => e.id === id) || null)} />
+            <ReminderBanner studiedAt={studiedAt} isAr={appIsAr} cfg={cfg} remindersOn={remindersOn} reminderTitle={reminderTitle} reminderMessage={reminderMessage} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />
+            {isAdmin && <BackupReminderBanner isAr={appIsAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
+          </div>
+        )}
         <div style={{ marginTop: 12, background: CARD, border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 10, padding: "12px 14px" }}>
           <div dir={isAr ? "rtl" : "ltr"} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 700, color: INK }}>
@@ -881,7 +895,20 @@ export default function MainView({
             </div>
           )}
         </div>
-        <div className="study-filter-row" className="study-filter-row" style={{ display: "flex", gap: 10, marginTop: 10 }}>
+        <div className="mobile-filters-toggle-wrap" style={{ marginTop: 10 }}>
+          <button
+            type="button"
+            className="mobile-filters-toggle"
+            onClick={() => setMobileFiltersOpen((v) => !v)}
+            aria-expanded={mobileFiltersOpen}
+            style={{ display: "none" }}
+          >
+            {tr(isAr, "Filters & sort", "فلاتر وترتيب")}
+            {(studyFilter !== "all" || posFilter !== "all" || dateFilter !== "all" || sortKey !== "alpha") ? " · ●" : ""}
+            <span style={{ marginInlineStart: 6, opacity: 0.7 }}>{mobileFiltersOpen ? "▴" : "▾"}</span>
+          </button>
+        </div>
+        <div className={`study-filter-row mobile-filters-panel${mobileFiltersOpen ? " is-open" : ""}`} style={{ display: "flex", gap: 10, marginTop: 10 }}>
           {[
             { key: "all", label: tr(isAr, "All", "الكل") },
             { key: "studied", label: tr(isAr, "Studied", "تمت دراستها") },
@@ -899,7 +926,7 @@ export default function MainView({
             );
           })}
         </div>
-        <div className="filter-chip-row" className="filter-chip-row" style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "nowrap", alignItems: "center", maxWidth: "100%" }}>
+        <div className={`filter-chip-row mobile-filters-panel${mobileFiltersOpen ? " is-open" : ""}`} style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "nowrap", alignItems: "center", maxWidth: "100%" }}>
           <select value={posFilter} onChange={(e) => setPosFilter(e.target.value)}
             aria-label={tr(isAr, "Part of speech", "نوع الكلمة")}
             style={{ fontSize: 12, padding: "5px 10px", borderRadius: 16, border: "1px solid rgba(var(--border-rgb),0.25)", background: "var(--card)", color: "var(--ink)", fontWeight: 600 }}>
@@ -1360,8 +1387,8 @@ export default function MainView({
       </Suspense>
     )}
 
-    {/* Always-available floating Goals button (above To-do) */}
-    {!showGoals && !focusMode && (
+    {/* Always-available floating Goals button (above To-do) — hidden on mobile (bottom nav) */}
+    {!showGoals && !focusMode && deviceMode !== "mobile" && (
       <button
         type="button"
         className="fab-glow fab-glow--goals"
@@ -1392,8 +1419,8 @@ export default function MainView({
       </button>
     )}
 
-    {/* Always-available floating To-do button */}
-    {!showTodo && !focusMode && (
+    {/* Always-available floating To-do button — hidden on mobile (bottom nav) */}
+    {!showTodo && !focusMode && deviceMode !== "mobile" && (
       <button
         type="button"
         className="fab-glow fab-glow--todo"
@@ -1422,6 +1449,87 @@ export default function MainView({
         <span className="fab-glow-shine" aria-hidden="true" />
         <CheckIcon size={24} style={{ position: "relative", zIndex: 1 }} />
       </button>
+    )}
+
+
+
+    {deviceMode === "mobile" && !focusMode && (
+      <button
+        type="button"
+        className="mobile-fab-add"
+        onClick={() => onOpenAdd && onOpenAdd()}
+        aria-label={tr(appIsAr, "Add word", "إضافة كلمة")}
+        title={tr(appIsAr, "Add word", "إضافة كلمة")}
+      >
+        <PlusIcon size={26} />
+      </button>
+    )}
+
+    {/* Mobile bottom navigation — only when user chose Phone layout */}
+    {deviceMode === "mobile" && !focusMode && (
+      <nav className="mobile-bottom-nav" aria-label={tr(appIsAr, "Main navigation", "التنقل الرئيسي")}>
+        <button
+          type="button"
+          className="mobile-bottom-nav-item is-active"
+          onClick={() => {
+            try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (_) {}
+          }}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+          </svg>
+          <span>{tr(appIsAr, "Words", "كلمات")}</span>
+        </button>
+        <button
+          type="button"
+          className="mobile-bottom-nav-item"
+          onClick={() => { setQuizDueOnly(false); setShowQuiz(true); }}
+          onContextMenu={(e) => { e.preventDefault(); setQuizDueOnly(true); setShowQuiz(true); }}
+          title={tr(appIsAr, "Tap: quiz · Long-press: due only", "ضغط: اختبار · ضغطة طويلة: المستحق فقط")}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M9 11l3 3L22 4" />
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+          </svg>
+          <span>{tr(appIsAr, "Quiz", "اختبار")}</span>
+        </button>
+        <button
+          type="button"
+          className="mobile-bottom-nav-item"
+          onClick={() => { setGoalsBubble(false); setShowGoals(true); }}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+          </svg>
+          <span>{tr(appIsAr, "Goals", "أهداف")}</span>
+        </button>
+        <button
+          type="button"
+          className="mobile-bottom-nav-item"
+          onClick={() => { setTodoBubble(false); setShowTodo(true); }}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M9 11l3 3L22 4" />
+            <path d="M3 12h6" />
+            <path d="M3 6h6" />
+            <path d="M3 18h6" />
+          </svg>
+          <span>{tr(appIsAr, "To-do", "مهام")}</span>
+        </button>
+        <button
+          type="button"
+          className="mobile-bottom-nav-item"
+          onClick={() => onOpenAccount && onOpenAccount()}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+          </svg>
+          <span>{tr(appIsAr, "Account", "حسابي")}</span>
+        </button>
+      </nav>
     )}
 
     {/* Focus mode exit chip */}

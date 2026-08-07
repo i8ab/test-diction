@@ -947,7 +947,7 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
         onPointerCancel={onPointerUp}
         style={{
           position: "fixed",
-          zIndex: 3000,
+          zIndex: 5000,
           ...(useDefaultCorner
             ? { bottom: "max(16px, env(safe-area-inset-bottom))", insetInlineEnd: 16 }
             : { left, top }),
@@ -1026,7 +1026,7 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 3000,
+        zIndex: 5000,
         display: "flex",
         flexDirection: "column",
         background: bgCss,

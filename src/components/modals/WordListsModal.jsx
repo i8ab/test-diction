@@ -94,27 +94,35 @@ export default function WordListsModal({
       role="dialog"
       aria-modal="true"
       onClick={onClose}
+      className="modal-backdrop"
       style={{
         position: "fixed",
         inset: 0,
         zIndex: 5000,
         background: "rgba(0,0,0,0.5)",
         display: "flex",
-        alignItems: "flex-end",
+        alignItems: "center",
         justifyContent: "center",
+        padding: "max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))",
+        boxSizing: "border-box",
       }}
     >
       <BodyScrollLock />
       <div
         onClick={(e) => e.stopPropagation()}
+        className="modal-card"
         style={{
           width: "100%",
           maxWidth: 520,
-          maxHeight: "92dvh",
+          maxHeight: "min(90dvh, calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)))",
           overflowY: "auto",
+          overscrollBehavior: "contain",
+          WebkitOverflowScrolling: "touch",
           background: CARD,
-          borderRadius: "18px 18px 0 0",
-          padding: "18px 16px 28px",
+          borderRadius: 18,
+          padding: "18px 16px max(28px, env(safe-area-inset-bottom, 0px))",
+          boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)",
+          boxSizing: "border-box",
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>

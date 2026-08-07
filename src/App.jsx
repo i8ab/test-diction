@@ -32,6 +32,7 @@ import { LoaderIcon } from "./components/common/Icons";
 import { Shell } from "./components/layout/Shell";
 import AuthScreens from "./components/auth/AuthScreens";
 import MainView from "./components/MainView";
+import { useAppTheme } from "./lib/hooks/useAppTheme";
 
 const deviceIsAr = detectDeviceIsAr();
 const savedPersonalCode = loadPersonalCode();
@@ -153,8 +154,9 @@ export default function DictionaryApp() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [toast, setToast] = useState("");
-  const [theme, setTheme] = useState(loadSavedTheme);
-  const [accentTheme, setAccentTheme] = useState(loadSavedAccent);
+  const {
+    theme, setTheme, toggleTheme, accentTheme, setAccentTheme, uiScale, setUiScale,
+  } = useAppTheme();
 
   // Drop legacy shared-access-code key from older builds (no longer used).
   useEffect(() => {
@@ -164,51 +166,11 @@ export default function DictionaryApp() {
     } catch (_) {}
   }, []);
 
-  useEffect(() => {
-    const resolved = resolveTheme(theme);
-    document.documentElement.setAttribute("data-theme", resolved);
-    document.documentElement.setAttribute("data-theme-pref", theme);
-    try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
-  }, [theme]);
-
-  // Follow OS dark/light when preference is "system"
-  useEffect(() => {
-    if (theme !== "system") return undefined;
-    let mq;
-    try { mq = window.matchMedia("(prefers-color-scheme: dark)"); } catch (_) { return undefined; }
-    const apply = () => {
-      document.documentElement.setAttribute("data-theme", resolveTheme("system"));
-    };
-    apply();
-    try { mq.addEventListener("change", apply); return () => mq.removeEventListener("change", apply); }
-    catch (_) {
-      try { mq.addListener(apply); return () => mq.removeListener(apply); } catch (__) {}
-    }
-    return undefined;
-  }, [theme]);
-
-  const [uiScale, setUiScaleState] = useState(() => loadUiScale());
-  function setUiScale(scale) {
-    setUiScaleState(scale);
-    saveUiScale(scale);
-    try { document.documentElement.style.setProperty("--ui-scale", String(scale)); } catch (_) {}
-  }
-  useEffect(() => {
-    try { document.documentElement.style.setProperty("--ui-scale", String(uiScale)); } catch (_) {}
-  }, [uiScale]);
 
   useEffect(() => { entriesRef.current = entries; }, [entries]);
   useEffect(() => { accountsRef.current = accounts; }, [accounts]);
   useEffect(() => { logsRef.current = logs; }, [logs]);
   useEffect(() => { siteBannerRef.current = siteBanner; }, [siteBanner]);
-
-  // Re-applies the chosen accent color palette whenever the accent choice
-  // or the light/dark mode changes (each accent has its own light+dark
-  // variant so contrast stays correct either way).
-  useEffect(() => {
-    applyAccentTheme(accentTheme, resolveTheme(theme), accentTheme === 'custom' ? loadCustomAccentHex() : null);
-    saveAccent(accentTheme);
-  }, [accentTheme, theme]);
 
   // Registers the offline service worker (see /sw.js). Wrapped in feature
   // detection + try/catch since some browsers (or non-HTTPS dev servers)
@@ -220,15 +182,6 @@ export default function DictionaryApp() {
       // the localStorage data cache above still works independently.
     });
   }, []);
-
-  function toggleTheme() {
-    setTheme((t) => {
-      // cycle light → dark → system → light
-      if (t === "light") return "dark";
-      if (t === "dark") return "system";
-      return "light";
-    });
-  }
 
   /* =======================================================================
      STUDY REMINDERS — lifted up here (instead of living only inside

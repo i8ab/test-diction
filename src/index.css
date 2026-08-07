@@ -688,3 +688,33 @@ button,
 .toolbar-anim {
   gap: var(--btn-gap) !important;
 }
+
+/* ============================================================
+   أزرار المودالات — مسافات إلزامية عشان متلزقش أبداً
+   ============================================================ */
+.modal-card button + button {
+  /* fallback لو الزرين ورا بعض بدون container */
+}
+.modal-actions,
+.modal-footer,
+.flashcards-actions,
+.quiz-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px !important;
+  margin-top: 12px;
+}
+.modal-actions.row,
+.modal-footer.row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12px !important;
+}
+
+/* أزرار الاختيار (chips) داخل المودالات */
+.modal-card .chip-row,
+.modal-card [role="group"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px !important;
+}

@@ -258,7 +258,7 @@ export default function TodoPage({
         onPointerCancel={onBubblePointerUp}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#30d158" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#30d158" }}>
             <CheckIcon size={14} />
             <span style={{ fontSize: 12, fontWeight: 700 }}>{tr(isAr, "To-do", "مهام")}</span>
           </div>
@@ -390,7 +390,7 @@ export default function TodoPage({
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <button
             type="button"
             onClick={() => setViewMode("bubble")}
@@ -491,7 +491,7 @@ export default function TodoPage({
           </button>
         </form>
 
-        <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
           {[
             { id: "all", label: tr(isAr, "All", "الكل") },
             { id: "open", label: tr(isAr, "Open", "مفتوحة") },

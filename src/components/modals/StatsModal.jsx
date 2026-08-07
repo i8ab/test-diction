@@ -164,7 +164,7 @@ function StatsModal({ entries, sectionLabel, studiedIds, studiedAt, srsBox, srsD
             <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{tr(isAr, "Due for review", "مستحقة للمراجعة")}</div>
           </div>
           <div style={{ ...statCardStyle, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 24, fontWeight: 700, color: BRASS }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 24, fontWeight: 700, color: BRASS }}>
               <FlameIcon size={20} color={BRASS} /> {streak}
             </div>
             <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{tr(isAr, "day streak", "يوم متتالي")}</div>
@@ -205,7 +205,7 @@ function StatsModal({ entries, sectionLabel, studiedIds, studiedAt, srsBox, srsD
         {weakWords.length > 0 && (
           <>
             <label style={{ ...labelStyle, marginTop: 20 }}>{tr(isAr, "Needs work", "محتاجة مراجعة")}</label>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 6 }}>
               {weakWords.map((e) => (
                 <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "var(--input-bg)", borderRadius: 4 }}>
                   <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 14, fontWeight: 600, color: INK }}>{e.word}</span>
@@ -219,7 +219,7 @@ function StatsModal({ entries, sectionLabel, studiedIds, studiedAt, srsBox, srsD
         {upcomingReviews.length > 0 && (
           <>
             <label style={{ ...labelStyle, marginTop: 20 }}>{tr(isAr, "Upcoming reviews", "موعد المراجعة الجاية")}</label>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 6 }}>
               {upcomingReviews.map((e) => {
                 const due = srsDueAt[e.id];
                 const isDueNow = due <= Date.now();
@@ -237,7 +237,7 @@ function StatsModal({ entries, sectionLabel, studiedIds, studiedAt, srsBox, srsD
         {recentQuizzes.length > 0 && (
           <>
             <label style={{ ...labelStyle, marginTop: 20 }}>{tr(isAr, "Recent quizzes", "آخر الاختبارات")}</label>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 6 }}>
               {recentQuizzes.map((q) => (
                 <div key={q.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "var(--input-bg)", borderRadius: 4, fontSize: 13 }}>
                   <span style={{ color: "var(--muted)" }}>{new Date(q.at).toLocaleString(isAr ? "ar-EG" : "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>

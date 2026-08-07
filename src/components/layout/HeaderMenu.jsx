@@ -660,7 +660,7 @@ export default function HeaderMenu({
                           }}>
                             <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>{a.name}</div>
                             <div style={{ fontSize: 12, color: "var(--muted-strong)", fontFamily: "ui-monospace, monospace", marginTop: 2 }} dir="ltr">@{a.username || "—"}</div>
-                            <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                            <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
                               <button
                                 type="button"
                                 disabled={busyCode === a.code}
@@ -1439,7 +1439,7 @@ export default function HeaderMenu({
                             </div>
                           </div>
                         )}
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
                           {[
                             { a: 0, u: "hours", label: T( "Forever", "دائم") },
                             { a: 30, u: "minutes", label: T( "30m", "٣٠د") },

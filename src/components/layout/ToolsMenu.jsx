@@ -179,7 +179,7 @@ export default function ToolsMenu({
           ? {
               position: "fixed",
               inset: 0,
-              zIndex: 90,
+              zIndex: 2100,
               background: "rgba(0,0,0,0.4)",
               display: "flex",
               alignItems: "flex-end",
@@ -188,7 +188,7 @@ export default function ToolsMenu({
             }
           : {
               position: "fixed",
-              zIndex: 90,
+              zIndex: 2100,
               top: anchor ? Math.min(anchor.top + 8, window.innerHeight - 420) : 60,
               left: isAr
                 ? undefined
@@ -201,7 +201,7 @@ export default function ToolsMenu({
                   : 8
                 : undefined,
               width: 280,
-              maxHeight: "min(70vh, 520px)",
+              maxHeight: "min(82vh, 640px)",
             }
       }
       onClick={isCompact ? closeMenu : undefined}
@@ -214,7 +214,7 @@ export default function ToolsMenu({
           border: "1px solid rgba(var(--border-rgb),0.15)",
           boxShadow: "0 16px 48px -12px rgba(0,0,0,0.28)",
           width: isCompact ? "100%" : "100%",
-          maxHeight: isCompact ? "78vh" : "min(70vh, 520px)",
+          maxHeight: isCompact ? "82vh" : "min(82vh, 640px)",
           overflowY: "auto",
           padding: isCompact ? "12px 12px 24px" : "10px 8px 12px",
           display: "flex",
@@ -236,7 +236,7 @@ export default function ToolsMenu({
         )}
 
         {categories.map((cat, catIdx) => (
-          <div key={cat.id} style={{ marginBottom: catIdx < categories.length - 1 ? 6 : 0 }}>
+          <div key={cat.id} style={{ marginBottom: catIdx < categories.length - 1 ? 4 : 0 }}>
             {/* عنوان الفئة */}
             <div
               style={{
@@ -245,7 +245,7 @@ export default function ToolsMenu({
                 color: "var(--muted-strong)",
                 letterSpacing: "0.04em",
                 textTransform: "uppercase",
-                padding: "8px 12px 4px",
+                padding: "10px 12px 2px",
                 opacity: 0.9,
               }}
             >
@@ -257,7 +257,7 @@ export default function ToolsMenu({
               style={{
                 display: "flex",
                 flexDirection: "column",
-                gap: 4,
+                gap: 6,
                 padding: "0 4px",
               }}
             >
@@ -272,20 +272,21 @@ export default function ToolsMenu({
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 12,
+                    gap: 10,
                     width: "100%",
-                    padding: "11px 12px",
-                    borderRadius: 12,
+                    padding: "9px 10px",
+                    borderRadius: 10,
                     border: "none",
                     background: "transparent",
                     color: "var(--ink)",
-                    fontSize: 14,
+                    fontSize: 13.5,
                     fontWeight: 600,
                     fontFamily: "inherit",
                     cursor: it.disabled ? "not-allowed" : "pointer",
                     opacity: it.disabled ? 0.5 : 1,
                     textAlign: "start",
                     transition: "background 0.12s ease",
+                    minHeight: 42,
                   }}
                 >
                   <span
@@ -293,9 +294,9 @@ export default function ToolsMenu({
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      width: 34,
-                      height: 34,
-                      borderRadius: 10,
+                      width: 32,
+                      height: 32,
+                      borderRadius: 9,
                       background: `${it.tint}18`,
                       color: it.tint,
                       flexShrink: 0,
@@ -339,7 +340,7 @@ export default function ToolsMenu({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          gap: 4,
+          gap: 6,
           minWidth: 40,
           height: 40,
           padding: "0 10px",
@@ -387,7 +388,7 @@ export default function ToolsMenu({
             background: "var(--card)",
             border: "1px solid rgba(var(--border-rgb),0.22)",
             cursor: "pointer",
-            marginInlineStart: 2,
+            marginInlineStart: 4,
           }}
         >
           <XIcon size={16} />

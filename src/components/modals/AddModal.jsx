@@ -167,7 +167,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
             {canAutoSuggest && (
               <button type="button" onClick={handleAutoSuggest} disabled={!word.trim() || suggesting}
                 title={tr(isAr, "Fetch definition and examples only", "جلب التعريف والأمثلة فقط")}
-                style={{ display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", padding: "10px 12px", fontSize: 12.5, fontWeight: 700, color: cfg.accent, background: cfg.accentSoft, border: "none", borderRadius: 3, cursor: !word.trim() || suggesting ? "default" : "pointer", opacity: !word.trim() ? 0.6 : 1 }}>
+                style={{ display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap", padding: "10px 12px", fontSize: 12.5, fontWeight: 700, color: cfg.accent, background: cfg.accentSoft, border: "none", borderRadius: 3, cursor: !word.trim() || suggesting ? "default" : "pointer", opacity: !word.trim() ? 0.6 : 1 }}>
                 {suggesting ? <LoaderIcon size={14} /> : <WandIcon size={14} />}
                 {tr(isAr, "Auto-fill", "تعبئة تلقائية")}
               </button>
@@ -177,7 +177,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 4, marginBottom: 4 }}>
             <span style={{ ...labelStyle, margin: 0 }}>{tr(isAr, "Word type", "نوع الكلمة")}</span>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: "var(--muted-strong)", cursor: "pointer" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12.5, fontWeight: 600, color: "var(--muted-strong)", cursor: "pointer" }}>
               <input
                 type="checkbox"
                 checked={multiSense}
@@ -253,7 +253,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
                 </div>
               ))}
               <button type="button" onClick={() => setSenses((list) => [...list, { id: uid(), pos: "", meaning: "" }])}
-                style={{ display: "flex", alignItems: "center", gap: 5, border: "none", background: "none", color: cfg.accent, fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: 0 }}>
+                style={{ display: "flex", alignItems: "center", gap: 10, border: "none", background: "none", color: cfg.accent, fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: 0 }}>
                 <PlusIcon size={12} /> {tr(isAr, "Add another type / meaning", "أضف نوع/معنى تاني")}
               </button>
             </div>
@@ -276,7 +276,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
             </div>
           ))}
           <button type="button" onClick={() => setExtraExamples((list) => [...list, ""])}
-            style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 8, border: "none", background: "none", color: cfg.accent, fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: 0 }}>
+            style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, border: "none", background: "none", color: cfg.accent, fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: 0 }}>
             <PlusIcon size={12} /> {tr(isAr, "Add another example", "أضف جملة تانية")}
           </button>
           <PairListEditor cfg={cfg} label={tr(isAr, "Synonyms (optional)", "مرادفات (اختياري)")} pairs={synonyms} onChange={setSynonyms} isAr={isAr} />

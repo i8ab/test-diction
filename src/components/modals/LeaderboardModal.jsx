@@ -63,7 +63,7 @@ function LeaderboardModal({ accounts, sectionEntries, accountCode, sectionLabel,
             {tr(isAr, "No one has been quizzed on any words here yet — take a quiz to be the first!", "محدش اتاختبر في أي كلمة هنا لسه — خد اختبار عشان تكون أول واحد!")}
           </p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {ranked.map((r, i) => {
               const isMe = r.code === accountCode;
               return (

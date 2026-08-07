@@ -129,7 +129,7 @@ export default function WordListsModal({
         {/* Import by code */}
         <div style={{ marginBottom: 16, padding: 12, borderRadius: 12, background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.14)" }}>
           <div style={{ ...labelStyle, marginTop: 0 }}>{tr(isAr, "Import shared list", "استيراد قائمة مشاركة")}</div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <input
               value={shareCodeInput}
               onChange={(e) => setShareCodeInput(e.target.value.toUpperCase())}
@@ -162,7 +162,7 @@ export default function WordListsModal({
           <div style={{ fontSize: 12, color: "var(--muted-strong)", margin: "8px 0 6px" }}>
             {tr(isAr, "Optional: pick words below", "اختياري: اختر كلمات بالأسفل")} ({selectedIds.size})
           </div>
-          <div style={{ maxHeight: 140, overflowY: "auto", display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+          <div style={{ maxHeight: 140, overflowY: "auto", display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
             {sectionEntries.slice(0, 80).map((e) => {
               const on = selectedIds.has(e.id);
               return (
@@ -192,7 +192,7 @@ export default function WordListsModal({
         </div>
 
         {/* Existing lists */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {lists.length === 0 && (
             <div style={{ fontSize: 14, color: "var(--muted-strong)", textAlign: "center", padding: 16 }}>
               {tr(isAr, "No lists yet", "لا توجد قوائم بعد")}
@@ -223,7 +223,7 @@ export default function WordListsModal({
                 </button>
               </div>
               {viewId === l.id && (
-                <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 10 }}>
                   {(l.entryIds || []).map((id) => {
                     const e = entries.find((x) => x.id === id);
                     return e ? (

@@ -980,7 +980,7 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
         >
           {displayText}
         </div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
           <button
             type="button"
             onClick={() => (running ? pause() : start())}
@@ -1058,7 +1058,7 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
             {tr(isAr, "Study Timer", "مؤقّت المذاكرة")}
           </span>
         </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
           <button type="button" onClick={() => setShowSettings((s) => !s)} style={{ ...btnGhost, padding: "8px 12px", fontSize: 13, whiteSpace: "nowrap" }}>
             {showSettings ? tr(isAr, "Hide", "إخفاء") : tr(isAr, "Settings", "إعدادات")}
           </button>

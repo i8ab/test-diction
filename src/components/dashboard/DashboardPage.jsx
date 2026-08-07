@@ -125,45 +125,50 @@ export default function DashboardPage({
     <div
       role="dialog"
       aria-modal="true"
+      className="modal-backdrop"
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 80,
-        background: "rgba(0,0,0,0.45)",
+        zIndex: 2000,
+        background: "rgba(0,0,0,0.5)",
         display: "flex",
-        alignItems: "stretch",
+        alignItems: "center",
         justifyContent: "center",
-        padding: "env(safe-area-inset-top) 0 env(safe-area-inset-bottom)",
+        padding: 20,
       }}
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className="modal-card"
+        dir={isAr ? "rtl" : "ltr"}
         style={{
           width: "100%",
-          maxWidth: 560,
-          margin: "0 auto",
-          background: "var(--paper)",
-          height: "100%",
-          maxHeight: "100dvh",
+          maxWidth: 520,
+          maxHeight: "90vh",
           overflowY: "auto",
-          padding: "16px 16px 40px",
+          background: CARD,
+          borderRadius: 16,
+          padding: "20px 20px 24px",
+          boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)",
           position: "relative",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <div>
+        {/* هيدر ثابت واضح */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-strong)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
               {tr(isAr, "Dashboard", "لوحة القيادة")}
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: INK, marginTop: 2 }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: INK, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {name ? tr(isAr, `Hi, ${name}`, `مرحباً، ${name}`) : tr(isAr, "Your progress", "تقدّمك")}
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             aria-label={tr(isAr, "Close", "إغلاق")}
-            style={{ border: "none", background: "var(--card)", width: 40, height: 40, borderRadius: 12, cursor: "pointer", color: "var(--ink)" }}
+            style={{ border: "none", background: "var(--input-bg)", width: 40, height: 40, borderRadius: 12, cursor: "pointer", color: "var(--ink)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
           >
             <XIcon size={18} />
           </button>
@@ -178,7 +183,7 @@ export default function DashboardPage({
               style={{
                 textAlign: "start",
                 border: "1px solid rgba(var(--border-rgb),0.14)",
-                background: CARD,
+                background: "var(--input-bg)",
                 borderRadius: 14,
                 padding: "14px 14px 12px",
                 cursor: c.onClick ? "pointer" : "default",
@@ -190,7 +195,7 @@ export default function DashboardPage({
               </div>
               <div style={{ fontSize: 28, fontWeight: 800, color: INK, lineHeight: 1 }}>
                 {c.value}
-                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted-strong)", marginInlineStart: 6 }}>{c.unit}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted-strong)", marginInlineStart: 8 }}>{c.unit}</span>
               </div>
             </button>
           ))}
@@ -202,7 +207,7 @@ export default function DashboardPage({
             { label: tr(isAr, "Quizzes today", "اختبارات اليوم"), value: quizzesToday },
             { label: tr(isAr, "Timer min", "دقائق المؤقت"), value: timerMins },
           ].map((x) => (
-            <div key={x.label} style={{ background: CARD, borderRadius: 12, padding: "10px 12px", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
+            <div key={x.label} style={{ background: "var(--input-bg)", borderRadius: 12, padding: "10px 12px", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
               <div style={{ fontSize: 11, color: "var(--muted-strong)", fontWeight: 600 }}>{x.label}</div>
               <div style={{ fontSize: 18, fontWeight: 800, color: INK }}>{x.value}</div>
             </div>
@@ -210,7 +215,7 @@ export default function DashboardPage({
         </div>
 
         {challenge && (
-          <div style={{ background: CARD, borderRadius: 14, padding: 14, marginBottom: 16, border: "1px solid rgba(var(--border-rgb),0.12)" }}>
+          <div style={{ background: "var(--input-bg)", borderRadius: 14, padding: 14, marginBottom: 16, border: "1px solid rgba(var(--border-rgb),0.12)" }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: BRASS, marginBottom: 4 }}>
               {tr(isAr, "Weekly challenge", "تحدي الأسبوع")}
             </div>
@@ -235,9 +240,9 @@ export default function DashboardPage({
                 {tr(isAr, "Review", "راجع")}
               </button>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {dueList.slice(0, 6).map((e) => (
-                <div key={e.id} style={{ background: CARD, borderRadius: 10, padding: "10px 12px", display: "flex", justifyContent: "space-between", gap: 8, border: "1px solid rgba(var(--border-rgb),0.1)" }}>
+                <div key={e.id} style={{ background: "var(--input-bg)", borderRadius: 10, padding: "10px 12px", display: "flex", justifyContent: "space-between", gap: 10, border: "1px solid rgba(var(--border-rgb),0.1)" }}>
                   <span style={{ fontWeight: 700, color: INK }}>{e.word}</span>
                   <span style={{ fontSize: 12, color: "var(--muted-strong)" }}>{formatDueIn(srsDueAt[e.id], isAr)}</span>
                 </div>
@@ -251,7 +256,7 @@ export default function DashboardPage({
             <div style={{ fontSize: 14, fontWeight: 700, color: INK, marginBottom: 8 }}>
               {tr(isAr, "Needs practice", "تحتاج تمرين")}
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
               {weakList.map((e) => (
                 <span
                   key={e.id}
@@ -265,7 +270,7 @@ export default function DashboardPage({
                   }}
                 >
                   {e.word}
-                  <span style={{ opacity: 0.7, marginInlineStart: 4, fontSize: 11 }}>
+                  <span style={{ opacity: 0.7, marginInlineStart: 8, fontSize: 11 }}>
                     {SRS_BOX_LABELS[(srsBox && srsBox[e.id]) || 0]?.[isAr ? "ar" : "en"] || ""}
                   </span>
                 </span>
@@ -274,11 +279,11 @@ export default function DashboardPage({
           </div>
         )}
 
-        <div style={{ background: CARD, borderRadius: 14, padding: 14, marginBottom: 16, border: "1px solid rgba(var(--border-rgb),0.12)" }}>
+        <div style={{ background: "var(--input-bg)", borderRadius: 14, padding: 14, marginBottom: 16, border: "1px solid rgba(var(--border-rgb),0.12)" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginBottom: 8 }}>
             {tr(isAr, "SRS intervals (custom)", "فترات التكرار المتباعد (تخصيص)")}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 4 }}>
             <label style={{ fontSize: 12, color: "var(--muted-strong)" }}>
               {tr(isAr, "Relearn (min)", "إعادة (دقائق)")}
               <input type="number" min={1} value={srsPrefs.learningMinutes}
@@ -306,7 +311,7 @@ export default function DashboardPage({
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 4 }}>
           {[
             { label: tr(isAr, "Quiz", "اختبار"), onClick: onOpenQuiz },
             { label: tr(isAr, "Flashcards", "بطاقات"), onClick: onOpenFlashcards },
@@ -326,6 +331,7 @@ export default function DashboardPage({
                 fontWeight: 700,
                 fontSize: 14,
                 cursor: "pointer",
+                minHeight: 48,
               }}
             >
               {b.label}

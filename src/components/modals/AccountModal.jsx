@@ -193,7 +193,7 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
           <div style={{ fontSize: 13, color: "var(--muted-strong)", fontFamily: "ui-monospace, monospace" }} dir="ltr">
             @{account.username || "—"}
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
             <button
               type="button"
               onClick={() => fileRef.current && fileRef.current.click()}
@@ -254,7 +254,7 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
             <KeyIcon size={12} style={{ marginInlineEnd: 4, verticalAlign: -1 }} />
             {T("Password", "كلمة المرور")}
           </label>
-          <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "stretch" }}>
             <div
               style={{
                 ...inputStyle,

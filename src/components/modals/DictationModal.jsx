@@ -295,7 +295,7 @@ export default function DictationModal({
               </div>
             )}
 
-            <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 12, marginTop: 16, flexWrap: "wrap" }}>
               {!answered && mode === "listen-meaning" && (
                 <button
                   type="button"
@@ -341,30 +341,32 @@ export default function DictationModal({
             <p style={{ color: "var(--muted-strong)", margin: "0 0 16px" }}>
               {score} / {results.length} {tr(isAr, "correct", "صح")}
             </p>
-            <button
-              type="button"
-              onClick={() => setStage("setup")}
-              style={{ ...primaryBtnStyle, marginTop: 0 }}
-            >
-              {tr(isAr, "Another round", "جولة تانية")}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                marginTop: 10,
-                width: "100%",
-                padding: "11px",
-                borderRadius: 8,
-                border: "1px solid rgba(var(--border-rgb),0.2)",
-                background: "transparent",
-                cursor: "pointer",
-                fontWeight: 600,
-                color: INK,
-              }}
-            >
-              {tr(isAr, "Close", "إغلاق")}
-            </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={() => setStage("setup")}
+                style={{ ...primaryBtnStyle, marginTop: 0, minHeight: 48 }}
+              >
+                {tr(isAr, "Another round", "جولة تانية")}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(var(--border-rgb),0.2)",
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  color: INK,
+                  minHeight: 44,
+                }}
+              >
+                {tr(isAr, "Close", "إغلاق")}
+              </button>
+            </div>
           </div>
         )}
       </div>

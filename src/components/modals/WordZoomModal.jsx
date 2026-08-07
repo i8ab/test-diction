@@ -124,7 +124,7 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
           <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={cfg.dir === "rtl"} size={26} style={{ color: cfg.accent, flexShrink: 0 }} showBoth={cfg.wordDir !== "rtl"} />
         </div>
         <div style={{ width: 48, height: 3, background: cfg.accent, borderRadius: 2, margin: "18px auto" }} />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
           <div dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: "clamp(22px, 4.5vw, 30px)", color: "var(--meaning)", lineHeight: 1.35, wordBreak: "break-word" }}>
             {entry.meaning}
           </div>
@@ -195,7 +195,7 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-strong)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>
             {tr(isAr, "Record & compare", "سجّل وقارن")}
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "center" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", justifyContent: "center" }}>
             <button
               type="button"
               onClick={handleToggleRecord}

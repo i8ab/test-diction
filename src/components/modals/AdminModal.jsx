@@ -437,7 +437,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                           {a.role === "admin" ? tr(isAr, "Admin", "مسؤول") : tr(isAr, "User", "مستخدم")}
                         </div>
                       </div>
-                      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                      <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                         <button
                           onClick={() => startEdit(a)}
                           title={tr(isAr, "Edit", "تعديل")}
@@ -514,7 +514,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                   </button>
                 )}
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
                 {LOG_SECTIONS.map((s) => {
                   const active = s.key === logFilter;
                   return (

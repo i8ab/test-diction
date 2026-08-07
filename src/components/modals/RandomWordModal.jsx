@@ -244,7 +244,7 @@ export default function RandomWordModal({
                   {current.meaning}
                 </div>
               ) : (
-                <span style={{ fontSize: 12.5, color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 12.5, color: "var(--muted)", display: "flex", alignItems: "center", gap: 10 }}>
                   <EyeIcon size={14} /> {tr(isAr, "Tap to reveal", "اضغط للإظهار")}
                 </span>
               )}
@@ -274,7 +274,7 @@ export default function RandomWordModal({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 6,
+                gap: 10,
               }}
             >
               <CheckIcon size={15} />
@@ -318,7 +318,7 @@ export default function RandomWordModal({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: 6,
+                    gap: 10,
                   }}
                 >
                   <CheckIcon size={16} /> {tr(isAr, "Knew it", "عرفتها")}

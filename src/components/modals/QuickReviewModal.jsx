@@ -202,13 +202,13 @@ export default function QuickReviewModal({
               )}
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
               {phase === "prompt" ? (
                 <button type="button" onClick={() => setPhase("revealed")} style={{ ...primaryBtn, width: "100%" }}>
                   {tr(isAr, "Show meaning", "إظهار المعنى")}
                 </button>
               ) : (
-                <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ display: "flex", gap: 12 }}>
                   <button type="button" onClick={() => handleKnew(false)} style={{ ...secondaryBtn, flex: 1, justifyContent: "center" }}>
                     {tr(isAr, "Still learning", "لسه بتعلّم")}
                   </button>

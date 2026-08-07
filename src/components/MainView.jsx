@@ -813,9 +813,9 @@ export default function MainView({
               </div>
             )}
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 10 }}>
             <div className="toolbar-actions toolbar-anim" style={{ animationDelay: "0.04s" }}>
-            <button onClick={onOpenAdd} className="btn-shine lift-hover" style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: "#fff", background: cfg.accent, border: "none", borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
+            <button onClick={onOpenAdd} className="btn-shine lift-hover" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: "#fff", background: cfg.accent, border: "none", borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
               <PlusIcon size={16} /> {tr(isAr, "Add word", "إضافة كلمة")}
             </button>
             
@@ -848,7 +848,7 @@ export default function MainView({
         {isAdmin && !focusMode && <BackupReminderBanner isAr={appIsAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
         <div style={{ marginTop: 12, background: CARD, border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 10, padding: "12px 14px" }}>
           <div dir={isAr ? "rtl" : "ltr"} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 700, color: INK }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 700, color: INK }}>
               <BookIcon size={14} color={cfg.accent} />
               {tr(isAr, `${sectionEntries.length} words`, `${sectionEntries.length} الكلمات`)}
             </div>
@@ -873,7 +873,7 @@ export default function MainView({
             </div>
           )}
         </div>
-        <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+        <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
           {[
             { key: "all", label: tr(isAr, "All", "الكل") },
             { key: "studied", label: tr(isAr, "Studied", "تمت دراستها") },
@@ -891,7 +891,7 @@ export default function MainView({
             );
           })}
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
           <select value={posFilter} onChange={(e) => setPosFilter(e.target.value)}
             aria-label={tr(isAr, "Part of speech", "نوع الكلمة")}
             style={{ fontSize: 12, padding: "5px 10px", borderRadius: 16, border: "1px solid rgba(var(--border-rgb),0.25)", background: "var(--card)", color: "var(--ink)", fontWeight: 600 }}>

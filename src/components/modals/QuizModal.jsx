@@ -202,7 +202,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                 "اختر الكلمات التي تمت دراستها والتي عايز تختبر فيها. الاختبار بيخلط بين المعنى والتعريف وإكمال الفراغ (لو الكلمة ليها جملة مثال) والمرادفات/المضادات لأي كلمة ليها — مش مجرد حفظ.")}
             </p>
             <label style={labelStyle}>{tr(isAr, "Studied within", "تمت دراستها خلال")}</label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 4 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 6 }}>
               {RANGE_OPTIONS.map((o) => (
                 <button key={o.key} type="button" onClick={() => { setRangeKey(o.key); setStartError(""); }} style={chipStyle(rangeKey === o.key)}>
                   {o.label}
@@ -223,14 +223,14 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                 </div>
               </>
             )}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 16, fontSize: 13, color: "var(--muted-strong)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16, fontSize: 13, color: "var(--muted-strong)" }}>
               <EyeIcon size={14} color="var(--success)" />
               {tr(isAr,
                 `${matchingEntries.length} studied word${matchingEntries.length === 1 ? "" : "s"} match this range.`,
                 `${matchingEntries.length} كلمة متاحة من الكلمات المدروسة في هذا النطاق.`)}
             </div>
             <label style={{ ...labelStyle, marginTop: 16 }}>{tr(isAr, "Question type", "نوع الأسئلة")}</label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 4 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 6 }}>
               <button type="button" onClick={() => setMode("mcq")} style={chipStyle(mode === "mcq")}>
                 {tr(isAr, "Multiple choice", "اختيار من متعدد")}
               </button>
@@ -260,7 +260,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
               <div style={{ width: "100%", height: 4, background: "var(--input-bg)", borderRadius: 2, marginBottom: 18 }}>
                 <div style={{ width: `${((index) / questions.length) * 100}%`, height: "100%", background: BRASS, borderRadius: 2, transition: "width 0.2s" }} />
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "0 0 8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 8px" }}>
                 <p style={{ fontSize: 21, fontWeight: 700, color: "var(--muted-strong)", margin: 0 }}>{quizQuestionLabel(q.type, isAr, q.pos)}</p>
                 <SpeakButton text={quizQuestionLabel(q.type, isAr, q.pos)} dir={isAr ? "rtl" : "ltr"} isAr={isAr} size={16}
                   style={{ flexShrink: 0 }} />
@@ -275,7 +275,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                 )}
               </div>
               {mode === "mcq" ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {q.options.map((opt, i) => {
                     const isCorrectOpt = opt === q.correct;
                     const isSelectedOpt = opt === selected;
@@ -377,11 +377,11 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                 </p>
               )}
 
-              <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" onClick={retake} style={{ flex: 1, padding: "11px 14px", fontSize: 14, fontWeight: 600, color: "var(--icon-muted)", background: "none", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 3, cursor: "pointer" }}>
+              <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
+                <button type="button" onClick={retake} style={{ flex: 1, padding: "12px 14px", fontSize: 14, fontWeight: 600, color: "var(--icon-muted)", background: "none", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, cursor: "pointer", minHeight: 48 }}>
                   {tr(isAr, "New quiz", "اختبار جديد")}
                 </button>
-                <button type="button" onClick={onClose} style={{ ...primaryBtnStyle, marginTop: 0, flex: 1 }}>
+                <button type="button" onClick={onClose} style={{ ...primaryBtnStyle, marginTop: 0, flex: 1, minHeight: 48, borderRadius: 10 }}>
                   <CheckIcon size={16} /> {tr(isAr, "Done", "تم")}
                 </button>
               </div>

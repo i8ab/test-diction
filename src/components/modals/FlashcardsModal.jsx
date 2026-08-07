@@ -105,14 +105,24 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
                 "قلّب على كلماتك واحدة واحدة. اضغط على البطاقة عشان تشوف المعنى، وبعدين حدد هل كنت عارفها ولا لسه.")}
             </p>
             <label style={labelStyle}>{tr(isAr, "Which words?", "أنهي كلمات؟")}</label>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
               {[
                 { key: "all", label: tr(isAr, "All words", "كل الكلمات") },
                 { key: "studied", label: tr(isAr, "Studied only", "المدروسة بس") },
                 { key: "favorites", label: tr(isAr, "Favorites only", "المفضلة بس") },
               ].map((opt) => (
                 <button key={opt.key} type="button" onClick={() => setFilterKey(opt.key)}
-                  style={{ padding: "7px 14px", fontSize: 13, fontWeight: 600, borderRadius: 20, cursor: "pointer", border: `1px solid ${filterKey === opt.key ? cfg.accent : "rgba(var(--border-rgb),0.25)"}`, background: filterKey === opt.key ? cfg.accentSoft : "none", color: filterKey === opt.key ? cfg.accent : "var(--muted-strong)" }}>
+                  style={{
+                    padding: "9px 16px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    borderRadius: 20,
+                    cursor: "pointer",
+                    minHeight: 40,
+                    border: `1px solid ${filterKey === opt.key ? cfg.accent : "rgba(var(--border-rgb),0.25)"}`,
+                    background: filterKey === opt.key ? cfg.accentSoft : "none",
+                    color: filterKey === opt.key ? cfg.accent : "var(--muted-strong)",
+                  }}>
                   {opt.label}
                 </button>
               ))}
@@ -120,14 +130,38 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
             <p style={{ fontSize: 13, color: "var(--icon-muted)", margin: "0 0 16px" }}>
               {tr(isAr, `${pool.length} word(s) in this deck.`, `${pool.length} كلمة في المجموعة دي.`)}
             </p>
-            <button type="button" onClick={startDeck} disabled={pool.length === 0} className="btn-shine"
-              style={{ ...primaryBtnStyle, opacity: pool.length === 0 ? 0.5 : 1, cursor: pool.length === 0 ? "default" : "pointer" }}>
-              <LayersIcon size={16} /> {tr(isAr, "Start reviewing", "ابدأ المراجعة")}
-            </button>
-            <button type="button" onClick={exportPoolAsPdf} disabled={pool.length === 0}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, marginInlineStart: 10, padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 20, border: "1px solid rgba(var(--border-rgb),0.25)", background: "none", color: pool.length === 0 ? "var(--icon-muted)" : "var(--muted-strong)", cursor: pool.length === 0 ? "default" : "pointer" }}>
-              {tr(isAr, "Export as PDF", "تصدير PDF")}
-            </button>
+            {/* أزرار الإجراءات — عمودي مع مسافة مريحة عشان متلزقش */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 4 }}>
+              <button type="button" onClick={startDeck} disabled={pool.length === 0} className="btn-shine"
+                style={{
+                  ...primaryBtnStyle,
+                  marginTop: 0,
+                  opacity: pool.length === 0 ? 0.5 : 1,
+                  cursor: pool.length === 0 ? "default" : "pointer",
+                  minHeight: 48,
+                }}>
+                <LayersIcon size={16} /> {tr(isAr, "Start reviewing", "ابدأ المراجعة")}
+              </button>
+              <button type="button" onClick={exportPoolAsPdf} disabled={pool.length === 0}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  width: "100%",
+                  padding: "11px 14px",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  borderRadius: 10,
+                  border: "1px solid rgba(var(--border-rgb),0.25)",
+                  background: "var(--input-bg)",
+                  color: pool.length === 0 ? "var(--icon-muted)" : "var(--muted-strong)",
+                  cursor: pool.length === 0 ? "default" : "pointer",
+                  minHeight: 44,
+                }}>
+                {tr(isAr, "Export as PDF", "تصدير PDF")}
+              </button>
+            </div>
           </div>
         )}
 
@@ -152,7 +186,7 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
                 </div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+            <div style={{ display: "flex", gap: 12, marginTop: 18 }}>
               <button type="button" onClick={() => advance(false)}
                 className={pulse === "learning" ? "flashcard-choice-pop" : undefined}
                 style={{ flex: 1, padding: "11px 0", fontSize: 14, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid var(--danger)", background: "none", color: "var(--danger)" }}>
@@ -175,7 +209,7 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
             <p style={{ fontSize: 14, color: "var(--muted-strong)", marginBottom: 18 }}>
               {tr(isAr, `You knew ${knewCount} and are still learning ${learningCount}.`, `كنت عارف ${knewCount} ولسه بتتعلّم ${learningCount}.`)}
             </p>
-            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
               <button type="button" onClick={startDeck} className="btn-shine" style={{ ...primaryBtnStyle, width: "auto", padding: "11px 22px" }}>
                 {tr(isAr, "Review again", "راجع تاني")}
               </button>

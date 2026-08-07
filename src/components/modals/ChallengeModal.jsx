@@ -185,7 +185,7 @@ export default function ChallengeModal({
                   <span>{theirName}: {theirProg}</span>
                 </div>
                 {c.status === "pending" && c.toCode === accountCode && (
-                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
                     <button
                       type="button"
                       onClick={() => {

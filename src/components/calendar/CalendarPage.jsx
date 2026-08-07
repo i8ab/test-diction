@@ -240,7 +240,7 @@ export default function CalendarPage({
         onPointerCancel={onBubblePointerUp}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, color: BRASS }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, color: BRASS }}>
             <CalendarIcon size={14} />
             <span style={{ fontSize: 12, fontWeight: 700 }}>{tr(isAr, "Calendar", "التقويم")}</span>
           </div>
@@ -357,12 +357,12 @@ export default function CalendarPage({
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <div
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: 5,
+              gap: 10,
               padding: "4px 10px",
               borderRadius: 20,
               background: "color-mix(in srgb, #e85d04 12%, transparent)",

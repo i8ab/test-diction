@@ -224,7 +224,7 @@ export default function AchievementsModal({
               </div>
             </div>
 
-            <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ display: "grid", gap: 12 }}>
               {detail.levels.map((lv) => {
                 const on = unlocked.has(lv.id) || stats[detail.metric] >= lv.threshold;
                 const reached = (Number(stats[detail.metric]) || 0) >= lv.threshold;

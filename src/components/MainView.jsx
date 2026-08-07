@@ -1046,7 +1046,7 @@ function MainView({
         </div>
       </div>
 
-      <Suspense fallback={null}>
+      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
         {showAdd && <AddModal cfg={cfg} onClose={onCloseAdd} onSubmit={handleAdd} />}
         {editingEntry && (
           <AddModal
@@ -1218,7 +1218,7 @@ function MainView({
     </div>
 
     {showTimer && (
-      <Suspense fallback={null}>
+      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
         <TimerPage
           isAr={appIsAr}
           initialBubble={timerBubble}
@@ -1229,7 +1229,7 @@ function MainView({
     )}
 
     {showCalendar && (
-      <Suspense fallback={null}>
+      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
         <CalendarPage
           isAr={appIsAr}
           studiedAt={studiedAt}
@@ -1242,7 +1242,7 @@ function MainView({
     )}
 
     {showTodo && (
-      <Suspense fallback={null}>
+      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
         <TodoPage
           isAr={appIsAr}
           initialBubble={todoBubble}
@@ -1253,7 +1253,7 @@ function MainView({
     )}
 
     {showGoals && (
-      <Suspense fallback={null}>
+      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
         <GoalsPage
           isAr={appIsAr}
           studiedAt={studiedAt}
@@ -1268,13 +1268,13 @@ function MainView({
     )}
 
     {showInfoGuide && (
-      <Suspense fallback={null}>
+      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
         <InfoGuideModal isAr={appIsAr} onClose={() => setShowInfoGuide(false)} />
       </Suspense>
     )}
 
     {showQuickReview && (
-      <Suspense fallback={null}>
+      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
         <QuickReviewModal
           entries={sectionEntries}
           studiedIds={studiedIds}
@@ -1288,7 +1288,7 @@ function MainView({
     )}
 
     {showDictation && (
-      <Suspense fallback={null}>
+      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
         <DictationModal
           entries={sectionEntries}
           studiedIds={studiedIds}
@@ -1307,7 +1307,7 @@ function MainView({
     )}
 
     {showAchievements && (
-      <Suspense fallback={null}>
+      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
         <AchievementsModal
           unlockedIds={(accounts.find((a) => a.code === accountCode) || {}).achievements || []}
           isAr={appIsAr}
@@ -1329,7 +1329,7 @@ function MainView({
     )}
 
     {showRandomWord && (
-      <Suspense fallback={null}>
+      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
         <RandomWordModal
           entries={sectionEntries}
           studiedIds={studiedIds}

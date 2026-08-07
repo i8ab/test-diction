@@ -46,11 +46,13 @@ function compressImageFile(file) {
 }
 
 function AccountModal({ account, onClose, onSave, isAr, lang }) {
+  const safeAccount = account || {};
+  account = safeAccount; // null-safe for the rest of the component
   const L = lang || (isAr ? "ar" : "en");
   const T = (en, ar, de, fr) => tr(L, en, ar, de, fr);
-  const [nameInput, setNameInput] = useState(account.name || "");
-  const [avatar, setAvatar] = useState(account.avatar || "");
-  const [gender, setGender] = useState(account.gender === "male" || account.gender === "female" ? account.gender : "");
+  const [nameInput, setNameInput] = useState(safeAccount.name || "");
+  const [avatar, setAvatar] = useState(safeAccount.avatar || "");
+  const [gender, setGender] = useState(safeAccount.gender === "male" || safeAccount.gender === "female" ? safeAccount.gender : "");
   const [changePassword, setChangePassword] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [password2, setPassword2] = useState("");

@@ -790,7 +790,6 @@ button,
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  /* clip instead of hidden so position:sticky on letter-rail still works */
   overflow-x: clip;
   max-width: 100%;
 }
@@ -1031,9 +1030,9 @@ canvas {
   align-self: flex-start;
   gap: 0;
   position: sticky;
-  top: 72px; /* تحت الهيدر — تثبت ومش بتحرك مع سكرول الكلمات */
+  top: 72px;
   height: fit-content;
-  max-height: none; /* مفيش سكرول داخلي — كل الحروف ظاهرة */
+  max-height: none;
   overflow: visible;
   padding: 4px 0;
   margin: 0;
@@ -1042,28 +1041,6 @@ canvas {
   border-radius: 10px;
   box-shadow: 0 2px 10px -6px rgba(0, 0, 0, 0.12);
   z-index: 60;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-}
-
-/* ديسكتوب فقط: قائمة الحروف ثابتة بالكامل بدون أي سكرول — مهما زاد عدد الكلمات */
-@media (min-width: 641px) {
-  .app-main-row {
-    align-items: flex-start;
-  }
-  .letter-rail {
-    position: sticky;
-    top: 72px;
-    max-height: none;
-    overflow: visible !important;
-    align-self: flex-start;
-    /* كل الحروف ظاهرة، مفيش سكرول داخلي */
-    height: auto;
-  }
-  .word-list-main {
-    min-height: 0;
-    min-width: 0;
-  }
 }
 
 .letter-rail::-webkit-scrollbar {
@@ -1097,6 +1074,16 @@ canvas {
   pointer-events: none;
 }
 
+@media (min-width: 641px) {
+  .letter-rail {
+    position: sticky;
+    top: 72px;
+    max-height: none !important;
+    overflow: visible !important;
+    height: auto;
+  }
+}
+
 .word-list-main {
   flex: 1 1 auto;
   min-width: 0;
@@ -1109,7 +1096,7 @@ canvas {
     flex-wrap: nowrap;
     gap: 10px;
   }
-  /* قائمة الحروف تفضل ظاهرة وكاملة أثناء السكرول على الموبايل */
+  /* قائمة الحروف تفضل ظاهرة أثناء السكرول على الموبايل */
   .letter-rail {
     flex: 0 0 auto;
     width: 100%;

@@ -938,15 +938,15 @@ export default function MainView({
 
       <div className="app-container app-main-row">
         <aside className="letter-rail" aria-label="Alphabet">
-          {cfg.letters.map((l) => {
+          {(cfg.letters || []).map((l) => {
             const hasWords = availableLetters.has(l);
             return (
               <button
                 key={l}
                 type="button"
-                onClick={() => hasWords && jumpTo(l)}
+                onClick={() => { if (hasWords) jumpTo(l); }}
                 disabled={!hasWords}
-                className={`letter-rail-btn${hasWords ? " has-words" : " no-words"}`}
+                className={"letter-rail-btn" + (hasWords ? " has-words" : " no-words")}
                 style={{
                   fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif",
                   color: hasWords ? cfg.accent : "var(--muted, #9a948c)",

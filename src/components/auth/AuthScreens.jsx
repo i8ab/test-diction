@@ -14,6 +14,7 @@ import {
 } from "../common/Icons";
 import BrandMark from "../common/BrandMark";
 import { Shell, LanguageToggle } from "../layout/Shell";
+import DevicePicker from "../layout/DevicePicker";
 import { GenderPicker } from "../common/GenderUI";
 
 const MAX_AVATAR_BYTES = 180000;
@@ -57,7 +58,7 @@ function compressImageFile(file) {
 
 
 function AuthScreens({
-  authStage, appIsAr, appLang = "en", atr, theme, toggleTheme, toggleAppLang, onChangeAppLang,
+  authStage, appIsAr, appLang = "en", atr, theme, toggleTheme, toggleAppLang, onChangeAppLang, deviceMode = null, onChangeDeviceMode,
   moreFeaturesOpen, setMoreFeaturesOpen, goToStage,
   name, setName,
   signupUsername, setSignupUsername,
@@ -178,6 +179,14 @@ function AuthScreens({
             <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: "clamp(14px, 2vw, 18px)", color: "var(--muted-strong)", margin: "0 auto 30px", maxWidth: 560, lineHeight: 1.65 }}>
               {atr("A shared bilingual dictionary with pronunciation, quick quizzes and progress tracking — built for you and your study group.", "قاموس مشترك ثنائي اللغة فيه نطق واختبارات سريعة ومتابعة للتقدّم — مصمَّم لك ولمجموعتك.")}
             </p>
+            <div style={{ maxWidth: 720, margin: "0 auto 28px" }}>
+              <DevicePicker
+                mode={deviceMode}
+                onSelect={(id) => typeof onChangeDeviceMode === "function" && onChangeDeviceMode(id)}
+                isAr={appIsAr}
+              />
+            </div>
+
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 12 }}>
               <button type="button" onClick={() => { setAuthError(""); goToStage("login"); }} className="btn-shine touch-target" style={{ ...primaryBtnStyle, width: "auto", marginTop: 0, padding: "14px 28px", minHeight: 48 }}>
                 <LoginIcon size={16} /> {atr("Sign in", "تسجيل الدخول")}
@@ -576,6 +585,16 @@ function AuthScreens({
           dir={appIsAr ? "rtl" : "ltr"}
         >
           <LanguageToggle lang={appLang} onChangeLang={onChangeAppLang} isAr={appIsAr} onToggle={toggleAppLang} />
+          {!deviceMode && typeof onChangeDeviceMode === "function" && (
+            <div style={{ margin: "8px 0 14px" }}>
+              <DevicePicker
+                mode={deviceMode}
+                onSelect={onChangeDeviceMode}
+                isAr={appIsAr}
+                compact
+              />
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
             <BrandMark size="lg" showUnderline />
           </div>

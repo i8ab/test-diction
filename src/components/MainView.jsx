@@ -139,6 +139,7 @@ export default function MainView({
   showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount, onApproveRequest, onRejectRequest,
   toast, showToast, theme, onToggleTheme, accentTheme, onChangeAccent,
   appIsAr, appLang = "en", onToggleAppLang, onChangeAppLang,
+  deviceMode = null, onChangeDeviceMode,
   sessionStart,
   remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
   reminderTitle, onChangeReminderTitle,
@@ -675,7 +676,7 @@ export default function MainView({
                 vaultAccounts={vaultAccounts} mainAccountCode={mainAccountCode} accountCode={accountCode}
                 onSwitchAccount={onSwitchAccount} onSetMainAccount={onSetMainAccount}
                 onUnlinkVaultAccount={onUnlinkVaultAccount} onLogoutAll={onLogoutAll} onLinkAccount={onLinkAccount}
-                appLang={appLang} onChangeAppLang={onChangeAppLang}
+                appLang={appLang} onChangeAppLang={onChangeAppLang} deviceMode={deviceMode} onChangeDeviceMode={onChangeDeviceMode}
                 accentTheme={accentTheme} onChangeAccent={onChangeAccent}
                 remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={onEnableReminders} onDisableReminders={onDisableReminders} onTestReminder={onTestReminder}
                 reminderTitle={reminderTitle} onChangeReminderTitle={onChangeReminderTitle}

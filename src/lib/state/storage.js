@@ -6,6 +6,7 @@ const OFFLINE_KEY = "twoTongues.offlineCache";
 const CODE_KEY = "twoTongues.personalCode";
 const SESSION_KEY = "twoTongues.sessionId";
 const LANG_KEY = "twoTongues.appLang";
+const DEVICE_MODE_KEY = "twoTongues.deviceMode";
 const HISTORY_KEY = "twoTongues.searchHistory";
 
 // Accents must work on both light and dark (soft colors differ).
@@ -257,6 +258,49 @@ export function saveAppLang(lang) {
     localStorage.setItem(LANG_KEY, lang);
   } catch (_) {}
 }
+
+/** UI layout mode chosen by the user: mobile | tablet | desktop */
+export function loadDeviceMode() {
+  try {
+    const s = localStorage.getItem(DEVICE_MODE_KEY);
+    if (s === "mobile" || s === "tablet" || s === "desktop") return s;
+  } catch (_) {}
+  return null;
+}
+
+export function saveDeviceMode(mode) {
+  if (mode !== "mobile" && mode !== "tablet" && mode !== "desktop") return;
+  try {
+    localStorage.setItem(DEVICE_MODE_KEY, mode);
+  } catch (_) {}
+}
+
+export function clearDeviceMode() {
+  try { localStorage.removeItem(DEVICE_MODE_KEY); } catch (_) {}
+}
+
+export function applyDeviceModeToDom(mode) {
+  try {
+    const el = document.documentElement;
+    if (mode === "mobile" || mode === "tablet" || mode === "desktop") {
+      el.setAttribute("data-device", mode);
+    } else {
+      el.removeAttribute("data-device");
+    }
+  } catch (_) {}
+}
+
+export function guessDeviceMode() {
+  try {
+    const w = window.innerWidth || 1024;
+    if (w < 640) return "mobile";
+    if (w < 1024) return "tablet";
+    return "desktop";
+  } catch (_) {
+    return "desktop";
+  }
+}
+
 
 export function loadSearchHistory() {
   try {

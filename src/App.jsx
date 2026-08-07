@@ -9,6 +9,7 @@ import {
   saveSessionId, loadSessionId, generateSessionId,
   generatePersonalCode, detectDeviceIsAr, hasInviteParam,
   loadAppLang, saveAppLang,
+  loadDeviceMode, saveDeviceMode, applyDeviceModeToDom, guessDeviceMode,
 } from "./lib/state/storage";
 import {
   validateUsername, validatePassword, hashPassword, verifyPassword, verifyPasswordDetailed, migrateAccounts, normalizeUsername,
@@ -83,6 +84,20 @@ export default function DictionaryApp() {
       document.documentElement.dir = appLang === "ar" ? "rtl" : "ltr";
     } catch (_) {}
   }, [appLang]);
+
+  // Device layout mode (user-chosen): mobile | tablet | desktop
+  // null until the user picks — we still apply a soft guess for first paint.
+  const [deviceMode, setDeviceModeState] = useState(() => loadDeviceMode());
+  function setDeviceMode(mode) {
+    if (mode !== "mobile" && mode !== "tablet" && mode !== "desktop") return;
+    setDeviceModeState(mode);
+    saveDeviceMode(mode);
+    applyDeviceModeToDom(mode);
+  }
+  useEffect(() => {
+    const effective = deviceMode || guessDeviceMode();
+    applyDeviceModeToDom(effective);
+  }, [deviceMode]);
 
   const [entries, setEntries] = useState([]);
   const [entriesLoaded, setEntriesLoaded] = useState(false);
@@ -1706,7 +1721,7 @@ export default function DictionaryApp() {
   if (authStage !== "in") {
     return (
       <AuthScreens
-        authStage={authStage} appIsAr={appIsAr} appLang={appLang} atr={atr} theme={theme} toggleTheme={toggleTheme} toggleAppLang={toggleAppLang} onChangeAppLang={setAppLang}
+        authStage={authStage} appIsAr={appIsAr} appLang={appLang} atr={atr} theme={theme} toggleTheme={toggleTheme} toggleAppLang={toggleAppLang} onChangeAppLang={setAppLang} deviceMode={deviceMode} onChangeDeviceMode={setDeviceMode}
         moreFeaturesOpen={moreFeaturesOpen} setMoreFeaturesOpen={setMoreFeaturesOpen} goToStage={goToStage}
         name={name} setName={setName}
         signupUsername={signupUsername} setSignupUsername={setSignupUsername}
@@ -1739,6 +1754,7 @@ export default function DictionaryApp() {
     <MainView
       name={name} isAdmin={isAdmin} entries={entries} entriesLoaded={entriesLoaded} loadError={loadError}
       isOffline={isOffline} offlineCachedAt={offlineCachedAt}
+      deviceMode={deviceMode} onChangeDeviceMode={setDeviceMode}
       section={section} onChangeSection={changeSection} query={query} setQuery={setQuery}
       showAdd={showAdd} onOpenAdd={openAddModal} onCloseAdd={closeAddModal} persistEntries={persistEntries} saveError={saveError}
       onLogout={handleLogout}

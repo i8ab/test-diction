@@ -26,6 +26,7 @@ import {
   UsersIcon, SunIcon, MoonIcon, GlobeIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon, CheckIcon, TrashIcon, LayersIcon, LoaderIcon, SettingsIcon, BookIcon,
   SearchIcon, QuizIcon, ClockIcon, CalendarIcon, FlameIcon, StatsIcon, MicIcon, StarIcon, WandIcon,
 } from "../common/Icons";
+import DevicePicker from "./DevicePicker";
 import NumberStepper from "../common/NumberStepper";
 import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import {
@@ -180,6 +181,7 @@ const INFO_SECTIONS = [
 export default function HeaderMenu({
   theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin, onLogout, isAr,
   appLang = "en", onChangeAppLang,
+  deviceMode = null, onChangeDeviceMode = null,
   accentTheme, onChangeAccent,
   remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
   reminderTitle, onChangeReminderTitle,
@@ -214,6 +216,7 @@ export default function HeaderMenu({
   const [brandAddMode, setBrandAddMode] = useState(false);
   const [brandDraftCustom, setBrandDraftCustom] = useState("");
   const [langModalOpen, setLangModalOpen] = useState(false);
+  const [deviceModalOpen, setDeviceModalOpen] = useState(false);
   const [accentModalOpen, setAccentModalOpen] = useState(false);
   const [appearanceModalOpen, setAppearanceModalOpen] = useState(false);
   const [uiDensity, setUiDensity] = useState(() => {
@@ -815,6 +818,40 @@ export default function HeaderMenu({
                                 {T("Main", "أساسي")}
                               </button>
                             )}
+                            {typeof onUnlinkVaultAccount === "function" && (
+                              <button
+                                type="button"
+                                title={T("Remove from this device", "إزالة من هذا الجهاز")}
+                                aria-label={T("Remove from this device", "إزالة من هذا الجهاز")}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const label = va.name || va.username || va.code;
+                                  const ok = window.confirm(
+                                    T(
+                                      `Remove "${label}" from the switch list on this device only? The account stays in the database — you can sign in again anytime.`,
+                                      `تشيل "${label}" من قائمة التبديل على الجهاز ده بس؟ الحساب مش هيتشال من قاعدة البيانات — تقدر تسجّل دخول بيه في أي وقت.`
+                                    )
+                                  );
+                                  if (!ok) return;
+                                  onUnlinkVaultAccount(va.code);
+                                  if (va.code === accountCode) setOpen(false);
+                                }}
+                                style={{
+                                  border: "none",
+                                  background: "none",
+                                  color: "var(--danger)",
+                                  cursor: "pointer",
+                                  padding: "4px 6px",
+                                  flexShrink: 0,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  borderRadius: 8,
+                                }}
+                              >
+                                <TrashIcon size={14} />
+                              </button>
+                            )}
                           </div>
                         );
                       })}
@@ -936,6 +973,24 @@ export default function HeaderMenu({
                   trailing={
                     <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
                       {(UI_LANGS.find((l) => l.id === lang) || {}).native || "English"}
+                      {isAr ? " ◂" : " ▸"}
+                    </span>
+                  }
+                />
+              )}
+
+              {typeof onChangeDeviceMode === "function" && (
+                <Row
+                  tint="#19A7CE"
+                  icon={<LayersIcon size={14} />}
+                  label={T("Device layout", "واجهة الجهاز")}
+                  onClick={() => setDeviceModalOpen(true)}
+                  trailing={
+                    <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                      {deviceMode === "mobile" ? T("Phone", "موبايل")
+                        : deviceMode === "tablet" ? T("Tablet", "تابلت")
+                        : deviceMode === "desktop" ? T("Computer", "كمبيوتر")
+                        : T("Auto", "تلقائي")}
                       {isAr ? " ◂" : " ▸"}
                     </span>
                   }
@@ -1718,6 +1773,24 @@ export default function HeaderMenu({
                         </button>
                       </div>
                     </div>
+          </div>
+        </div>
+      )}
+
+
+      {deviceModalOpen && typeof onChangeDeviceMode === "function" && (
+        <div onClick={() => setDeviceModalOpen(false)} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 2600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div onClick={(e) => e.stopPropagation()} className="modal-card" role="dialog" aria-modal="true" aria-labelledby="device-modal-title" style={{ background: "var(--card)", borderRadius: 16, padding: 20, width: "100%", maxWidth: 440, boxShadow: "0 24px 60px -20px rgba(0,0,0,0.4)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <h2 id="device-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Device layout", "واجهة الجهاز")}</h2>
+              <button type="button" onClick={() => setDeviceModalOpen(false)} aria-label={T("Close", "إغلاق")} style={{ border: "none", background: "var(--input-bg)", borderRadius: 10, width: 36, height: 36, cursor: "pointer", color: "var(--icon-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}><XIcon size={18} /></button>
+            </div>
+            <DevicePicker
+              mode={deviceMode}
+              onSelect={(id) => { onChangeDeviceMode(id); setDeviceModalOpen(false); setOpen(false); }}
+              isAr={isAr}
+              compact
+            />
           </div>
         </div>
       )}

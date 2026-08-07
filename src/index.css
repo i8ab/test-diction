@@ -613,3 +613,12 @@ html[data-radius="round"] {
 .modal-card {
   border-radius: var(--modal-radius) !important;
 }
+
+
+@keyframes brandGlyphPop {
+  0% { transform: scale(0.72); opacity: 0.4; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.brand-mark-glyph {
+  /* selection uses brandGlyphPop; continuous pulse stays on .brand-mark-badge */
+}

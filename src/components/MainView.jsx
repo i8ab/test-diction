@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from "react";
 import { tr } from "../lib/config/i18n";
+import { useHistoryBackClose, haptic } from "../lib/utils/useModalDismiss";
 import { INK, PAPER, CARD, BRASS, errorStyle } from "../lib/config/theme";
 import { getSpeechRecognitionCtor, recognizeSpeech, loadArDialect, loadEnAccent, enAccentLang, startMicLevelMeter } from "../lib/utils/speech";
 import { uid, isSrsDue, computeStreak } from "../lib/utils/quizHelpers";
@@ -137,9 +138,9 @@ export default function MainView({
   srsBox, srsDueAt, quizHistory, onRecordSrsAnswer, onSaveQuizResult,
   siteBanner, onPersistSiteBanner,
   showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount, onApproveRequest, onRejectRequest,
-  toast, showToast, theme, onToggleTheme, accentTheme, onChangeAccent,
+  toast, showToast, theme, onToggleTheme, onChangeTheme, accentTheme, onChangeAccent,
   appIsAr, appLang = "en", onToggleAppLang, onChangeAppLang,
-  deviceMode = null, onChangeDeviceMode,
+  deviceMode = null, onChangeDeviceMode, uiScale = 1, onChangeUiScale,
   sessionStart,
   remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
   reminderTitle, onChangeReminderTitle,
@@ -152,6 +153,10 @@ export default function MainView({
   const sectionEntries = useMemo(() => entries.filter((e) => e.section === section), [entries, section]);
   const studiedCount = useMemo(() => sectionEntries.filter((e) => studiedIds.has(e.id)).length, [sectionEntries, studiedIds]);
   const notStudiedCount = sectionEntries.length - studiedCount;
+  const dueCountMobile = useMemo(
+    () => sectionEntries.filter((e) => studiedIds.has(e.id) && isSrsDue(e.id, srsDueAt)).length,
+    [sectionEntries, studiedIds, srsDueAt]
+  );
   const studiedPct = sectionEntries.length ? (studiedCount / sectionEntries.length) * 100 : 0;
   const notStudiedPct = 100 - studiedPct;
   const accountNameByCode = useMemo(() => Object.fromEntries(accounts.map((a) => [a.code, a.name])), [accounts]);
@@ -205,6 +210,9 @@ export default function MainView({
   const [zoomEntry, setZoomEntry] = useState(null);
   const [showQuiz, setShowQuiz] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [mobileNavTab, setMobileNavTab] = useState("words");
+
+
   const [quizDueOnly, setQuizDueOnly] = useState(false);
   const [showFlashcards, setShowFlashcards] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -226,6 +234,15 @@ export default function MainView({
   const [showGoals, setShowGoals] = useState(() => loadGoalsView().open);
   const [goalsBubble, setGoalsBubble] = useState(() => loadGoalsView().bubble);
   const [showInfoGuide, setShowInfoGuide] = useState(false);
+
+  // System back button closes the top-most overlay on mobile instead of leaving the site
+  useHistoryBackClose(showQuiz, () => { setShowQuiz(false); setQuizDueOnly(false); });
+  useHistoryBackClose(!!zoomEntry, () => setZoomEntry(null));
+  useHistoryBackClose(showAdd, () => onCloseAdd && onCloseAdd());
+  useHistoryBackClose(showGoals, () => { setShowGoals(false); setGoalsBubble(false); });
+  useHistoryBackClose(showTodo, () => { setShowTodo(false); setTodoBubble(false); });
+  useHistoryBackClose(showInfoGuide, () => setShowInfoGuide(false));
+
   const [showDictation, setShowDictation] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [showRandomWord, setShowRandomWord] = useState(false);
@@ -234,6 +251,9 @@ export default function MainView({
 
   useEffect(() => { setWordNotes(loadWordNotes(accountCode)); }, [accountCode]);
   useEffect(() => { saveFocusMode(focusMode); }, [focusMode]);
+  useEffect(() => {
+    try { document.documentElement.setAttribute("data-focus-mode", focusMode ? "1" : "0"); } catch (_) {}
+  }, [focusMode]);
 
 
   // Persist timer page across refresh until the user closes it themselves.
@@ -520,7 +540,7 @@ export default function MainView({
     if (target) setZoomEntry(target);
   }, [entries]);
 
-  const handleToggleStudiedById = useCallback((id) => { onToggleStudied(id); }, [onToggleStudied]);
+  const handleToggleStudiedById = useCallback((id) => { haptic(12); onToggleStudied(id); }, [onToggleStudied]);
   const handleToggleFavoriteById = useCallback((id) => { onToggleFavorite(id); }, [onToggleFavorite]);
   async function handleUndoDelete() {
     if (!undoDelete) return;
@@ -672,12 +692,12 @@ export default function MainView({
                   return ini.toUpperCase();
                 })()}
               </button>
-              <HeaderMenu theme={theme} onToggleTheme={onToggleTheme} isAdmin={isAdmin}
+              <HeaderMenu theme={theme} onToggleTheme={onToggleTheme} onChangeTheme={onChangeTheme} isAdmin={isAdmin}
                 onOpenAccount={onOpenAccount} onOpenAdmin={onOpenAdmin} onLogout={onLogout} isAr={appIsAr}
                 vaultAccounts={vaultAccounts} mainAccountCode={mainAccountCode} accountCode={accountCode}
                 onSwitchAccount={onSwitchAccount} onSetMainAccount={onSetMainAccount}
                 onUnlinkVaultAccount={onUnlinkVaultAccount} onLogoutAll={onLogoutAll} onLinkAccount={onLinkAccount}
-                appLang={appLang} onChangeAppLang={onChangeAppLang} deviceMode={deviceMode} onChangeDeviceMode={onChangeDeviceMode}
+                appLang={appLang} onChangeAppLang={onChangeAppLang} deviceMode={deviceMode} onChangeDeviceMode={onChangeDeviceMode} uiScale={uiScale} onChangeUiScale={onChangeUiScale}
                 accentTheme={accentTheme} onChangeAccent={onChangeAccent}
                 remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={onEnableReminders} onDisableReminders={onDisableReminders} onTestReminder={onTestReminder}
                 reminderTitle={reminderTitle} onChangeReminderTitle={onChangeReminderTitle}
@@ -743,7 +763,7 @@ export default function MainView({
       </header>
 
       <div className="app-container" style={{ margin: "0 auto", padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px) 0" }}>
-        <div className="toolbar-row" style={{ display: "flex", gap: 10, flexWrap: "wrap", position: "relative", zIndex: 50 }}>
+        <div className="toolbar-row mobile-sticky-search" style={{ display: "flex", gap: 10, flexWrap: "wrap", position: "relative", zIndex: 50 }}>
           <div className="toolbar-anim toolbar-search-wrap" style={{ position: "relative", flex: "1 1 240px", animationDelay: "0.02s", zIndex: 50 }}>
             <SearchIcon size={16} color="var(--icon-muted)" style={{ position: "absolute", insetInlineStart: 12, top: "50%", transform: "translateY(-50%)" }} />
             <input
@@ -1061,6 +1081,7 @@ export default function MainView({
                         isAdmin={isAdmin}
                         isAr={appIsAr}
                         mobileLayout={deviceMode === "mobile"}
+                        tabletLayout={deviceMode === "tablet"}
                         canEdit={isAdmin || e.addedBy === accountCode}
                         onDelete={handleDelete}
                         onEdit={handleEditRequest}
@@ -1389,7 +1410,7 @@ export default function MainView({
     )}
 
     {/* Always-available floating Goals button (above To-do) — hidden on mobile (bottom nav) */}
-    {!showGoals && !focusMode && deviceMode !== "mobile" && (
+    {!showGoals && !focusMode && deviceMode !== "mobile" && deviceMode !== "tablet" && (
       <button
         type="button"
         className="fab-glow fab-glow--goals"
@@ -1421,7 +1442,7 @@ export default function MainView({
     )}
 
     {/* Always-available floating To-do button — hidden on mobile (bottom nav) */}
-    {!showTodo && !focusMode && deviceMode !== "mobile" && (
+    {!showTodo && !focusMode && deviceMode !== "mobile" && deviceMode !== "tablet" && (
       <button
         type="button"
         className="fab-glow fab-glow--todo"
@@ -1466,13 +1487,50 @@ export default function MainView({
       </button>
     )}
 
+
+    {/* Tablet side dock — quick actions without crowding the header */}
+    {deviceMode === "tablet" && !focusMode && (
+      <aside className="tablet-side-dock" aria-label={tr(appIsAr, "Quick actions", "إجراءات سريعة")}>
+        <button type="button" className="tablet-dock-btn" onClick={() => onOpenAdd && onOpenAdd()} title={tr(appIsAr, "Add word", "إضافة كلمة")}>
+          <PlusIcon size={22} />
+          <span>{tr(appIsAr, "Add", "إضافة")}</span>
+        </button>
+        <button
+          type="button"
+          className={"tablet-dock-btn" + (showQuiz ? " is-active" : "")}
+          onClick={() => { setQuizDueOnly(false); setShowQuiz(true); }}
+          onContextMenu={(e) => { e.preventDefault(); setQuizDueOnly(true); setShowQuiz(true); }}
+          title={tr(appIsAr, "Tap: quiz · Long-press: due only", "ضغط: اختبار · ضغطة طويلة: المستحق فقط")}
+        >
+          <span className="mobile-nav-icon-wrap">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            {dueCountMobile > 0 && <span className="mobile-nav-badge">{dueCountMobile > 9 ? "9+" : dueCountMobile}</span>}
+          </span>
+          <span>{tr(appIsAr, "Quiz", "اختبار")}</span>
+        </button>
+        <button type="button" className={"tablet-dock-btn" + (showGoals ? " is-active" : "")} onClick={() => { setGoalsBubble(false); setShowGoals(true); }} title={tr(appIsAr, "Goals", "أهداف")}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          <span>{tr(appIsAr, "Goals", "أهداف")}</span>
+        </button>
+        <button type="button" className={"tablet-dock-btn" + (showTodo ? " is-active" : "")} onClick={() => { setTodoBubble(false); setShowTodo(true); }} title={tr(appIsAr, "To-do", "مهام")}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M3 12h6M3 6h6M3 18h6"/></svg>
+          <span>{tr(appIsAr, "To-do", "مهام")}</span>
+        </button>
+        <button type="button" className="tablet-dock-btn" onClick={() => onOpenAccount && onOpenAccount()} title={tr(appIsAr, "Account", "حسابي")}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          <span>{tr(appIsAr, "Account", "حسابي")}</span>
+        </button>
+      </aside>
+    )}
+
     {/* Mobile bottom navigation — only when user chose Phone layout */}
     {deviceMode === "mobile" && !focusMode && (
       <nav className="mobile-bottom-nav" aria-label={tr(appIsAr, "Main navigation", "التنقل الرئيسي")}>
         <button
           type="button"
-          className="mobile-bottom-nav-item is-active"
+          className={"mobile-bottom-nav-item" + (mobileNavTab === "words" ? " is-active" : "")}
           onClick={() => {
+            setMobileNavTab("words");
             try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (_) {}
           }}
         >
@@ -1484,21 +1542,26 @@ export default function MainView({
         </button>
         <button
           type="button"
-          className="mobile-bottom-nav-item"
-          onClick={() => { setQuizDueOnly(false); setShowQuiz(true); }}
-          onContextMenu={(e) => { e.preventDefault(); setQuizDueOnly(true); setShowQuiz(true); }}
+          className={"mobile-bottom-nav-item" + (mobileNavTab === "quiz" || showQuiz ? " is-active" : "")}
+          onClick={() => { setMobileNavTab("quiz"); setQuizDueOnly(false); setShowQuiz(true); }}
+          onContextMenu={(e) => { e.preventDefault(); setMobileNavTab("quiz"); setQuizDueOnly(true); setShowQuiz(true); }}
           title={tr(appIsAr, "Tap: quiz · Long-press: due only", "ضغط: اختبار · ضغطة طويلة: المستحق فقط")}
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <path d="M9 11l3 3L22 4" />
-            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-          </svg>
+          <span className="mobile-nav-icon-wrap">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M9 11l3 3L22 4" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+            </svg>
+            {dueCountMobile > 0 && (
+              <span className="mobile-nav-badge">{dueCountMobile > 9 ? "9+" : dueCountMobile}</span>
+            )}
+          </span>
           <span>{tr(appIsAr, "Quiz", "اختبار")}</span>
         </button>
         <button
           type="button"
-          className="mobile-bottom-nav-item"
-          onClick={() => { setGoalsBubble(false); setShowGoals(true); }}
+          className={"mobile-bottom-nav-item" + (mobileNavTab === "goals" || showGoals ? " is-active" : "")}
+          onClick={() => { setMobileNavTab("goals"); setGoalsBubble(false); setShowGoals(true); }}
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <circle cx="12" cy="12" r="9" />
@@ -1508,8 +1571,8 @@ export default function MainView({
         </button>
         <button
           type="button"
-          className="mobile-bottom-nav-item"
-          onClick={() => { setTodoBubble(false); setShowTodo(true); }}
+          className={"mobile-bottom-nav-item" + (mobileNavTab === "todo" || showTodo ? " is-active" : "")}
+          onClick={() => { setMobileNavTab("todo"); setTodoBubble(false); setShowTodo(true); }}
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M9 11l3 3L22 4" />
@@ -1521,8 +1584,8 @@ export default function MainView({
         </button>
         <button
           type="button"
-          className="mobile-bottom-nav-item"
-          onClick={() => onOpenAccount && onOpenAccount()}
+          className={"mobile-bottom-nav-item" + (mobileNavTab === "account" ? " is-active" : "")}
+          onClick={() => { setMobileNavTab("account"); onOpenAccount && onOpenAccount(); }}
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <circle cx="12" cy="8" r="4" />

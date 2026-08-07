@@ -5,7 +5,7 @@ import {
   loadSavedAccent, saveAccent, applyAccentTheme, ACCENT_THEMES, THEME_KEY,
   loadCustomAccentHex, saveCustomAccentHex,
   loadSearchHistory, saveSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory,
-  saveOfflineCache, loadOfflineCache, loadSavedTheme, savePersonalCode, loadPersonalCode, clearPersonalCode,
+  saveOfflineCache, loadOfflineCache, loadSavedTheme, resolveTheme, loadUiScale, saveUiScale, savePersonalCode, loadPersonalCode, clearPersonalCode,
   saveSessionId, loadSessionId, generateSessionId,
   generatePersonalCode, detectDeviceIsAr, hasInviteParam,
   loadAppLang, saveAppLang,
@@ -165,9 +165,37 @@ export default function DictionaryApp() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
+    const resolved = resolveTheme(theme);
+    document.documentElement.setAttribute("data-theme", resolved);
+    document.documentElement.setAttribute("data-theme-pref", theme);
     try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
   }, [theme]);
+
+  // Follow OS dark/light when preference is "system"
+  useEffect(() => {
+    if (theme !== "system") return undefined;
+    let mq;
+    try { mq = window.matchMedia("(prefers-color-scheme: dark)"); } catch (_) { return undefined; }
+    const apply = () => {
+      document.documentElement.setAttribute("data-theme", resolveTheme("system"));
+    };
+    apply();
+    try { mq.addEventListener("change", apply); return () => mq.removeEventListener("change", apply); }
+    catch (_) {
+      try { mq.addListener(apply); return () => mq.removeListener(apply); } catch (__) {}
+    }
+    return undefined;
+  }, [theme]);
+
+  const [uiScale, setUiScaleState] = useState(() => loadUiScale());
+  function setUiScale(scale) {
+    setUiScaleState(scale);
+    saveUiScale(scale);
+    try { document.documentElement.style.setProperty("--ui-scale", String(scale)); } catch (_) {}
+  }
+  useEffect(() => {
+    try { document.documentElement.style.setProperty("--ui-scale", String(uiScale)); } catch (_) {}
+  }, [uiScale]);
 
   useEffect(() => { entriesRef.current = entries; }, [entries]);
   useEffect(() => { accountsRef.current = accounts; }, [accounts]);
@@ -178,7 +206,7 @@ export default function DictionaryApp() {
   // or the light/dark mode changes (each accent has its own light+dark
   // variant so contrast stays correct either way).
   useEffect(() => {
-    applyAccentTheme(accentTheme, theme, accentTheme === 'custom' ? loadCustomAccentHex() : null);
+    applyAccentTheme(accentTheme, resolveTheme(theme), accentTheme === 'custom' ? loadCustomAccentHex() : null);
     saveAccent(accentTheme);
   }, [accentTheme, theme]);
 
@@ -194,7 +222,12 @@ export default function DictionaryApp() {
   }, []);
 
   function toggleTheme() {
-    setTheme((t) => (t === "dark" ? "light" : "dark"));
+    setTheme((t) => {
+      // cycle light → dark → system → light
+      if (t === "light") return "dark";
+      if (t === "dark") return "system";
+      return "light";
+    });
   }
 
   /* =======================================================================
@@ -1754,7 +1787,7 @@ export default function DictionaryApp() {
     <MainView
       name={name} isAdmin={isAdmin} entries={entries} entriesLoaded={entriesLoaded} loadError={loadError}
       isOffline={isOffline} offlineCachedAt={offlineCachedAt}
-      deviceMode={deviceMode} onChangeDeviceMode={setDeviceMode}
+      deviceMode={deviceMode} onChangeDeviceMode={setDeviceMode} uiScale={uiScale} onChangeUiScale={setUiScale}
       section={section} onChangeSection={changeSection} query={query} setQuery={setQuery}
       showAdd={showAdd} onOpenAdd={openAddModal} onCloseAdd={closeAddModal} persistEntries={persistEntries} saveError={saveError}
       onLogout={handleLogout}
@@ -1776,7 +1809,7 @@ export default function DictionaryApp() {
       onAdminAddAccount={handleAdminAddAccount} onAdminEditAccount={handleAdminEditAccount} onAdminDeleteAccount={handleAdminDeleteAccount}
       onApproveRequest={handleApproveRequest} onRejectRequest={handleRejectRequest}
       toast={toast} showToast={showToast}
-      theme={theme} onToggleTheme={toggleTheme}
+      theme={theme} onToggleTheme={toggleTheme} onChangeTheme={setTheme}
       accentTheme={accentTheme} onChangeAccent={setAccentTheme}
       appIsAr={appIsAr} appLang={appLang} onToggleAppLang={toggleAppLang} onChangeAppLang={setAppLang}
       sessionStart={sessionStartRef.current}

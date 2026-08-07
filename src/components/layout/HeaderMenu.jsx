@@ -181,7 +181,7 @@ const INFO_SECTIONS = [
 export default function HeaderMenu({
   theme, onToggleTheme, isAdmin, onOpenAccount, onOpenAdmin, onLogout, isAr,
   appLang = "en", onChangeAppLang,
-  deviceMode = null, onChangeDeviceMode = null,
+  deviceMode = null, onChangeDeviceMode = null, uiScale = 1, onChangeUiScale = null,
   accentTheme, onChangeAccent,
   remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
   reminderTitle, onChangeReminderTitle,
@@ -2018,7 +2018,7 @@ export default function HeaderMenu({
               {T("Mode", "الوضع")}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
-              <button type="button" onClick={() => { if (theme === "dark") onToggleTheme(); }} className="touch-target"
+              <button type="button" onClick={() => onChangeTheme ? onChangeTheme("light") : onToggleTheme()} className="touch-target"
                 style={{
                   minHeight: 48, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
                   border: theme === "light" ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
@@ -2027,7 +2027,7 @@ export default function HeaderMenu({
                 }}>
                 <SunIcon size={16} /> {T("Light", "فاتح")}
               </button>
-              <button type="button" onClick={() => { if (theme === "light") onToggleTheme(); }} className="touch-target"
+              <button type="button" onClick={() => onChangeTheme ? onChangeTheme("dark") : onToggleTheme()} className="touch-target"
                 style={{
                   minHeight: 48, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
                   border: theme === "dark" ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
@@ -2035,6 +2035,15 @@ export default function HeaderMenu({
                   color: "var(--ink)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 }}>
                 <MoonIcon size={16} /> {T("Dark", "داكن")}
+              </button>
+              <button type="button" onClick={() => onChangeTheme && onChangeTheme("system")} className="touch-target"
+                style={{
+                  minHeight: 48, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
+                  border: theme === "system" ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                  background: theme === "system" ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                  color: "var(--ink)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                }}>
+                <GlobeIcon size={16} /> {T("System", "النظام")}
               </button>
             </div>
 
@@ -2064,6 +2073,27 @@ export default function HeaderMenu({
                 {T("Compact", "مضغوط")}
               </button>
             </div>
+
+            {typeof onChangeUiScale === "function" && (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted-strong)", margin: "14px 0 8px" }}>
+                  {T("Text size", "حجم الخط")}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 8 }}>
+                  {[0.9, 1, 1.1, 1.2].map((s) => (
+                    <button key={s} type="button" onClick={() => onChangeUiScale(s)} className="touch-target"
+                      style={{
+                        minHeight: 44, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
+                        border: uiScale === s ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                        background: uiScale === s ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                        color: "var(--ink)",
+                      }}>
+                      {s === 0.9 ? "S" : s === 1 ? "M" : s === 1.1 ? "L" : "XL"}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
             <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
               {T("Modal corners", "دائرية النوافذ")}

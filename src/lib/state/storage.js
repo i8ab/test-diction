@@ -7,6 +7,7 @@ const CODE_KEY = "twoTongues.personalCode";
 const SESSION_KEY = "twoTongues.sessionId";
 const LANG_KEY = "twoTongues.appLang";
 const DEVICE_MODE_KEY = "twoTongues.deviceMode";
+const UI_SCALE_KEY = "twoTongues.uiScale";
 const HISTORY_KEY = "twoTongues.searchHistory";
 
 // Accents must work on both light and dark (soft colors differ).
@@ -103,11 +104,31 @@ export function buildCustomAccent(hex) {
 export function loadSavedTheme() {
   try {
     const t = localStorage.getItem(THEME_KEY);
-    return t === "dark" || t === "light" ? t : "light";
-  } catch (_) {
-    return "light";
-  }
+    if (t === "dark" || t === "light" || t === "system") return t;
+  } catch (_) {}
+  return "system";
 }
+
+export function resolveTheme(theme) {
+  if (theme === "dark" || theme === "light") return theme;
+  try {
+    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
+  } catch (_) {}
+  return "light";
+}
+
+export function loadUiScale() {
+  try {
+    const n = Number(localStorage.getItem(UI_SCALE_KEY));
+    if (n === 0.9 || n === 1 || n === 1.1 || n === 1.2) return n;
+  } catch (_) {}
+  return 1;
+}
+
+export function saveUiScale(scale) {
+  try { localStorage.setItem(UI_SCALE_KEY, String(scale)); } catch (_) {}
+}
+
 
 export function loadSavedAccent() {
   try {

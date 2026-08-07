@@ -17,7 +17,7 @@ import {
   EyeIcon, EyeOffIcon, SpeakButton,
 } from "./Icons";
 
-function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpenZoom, isStudied, onToggleStudied, isFavorite, onToggleFavorite, addedByLabel, editedByLabel, wordNote = "", onSaveNote, mobileLayout = false }) {
+function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpenZoom, isStudied, onToggleStudied, isFavorite, onToggleFavorite, addedByLabel, editedByLabel, wordNote = "", onSaveNote, mobileLayout = false, tabletLayout = false }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const [open, setOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState(wordNote || "");
@@ -27,7 +27,7 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
   const isEnglishWord = cfg.wordDir === "ltr";
   const isExpandable = true; // always expandable so personal notes are reachable
   return (
-    <div className={`lift-hover entry-card${mobileLayout ? " entry-card--mobile" : ""}`} style={{ background: CARD, border: "1px solid rgba(var(--border-rgb),0.1)", borderInlineStart: `3px solid ${isStudied ? "var(--success)" : cfg.accent}`, borderRadius: 3, padding: "9px 14px", display: "flex", justifyContent: "space-between", gap: 12, animation: "fadeInUp 0.35s ease both" }}>
+    <div className={`lift-hover entry-card${mobileLayout ? " entry-card--mobile" : ""}${tabletLayout ? " entry-card--tablet" : ""}`} style={{ background: CARD, border: "1px solid rgba(var(--border-rgb),0.1)", borderInlineStart: `3px solid ${isStudied ? "var(--success)" : cfg.accent}`, borderRadius: 3, padding: "9px 14px", display: "flex", justifyContent: "space-between", gap: 12, animation: "fadeInUp 0.35s ease both" }}>
       <div
         style={{ flex: 1, minWidth: 0, cursor: isExpandable ? "pointer" : "default" }}
         onClick={isExpandable ? () => setOpen((o) => !o) : undefined}

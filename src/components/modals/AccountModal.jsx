@@ -109,6 +109,7 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
       name: nameInput,
       password: changePassword && passwordInput ? passwordInput : undefined,
       avatar: avatar || "",
+      gender: gender || "",
     });
     setSaving(false);
     if (result && result.error) {

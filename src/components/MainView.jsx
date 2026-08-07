@@ -622,7 +622,7 @@ export default function MainView({
         minHeight: "100dvh",
         background: PAPER,
         fontFamily: "'Source Sans 3', sans-serif",
-        overflowX: "hidden",
+        /* لا نضع overflow هنا — overflow-x:hidden على عنصر وسيط يكسر position:sticky لقائمة الحروف */
         maxWidth: "100%",
         display: (showTimer && !timerBubble) || (showCalendar && !calendarBubble) || (showTodo && !todoBubble) || (showGoals && !goalsBubble) ? "none" : undefined,
       }}
@@ -965,17 +965,62 @@ export default function MainView({
             <EmptyState hasQuery={!!query.trim() || studyFilter !== "all"} onAdd={onOpenAdd} accent={cfg.accent} isAr={appIsAr} />
           ) : (
             <>
-              {/* قائمة متصلة — طولها = عدد الكلمات، من غير عناوين حروف فواصل */}
+              {/* قائمة بالكلمات مع شريط فاصل عند بداية كل حرف */}
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {flatSorted.slice(0, visibleCount).map((e, idx) => {
                   const letterKey = firstLetterKey(e.word, section);
                   const prevLetter = idx > 0 ? firstLetterKey(flatSorted[idx - 1].word, section) : null;
                   const isFirstOfLetter = letterKey && letterKey !== prevLetter;
+                  const letterCount = (grouped[letterKey] && grouped[letterKey].length) || 0;
                   return (
                     <div
                       key={e.id}
                       ref={isFirstOfLetter ? ((el) => { letterRefs.current[letterKey] = el; }) : undefined}
                     >
+                      {isFirstOfLetter && (
+                        <div
+                          className="letter-divider"
+                          aria-label={letterKey}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            marginTop: idx === 0 ? 0 : 8,
+                            marginBottom: 4,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif",
+                              fontSize: 15,
+                              fontWeight: 700,
+                              color: cfg.accent,
+                              lineHeight: 1,
+                              minWidth: 22,
+                              textAlign: "center",
+                            }}
+                          >
+                            {letterKey}
+                          </span>
+                          <div
+                            style={{
+                              flex: 1,
+                              height: 1,
+                              background: `linear-gradient(${cfg.dir === "rtl" ? "270deg" : "90deg"}, ${cfg.accent}55, rgba(var(--border-rgb),0.12) 70%)`,
+                            }}
+                          />
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: "var(--muted)",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {letterCount}
+                          </span>
+                        </div>
+                      )}
                       <EntryCard
                         entry={e}
                         cfg={cfg}

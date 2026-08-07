@@ -215,6 +215,8 @@
     z-index: 3000;
     height: 40px;
     overflow: hidden;
+    width: 100%;
+    max-width: 100%;
   }
   .site-banner-ticker {
     position: absolute;
@@ -809,4 +811,222 @@ button,
 .gender-pick-btn .gender-symbol {
   font-size: 20px;
   animation: genderSpinSoft 3.2s ease-in-out infinite;
+}
+
+/* ============================================================
+   استجابة الموبايل الشاملة — من 320px إلى الديسكتوب
+   ============================================================ */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+  min-width: 0;
+  /* دعم النوتش والحواف الآمنة */
+  padding-top: env(safe-area-inset-top, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-left: env(safe-area-inset-left, 0);
+  padding-right: env(safe-area-inset-right, 0);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* منع أي عنصر من فرض عرض أكبر من الشاشة */
+.app-container,
+.modal-card,
+.modal-backdrop,
+.auth-card {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* صفوف الفلاتر والأزرار على الموبايل */
+.filter-chip-row,
+.study-filter-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+  max-width: 100%;
+}
+.filter-chip-row::-webkit-scrollbar,
+.study-filter-row::-webkit-scrollbar {
+  display: none;
+}
+.filter-chip-row > *,
+.study-filter-row > * {
+  flex: 0 0 auto;
+}
+
+/* المودالات على الشاشات الصغيرة */
+@media (max-width: 640px) {
+  .modal-backdrop {
+    padding: 12px !important;
+    padding-top: max(12px, env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important;
+    align-items: flex-end !important; /* bottom sheet feel على الموبايل لبعض الحالات */
+  }
+
+  /* معظم المودالات تفضل التوسيط مع ارتفاع مرن */
+  .modal-backdrop.modal-center,
+  .modal-backdrop {
+    align-items: center !important;
+  }
+
+  .modal-card,
+  .responsive-modal,
+  .auth-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: min(92dvh, 92vh) !important;
+    margin: 0 auto !important;
+    border-radius: 16px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* بانر الموقع — ارتفاع ونص أوضح على الموبايل */
+  .site-banner {
+    height: 34px;
+    max-height: 34px;
+  }
+  .site-banner-ticker {
+    font-size: 12.5px !important;
+    line-height: 34px !important;
+    letter-spacing: 0.02em;
+  }
+  /* الهيدر تحت البانر يبقى واضح */
+  header {
+    top: 0;
+  }
+
+  /* الهيدر */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+  }
+
+  /* تبويبات الأقسام */
+  header .section-tab {
+    font-size: 13px !important;
+    padding: 8px 10px !important;
+    min-height: 40px;
+  }
+
+  /* شريط الأدوات */
+  .toolbar-row {
+    gap: 8px !important;
+  }
+
+  /* أزرار عائمة — بعيدة عن الحافة الآمنة */
+  .fab-stack,
+  .floating-actions {
+    bottom: max(16px, env(safe-area-inset-bottom, 0px)) !important;
+    right: max(12px, env(safe-area-inset-right, 0px)) !important;
+    left: auto !important;
+  }
+
+  /* بطاقات الكلمات */
+  .word-card,
+  .lift-hover.word-card {
+    padding-inline: 12px !important;
+  }
+
+  /* تقليل المسافات العامة */
+  .app-container {
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+  }
+
+  /* حقول الإدخال لا تعمل زوم تلقائي على iOS لو الخط >= 16 */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* شبكة الداشبورد */
+  .dashboard-stat-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+}
+
+/* شاشات ضيقة جداً (320–380) */
+@media (max-width: 380px) {
+  .app-container {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  header .section-tab {
+    font-size: 12px !important;
+    padding: 7px 8px !important;
+  }
+
+  .gender-pick {
+    flex-direction: column;
+  }
+  .gender-pick-btn {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .modal-card {
+    padding: 16px 14px 20px !important;
+  }
+}
+
+/* أفقياً على الموبايل (landscape) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .modal-card {
+    max-height: 96dvh !important;
+  }
+  .site-banner {
+    height: 28px;
+  }
+}
+
+/* منع السكرول الأفقي لأي صف flex */
+.no-x-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* نصوص طويلة لا تكسر التخطيط */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.text-wrap-safe {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }

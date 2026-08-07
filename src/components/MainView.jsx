@@ -617,9 +617,11 @@ export default function MainView({
     <div
       dir={cfg.dir}
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background: PAPER,
         fontFamily: "'Source Sans 3', sans-serif",
+        overflowX: "hidden",
+        maxWidth: "100%",
         display: (showTimer && !timerBubble) || (showCalendar && !calendarBubble) || (showTodo && !todoBubble) || (showGoals && !goalsBubble) ? "none" : undefined,
       }}
       aria-hidden={(showTimer && !timerBubble) || (showCalendar && !calendarBubble) || (showTodo && !todoBubble) || (showGoals && !goalsBubble) ? true : undefined}
@@ -873,7 +875,7 @@ export default function MainView({
             </div>
           )}
         </div>
-        <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+        <div className="study-filter-row" className="study-filter-row" style={{ display: "flex", gap: 10, marginTop: 10 }}>
           {[
             { key: "all", label: tr(isAr, "All", "الكل") },
             { key: "studied", label: tr(isAr, "Studied", "تمت دراستها") },
@@ -891,7 +893,7 @@ export default function MainView({
             );
           })}
         </div>
-        <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
+        <div className="filter-chip-row" className="filter-chip-row" style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "nowrap", alignItems: "center", maxWidth: "100%" }}>
           <select value={posFilter} onChange={(e) => setPosFilter(e.target.value)}
             aria-label={tr(isAr, "Part of speech", "نوع الكلمة")}
             style={{ fontSize: 12, padding: "5px 10px", borderRadius: 16, border: "1px solid rgba(var(--border-rgb),0.25)", background: "var(--card)", color: "var(--ink)", fontWeight: 600 }}>

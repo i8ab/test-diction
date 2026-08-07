@@ -463,6 +463,7 @@ function AuthScreens({
     return (
       <Shell>
         {/* ستارة سوداء + ضوء كشاف أصفر على كلمة المرور */}
+        {/* ستارة سودة تقيلة — النور الأصفر على حقل كلمة المرور فقط */}
         {showLoginPw && (
           <div
             aria-hidden="true"
@@ -471,8 +472,9 @@ function AuthScreens({
               position: "fixed",
               inset: 0,
               zIndex: 5000,
-              background: `radial-gradient(circle 140px at ${spot.x} ${spot.y}, rgba(255, 200, 40, 0.14) 0%, rgba(255, 180, 0, 0.06) 28%, rgba(0, 0, 0, 0.72) 55%, rgba(0, 0, 0, 0.94) 75%, #000 100%)`,
-              transition: "background 0.2s ease",
+              /* أسود شبه كامل، فتحة ضيقة صفراء حول حقل الباسورد فقط */
+              background: `radial-gradient(circle 90px at ${spot.x} ${spot.y}, rgba(255, 210, 60, 0.22) 0%, rgba(255, 180, 0, 0.08) 22%, rgba(0, 0, 0, 0.92) 42%, #000000 58%, #000000 100%)`,
+              transition: "background 0.15s ease",
               cursor: "pointer",
             }}
           />
@@ -483,14 +485,9 @@ function AuthScreens({
             ...authCardStyle,
             maxWidth: "min(420px, 100%)",
             position: "relative",
-            zIndex: showLoginPw ? 5001 : "auto",
-            ...(showLoginPw
-              ? {
-                  background: "rgba(12, 10, 0, 0.92)",
-                  border: "1px solid rgba(255, 200, 0, 0.2)",
-                  boxShadow: "0 0 40px rgba(255, 180, 0, 0.12)",
-                }
-              : {}),
+            /* الكارت كله تحت الستارة — غير حقل الباسورد اللي فوقها */
+            zIndex: "auto",
+            isolation: showLoginPw ? "auto" : "auto",
           }}
           dir={appIsAr ? "rtl" : "ltr"}
         >
@@ -509,7 +506,19 @@ function AuthScreens({
               <label style={labelStyle} htmlFor="login-username"><UserIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Username", "اسم المستخدم")}</label>
               <input id="login-username" value={usernameInput} onChange={(e) => setUsernameInput(e.target.value.replace(/\s/g, "").toLowerCase())} placeholder={atr("Your username", "اسم المستخدم")} style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace" }} autoFocus autoCapitalize="off" autoCorrect="off" autoComplete="username" spellCheck={false} dir="ltr" />
             </div>
-            <div className="auth-field-2" ref={loginPwWrapRef} style={{ position: "relative", zIndex: showLoginPw ? 5002 : "auto" }}>
+            <div className="auth-field-2" ref={loginPwWrapRef} style={{
+                position: "relative",
+                zIndex: showLoginPw ? 5002 : "auto",
+                ...(showLoginPw
+                  ? {
+                      padding: "12px 12px 10px",
+                      marginInline: -12,
+                      borderRadius: 14,
+                      background: "rgba(20, 14, 0, 0.95)",
+                      boxShadow: "0 0 0 1px rgba(255, 200, 0, 0.35), 0 0 32px rgba(255, 190, 0, 0.35)",
+                    }
+                  : {}),
+              }}>
               <label
                 style={{
                   ...labelStyle,

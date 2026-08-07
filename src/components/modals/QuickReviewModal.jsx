@@ -80,7 +80,7 @@ export default function QuickReviewModal({
       aria-modal="true"
       aria-label={tr(isAr, "Quick review", "مراجعة سريعة")}
       style={{
-        position: "fixed", inset: 0, zIndex: 5000,
+        position: "fixed", inset: 0, zIndex: 6000,
         background: "rgba(0,0,0,0.5)",
         display: "flex", alignItems: "center", justifyContent: "center",
         padding: 16,

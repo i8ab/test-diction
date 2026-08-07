@@ -326,7 +326,7 @@ export default function CalendarPage({
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 5000,
+        zIndex: 6000,
         background: "var(--paper)",
         display: "flex",
         flexDirection: "column",

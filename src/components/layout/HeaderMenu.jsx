@@ -572,148 +572,29 @@ export default function HeaderMenu({
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button onClick={() => setOpen((o) => !o)} title={T( "Menu", "القائمة")} aria-label={T( "Menu", "القائمة")} aria-expanded={open} className="lift-hover touch-target"
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, border: "1px solid rgba(var(--border-rgb),0.25)", background: "none", color: "var(--icon-muted)", borderRadius: 10, cursor: "pointer", position: "relative", flexShrink: 0 }}>
-        <MenuIcon size={16} />
-        {isAdmin && pendingCount > 0 && (
-          <span style={{
-            position: "absolute", top: -3, insetInlineEnd: -3, minWidth: 16, height: 16, borderRadius: 8,
-            background: "var(--danger)", color: "#fff", fontSize: 10, fontWeight: 700,
-            display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px",
-            boxShadow: "0 0 0 2px var(--card)",
-          }}>{pendingCount > 9 ? "9+" : pendingCount}</span>
-        )}
+      <button
+        onClick={() => setSettingsOpen(true)}
+        title={T("Settings", "الإعدادات")}
+        aria-label={T("Settings", "الإعدادات")}
+        aria-expanded={settingsOpen}
+        className="lift-hover touch-target"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 36,
+          height: 36,
+          border: "1px solid rgba(var(--border-rgb),0.25)",
+          background: "none",
+          color: "var(--icon-muted)",
+          borderRadius: 10,
+          cursor: "pointer",
+          position: "relative",
+          flexShrink: 0,
+        }}
+      >
+        <SettingsIcon size={16} />
       </button>
-      {open && typeof document !== "undefined" && createPortal(
-        <>
-          <style>{`
-            .header-menu-item { transition: background 0.12s ease; }
-            .header-menu-item:hover:not(:disabled) { background: var(--input-bg); }
-            .header-menu-item:active:not(:disabled) { background: var(--input-bg); opacity: 0.9; }
-            .header-menu-swatch { transition: box-shadow 0.12s ease; }
-            .header-menu-backdrop {
-              position: fixed; inset: 0; z-index: 3200;
-              background: rgba(0,0,0,0.55);
-              display: flex; align-items: center; justify-content: center;
-              padding: max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom));
-            }
-            .header-menu-panel {
-              position: relative;
-              width: 100%;
-              max-width: 420px;
-              min-width: 0;
-              background: var(--card); border: 1px solid rgba(var(--border-rgb),0.14);
-              border-radius: 16px;
-              box-shadow: 0 24px 60px -12px rgba(0,0,0,0.4);
-              overflow: hidden;
-              z-index: 3201;
-              display: flex;
-              flex-direction: column;
-              max-height: min(92dvh, 92vh);
-            }
-          `}</style>
-          <div
-            id="header-menu-modal"
-            className="header-menu-backdrop modal-backdrop"
-            role="presentation"
-            onClick={(e) => { /* Menu stays open unless user presses the X */ }}
-          >
-          <div className="header-menu-panel modal-card" role="dialog" aria-modal="true" aria-label={T("Menu", "القائمة")} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px 10px", flexShrink: 0, borderBottom: "1px solid rgba(var(--border-rgb),0.1)", position: "sticky", top: 0, zIndex: 2, background: "color-mix(in srgb, var(--card) 94%, transparent)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}>
-              <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted-strong)" }}>
-                {T( "Menu", "القائمة")}
-              </span>
-              <button
-                type="button"
-                aria-label={T( "Close", "إغلاق")}
-                className="touch-target"
-                onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); closeMenu(); }}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: "50%", color: "var(--icon-muted)", background: "var(--input-bg)", border: "none", cursor: "pointer" }}
-              >
-                <XIcon size={14} />
-              </button>
-            </div>
-            <div style={{ overflowY: "auto", overflowX: "hidden", flex: "1 1 auto", minHeight: 0, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch", padding: "8px 8px 16px", display: "flex", flexDirection: "column", gap: 1 }}>
-              <Row
-                tint="#64748b"
-                icon={<SettingsIcon size={14} />}
-                label={T( "Settings", "الإعدادات")}
-                onClick={openSettings}
-              />
-              {/* ========== New account requests (admins) ========== */}
-              {isAdmin && (
-                <div style={{ marginTop: 0 }}>
-                  <Row
-                    tint="#af52de"
-                    icon={<UsersIcon size={14} />}
-                    label={T( "New requests", "طلبات جديدة")}
-                    onClick={() => setRequestsOpen((v) => !v)}
-                    trailing={
-                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        {pendingCount > 0 && (
-                          <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: "var(--danger)", borderRadius: 10, padding: "2px 7px" }}>
-                            {pendingCount}
-                          </span>
-                        )}
-                        <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>{requestsOpen ? "▾" : (isAr ? "◂" : "▸")}</span>
-                      </span>
-                    }
-                  />
-                  {requestsOpen && (
-                    <div onPointerDown={(e) => e.stopPropagation()} style={{ padding: "6px 8px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
-                      {pendingCount === 0 ? (
-                        <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "8px 6px", lineHeight: 1.45 }}>
-                          {T( "No pending account requests.", "لا توجد طلبات حساب معلّقة.")}
-                        </div>
-                      ) : (
-                        pendingAccounts.map((a) => (
-                          <div key={a.code} style={{
-                            border: "1px solid rgba(var(--border-rgb),0.16)", borderRadius: 10,
-                            padding: "10px 10px", background: "var(--input-bg)",
-                          }}>
-                            <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>{a.name}</div>
-                            <div style={{ fontSize: 12, color: "var(--muted-strong)", fontFamily: "ui-monospace, monospace", marginTop: 2 }} dir="ltr">@{a.username || "—"}</div>
-                            <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
-                              <button
-                                type="button"
-                                disabled={busyCode === a.code}
-                                className="touch-target"
-                                onClick={() => approve(a.code)}
-                                style={{
-                                  flex: 1, minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                                  padding: "8px 10px", borderRadius: 8, border: "none", cursor: "pointer",
-                                  fontSize: 12.5, fontWeight: 700, color: "#fff", background: "var(--success)",
-                                }}
-                              >
-                                <CheckIcon size={13} /> {T( "Approve", "موافقة")}
-                              </button>
-                              <button
-                                type="button"
-                                disabled={busyCode === a.code}
-                                className="touch-target"
-                                onClick={() => reject(a.code)}
-                                style={{
-                                  flex: 1, minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                                  padding: "8px 10px", borderRadius: 8, border: "1px solid var(--danger)", cursor: "pointer",
-                                  fontSize: 12.5, fontWeight: 700, color: "var(--danger)", background: "transparent",
-                                }}
-                              >
-                                <TrashIcon size={13} /> {T( "Reject", "رفض")}
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-          </div>
-        </>,
-        document.body
-      )}
 
       {settingsOpen && typeof document !== "undefined" && createPortal(
         <div

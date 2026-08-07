@@ -218,10 +218,8 @@ export default function ToolsMenu({
             marginBottom: 4,
             position: "sticky",
             top: 0,
-            zIndex: 2,
-            background: "color-mix(in srgb, var(--card) 94%, transparent)",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
+            zIndex: 5,
+            background: "var(--card)",
           }}
         >
           <span

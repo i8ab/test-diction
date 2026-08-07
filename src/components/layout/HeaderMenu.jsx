@@ -354,7 +354,7 @@ export default function HeaderMenu({
   }
 
   function openSettings() {
-    closeMenu();
+    // Keep the menu open underneath — settings stacks above it
     setSettingsOpen(true);
   }
 
@@ -370,7 +370,7 @@ export default function HeaderMenu({
     setNotifOpen(false);
     setBannerOpen(false);
     setInfoExpanded(null);
-    setOpen(false);
+    // Keep the menu open underneath — info guide stacks above it
     // Prefer the full detailed guide from the parent (InfoGuideModal).
     if (onOpenInfo) {
       onOpenInfo();
@@ -406,17 +406,11 @@ export default function HeaderMenu({
 
   useEffect(() => {
     if (!open) return;
-    function onDocClick(e) {
-      if (ref.current && ref.current.contains(e.target)) return;
-      const panel = document.getElementById("header-menu-modal");
-      if (panel && panel.contains(e.target)) return;
-      closeMenu();
-    }
+    // Only close via the X button — do not close on outside click or when opening items.
+    // Escape still closes for accessibility.
     function onKeyDown(e) { if (e.key === "Escape") closeMenu(); }
-    document.addEventListener("pointerdown", onDocClick);
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener("pointerdown", onDocClick);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
@@ -622,7 +616,7 @@ export default function HeaderMenu({
             id="header-menu-modal"
             className="header-menu-backdrop modal-backdrop"
             role="presentation"
-            onClick={(e) => { if (e.target === e.currentTarget) closeMenu(); }}
+            onClick={(e) => { /* Menu stays open unless user presses the X */ }}
           >
           <div className="header-menu-panel modal-card" role="dialog" aria-modal="true" aria-label={T("Menu", "القائمة")} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px 10px", flexShrink: 0, borderBottom: "1px solid rgba(var(--border-rgb),0.1)", position: "sticky", top: 0, zIndex: 2, background: "color-mix(in srgb, var(--card) 94%, transparent)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}>
@@ -729,7 +723,7 @@ export default function HeaderMenu({
                     tint="#f4a261"
                     icon={<StarIcon size={14} />}
                     label={T("Achievements", "الإنجازات")}
-                    onClick={() => { setOpen(false); onOpenAchievements(); }}
+                    onClick={() => { onOpenAchievements(); }}
                   />
                 )}
                 {isAdmin && (
@@ -871,7 +865,7 @@ export default function HeaderMenu({
                     {isAdmin && typeof onLinkAccount === "function" && (
                       <button
                         type="button"
-                        onClick={() => { setOpen(false); onLinkAccount(); }}
+                        onClick={() => { onLinkAccount(); }}
                         style={{
                           marginTop: 8,
                           width: "100%",
@@ -922,7 +916,7 @@ export default function HeaderMenu({
           onClick={closeSettings}
           className="modal-backdrop"
           style={{
-            position: "fixed", inset: 0, zIndex: 2500,
+            position: "fixed", inset: 0, zIndex: 3400,
             background: "rgba(0,0,0,0.45)",
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: 16,
@@ -1093,7 +1087,7 @@ export default function HeaderMenu({
           onClick={closeInfoModal}
           className="modal-backdrop"
           style={{
-            position: "fixed", inset: 0, zIndex: 2600,
+            position: "fixed", inset: 0, zIndex: 3400,
             background: "rgba(0,0,0,0.45)",
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: 16,
@@ -1178,7 +1172,7 @@ export default function HeaderMenu({
           onClick={closeNotifModal}
           className="modal-backdrop"
           style={{
-            position: "fixed", inset: 0, zIndex: 2600,
+            position: "fixed", inset: 0, zIndex: 3400,
             background: "rgba(0,0,0,0.45)",
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: 16,
@@ -1395,7 +1389,7 @@ export default function HeaderMenu({
           onClick={closeBannerModal}
           className="modal-backdrop"
           style={{
-            position: "fixed", inset: 0, zIndex: 2600,
+            position: "fixed", inset: 0, zIndex: 3400,
             background: "rgba(0,0,0,0.45)",
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: 16,
@@ -1795,7 +1789,7 @@ export default function HeaderMenu({
 
 
       {deviceModalOpen && typeof onChangeDeviceMode === "function" && (
-        <div onClick={() => setDeviceModalOpen(false)} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 2600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        <div onClick={() => setDeviceModalOpen(false)} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3400, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div onClick={(e) => e.stopPropagation()} className="modal-card" role="dialog" aria-modal="true" aria-labelledby="device-modal-title" style={{ background: "var(--card)", borderRadius: 16, padding: 20, width: "100%", maxWidth: 440, boxShadow: "0 24px 60px -20px rgba(0,0,0,0.4)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
               <h2 id="device-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Device layout", "واجهة الجهاز")}</h2>
@@ -1803,7 +1797,7 @@ export default function HeaderMenu({
             </div>
             <DevicePicker
               mode={deviceMode}
-              onSelect={(id) => { onChangeDeviceMode(id); setDeviceModalOpen(false); setOpen(false); }}
+              onSelect={(id) => { onChangeDeviceMode(id); setDeviceModalOpen(false); }}
               isAr={isAr}
               compact
             />
@@ -1813,7 +1807,7 @@ export default function HeaderMenu({
 
       {/* Language settings — dedicated modal */}
       {langModalOpen && (
-        <div onClick={() => setLangModalOpen(false)} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 2600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        <div onClick={() => setLangModalOpen(false)} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3400, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="lang-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, maxHeight: "min(90dvh, 820px)", overflowY: "auto", background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <h2 id="lang-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Language", "اللغة")}</h2>
@@ -1846,7 +1840,7 @@ export default function HeaderMenu({
 
       {/* Accent / dialect — dedicated modal */}
       {accentModalOpen && (
-        <div onClick={() => setAccentModalOpen(false)} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 2600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        <div onClick={() => setAccentModalOpen(false)} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3400, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="accent-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, maxHeight: "min(90dvh, 820px)", overflowY: "auto", background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <h2 id="accent-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Accent / dialect", "اللهجة / النطق")}</h2>
@@ -1879,7 +1873,7 @@ export default function HeaderMenu({
 
       {/* Appearance — theme + color scheme */}
       {appearanceModalOpen && (
-        <div onClick={() => setAppearanceModalOpen(false)} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 2600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        <div onClick={() => setAppearanceModalOpen(false)} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3400, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="appearance-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, maxHeight: "min(90dvh, 820px)", overflowY: "auto", background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <h2 id="appearance-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Appearance", "المظهر")}</h2>

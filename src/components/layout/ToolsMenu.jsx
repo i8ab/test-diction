@@ -89,18 +89,12 @@ export default function ToolsMenu({
 
   useEffect(() => {
     if (!open) return;
-    function onDocClick(e) {
-      if (wrapRef.current?.contains(e.target)) return;
-      if (menuRef.current?.contains(e.target)) return;
-      closeMenu();
-    }
+    // Only close via the X button (or Escape) — not on outside click or when opening items.
     function onKeyDown(e) {
       if (e.key === "Escape") closeMenu();
     }
-    document.addEventListener("pointerdown", onDocClick);
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener("pointerdown", onDocClick);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
@@ -156,8 +150,8 @@ export default function ToolsMenu({
 
   function handleItemClick(item) {
     if (item.disabled) return;
-    closeMenu();
-    // Open immediately — no artificial delay (was 80ms lag on every device)
+    // Keep the menu open underneath — opened content stacks above it.
+    // Menu only closes via the X button (or backdrop / Escape).
     if (typeof item.onClick === "function") item.onClick();
   }
 
@@ -179,7 +173,7 @@ export default function ToolsMenu({
         justifyContent: "center",
         padding: "max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom))",
       }}
-      onClick={closeMenu}
+      onClick={() => { /* Menu stays open unless user presses the X */ }}
     >
       <div
         onClick={(e) => e.stopPropagation()}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { EN_ACCENTS, loadEnAccent, saveEnAccent } from "../../lib/utils/speech";
 import { tr, UI_LANGS } from "../../lib/config/i18n";
 import { ACCENT_THEMES, loadCustomAccentHex, saveCustomAccentHex, applyAccentTheme, saveAccent } from "../../lib/state/storage";
@@ -405,7 +406,12 @@ export default function HeaderMenu({
 
   useEffect(() => {
     if (!open) return;
-    function onDocClick(e) { if (ref.current && !ref.current.contains(e.target)) closeMenu(); }
+    function onDocClick(e) {
+      if (ref.current && ref.current.contains(e.target)) return;
+      const panel = document.getElementById("header-menu-modal");
+      if (panel && panel.contains(e.target)) return;
+      closeMenu();
+    }
     function onKeyDown(e) { if (e.key === "Escape") closeMenu(); }
     document.addEventListener("pointerdown", onDocClick);
     document.addEventListener("keydown", onKeyDown);
@@ -584,37 +590,43 @@ export default function HeaderMenu({
           }}>{pendingCount > 9 ? "9+" : pendingCount}</span>
         )}
       </button>
-      {open && (
+      {open && typeof document !== "undefined" && createPortal(
         <>
           <style>{`
             .header-menu-item { transition: background 0.12s ease; }
             .header-menu-item:hover:not(:disabled) { background: var(--input-bg); }
             .header-menu-item:active:not(:disabled) { background: var(--input-bg); opacity: 0.9; }
             .header-menu-swatch { transition: box-shadow 0.12s ease; }
+            .header-menu-backdrop {
+              position: fixed; inset: 0; z-index: 3200;
+              background: rgba(0,0,0,0.55);
+              display: flex; align-items: center; justify-content: center;
+              padding: max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom));
+            }
             .header-menu-panel {
-              position: absolute; top: calc(100% + 8px); inset-inline-end: 0;
-              min-width: min(280px, calc(100vw - 24px)); max-width: min(320px, calc(100vw - 16px));
+              position: relative;
+              width: 100%;
+              max-width: 420px;
+              min-width: 0;
               background: var(--card); border: 1px solid rgba(var(--border-rgb),0.14);
-              border-radius: 17px;
-              box-shadow: 0 22px 48px -18px rgba(0,0,0,0.42), 0 2px 8px -2px rgba(0,0,0,0.15);
+              border-radius: 16px;
+              box-shadow: 0 24px 60px -12px rgba(0,0,0,0.4);
               overflow: hidden;
-              z-index: 40;
+              z-index: 3201;
               display: flex;
               flex-direction: column;
-              max-height: min(70vh, 520px);
-            }
-            @media (max-width: 480px) {
-              .header-menu-panel {
-                position: fixed; top: auto; bottom: 0; inset-inline: 0;
-                max-width: none; min-width: 0; width: 100%;
-                border-radius: 18px 18px 0 0;
-                max-height: min(78dvh, 560px);
-              }
+              max-height: min(92dvh, 92vh);
             }
           `}</style>
-          <div className="header-menu-panel" role="menu">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 8px", flexShrink: 0, borderBottom: "1px solid rgba(var(--border-rgb),0.1)" }}>
-              <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
+          <div
+            id="header-menu-modal"
+            className="header-menu-backdrop modal-backdrop"
+            role="presentation"
+            onClick={(e) => { if (e.target === e.currentTarget) closeMenu(); }}
+          >
+          <div className="header-menu-panel modal-card" role="dialog" aria-modal="true" aria-label={T("Menu", "القائمة")} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px 10px", flexShrink: 0, borderBottom: "1px solid rgba(var(--border-rgb),0.1)", position: "sticky", top: 0, zIndex: 2, background: "color-mix(in srgb, var(--card) 94%, transparent)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}>
+              <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted-strong)" }}>
                 {T( "Menu", "القائمة")}
               </span>
               <button
@@ -622,12 +634,12 @@ export default function HeaderMenu({
                 aria-label={T( "Close", "إغلاق")}
                 className="touch-target"
                 onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); closeMenu(); }}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: "50%", color: "var(--icon-muted)", background: "var(--input-bg)", border: "none", cursor: "pointer" }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: "50%", color: "var(--icon-muted)", background: "var(--input-bg)", border: "none", cursor: "pointer" }}
               >
-                <XIcon size={12} />
+                <XIcon size={14} />
               </button>
             </div>
-            <div style={{ overflowY: "auto", overflowX: "hidden", flex: "1 1 auto", minHeight: 0, overscrollBehavior: "contain", padding: "6px 6px 10px", display: "flex", flexDirection: "column", gap: 1 }}>
+            <div style={{ overflowY: "auto", overflowX: "hidden", flex: "1 1 auto", minHeight: 0, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch", padding: "8px 8px 16px", display: "flex", flexDirection: "column", gap: 1 }}>
               <Row
                 tint="#64748b"
                 icon={<SettingsIcon size={14} />}
@@ -900,7 +912,9 @@ export default function HeaderMenu({
               </div>
             </div>
           </div>
-        </>
+          </div>
+        </>,
+        document.body
       )}
 
       {settingsOpen && (

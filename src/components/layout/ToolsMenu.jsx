@@ -163,75 +163,96 @@ export default function ToolsMenu({
     }, 80);
   }
 
+  // Always a full modal (all devices) so the whole list is reachable + scrollable
   const menuPanel = (
     <div
       ref={menuRef}
-      role="menu"
+      role="dialog"
+      aria-modal="true"
       aria-label={tr(isAr, "More actions", "المزيد")}
-      style={
-        isCompact
-          ? {
-              position: "fixed",
-              inset: 0,
-              zIndex: 3100,
-              background: "rgba(0,0,0,0.4)",
-              display: "flex",
-              alignItems: "flex-end",
-              justifyContent: "center",
-              padding: "0 0 env(safe-area-inset-bottom)",
-            }
-          : {
-              position: "fixed",
-              zIndex: 3100,
-              top: anchor ? Math.min(anchor.top + 8, window.innerHeight - 420) : 60,
-              left: isAr
-                ? undefined
-                : anchor
-                ? Math.max(8, Math.min(anchor.left, window.innerWidth - 300))
-                : 8,
-              right: isAr
-                ? anchor
-                  ? Math.max(8, window.innerWidth - anchor.right)
-                  : 8
-                : undefined,
-              width: 280,
-              maxHeight: "min(82vh, 640px)",
-            }
-      }
-      onClick={isCompact ? closeMenu : undefined}
+      className="modal-backdrop"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 3100,
+        background: "rgba(0,0,0,0.55)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom))",
+      }}
+      onClick={closeMenu}
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className="modal-card"
         style={{
           background: "var(--card)",
-          borderRadius: isCompact ? "20px 20px 0 0" : 16,
+          borderRadius: 16,
           border: "1px solid rgba(var(--border-rgb),0.15)",
-          boxShadow: "0 16px 48px -12px rgba(0,0,0,0.28)",
-          width: isCompact ? "100%" : "100%",
-          maxHeight: isCompact ? "82vh" : "min(82vh, 640px)",
+          boxShadow: "0 24px 60px -12px rgba(0,0,0,0.4)",
+          width: "100%",
+          maxWidth: 420,
+          maxHeight: "min(92dvh, 92vh)",
           overflowY: "auto",
-          padding: isCompact ? "12px 12px 24px" : "10px 8px 12px",
+          WebkitOverflowScrolling: "touch",
+          overscrollBehavior: "contain",
+          padding: "14px 12px 20px",
           display: "flex",
           flexDirection: "column",
           gap: 4,
         }}
       >
-        {/* مقبض السحب على الموبايل */}
-        {isCompact && (
-          <div
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "4px 8px 10px",
+            borderBottom: "1px solid rgba(var(--border-rgb),0.12)",
+            marginBottom: 4,
+            position: "sticky",
+            top: 0,
+            zIndex: 2,
+            background: "color-mix(in srgb, var(--card) 94%, transparent)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+          }}
+        >
+          <span
             style={{
-              width: 40,
-              height: 4,
-              borderRadius: 4,
-              background: "rgba(var(--border-rgb),0.25)",
-              margin: "4px auto 10px",
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+              color: "var(--muted-strong)",
             }}
-          />
-        )}
+          >
+            {tr(isAr, "More", "المزيد")}
+          </span>
+          <button
+            type="button"
+            onClick={closeMenu}
+            aria-label={tr(isAr, "Close", "إغلاق")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              border: "none",
+              background: "var(--input-bg)",
+              color: "var(--icon-muted)",
+              cursor: "pointer",
+            }}
+          >
+            <XIcon size={14} />
+          </button>
+        </div>
 
         {categories.map((cat, catIdx) => (
           <div key={cat.id} style={{ marginBottom: catIdx < categories.length - 1 ? 4 : 0 }}>
-            {/* عنوان الفئة */}
             <div
               style={{
                 fontSize: 11,
@@ -246,7 +267,6 @@ export default function ToolsMenu({
               {cat.title}
             </div>
 
-            {/* عناصر الفئة — مسافات مريحة بين الأزرار */}
             <div
               style={{
                 display: "flex",

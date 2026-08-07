@@ -7,7 +7,6 @@ import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { cambridgeUrl } from "../../lib/utils/wordCard";
 import { entryPosList, posLabel, getEntrySenses } from "../../lib/utils/wordTypes";
 import { detectDir, detectFont } from "../../lib/utils/searchUtils";
-import { PairListDisplay } from "./PairList";
 import {
   ChevronIcon, CheckIcon, StarIcon, EditIcon, TrashIcon, ZoomIcon,
   EyeIcon, EyeOffIcon, SpeakButton,
@@ -207,10 +206,8 @@ function EntryCard({
           </div>
         )}
 
-        {/* Meanings: only on phone list. On tablet/PC they appear in Zoom modal only. */}
-        {mobileLayout && (
-          <div style={{ marginTop: 10 }}>{renderMeaning()}</div>
-        )}
+        {/* Meanings visible on every layout (phone / tablet / PC) */}
+        <div style={{ marginTop: 10 }}>{renderMeaning()}</div>
 
         {(isStudied || isFavorite) && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
@@ -229,18 +226,10 @@ function EntryCard({
 
         {open && (
           <div className="entry-card-expanded" style={{ marginTop: 12 }} onClick={(e) => e.stopPropagation()}>
-            {/* All layouts: push full meaning / definition / pronunciation details into Zoom */}
-            {(hasDefinition || hasExample || hasSynAnt || !mobileLayout) && (
+            {/* Definition / examples only in Zoom — hint on all layouts */}
+            {(hasDefinition || hasExample) && (
               <p style={{ margin: "0 0 10px", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.5 }}>
-                {tr(
-                  isAr,
-                  mobileLayout
-                    ? "Open Zoom for full definition, examples, and pair details."
-                    : "Open Zoom for meaning, pronunciation, definition, examples, and more.",
-                  mobileLayout
-                    ? "افتح التكبير للتعريف والأمثلة وتفاصيل المرادفات/المضادات."
-                    : "افتح التكبير للمعنى والنطق والتعريف والأمثلة والمزيد."
-                )}
+                {tr(isAr, "Open Zoom for full definition, examples, and pair details.", "افتح التكبير للتعريف والأمثلة وتفاصيل المرادفات/المضادات.")}
                 {" "}
                 <button
                   type="button"
@@ -264,7 +253,7 @@ function EntryCard({
               </a>
             )}
 
-            {/* Full definition/examples: only in Zoom on every layout */}
+            {/* Full definition/examples: hidden via .entry-longform until Zoom */}
             <div className="entry-longform">
               {hasDefinition && (
                 <p dir={detectDir(entry.definition)} style={{ fontFamily: detectFont(entry.definition), fontSize: 13, color: "var(--muted-strong)", margin: "8px 0 0", lineHeight: 1.6 }}>
@@ -284,28 +273,9 @@ function EntryCard({
                 ))}
             </div>
 
-            {/* Syn/ant details live in Zoom; keep light chips only on touch layouts if desired — hidden via CSS with longform */}
-            {mobileLayout || tabletLayout ? (
-              <div className="entry-longform">
-                <MobilePairChips label={tr(isAr, "Synonyms", "مرادفات")} pairs={entry.synonyms} tone="success" />
-                <MobilePairChips label={tr(isAr, "Antonyms", "مضادات")} pairs={entry.antonyms} tone="danger" />
-              </div>
-            ) : (
-              <div className="entry-longform">
-                {!!(entry.synonyms && entry.synonyms.length) && (
-                  <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 8 }}>
-                    <strong style={{ color: "var(--success)" }}>{tr(isAr, "Synonyms", "مرادفات")}</strong>
-                    <PairListDisplay cfg={cfg} pairs={entry.synonyms} />
-                  </div>
-                )}
-                {!!(entry.antonyms && entry.antonyms.length) && (
-                  <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 6 }}>
-                    <strong style={{ color: "var(--danger)" }}>{tr(isAr, "Antonyms", "مضادات")}</strong>
-                    <PairListDisplay cfg={cfg} pairs={entry.antonyms} />
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Synonyms + antonyms chips visible on EVERY layout */}
+            <MobilePairChips label={tr(isAr, "Synonyms", "مرادفات")} pairs={entry.synonyms} tone="success" />
+            <MobilePairChips label={tr(isAr, "Antonyms", "مضادات")} pairs={entry.antonyms} tone="danger" />
 
             {isAdmin && (
               <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 8 }}>

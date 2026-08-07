@@ -22,6 +22,10 @@ import {
   loadReminderMessage, saveReminderMessage, loadReminderTitle, saveReminderTitle,
   buildReminderPayload,
 } from "./lib/state/push";
+import {
+  loadAccountVault, upsertVaultAccount, removeVaultAccount, clearAccountVault,
+  getMainAccountCode, setMainAccountCode,
+} from "./lib/state/accountVault";
 import { capLogs, makeLogEntry } from "./lib/state/logs";
 import { LoaderIcon } from "./components/common/Icons";
 import { Shell } from "./components/layout/Shell";
@@ -124,6 +128,8 @@ export default function DictionaryApp() {
   const [logsLoaded, setLogsLoaded] = useState(false);
   const [siteBanner, setSiteBanner] = useState(null); // admin-published site-wide announcement
   const [accountCode, setAccountCode] = useState(""); // this browser's signed-in account's personal code
+  const [vaultAccounts, setVaultAccounts] = useState(() => loadAccountVault());
+  const [mainAccountCode, setMainAccountCodeState] = useState(() => getMainAccountCode());
   const [section, setSection] = useState("en-ar");
   const [query, setQuery] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -489,6 +495,12 @@ export default function DictionaryApp() {
             setName(account.name);
             setIsAdmin(account.role === "admin");
             setAccountCode(account.code);
+            // مزامنة سريعة للخزنة بعد استعادة الجلسة
+            try {
+              const v = upsertVaultAccount(account, { allowMulti: account.role === "admin" });
+              setVaultAccounts(v);
+              setMainAccountCodeState(getMainAccountCode() || account.code);
+            } catch (_) {}
             setAuthStage("in");
             syncBaseHistory("in");
             const localSid = loadSessionId();
@@ -1296,6 +1308,15 @@ export default function DictionaryApp() {
     setIsAdmin(account.role === "admin");
     setAccountCode(account.code);
     savePersonalCode(account.code);
+    // حفظ تسجيل الدخول على الجهاز — تعدد الحسابات للأدمن فقط
+    const nextVault = upsertVaultAccount(account, { allowMulti: account.role === "admin" });
+    setVaultAccounts(nextVault);
+    if (!getMainAccountCode()) {
+      setMainAccountCode(account.code);
+      setMainAccountCodeState(account.code);
+    } else {
+      setMainAccountCodeState(getMainAccountCode());
+    }
     // Keep password field until login fully succeeds — cleared after session is saved.
 
     // Persist any password-hash upgrade now that password is verified.
@@ -1348,12 +1369,87 @@ export default function DictionaryApp() {
     goToStage("in");
   }
 
-  function handleLogout() {
+  /** تبديل فوري لحساب محفوظ — بدون تسجيل خروج كامل */
+  function switchToVaultAccount(code) {
+    if (!code || code === accountCode) return { ok: true };
+    const vault = loadAccountVault();
+    const entry = vault.find((a) => a.code === code);
+    if (!entry) return { ok: false, error: "Account not saved on this device." };
+
+    // قيود: غير الأدمن لا يملك إلا حسابه الوحيد
+    if (!isAdmin && entry.role !== "admin") {
+      // مسموح لو هو نفس المستخدم المحفوظ الوحيد
+    }
+    // التبديل بين حسابات الخزنة مسموح طالما اتحفظت مسبقاً.
+    // تقييد "الأدمن فقط" يكون عند إضافة حساب جديد للخزنة (upsert)،
+    // مش عند التنقل بين حسابات محفوظة — وإلا الأدمن يعجز يرجع لحسابه لو حوّل لحساب عادي.
+
+    // تطبيق فوري للواجهة
+    setAccountCode(entry.code);
+    setName(entry.name || "");
+    setIsAdmin(entry.role === "admin");
+    savePersonalCode(entry.code);
+    setShowAccount(false);
+    setShowAdmin(false);
+    setShowAdd(false);
+
+    // مزامنة خفيفة من الكاش المحلي للحساب (studied/favorites من accounts في الذاكرة)
+    const live = (accounts || []).find((a) => a.code === entry.code);
+    if (live) {
+      setName(live.name || entry.name || "");
+      setIsAdmin(live.role === "admin");
+    }
+
+    // تحديث تذكيرات/prefs للحساب الجديد بشكل غير حاجز
+    try {
+      setRemindersOn(loadRemindersEnabled(entry.code));
+      setReminderTitle(loadReminderTitle(entry.code));
+      setReminderMessage(loadReminderMessage(entry.code));
+    } catch (_) {}
+
+    return { ok: true };
+  }
+
+  function markMainAccount(code) {
+    if (!isAdmin) return { ok: false, error: "Only admins can set a main account." };
+    if (!code) return { ok: false };
+    const vault = loadAccountVault();
+    if (!vault.some((a) => a.code === code)) return { ok: false, error: "Account not in vault." };
+    setMainAccountCode(code);
+    setMainAccountCodeState(code);
+    return { ok: true };
+  }
+
+  function unlinkVaultAccount(code) {
+    if (!code) return;
+    // غير الأدمن: إزالة = تسجيل خروج
+    if (!isAdmin) {
+      handleLogout({ clearVault: true });
+      return;
+    }
+    const next = removeVaultAccount(code);
+    setVaultAccounts(next);
+    setMainAccountCodeState(getMainAccountCode());
+    if (code === accountCode) {
+      // لو شلنا الحساب الحالي — نروح للأساسي أو نسجّل خروج
+      const main = getMainAccountCode();
+      if (main && main !== code) switchToVaultAccount(main);
+      else handleLogout({ clearVault: false });
+    }
+  }
+
+  function handleLogout(opts = {}) {
+    const clearVault = !!opts.clearVault;
     if (accountCode && !isAdmin) {
       logEvent("sign_out", `${name} signed out`, name, accountCode);
     }
     clearPersonalCode();
     try { localStorage.removeItem("twoTongues.sessionId"); } catch (_) {}
+    if (clearVault) {
+      clearAccountVault();
+      setVaultAccounts([]);
+      setMainAccountCodeState("");
+    }
     setName("");
     setIsAdmin(false);
     setAccountCode("");
@@ -1610,6 +1706,12 @@ export default function DictionaryApp() {
       srsBox={srsBox} srsDueAt={srsDueAt} quizHistory={quizHistory}
       onRecordSrsAnswer={handleRecordSrsAnswer} onSaveQuizResult={handleSaveQuizResult}
       showAccount={showAccount} onOpenAccount={openAccountModal} onCloseAccount={closeAccountModal} onUpdateOwnAccount={handleUpdateOwnAccount}
+      vaultAccounts={vaultAccounts}
+      mainAccountCode={mainAccountCode}
+      onSwitchAccount={switchToVaultAccount}
+      onSetMainAccount={markMainAccount}
+      onUnlinkVaultAccount={unlinkVaultAccount}
+      onLogoutAll={() => handleLogout({ clearVault: true })}
       siteBanner={siteBanner} onPersistSiteBanner={persistSiteBanner}
       showAdmin={showAdmin} onOpenAdmin={openAdminModal} onCloseAdmin={closeAdminModal}
       onAdminAddAccount={handleAdminAddAccount} onAdminEditAccount={handleAdminEditAccount} onAdminDeleteAccount={handleAdminDeleteAccount}

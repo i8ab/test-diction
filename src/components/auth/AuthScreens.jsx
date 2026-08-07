@@ -73,30 +73,8 @@ function AuthScreens({
   const [showSignupPw, setShowSignupPw] = useState(false);
   const [showSignupPw2, setShowSignupPw2] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
-  const [spot, setSpot] = useState({ x: "50%", y: "50%" });
   const loginPwWrapRef = useRef(null);
   const signupFileRef = useRef(null);
-
-  // تتبع موضع حقل كلمة المرور لتوجيه ضوء الكشاف
-  useEffect(() => {
-    if (!showLoginPw) return undefined;
-    function updateSpot() {
-      const el = loginPwWrapRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      setSpot({
-        x: `${r.left + r.width / 2}px`,
-        y: `${r.top + r.height / 2}px`,
-      });
-    }
-    updateSpot();
-    window.addEventListener("resize", updateSpot);
-    window.addEventListener("scroll", updateSpot, true);
-    return () => {
-      window.removeEventListener("resize", updateSpot);
-      window.removeEventListener("scroll", updateSpot, true);
-    };
-  }, [showLoginPw, passwordInput]);
 
   async function onPickSignupPhoto(e) {
     const file = e.target.files && e.target.files[0];
@@ -463,19 +441,17 @@ function AuthScreens({
     return (
       <Shell>
         {/* ستارة سوداء + ضوء كشاف أصفر على كلمة المرور */}
-        {/* ستارة سودة تقيلة — النور الأصفر على حقل كلمة المرور فقط */}
+        {/* ستارة سودة كاملة — تتقفل فقط من أيقونة العين، مش من الضغط برا */}
         {showLoginPw && (
           <div
             aria-hidden="true"
-            onClick={() => setShowLoginPw(false)}
             style={{
               position: "fixed",
               inset: 0,
               zIndex: 5000,
-              /* أسود شبه كامل، فتحة ضيقة صفراء حول حقل الباسورد فقط */
-              background: `radial-gradient(circle 90px at ${spot.x} ${spot.y}, rgba(255, 210, 60, 0.22) 0%, rgba(255, 180, 0, 0.08) 22%, rgba(0, 0, 0, 0.92) 42%, #000000 58%, #000000 100%)`,
-              transition: "background 0.15s ease",
-              cursor: "pointer",
+              background: "#000000",
+              opacity: 0.97,
+              pointerEvents: "none",
             }}
           />
         )}
@@ -485,9 +461,7 @@ function AuthScreens({
             ...authCardStyle,
             maxWidth: "min(420px, 100%)",
             position: "relative",
-            /* الكارت كله تحت الستارة — غير حقل الباسورد اللي فوقها */
             zIndex: "auto",
-            isolation: showLoginPw ? "auto" : "auto",
           }}
           dir={appIsAr ? "rtl" : "ltr"}
         >
@@ -506,19 +480,23 @@ function AuthScreens({
               <label style={labelStyle} htmlFor="login-username"><UserIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Username", "اسم المستخدم")}</label>
               <input id="login-username" value={usernameInput} onChange={(e) => setUsernameInput(e.target.value.replace(/\s/g, "").toLowerCase())} placeholder={atr("Your username", "اسم المستخدم")} style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace" }} autoFocus autoCapitalize="off" autoCorrect="off" autoComplete="username" spellCheck={false} dir="ltr" />
             </div>
-            <div className="auth-field-2" ref={loginPwWrapRef} style={{
+            <div className="auth-field-2" ref={loginPwWrapRef}
+              style={{
                 position: "relative",
                 zIndex: showLoginPw ? 5002 : "auto",
                 ...(showLoginPw
                   ? {
-                      padding: "12px 12px 10px",
-                      marginInline: -12,
+                      padding: "14px 14px 12px",
+                      marginInline: -4,
                       borderRadius: 14,
-                      background: "rgba(20, 14, 0, 0.95)",
-                      boxShadow: "0 0 0 1px rgba(255, 200, 0, 0.35), 0 0 32px rgba(255, 190, 0, 0.35)",
+                      background: "linear-gradient(180deg, #2a2200 0%, #1a1400 100%)",
+                      border: "1px solid rgba(255, 200, 40, 0.55)",
+                      boxShadow:
+                        "0 0 0 1px rgba(255, 210, 60, 0.25), 0 0 24px rgba(255, 190, 0, 0.55), 0 0 48px rgba(255, 170, 0, 0.25)",
                     }
                   : {}),
-              }}>
+              }}
+            >
               <label
                 style={{
                   ...labelStyle,

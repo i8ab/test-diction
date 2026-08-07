@@ -839,7 +839,6 @@ body {
 *::before,
 *::after {
   box-sizing: border-box;
-  max-width: 100%;
 }
 
 img,
@@ -850,10 +849,8 @@ canvas {
   height: auto;
 }
 
-/* منع أي عنصر من فرض عرض أكبر من الشاشة */
 .app-container,
 .modal-card,
-.modal-backdrop,
 .auth-card {
   max-width: 100%;
   min-width: 0;
@@ -1029,4 +1026,43 @@ canvas {
 .text-wrap-safe {
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+
+/* ===== سكة الحروف A–Z على الديسكتوب: عمود ثابت مرتب ===== */
+@media (min-width: 641px) {
+  .app-main-row {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: flex-start;
+  }
+  .letter-rail {
+    flex: 0 0 36px !important;
+    width: 36px !important;
+    max-width: 36px !important;
+    min-width: 36px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 1px !important;
+    position: sticky !important;
+    top: 120px !important;
+    align-self: flex-start !important;
+    max-height: calc(100dvh - 140px) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+  .letter-rail-btn {
+    display: block !important;
+    width: 100% !important;
+    max-width: 36px !important;
+    line-height: 1.25 !important;
+    padding: 1px 0 !important;
+    margin: 0 !important;
+    text-align: center !important;
+  }
 }

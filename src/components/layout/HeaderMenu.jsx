@@ -195,6 +195,13 @@ export default function HeaderMenu({
   onToggleFocus = null,
   onOpenInfo = null,
   onOpenAchievements = null,
+  vaultAccounts = [],
+  mainAccountCode = "",
+  accountCode = "",
+  onSwitchAccount = null,
+  onSetMainAccount = null,
+  onUnlinkVaultAccount = null,
+  onLogoutAll = null,
 }) {
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -708,7 +715,134 @@ export default function HeaderMenu({
                 {isAdmin && (
                   <Row tint="#af52de" icon={<UsersIcon size={14} />} label={T( "Admin Panel", "لوحة التحكم")} onClick={onOpenAdmin} />
                 )}
+
+                {/* تبديل الحسابات المحفوظة — تعدد الحسابات للأدمن */}
+                {Array.isArray(vaultAccounts) && vaultAccounts.length > 0 && (
+                  <div style={{ padding: "8px 10px 4px" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-strong)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 6 }}>
+                      {T("Saved accounts", "الحسابات المحفوظة")}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {vaultAccounts.map((va) => {
+                        const active = va.code === accountCode;
+                        const isMain = va.code === mainAccountCode;
+                        return (
+                          <div
+                            key={va.code}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              padding: "8px 10px",
+                              borderRadius: 10,
+                              border: active ? "1px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                              background: active ? "var(--accent-1-soft)" : "var(--input-bg)",
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: "50%",
+                                overflow: "hidden",
+                                flexShrink: 0,
+                                background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+                                color: "#fff",
+                                fontWeight: 800,
+                                fontSize: 12,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              {va.avatar ? (
+                                <img src={va.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              ) : (
+                                String(va.name || "?").slice(0, 2).toUpperCase()
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!active && typeof onSwitchAccount === "function") {
+                                  onSwitchAccount(va.code);
+                                  setOpen(false);
+                                }
+                              }}
+                              style={{
+                                flex: 1,
+                                minWidth: 0,
+                                border: "none",
+                                background: "none",
+                                textAlign: "start",
+                                cursor: active ? "default" : "pointer",
+                                padding: 0,
+                              }}
+                            >
+                              <div style={{ fontWeight: 700, fontSize: 13, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {va.name || va.username}
+                                {isMain ? (
+                                  <span style={{ marginInlineStart: 6, fontSize: 10, fontWeight: 700, color: "var(--accent-1)" }}>
+                                    · {T("Main", "أساسي")}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div style={{ fontSize: 11, color: "var(--muted-strong)", fontFamily: "ui-monospace, monospace" }} dir="ltr">
+                                @{va.username || "—"}
+                              </div>
+                            </button>
+                            {isAdmin && !isMain && typeof onSetMainAccount === "function" && (
+                              <button
+                                type="button"
+                                title={T("Set as main account", "تعيين كحساب أساسي")}
+                                onClick={() => onSetMainAccount(va.code)}
+                                style={{
+                                  border: "none",
+                                  background: "none",
+                                  color: "var(--muted-strong)",
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  padding: "4px 6px",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {T("Main", "أساسي")}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {isAdmin && vaultAccounts.length > 1 && (
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6, lineHeight: 1.4 }}>
+                        {T(
+                          "Tip: sign in with another admin account to link it here — no full sign-out needed to switch.",
+                          "تلميح: سجّل دخول بحساب أدمن آخر لربطه هنا — التبديل بدون تسجيل خروج كامل."
+                        )}
+                      </div>
+                    )}
+                    {!isAdmin && (
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6, lineHeight: 1.4 }}>
+                        {T(
+                          "Standard accounts can save only one login on this device.",
+                          "الحساب العادي يحفظ تسجيل دخول واحد فقط على هذا الجهاز."
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <Row danger tint="var(--danger)" icon={<LogoutIcon size={14} />} label={T( "Sign Out", "تسجيل الخروج")} onClick={onLogout} />
+                {typeof onLogoutAll === "function" && vaultAccounts.length > 0 && (
+                  <Row
+                    danger
+                    tint="var(--danger)"
+                    icon={<LogoutIcon size={14} />}
+                    label={T("Sign out & clear saved", "خروج ومسح المحفوظات")}
+                    onClick={() => { setOpen(false); onLogoutAll(); }}
+                  />
+                )}
               </div>
             </div>
           </div>

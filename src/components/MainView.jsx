@@ -1,10 +1,6 @@
-import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense, memo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from "react";
 import { tr } from "../lib/config/i18n";
 import { useHistoryBackClose, haptic } from "../lib/utils/useModalDismiss";
-import {
-  loadTimerView, saveTimerView, loadCalendarView, saveCalendarView,
-  loadTodoView, saveTodoView, loadGoalsView, saveGoalsView,
-} from "../lib/utils/viewPersistence";
 import { INK, PAPER, CARD, BRASS, errorStyle } from "../lib/config/theme";
 import { getSpeechRecognitionCtor, recognizeSpeech, loadArDialect, loadEnAccent, enAccentLang, startMicLevelMeter } from "../lib/utils/speech";
 import { uid, isSrsDue, computeStreak } from "../lib/utils/quizHelpers";
@@ -63,9 +59,79 @@ const CALENDAR_VIEW_KEY = "twoTongues.calendarView";
 const TODO_VIEW_KEY = "twoTongues.todoView";
 const GOALS_VIEW_KEY = "twoTongues.goalsView";
 
+function loadTimerView() {
+  try {
+    const raw = localStorage.getItem(TIMER_VIEW_KEY);
+    if (!raw) return { open: false, bubble: false };
+    const p = JSON.parse(raw);
+    return { open: !!p.open, bubble: !!p.bubble };
+  } catch (e) {
+    return { open: false, bubble: false };
+  }
+}
 
+function saveTimerView(open, bubble) {
+  try {
+    if (!open) localStorage.removeItem(TIMER_VIEW_KEY);
+    else localStorage.setItem(TIMER_VIEW_KEY, JSON.stringify({ open: true, bubble: !!bubble }));
+  } catch (e) {}
+}
 
-function MainView({
+function loadCalendarView() {
+  try {
+    const raw = localStorage.getItem(CALENDAR_VIEW_KEY);
+    if (!raw) return { open: false, bubble: false };
+    const p = JSON.parse(raw);
+    return { open: !!p.open, bubble: !!p.bubble };
+  } catch (e) {
+    return { open: false, bubble: false };
+  }
+}
+
+function saveCalendarView(open, bubble) {
+  try {
+    if (!open) localStorage.removeItem(CALENDAR_VIEW_KEY);
+    else localStorage.setItem(CALENDAR_VIEW_KEY, JSON.stringify({ open: true, bubble: !!bubble }));
+  } catch (e) {}
+}
+
+function loadTodoView() {
+  try {
+    const raw = localStorage.getItem(TODO_VIEW_KEY);
+    if (!raw) return { open: false, bubble: false };
+    const p = JSON.parse(raw);
+    return { open: !!p.open, bubble: !!p.bubble };
+  } catch (e) {
+    return { open: false, bubble: false };
+  }
+}
+
+function saveTodoView(open, bubble) {
+  try {
+    if (!open) localStorage.removeItem(TODO_VIEW_KEY);
+    else localStorage.setItem(TODO_VIEW_KEY, JSON.stringify({ open: true, bubble: !!bubble }));
+  } catch (e) {}
+}
+
+function loadGoalsView() {
+  try {
+    const raw = localStorage.getItem(GOALS_VIEW_KEY);
+    if (!raw) return { open: false, bubble: false };
+    const p = JSON.parse(raw);
+    return { open: !!p.open, bubble: !!p.bubble };
+  } catch (e) {
+    return { open: false, bubble: false };
+  }
+}
+
+function saveGoalsView(open, bubble) {
+  try {
+    if (!open) localStorage.removeItem(GOALS_VIEW_KEY);
+    else localStorage.setItem(GOALS_VIEW_KEY, JSON.stringify({ open: true, bubble: !!bubble }));
+  } catch (e) {}
+}
+
+export default function MainView({
   name, isAdmin, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
   showAdd, onOpenAdd, onCloseAdd, persistEntries, saveError, onLogout,
   accounts, accountCode, logs, onClearLogs, studiedIds, studiedAt, onToggleStudied, favoriteIds, onToggleFavorite, showAccount, onOpenAccount, onCloseAccount, onUpdateOwnAccount,
@@ -1046,7 +1112,7 @@ function MainView({
         </div>
       </div>
 
-      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
+      <Suspense fallback={null}>
         {showAdd && <AddModal cfg={cfg} onClose={onCloseAdd} onSubmit={handleAdd} />}
         {editingEntry && (
           <AddModal
@@ -1218,7 +1284,7 @@ function MainView({
     </div>
 
     {showTimer && (
-      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
+      <Suspense fallback={null}>
         <TimerPage
           isAr={appIsAr}
           initialBubble={timerBubble}
@@ -1229,7 +1295,7 @@ function MainView({
     )}
 
     {showCalendar && (
-      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
+      <Suspense fallback={null}>
         <CalendarPage
           isAr={appIsAr}
           studiedAt={studiedAt}
@@ -1242,7 +1308,7 @@ function MainView({
     )}
 
     {showTodo && (
-      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
+      <Suspense fallback={null}>
         <TodoPage
           isAr={appIsAr}
           initialBubble={todoBubble}
@@ -1253,7 +1319,7 @@ function MainView({
     )}
 
     {showGoals && (
-      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
+      <Suspense fallback={null}>
         <GoalsPage
           isAr={appIsAr}
           studiedAt={studiedAt}
@@ -1268,13 +1334,13 @@ function MainView({
     )}
 
     {showInfoGuide && (
-      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
+      <Suspense fallback={null}>
         <InfoGuideModal isAr={appIsAr} onClose={() => setShowInfoGuide(false)} />
       </Suspense>
     )}
 
     {showQuickReview && (
-      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
+      <Suspense fallback={null}>
         <QuickReviewModal
           entries={sectionEntries}
           studiedIds={studiedIds}
@@ -1288,7 +1354,7 @@ function MainView({
     )}
 
     {showDictation && (
-      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
+      <Suspense fallback={null}>
         <DictationModal
           entries={sectionEntries}
           studiedIds={studiedIds}
@@ -1307,7 +1373,7 @@ function MainView({
     )}
 
     {showAchievements && (
-      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
+      <Suspense fallback={null}>
         <AchievementsModal
           unlockedIds={(accounts.find((a) => a.code === accountCode) || {}).achievements || []}
           isAr={appIsAr}
@@ -1329,7 +1395,7 @@ function MainView({
     )}
 
     {showRandomWord && (
-      <Suspense fallback={<div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",zIndex:4000}}><div style={{width:36,height:36,border:"3px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /></div>}>
+      <Suspense fallback={null}>
         <RandomWordModal
           entries={sectionEntries}
           studiedIds={studiedIds}
@@ -1559,4 +1625,3 @@ function MainView({
   );
 }
 
-export default memo(MainView);

@@ -271,7 +271,7 @@ export default function InfoGuideModal({ isAr, onClose }) {
       aria-modal="true"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{
-        position: "fixed", inset: 0, zIndex: 3600,
+        position: "fixed", inset: 0, zIndex: 9000,
         background: "rgba(0,0,0,0.55)",
         display: "flex", alignItems: "center", justifyContent: "center",
         padding: 16,

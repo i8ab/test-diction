@@ -92,12 +92,6 @@ export default function ToolsMenu({
     function onDocClick(e) {
       if (wrapRef.current?.contains(e.target)) return;
       if (menuRef.current?.contains(e.target)) return;
-      // Child overlays (Quiz, Timer, …) sit above More — clicking them must NOT close More
-      const t = e.target;
-      if (t && typeof t.closest === "function") {
-        const other = t.closest('.modal-backdrop, .modal-card, [role="dialog"], [aria-modal="true"]');
-        if (other && other !== menuRef.current && !menuRef.current?.contains(other)) return;
-      }
       closeMenu();
     }
     function onKeyDown(e) {
@@ -162,7 +156,8 @@ export default function ToolsMenu({
 
   function handleItemClick(item) {
     if (item.disabled) return;
-    // Keep More menu open; child overlays use higher z-index so they appear on top
+    closeMenu();
+    // Open immediately — no artificial delay (was 80ms lag on every device)
     if (typeof item.onClick === "function") item.onClick();
   }
 
@@ -412,7 +407,7 @@ export default function ToolsMenu({
         </button>
       )}
 
-      {open ? menuPanel : null}
+      {open && typeof document !== "undefined" ? createPortal(menuPanel, document.body) : null}
     </div>
   );
 }

@@ -7,7 +7,10 @@ import {
   MicIcon, StarIcon, WandIcon,
 } from "../common/Icons";
 
-// Always a readable list (bottom sheet on narrow screens, anchored panel on desktop).
+/**
+ * قائمة "المزيد" — منظمة في فئات واضحة مع عناوين فرعية.
+ * تدعم العرض كـ bottom sheet على الشاشات الضيقة ولوحة مثبتة على سطح المكتب.
+ */
 
 function useIsCompact() {
   const [compact, setCompact] = useState(() =>
@@ -29,10 +32,28 @@ function useIsCompact() {
 }
 
 export default function ToolsMenu({
-  accent, onLeaderboard, onStats, onQuiz, onFlashcards, onTimer, onCalendar, onTodo,
-  onGoals, onQuickReview, onDictation, onAchievements, onRandomWord,
-  onExport, exportDisabled, onImport, importing, isAr,
-  onExportAnki, onDashboard, onWordLists, onChallenges,
+  accent,
+  onLeaderboard,
+  onStats,
+  onQuiz,
+  onFlashcards,
+  onTimer,
+  onCalendar,
+  onTodo,
+  onGoals,
+  onQuickReview,
+  onDictation,
+  onAchievements,
+  onRandomWord,
+  onExport,
+  exportDisabled,
+  onImport,
+  importing,
+  isAr,
+  onExportAnki,
+  onDashboard,
+  onWordLists,
+  onChallenges,
 }) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState(null);
@@ -68,156 +89,225 @@ export default function ToolsMenu({
   useEffect(() => {
     if (!open) return;
     function onDocClick(e) {
-      // Keep open when clicking the toolbar buttons (More / X) or inside the menu
       if (wrapRef.current?.contains(e.target)) return;
       if (menuRef.current?.contains(e.target)) return;
       closeMenu();
     }
-    function onKeyDown(e) { if (e.key === "Escape") closeMenu(); }
+    function onKeyDown(e) {
+      if (e.key === "Escape") closeMenu();
+    }
     document.addEventListener("pointerdown", onDocClick);
     document.addEventListener("keydown", onKeyDown);
-    // NOTE: intentionally NO scroll listener — menu stays open while scrolling
     return () => {
       document.removeEventListener("pointerdown", onDocClick);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
 
-  function itemClick(fn) {
-    if (typeof fn === "function") fn();
-    closeMenu();
-  }
+  // قفل التمرير أثناء فتح القائمة على الموبايل
+  useEffect(() => {
+    if (!open || !isCompact) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open, isCompact]);
 
-  const items = [
-    { key: "leaderboard", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Leaderboard", "الترتيب"), onClick: onLeaderboard },
-    { key: "stats", icon: <StatsIcon size={18} />, tint: "#5b8def", label: tr(isAr, "Stats", "إحصائياتي"), onClick: onStats },
-    { key: "achievements", icon: <StarIcon size={18} />, tint: "#f4a261", label: tr(isAr, "Achievements", "الإنجازات"), onClick: onAchievements },
-    { key: "quiz", icon: <QuizIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quiz", "اختبار"), onClick: onQuiz },
-    { key: "flashcards", icon: <LayersIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Flashcards", "بطاقات تعليمية"), onClick: onFlashcards },
-    { key: "dictation", icon: <MicIcon size={18} />, tint: "#e76f51", label: tr(isAr, "Dictation", "استماع وإملاء"), onClick: onDictation },
-    { key: "random", icon: <WandIcon size={18} />, tint: "#7b2cbf", label: tr(isAr, "Random word", "كلمة عشوائية"), onClick: onRandomWord },
-    { key: "timer", icon: <ClockIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Timer", "مؤقّت"), onClick: onTimer },
-    { key: "calendar", icon: <CalendarIcon size={18} />, tint: "#e85d04", label: tr(isAr, "Calendar", "التقويم"), onClick: onCalendar },
-    { key: "goals", icon: <FlameIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Goals", "الأهداف"), onClick: onGoals },
-    { key: "quick", icon: <LayersIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quick review", "مراجعة سريعة"), onClick: onQuickReview },
-    { key: "todo", icon: <CheckIcon size={18} />, tint: "#30d158", label: tr(isAr, "To-do list", "قائمة المهام"), onClick: onTodo },
-    { key: "dashboard", icon: <StatsIcon size={18} />, tint: "#5b8def", label: tr(isAr, "Dashboard", "لوحة القيادة"), onClick: onDashboard },
-    { key: "lists", icon: <LayersIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Word lists", "قوائم الكلمات"), onClick: onWordLists },
-    { key: "challenges", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Challenges", "تحديات"), onClick: onChallenges },
-    { key: "export", icon: <DownloadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Export CSV", "تصدير CSV"), onClick: onExport, disabled: exportDisabled },
-    { key: "exportAnki", icon: <DownloadIcon size={18} />, tint: "#30d158", label: tr(isAr, "Export Anki", "تصدير Anki"), onClick: onExportAnki, disabled: exportDisabled },
-    { key: "import", icon: importing ? <LoaderIcon size={18} /> : <UploadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Import CSV", "استيراد CSV"), onClick: onImport, disabled: importing },
+  // تجميع العناصر في فئات منطقية
+  const categories = [
+    {
+      id: "practice",
+      title: tr(isAr, "Practice", "التدريب"),
+      items: [
+        { key: "quiz", icon: <QuizIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quiz", "اختبار"), onClick: onQuiz },
+        { key: "flashcards", icon: <LayersIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Flashcards", "بطاقات تعليمية"), onClick: onFlashcards },
+        { key: "dictation", icon: <MicIcon size={18} />, tint: "#e76f51", label: tr(isAr, "Dictation", "استماع وإملاء"), onClick: onDictation },
+        { key: "quick", icon: <LayersIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quick review", "مراجعة سريعة"), onClick: onQuickReview },
+        { key: "random", icon: <WandIcon size={18} />, tint: "#7b2cbf", label: tr(isAr, "Random word", "كلمة عشوائية"), onClick: onRandomWord },
+      ],
+    },
+    {
+      id: "progress",
+      title: tr(isAr, "Progress", "التقدّم"),
+      items: [
+        { key: "dashboard", icon: <StatsIcon size={18} />, tint: "#5b8def", label: tr(isAr, "Dashboard", "لوحة القيادة"), onClick: onDashboard },
+        { key: "stats", icon: <StatsIcon size={18} />, tint: "#5b8def", label: tr(isAr, "Stats", "إحصائياتي"), onClick: onStats },
+        { key: "achievements", icon: <StarIcon size={18} />, tint: "#f4a261", label: tr(isAr, "Achievements", "الإنجازات"), onClick: onAchievements },
+        { key: "leaderboard", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Leaderboard", "الترتيب"), onClick: onLeaderboard },
+        { key: "goals", icon: <FlameIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Goals", "الأهداف"), onClick: onGoals },
+      ],
+    },
+    {
+      id: "tools",
+      title: tr(isAr, "Tools", "الأدوات"),
+      items: [
+        { key: "timer", icon: <ClockIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Timer", "مؤقّت"), onClick: onTimer },
+        { key: "calendar", icon: <CalendarIcon size={18} />, tint: "#e85d04", label: tr(isAr, "Calendar", "التقويم"), onClick: onCalendar },
+        { key: "todo", icon: <CheckIcon size={18} />, tint: "#30d158", label: tr(isAr, "To-do list", "قائمة المهام"), onClick: onTodo },
+        { key: "lists", icon: <LayersIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Word lists", "قوائم الكلمات"), onClick: onWordLists },
+        { key: "challenges", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Challenges", "تحديات"), onClick: onChallenges },
+      ],
+    },
+    {
+      id: "data",
+      title: tr(isAr, "Data", "البيانات"),
+      items: [
+        { key: "export", icon: <DownloadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Export CSV", "تصدير CSV"), onClick: onExport, disabled: exportDisabled },
+        { key: "exportAnki", icon: <DownloadIcon size={18} />, tint: "#30d158", label: tr(isAr, "Export Anki", "تصدير Anki"), onClick: onExportAnki, disabled: exportDisabled },
+        { key: "import", icon: importing ? <LoaderIcon size={18} /> : <UploadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Import CSV", "استيراد CSV"), onClick: onImport, disabled: importing },
+      ],
+    },
   ];
 
-  const menuPanel = open && (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1200, pointerEvents: "auto" }}>
-      {/* Backdrop: closes on click, does not block scroll of the page underneath on desktop */}
-      <div
-        onPointerDown={(e) => { e.preventDefault(); closeMenu(); }}
-        style={{
-          position: "absolute", inset: 0,
-          background: isCompact ? "rgba(0,0,0,0.45)" : "transparent",
-          backdropFilter: isCompact ? "blur(2px)" : undefined,
-          WebkitBackdropFilter: isCompact ? "blur(2px)" : undefined,
-        }}
-      />
-      <div
-        ref={menuRef}
-        role="menu"
-        dir={isAr ? "rtl" : "ltr"}
-        style={
-          isCompact
-            ? {
-                position: "absolute",
-                left: 0,
-                right: 0,
-                bottom: 0,
-                maxHeight: "min(72dvh, 560px)",
-                background: "var(--card)",
-                borderRadius: "18px 18px 0 0",
-                boxShadow: "0 -8px 40px -12px rgba(0,0,0,0.35)",
-                padding: "10px 12px calc(14px + env(safe-area-inset-bottom, 0px))",
-                overflowY: "auto",
-                display: "flex",
-                flexDirection: "column",
-                gap: 2,
-              }
-            : {
-                position: "absolute",
-                top: (() => {
-                  if (!anchor) return 60;
-                  const spaceBelow = window.innerHeight - anchor.top;
-                  const estimatedH = Math.min(items.length * 52 + 24, 420);
-                  if (spaceBelow < estimatedH + 12 && anchor.bottom > estimatedH + 12) {
-                    return Math.max(8, anchor.bottom - estimatedH - 8);
-                  }
-                  return Math.min(anchor.top + 8, window.innerHeight - estimatedH - 8);
-                })(),
-                left: (() => {
-                  if (!anchor) return 16;
-                  const panelW = 260;
-                  let left = isAr ? anchor.right - panelW : anchor.left;
-                  left = Math.max(8, Math.min(left, window.innerWidth - panelW - 8));
-                  return left;
-                })(),
-                width: 260,
-                maxHeight: "min(70vh, 420px)",
-                background: "var(--card)",
-                borderRadius: 14,
-                border: "1px solid rgba(var(--border-rgb),0.16)",
-                boxShadow: "0 16px 40px -12px rgba(0,0,0,0.35)",
-                padding: "8px",
-                overflowY: "auto",
-                display: "flex",
-                flexDirection: "column",
-                gap: 2,
-              }
-        }
-      >
-        {isCompact && (
-          <div style={{ padding: "6px 8px 10px" }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}>
-              {tr(isAr, "More", "المزيد")}
-            </span>
-          </div>
-        )}
-        {items.map((it) => (
-          <button
-            key={it.key}
-            type="button"
-            role="menuitem"
-            disabled={it.disabled}
-            onClick={() => { if (!it.disabled) itemClick(it.onClick); }}
-            style={{
+  function handleItemClick(item) {
+    if (item.disabled) return;
+    closeMenu();
+    // تأخير بسيط عشان القائمة تقفل بسلاسة قبل فتح المودال
+    setTimeout(() => {
+      if (typeof item.onClick === "function") item.onClick();
+    }, 80);
+  }
+
+  const menuPanel = (
+    <div
+      ref={menuRef}
+      role="menu"
+      aria-label={tr(isAr, "More actions", "المزيد")}
+      style={
+        isCompact
+          ? {
+              position: "fixed",
+              inset: 0,
+              zIndex: 90,
+              background: "rgba(0,0,0,0.4)",
               display: "flex",
-              alignItems: "center",
-              gap: 12,
-              width: "100%",
-              minHeight: 48,
-              padding: "10px 12px",
-              border: "none",
-              borderRadius: 12,
-              background: "transparent",
-              color: "var(--ink)",
-              fontSize: 15,
-              fontWeight: 600,
-              textAlign: "start",
-              cursor: it.disabled ? "default" : "pointer",
-              opacity: it.disabled ? 0.45 : 1,
-              fontFamily: "inherit",
+              alignItems: "flex-end",
+              justifyContent: "center",
+              padding: "0 0 env(safe-area-inset-bottom)",
+            }
+          : {
+              position: "fixed",
+              zIndex: 90,
+              top: anchor ? Math.min(anchor.top + 8, window.innerHeight - 420) : 60,
+              left: isAr
+                ? undefined
+                : anchor
+                ? Math.max(8, Math.min(anchor.left, window.innerWidth - 300))
+                : 8,
+              right: isAr
+                ? anchor
+                  ? Math.max(8, window.innerWidth - anchor.right)
+                  : 8
+                : undefined,
+              width: 280,
+              maxHeight: "min(70vh, 520px)",
+            }
+      }
+      onClick={isCompact ? closeMenu : undefined}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--card)",
+          borderRadius: isCompact ? "20px 20px 0 0" : 16,
+          border: "1px solid rgba(var(--border-rgb),0.15)",
+          boxShadow: "0 16px 48px -12px rgba(0,0,0,0.28)",
+          width: isCompact ? "100%" : "100%",
+          maxHeight: isCompact ? "78vh" : "min(70vh, 520px)",
+          overflowY: "auto",
+          padding: isCompact ? "12px 12px 24px" : "10px 8px 12px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+        }}
+      >
+        {/* مقبض السحب على الموبايل */}
+        {isCompact && (
+          <div
+            style={{
+              width: 40,
+              height: 4,
+              borderRadius: 4,
+              background: "rgba(var(--border-rgb),0.25)",
+              margin: "4px auto 10px",
             }}
-          >
-            <span
+          />
+        )}
+
+        {categories.map((cat, catIdx) => (
+          <div key={cat.id} style={{ marginBottom: catIdx < categories.length - 1 ? 6 : 0 }}>
+            {/* عنوان الفئة */}
+            <div
               style={{
-                width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                background: `${it.tint}1a`, color: it.tint,
+                fontSize: 11,
+                fontWeight: 700,
+                color: "var(--muted-strong)",
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                padding: "8px 12px 4px",
+                opacity: 0.9,
               }}
             >
-              {it.icon}
-            </span>
-            <span style={{ flex: 1 }}>{it.label}</span>
-          </button>
+              {cat.title}
+            </div>
+
+            {/* عناصر الفئة — مسافات مريحة بين الأزرار */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                padding: "0 4px",
+              }}
+            >
+              {cat.items.map((it) => (
+                <button
+                  key={it.key}
+                  type="button"
+                  role="menuitem"
+                  disabled={!!it.disabled}
+                  onClick={() => handleItemClick(it)}
+                  className="lift-hover tools-menu-item"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    width: "100%",
+                    padding: "11px 12px",
+                    borderRadius: 12,
+                    border: "none",
+                    background: "transparent",
+                    color: "var(--ink)",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    fontFamily: "inherit",
+                    cursor: it.disabled ? "not-allowed" : "pointer",
+                    opacity: it.disabled ? 0.5 : 1,
+                    textAlign: "start",
+                    transition: "background 0.12s ease",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 34,
+                      height: 34,
+                      borderRadius: 10,
+                      background: `${it.tint}18`,
+                      color: it.tint,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {it.icon}
+                  </span>
+                  <span style={{ flex: 1, lineHeight: 1.3 }}>{it.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </div>
@@ -233,10 +323,10 @@ export default function ToolsMenu({
         flexShrink: 0,
         display: "inline-flex",
         alignItems: "center",
-        gap: 6,
+        gap: 8, // مسافة مريحة بين زر المزيد وزر الإغلاق
       }}
     >
-      {/* More dropdown — down arrow (not three dots) */}
+      {/* زر المزيد */}
       <button
         ref={btnRef}
         onClick={toggleOpen}
@@ -246,17 +336,27 @@ export default function ToolsMenu({
         aria-haspopup="menu"
         className="lift-hover"
         style={{
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
-          minWidth: 40, height: 40, padding: "0 10px", borderRadius: 12,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 4,
+          minWidth: 40,
+          height: 40,
+          padding: "0 10px",
+          borderRadius: 12,
           color: open ? "#fff" : accent,
           background: open ? accent : "var(--card)",
           border: `1px solid ${accent}40`,
           cursor: "pointer",
           transition: "transform 0.15s ease, background 0.15s ease",
-          fontWeight: 700, fontSize: 13, fontFamily: "inherit",
+          fontWeight: 700,
+          fontSize: 13,
+          fontFamily: "inherit",
         }}
       >
-        <span style={{ display: "none" }} className="tools-more-label">{tr(isAr, "More", "المزيد")}</span>
+        <span style={{ display: "none" }} className="tools-more-label">
+          {tr(isAr, "More", "المزيد")}
+        </span>
         <span
           style={{
             display: "inline-flex",
@@ -268,7 +368,7 @@ export default function ToolsMenu({
         </span>
       </button>
 
-      {/* X sits next to the More button (only while open) — closes the menu */}
+      {/* زر الإغلاق بجانب المزيد — يظهر فقط عند الفتح */}
       {open && (
         <button
           type="button"
@@ -277,13 +377,17 @@ export default function ToolsMenu({
           aria-label={tr(isAr, "Close menu", "إغلاق القائمة")}
           className="lift-hover"
           style={{
-            display: "flex", alignItems: "center", justifyContent: "center",
-            width: 40, height: 40, borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 40,
+            height: 40,
+            borderRadius: "50%",
             color: "var(--ink)",
             background: "var(--card)",
             border: "1px solid rgba(var(--border-rgb),0.22)",
             cursor: "pointer",
-            transition: "none",
+            marginInlineStart: 2,
           }}
         >
           <XIcon size={16} />

@@ -622,3 +622,69 @@ html[data-radius="round"] {
 .brand-mark-glyph {
   /* selection uses brandGlyphPop; continuous pulse stays on .brand-mark-badge */
 }
+
+/* ============================================================
+   مسافات الأزرار العالمية — لا يُسمح لأي زر أن يلتصق بآخر
+   ============================================================ */
+:root {
+  --btn-gap: 8px;          /* المسافة الافتراضية بين الأزرار المتجاورة */
+  --btn-gap-tight: 6px;
+  --btn-gap-loose: 12px;
+  --btn-pad-y: 10px;
+  --btn-pad-x: 14px;
+}
+
+/* مجموعات الأزرار الأفقية والرأسية */
+.btn-row,
+.toolbar-row,
+.toolbar-actions,
+.modal-actions,
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--btn-gap) !important;
+}
+
+.btn-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--btn-gap);
+}
+
+/* منع الالتصاق داخل شبكات الأزرار */
+.btn-grid {
+  display: grid;
+  gap: var(--btn-gap);
+}
+
+/* تحسين مساحة اللمس (accessibility) */
+button,
+[role="button"],
+.touch-target {
+  min-height: 40px;
+  min-width: 40px;
+}
+
+/* عناصر قائمة المزيد */
+.tools-menu-item:hover:not(:disabled) {
+  background: var(--input-bg) !important;
+}
+.tools-menu-item:active:not(:disabled) {
+  background: var(--input-bg) !important;
+  opacity: 0.92;
+}
+
+/* مسافة إضافية حول أزرار الإجراءات السفلية في المودالات */
+.modal-footer,
+.modal-actions {
+  padding-top: 12px;
+  margin-top: 8px;
+  gap: var(--btn-gap-loose) !important;
+}
+
+/* ضمان عدم التصاق الأزرار في الهيدر */
+.header-actions,
+.toolbar-anim {
+  gap: var(--btn-gap) !important;
+}

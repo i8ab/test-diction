@@ -629,7 +629,7 @@ export default function MainView({
         <div className="app-container" style={{ margin: "0 auto", padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px) 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <BrandMark size="md" isAr={isAr} editable />
+              <BrandMark size="md" isAr={appIsAr} editable />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <button
@@ -715,11 +715,11 @@ export default function MainView({
               exportDisabled={sectionEntries.length === 0}
               onImport={() => importInputRef.current && importInputRef.current.click()}
               importing={importing}
-              isAr={isAr}
+              isAr={appIsAr}
             />
             </div>
           </div>
-          <div style={{ display: "flex", gap: 4, marginTop: 16 }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             {Object.entries(SECTIONS).map(([key, s]) => {
               const active = key === section;
               return (
@@ -843,9 +843,9 @@ export default function MainView({
             </button>
           </div>
         )}
-        {!focusMode && <WordOfTheDay entries={sectionEntries} section={section} cfg={cfg} isAr={isAr} onOpenZoom={(id) => setZoomEntry(sectionEntries.find((e) => e.id === id) || null)} />}
-        {!focusMode && <ReminderBanner studiedAt={studiedAt} isAr={isAr} cfg={cfg} remindersOn={remindersOn} reminderTitle={reminderTitle} reminderMessage={reminderMessage} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />}
-        {isAdmin && !focusMode && <BackupReminderBanner isAr={isAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
+        {!focusMode && <WordOfTheDay entries={sectionEntries} section={section} cfg={cfg} isAr={appIsAr} onOpenZoom={(id) => setZoomEntry(sectionEntries.find((e) => e.id === id) || null)} />}
+        {!focusMode && <ReminderBanner studiedAt={studiedAt} isAr={appIsAr} cfg={cfg} remindersOn={remindersOn} reminderTitle={reminderTitle} reminderMessage={reminderMessage} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />}
+        {isAdmin && !focusMode && <BackupReminderBanner isAr={appIsAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
         <div style={{ marginTop: 12, background: CARD, border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 10, padding: "12px 14px" }}>
           <div dir={isAr ? "rtl" : "ltr"} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 700, color: INK }}>
@@ -965,7 +965,7 @@ export default function MainView({
               <LoaderIcon size={18} /><span>{tr(isAr, "Loading entries…", "جارٍ تحميل الكلمات…")}</span>
             </div>
           ) : filtered.length === 0 ? (
-            <EmptyState hasQuery={!!query.trim() || studyFilter !== "all"} onAdd={onOpenAdd} accent={cfg.accent} isAr={isAr} />
+            <EmptyState hasQuery={!!query.trim() || studyFilter !== "all"} onAdd={onOpenAdd} accent={cfg.accent} isAr={appIsAr} />
           ) : (
             <>
               {cfg.letters.filter((l) => visibleGrouped[l]).map((letter) => (
@@ -975,7 +975,7 @@ export default function MainView({
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {visibleGrouped[letter].map((e) => (
-                      <EntryCard key={e.id} entry={e} cfg={cfg} isAdmin={isAdmin} isAr={isAr}
+                      <EntryCard key={e.id} entry={e} cfg={cfg} isAdmin={isAdmin} isAr={appIsAr}
                         canEdit={isAdmin || e.addedBy === accountCode}
                         onDelete={handleDelete} onEdit={handleEditRequest}
                         onOpenZoom={handleZoomRequest}
@@ -1023,7 +1023,7 @@ export default function MainView({
             studiedAt={studiedAt}
             srsDueAt={srsDueAt}
             sessionStart={sessionStart}
-            isAr={isAr}
+            isAr={appIsAr}
             initialDueOnly={quizDueOnly}
             onClose={() => { setShowQuiz(false); setQuizDueOnly(false); }}
             onRecordSrsAnswer={onRecordSrsAnswer}
@@ -1038,7 +1038,7 @@ export default function MainView({
             studiedIds={studiedIds}
             favoriteIds={favoriteIds}
             onToggleStudied={onToggleStudied}
-            isAr={isAr}
+            isAr={appIsAr}
             onClose={() => setShowFlashcards(false)}
           />
         )}
@@ -1051,7 +1051,7 @@ export default function MainView({
             srsBox={srsBox}
             srsDueAt={srsDueAt}
             quizHistory={quizHistory}
-            isAr={isAr}
+            isAr={appIsAr}
             cfg={cfg}
             onClose={() => setShowStats(false)}
           />
@@ -1062,7 +1062,7 @@ export default function MainView({
             sectionEntries={sectionEntries}
             accountCode={accountCode}
             sectionLabel={cfg.shortLabel}
-            isAr={isAr}
+            isAr={appIsAr}
             cfg={cfg}
             onClose={() => setShowLeaderboard(false)}
           />
@@ -1070,7 +1070,7 @@ export default function MainView({
         {showDashboard && (
           <DashboardPage
             onClose={() => setShowDashboard(false)}
-            isAr={isAr}
+            isAr={appIsAr}
             entries={entries}
             studiedIds={studiedIds}
             studiedAt={studiedAt}
@@ -1081,12 +1081,12 @@ export default function MainView({
             streak={computeStreak(studiedAt)}
             section={section}
             name={name}
-            onOpenQuiz={() => { setShowDashboard(false); setShowQuiz(true); }}
-            onOpenDue={() => { setShowDashboard(false); setStudyFilter("due"); setQuizDueOnly(true); setShowQuiz(true); }}
-            onOpenStats={() => { setShowDashboard(false); setShowStats(true); }}
-            onOpenGoals={() => { setShowDashboard(false); setGoalsBubble(false); setShowGoals(true); }}
-            onOpenCalendar={() => { setShowDashboard(false); setCalendarBubble(false); setShowCalendar(true); }}
-            onOpenFlashcards={() => { setShowDashboard(false); setShowFlashcards(true); }}
+            onOpenQuiz={() => { setShowQuiz(true); }}
+            onOpenDue={() => { setStudyFilter("due"); setQuizDueOnly(true); setShowQuiz(true); }}
+            onOpenStats={() => { setShowStats(true); }}
+            onOpenGoals={() => { setGoalsBubble(false); setShowGoals(true); }}
+            onOpenCalendar={() => { setCalendarBubble(false); setShowCalendar(true); }}
+            onOpenFlashcards={() => { setShowFlashcards(true); }}
           />
         )}
         {showWordLists && (
@@ -1094,7 +1094,7 @@ export default function MainView({
             accountCode={accountCode}
             entries={entries}
             section={section}
-            isAr={isAr}
+            isAr={appIsAr}
             onClose={() => setShowWordLists(false)}
             showToast={showToast}
             onImportWords={async (words, listSection) => {
@@ -1137,7 +1137,7 @@ export default function MainView({
             accountCode={accountCode}
             accountName={name}
             accounts={accounts}
-            isAr={isAr}
+            isAr={appIsAr}
             onClose={() => setShowChallenges(false)}
             showToast={showToast}
           />
@@ -1162,7 +1162,7 @@ export default function MainView({
             onAdd={onAdminAddAccount}
             onEdit={onAdminEditAccount}
             onDelete={onAdminDeleteAccount}
-            isAr={isAr}
+            isAr={appIsAr}
           />
         )}
       </Suspense>
@@ -1176,7 +1176,7 @@ export default function MainView({
     {showTimer && (
       <Suspense fallback={null}>
         <TimerPage
-          isAr={isAr}
+          isAr={appIsAr}
           initialBubble={timerBubble}
           onClose={() => { setShowTimer(false); setTimerBubble(false); }}
           onBubbleChange={setTimerBubble}
@@ -1187,7 +1187,7 @@ export default function MainView({
     {showCalendar && (
       <Suspense fallback={null}>
         <CalendarPage
-          isAr={isAr}
+          isAr={appIsAr}
           studiedAt={studiedAt}
           entries={entries}
           initialBubble={calendarBubble}
@@ -1200,7 +1200,7 @@ export default function MainView({
     {showTodo && (
       <Suspense fallback={null}>
         <TodoPage
-          isAr={isAr}
+          isAr={appIsAr}
           initialBubble={todoBubble}
           onClose={() => { setShowTodo(false); setTodoBubble(false); }}
           onBubbleChange={setTodoBubble}
@@ -1211,7 +1211,7 @@ export default function MainView({
     {showGoals && (
       <Suspense fallback={null}>
         <GoalsPage
-          isAr={isAr}
+          isAr={appIsAr}
           studiedAt={studiedAt}
           quizHistory={quizHistory}
           streak={computeStreak(studiedAt)}
@@ -1225,7 +1225,7 @@ export default function MainView({
 
     {showInfoGuide && (
       <Suspense fallback={null}>
-        <InfoGuideModal isAr={isAr} onClose={() => setShowInfoGuide(false)} />
+        <InfoGuideModal isAr={appIsAr} onClose={() => setShowInfoGuide(false)} />
       </Suspense>
     )}
 
@@ -1235,7 +1235,7 @@ export default function MainView({
           entries={sectionEntries}
           studiedIds={studiedIds}
           srsDueAt={srsDueAt}
-          isAr={isAr}
+          isAr={appIsAr}
           onClose={() => setShowQuickReview(false)}
           onToggleStudied={onToggleStudied}
           onRecordSrsAnswer={onRecordSrsAnswer}
@@ -1248,7 +1248,7 @@ export default function MainView({
         <DictationModal
           entries={sectionEntries}
           studiedIds={studiedIds}
-          isAr={isAr}
+          isAr={appIsAr}
           onClose={() => setShowDictation(false)}
           onRecordSrsAnswer={onRecordSrsAnswer}
           onFinishRound={() => {
@@ -1266,7 +1266,7 @@ export default function MainView({
       <Suspense fallback={null}>
         <AchievementsModal
           unlockedIds={(accounts.find((a) => a.code === accountCode) || {}).achievements || []}
-          isAr={isAr}
+          isAr={appIsAr}
           onClose={() => setShowAchievements(false)}
           account={accounts.find((a) => a.code === accountCode) || null}
           streak={computeStreak(studiedAt)}
@@ -1290,7 +1290,7 @@ export default function MainView({
           entries={sectionEntries}
           studiedIds={studiedIds}
           srsDueAt={srsDueAt}
-          isAr={isAr}
+          isAr={appIsAr}
           section={section}
           onClose={() => setShowRandomWord(false)}
           onRecordSrsAnswer={onRecordSrsAnswer}

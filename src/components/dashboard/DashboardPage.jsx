@@ -169,7 +169,7 @@ export default function DashboardPage({
           </button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 18 }}>
           {cards.map((c) => (
             <button
               key={c.key}
@@ -196,7 +196,7 @@ export default function DashboardPage({
           ))}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 18 }}>
           {[
             { label: tr(isAr, "Favorites", "المفضلة"), value: favCount },
             { label: tr(isAr, "Quizzes today", "اختبارات اليوم"), value: quizzesToday },
@@ -215,7 +215,7 @@ export default function DashboardPage({
               {tr(isAr, "Weekly challenge", "تحدي الأسبوع")}
             </div>
             <div style={{ fontSize: 14, color: INK }}>
-              {challenge.type} · target {challenge.target}
+              {isAr ? (challenge.labelAr || challenge.labelEn) : (challenge.labelEn || challenge.type)} · {tr(isAr, "target", "الهدف")} {challenge.target}
             </div>
             <button
               type="button"
@@ -278,7 +278,7 @@ export default function DashboardPage({
           <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginBottom: 8 }}>
             {tr(isAr, "SRS intervals (custom)", "فترات التكرار المتباعد (تخصيص)")}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <label style={{ fontSize: 12, color: "var(--muted-strong)" }}>
               {tr(isAr, "Relearn (min)", "إعادة (دقائق)")}
               <input type="number" min={1} value={srsPrefs.learningMinutes}
@@ -306,7 +306,7 @@ export default function DashboardPage({
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           {[
             { label: tr(isAr, "Quiz", "اختبار"), onClick: onOpenQuiz },
             { label: tr(isAr, "Flashcards", "بطاقات"), onClick: onOpenFlashcards },

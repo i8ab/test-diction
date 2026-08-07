@@ -1704,3 +1704,26 @@ html[data-device="tablet"] .search-clear-btn {
 html[data-device="tablet"] .entry-card--tablet .entry-longform {
   display: block !important; /* keep expand details on tablet */
 }
+
+
+/* Mobile word cards — clean chips instead of dual-column pair rows */
+.entry-card--mobile {
+  padding: 12px 12px !important;
+  border-radius: 14px !important;
+  gap: 8px !important;
+  align-items: flex-start !important;
+}
+.entry-card--mobile .entry-card-top {
+  gap: 6px !important;
+}
+.entry-card--mobile .entry-mobile-chips {
+  gap: 6px !important;
+}
+.entry-card--mobile .entry-card-actions,
+.entry-card--mobile > div:last-child {
+  gap: 2px !important;
+}
+/* Hide PairList dual columns if any leak on mobile */
+.entry-card--mobile .entry-longform {
+  display: none !important;
+}

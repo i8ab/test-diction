@@ -17,6 +17,42 @@ import {
   EyeIcon, EyeOffIcon, SpeakButton,
 } from "./Icons";
 
+
+function MobilePairChips({ label, pairs, tone = "success" }) {
+  const words = (pairs || []).map((p) => (p && (p.word || p.meaning) ? (p.word || p.meaning) : "")).filter(Boolean);
+  if (!words.length) return null;
+  const color = tone === "danger" ? "var(--danger)" : "var(--success)";
+  const bg = tone === "danger"
+    ? "color-mix(in srgb, var(--danger) 12%, transparent)"
+    : "color-mix(in srgb, var(--success) 12%, transparent)";
+  return (
+    <div className="entry-mobile-pair-block" style={{ marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ fontSize: 11, fontWeight: 800, color, marginBottom: 5 }}>{label}</div>
+      <div className="entry-mobile-chips" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {words.map((w, i) => (
+          <span
+            key={i}
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              padding: "5px 10px",
+              borderRadius: 999,
+              background: bg,
+              color: "var(--ink)",
+              border: `1px solid color-mix(in srgb, ${color} 28%, transparent)`,
+              maxWidth: "100%",
+              overflowWrap: "anywhere",
+              lineHeight: 1.3,
+            }}
+          >
+            {w}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpenZoom, isStudied, onToggleStudied, isFavorite, onToggleFavorite, addedByLabel, editedByLabel, wordNote = "", onSaveNote, mobileLayout = false, tabletLayout = false }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const [open, setOpen] = useState(false);
@@ -36,7 +72,7 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
         aria-expanded={isExpandable ? open : undefined}
         onKeyDown={isExpandable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((o) => !o); } } : undefined}
       >
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+        <div className="entry-card-top" style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
           <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 15, fontWeight: 600, color: INK }}>{entry.word}</span>
           {entryPosList(entry).map((p) => (
             <span key={p} style={{
@@ -117,26 +153,36 @@ function EntryCard({ entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpe
               </p>
             ))}
             </div>
-            {mobileLayout && (hasDefinition || hasExample) && (
-              <p className="entry-mobile-zoom-hint" style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.45 }}>
-                {tr(isAr, "Open Zoom for definition & examples.", "افتح التكبير للتعريف والأمثلة.")}
+            {mobileLayout && (hasDefinition || hasExample || hasSynAnt) && (
+              <p className="entry-mobile-zoom-hint" style={{ margin: "8px 0 0", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.45 }}>
+                {tr(isAr, "Open Zoom for full definition, examples, and pair details.", "افتح التكبير للتعريف والأمثلة وتفاصيل المرادفات/المضادات.")}
                 {" "}
                 <button type="button" onClick={(e) => { e.stopPropagation(); onOpenZoom && onOpenZoom(entry.id); }} style={{ border: "none", background: "none", color: "var(--accent-1)", fontWeight: 700, cursor: "pointer", padding: 0, fontSize: 12 }}>
                   {tr(isAr, "Zoom", "تكبير")}
                 </button>
               </p>
             )}
-            {!!(entry.synonyms && entry.synonyms.length) && (
-              <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 6 }}>
-                <strong style={{ color: "var(--success)" }}>{tr(isAr, "Synonyms", "مرادفات")}</strong>
-                <PairListDisplay cfg={cfg} pairs={entry.synonyms} />
-              </div>
-            )}
-            {!!(entry.antonyms && entry.antonyms.length) && (
-              <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 6 }}>
-                <strong style={{ color: "var(--danger)" }}>{tr(isAr, "Antonyms", "مضادات")}</strong>
-                <PairListDisplay cfg={cfg} pairs={entry.antonyms} />
-              </div>
+            {/* Desktop/tablet: full pair rows. Mobile: compact chips only (full detail in Zoom). */}
+            {mobileLayout ? (
+              <>
+                <MobilePairChips label={tr(isAr, "Synonyms", "مرادفات")} pairs={entry.synonyms} tone="success" />
+                <MobilePairChips label={tr(isAr, "Antonyms", "مضادات")} pairs={entry.antonyms} tone="danger" />
+              </>
+            ) : (
+              <>
+                {!!(entry.synonyms && entry.synonyms.length) && (
+                  <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 6 }}>
+                    <strong style={{ color: "var(--success)" }}>{tr(isAr, "Synonyms", "مرادفات")}</strong>
+                    <PairListDisplay cfg={cfg} pairs={entry.synonyms} />
+                  </div>
+                )}
+                {!!(entry.antonyms && entry.antonyms.length) && (
+                  <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 6 }}>
+                    <strong style={{ color: "var(--danger)" }}>{tr(isAr, "Antonyms", "مضادات")}</strong>
+                    <PairListDisplay cfg={cfg} pairs={entry.antonyms} />
+                  </div>
+                )}
+              </>
             )}
             {isAdmin && (
               <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>

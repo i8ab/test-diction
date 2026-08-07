@@ -156,8 +156,7 @@ export default function ToolsMenu({
 
   function handleItemClick(item) {
     if (item.disabled) return;
-    closeMenu();
-    // Open immediately — no artificial delay (was 80ms lag on every device)
+    // Keep More menu open; child overlays use higher z-index so they appear on top
     if (typeof item.onClick === "function") item.onClick();
   }
 

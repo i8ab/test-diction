@@ -129,7 +129,7 @@ export default function DashboardPage({
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 2000,
+        zIndex: 3600,
         background: "rgba(0,0,0,0.5)",
         display: "flex",
         alignItems: "center",

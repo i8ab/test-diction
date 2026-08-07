@@ -1,6 +1,7 @@
 import { XIcon, SettingsIcon, GlobeIcon, PaletteIcon, UserIcon, LogoutIcon, BellIcon, BellOffIcon, BookIcon, LayersIcon, SunIcon, MoonIcon, MicIcon } from "../common/Icons";
 import { UI_LANGS } from "../../lib/config/i18n";
-import { EN_ACCENTS } from "../../lib/utils/speech";
+import { EN_ACCENTS, saveEnAccent } from "../../lib/utils/speech";
+import { loadPresetId, loadCustomGlyph } from "../common/BrandMark";
 
 export default function SettingsModal({
   open,
@@ -21,12 +22,22 @@ export default function SettingsModal({
   setAccentModalOpen,
   setAppearanceModalOpen,
   openInfoModal,
+  openNotifModal,
+  openBannerModal,
   onOpenAccount,
   onOpenAdmin,
   onLogout,
   focusMode,
   onToggleFocus,
   remindersOn,
+  onEnableReminders,
+  onDisableReminders,
+  siteBanner,
+  onPersistSiteBanner,
+  setBrandPresetId,
+  setBrandCustomGlyph,
+  setBrandAddMode,
+  setBrandDraftCustom,
   // vault
   vaultAccounts = [],
   mainAccountCode = "",
@@ -64,7 +75,7 @@ export default function SettingsModal({
           onClick={onClose}
           className="modal-backdrop"
           style={{
-            position: "fixed", inset: 0, zIndex: 2500,
+            position: "fixed", inset: 0, zIndex: 3300,
             background: "rgba(0,0,0,0.45)",
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: 16,
@@ -106,13 +117,13 @@ export default function SettingsModal({
                 icon={theme === "dark" ? <SunIcon size={14} /> : <MoonIcon size={14} />}
                 label={T("Appearance", "المظهر")}
                 onClick={() => {
-                  setBrandPresetId(loadPresetId());
-                  setBrandCustomGlyph(loadCustomGlyph());
-                  setBrandAddMode(false);
-                  setBrandDraftCustom("");
-                  // Close settings first so only one modal paints (was stacking → lag)
-                  onClose();
-                  setAppearanceModalOpen(true);
+                  try {
+                    if (setBrandPresetId) setBrandPresetId(loadPresetId());
+                    if (setBrandCustomGlyph) setBrandCustomGlyph(loadCustomGlyph());
+                    if (setBrandAddMode) setBrandAddMode(false);
+                    if (setBrandDraftCustom) setBrandDraftCustom("");
+                  } catch (_) {}
+                  setAppearanceModalOpen && setAppearanceModalOpen(true);
                 }}
                 trailing={
                   <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
@@ -130,7 +141,7 @@ export default function SettingsModal({
                   onClick={() => setLangModalOpen(true)}
                   trailing={
                     <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
-                      {(UI_LANGS.find((l) => l.id === lang) || {}).native || "English"}
+                      {(UI_LANGS.find((l) => l.id === appLang) || {}).native || "English"}
                       {isAr ? " ◂" : " ▸"}
                     </span>
                   }
@@ -172,7 +183,7 @@ export default function SettingsModal({
                 tint="#5b8def"
                 icon={<BookIcon size={14} />}
                 label={T("Information", "معلومات")}
-                onClick={openInfoModal}
+                onClick={() => { openInfoModal && openInfoModal(); }}
                 trailing={
                   <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
                     {isAr ? "◂" : "▸"}
@@ -186,7 +197,7 @@ export default function SettingsModal({
                   tint={remindersOn ? "#34c759" : "#8e8e93"}
                   icon={remindersOn ? <BellIcon size={14} /> : <BellOffIcon size={14} />}
                   label={T("Notifications", "الإشعارات")}
-                  onClick={openNotifModal}
+                  onClick={() => openNotifModal && openNotifModal()}
                   trailing={
                     <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
                       {isAr ? "◂" : "▸"}
@@ -202,7 +213,7 @@ export default function SettingsModal({
                     tint="#146C94"
                     icon={<LayersIcon size={14} />}
                     label={T( "Site banner", "بانر الموقع")}
-                    onClick={openBannerModal}
+                    onClick={() => openBannerModal && openBannerModal()}
                     trailing={
                       <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         {siteBanner && siteBanner.enabled && (

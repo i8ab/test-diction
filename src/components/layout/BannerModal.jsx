@@ -159,7 +159,7 @@ export default function BannerModal({
       onClick={onClose}
       className="modal-backdrop"
       style={{
-        position: "fixed", inset: 0, zIndex: 2600,
+        position: "fixed", inset: 0, zIndex: 3600,
         background: "rgba(0,0,0,0.45)",
         display: "flex", alignItems: "center", justifyContent: "center",
         padding: 16,

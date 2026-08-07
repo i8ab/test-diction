@@ -32,7 +32,7 @@ export default function AppearanceModal({
 }) {
   if (!open) return null;
   return (
-        <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 2600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="appearance-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, maxHeight: "min(90dvh, 820px)", overflowY: "auto", background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <h2 id="appearance-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Appearance", "المظهر")}</h2>

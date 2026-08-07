@@ -140,7 +140,7 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
         alignItems: "center",
         justifyContent: "center",
         padding: "max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))",
-        zIndex: 3000,
+        zIndex: 3600,
       }}
     >
       <BodyScrollLock />

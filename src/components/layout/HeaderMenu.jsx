@@ -112,7 +112,6 @@ function HeaderMenu({
   }
 
   function openSettings() {
-    closeMenu();
     setSettingsOpen(true);
   }
 
@@ -126,7 +125,6 @@ function HeaderMenu({
   function openInfoModal() {
     setNotifOpen(false);
     setBannerOpen(false);
-    setOpen(false);
     // Prefer the full detailed guide from the parent (InfoGuideModal).
     if (onOpenInfo) {
       onOpenInfo();
@@ -350,7 +348,7 @@ function HeaderMenu({
                   tint={focusMode ? "#fff" : "#6366f1"}
                   icon={<LayersIcon size={14} />}
                   label={focusMode ? T( "Exit focus mode", "إغلاق وضع التركيز") : T( "Focus mode", "وضع التركيز")}
-                  onClick={onToggleFocus}
+                  onClick={() => { onToggleFocus && onToggleFocus(); }}
                 />
               )}
 {/* ========== New account requests (admins) ========== */}
@@ -428,11 +426,11 @@ function HeaderMenu({
                     tint="#f4a261"
                     icon={<StarIcon size={14} />}
                     label={T("Achievements", "الإنجازات")}
-                    onClick={() => { setOpen(false); onOpenAchievements(); }}
+                    onClick={() => { onOpenAchievements && onOpenAchievements(); }}
                   />
                 )}
                 {isAdmin && (
-                  <Row tint="#af52de" icon={<UsersIcon size={14} />} label={T( "Admin Panel", "لوحة التحكم")} onClick={onOpenAdmin} />
+                  <Row tint="#af52de" icon={<UsersIcon size={14} />} label={T( "Admin Panel", "لوحة التحكم")} onClick={() => { onOpenAdmin && onOpenAdmin(); }} />
                 )}
 
                 {/* تبديل الحسابات المحفوظة — تعدد الحسابات للأدمن */}
@@ -598,7 +596,7 @@ function HeaderMenu({
                   </div>
                 )}
 
-                <Row danger tint="var(--danger)" icon={<LogoutIcon size={14} />} label={T( "Sign Out", "تسجيل الخروج")} onClick={onLogout} />
+                <Row danger tint="var(--danger)" icon={<LogoutIcon size={14} />} label={T( "Sign Out", "تسجيل الخروج")} onClick={() => { setOpen(false); onLogout && onLogout(); }} />
                 {typeof onLogoutAll === "function" && vaultAccounts.length > 0 && (
                   <Row
                     danger
@@ -636,12 +634,22 @@ function HeaderMenu({
         setAccentModalOpen={setAccentModalOpen}
         setAppearanceModalOpen={setAppearanceModalOpen}
         openInfoModal={openInfoModal}
-        onOpenAccount={onOpenAccount}
-        onOpenAdmin={onOpenAdmin}
-        onLogout={onLogout}
+        openNotifModal={openNotifModal}
+        openBannerModal={openBannerModal}
+        onOpenAccount={() => { onOpenAccount && onOpenAccount(); }}
+        onOpenAdmin={() => { onOpenAdmin && onOpenAdmin(); }}
+        onLogout={() => { closeSettings(); setOpen(false); onLogout && onLogout(); }}
         focusMode={focusMode}
         onToggleFocus={onToggleFocus}
         remindersOn={remindersOn}
+        onEnableReminders={onEnableReminders}
+        onDisableReminders={onDisableReminders}
+        siteBanner={siteBanner}
+        onPersistSiteBanner={onPersistSiteBanner}
+        setBrandPresetId={setBrandPresetId}
+        setBrandCustomGlyph={setBrandCustomGlyph}
+        setBrandAddMode={setBrandAddMode}
+        setBrandDraftCustom={setBrandDraftCustom}
         vaultAccounts={vaultAccounts}
         mainAccountCode={mainAccountCode}
         accountCode={accountCode}

@@ -209,7 +209,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
         alignItems: "center",
         justifyContent: "center",
         padding: 16,
-        zIndex: 3000,
+        zIndex: 3600,
       }}
     >
       <BodyScrollLock />

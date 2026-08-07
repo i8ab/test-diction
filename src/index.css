@@ -382,11 +382,11 @@ html[data-card-height="comfortable"] {
   --entry-gap: 12px;
 }
 
-/* Desktop-only: slightly tighter side padding so list sits wider */
+/* Desktop-only: push list + letter-rail to the far left; keep right side empty for Goals/To-do FABs */
 @media (min-width: 1200px) {
   .app-container.app-main-row {
-    padding-left: clamp(8px, 1.5vw, 16px);
-    padding-right: clamp(8px, 1.5vw, 16px);
+    padding-left: clamp(4px, 0.8vw, 10px);
+    padding-right: clamp(72px, 7vw, 100px);
   }
 }
 
@@ -1112,12 +1112,13 @@ canvas {
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: flex-start;
-  gap: 14px;
+  gap: 10px;
   width: 100%;
   max-width: var(--app-max, 920px);
-  margin-left: auto;
+  /* Align list + letter-rail to the far left; leave right side empty for floating Goals/To-do */
+  margin-left: 0;
   margin-right: auto;
-  padding: clamp(14px, 2.5vw, 22px) clamp(12px, 3vw, 24px) clamp(40px, 8vw, 72px);
+  padding: clamp(14px, 2.5vw, 22px) clamp(72px, 8vw, 96px) clamp(40px, 8vw, 72px) clamp(6px, 1.2vw, 12px);
   box-sizing: border-box;
 }
 
@@ -1198,6 +1199,11 @@ canvas {
     flex-direction: column;
     flex-wrap: nowrap;
     gap: 10px;
+    /* On mobile FABs are hidden / bottom-nav; restore normal side padding */
+    padding-left: clamp(10px, 3vw, 16px);
+    padding-right: clamp(10px, 3vw, 16px);
+    margin-left: auto;
+    margin-right: auto;
   }
   /* قائمة الحروف تفضل ظاهرة أثناء السكرول على الموبايل */
   .letter-rail {
@@ -1626,11 +1632,13 @@ html[data-device="tablet"] .app-main-row {
   display: flex !important;
   flex-direction: row !important;
   align-items: flex-start !important;
-  gap: 14px !important;
+  gap: 10px !important;
   max-width: 1100px !important;
-  margin-inline: auto;
+  margin-left: 0 !important;
+  margin-right: auto !important;
   padding-bottom: 24px !important;
-  padding-inline-end: 88px; /* room for side dock */
+  padding-inline-start: clamp(6px, 1.2vw, 12px) !important;
+  padding-inline-end: 88px; /* room for side dock / FABs — keep empty */
 }
 html[data-device="tablet"] .letter-rail {
   flex: 0 0 52px !important;

@@ -1227,8 +1227,6 @@ export default function MainView({
                         onToggleStudied={handleToggleStudiedById}
                         isFavorite={favoriteIds.has(e.id)}
                         onToggleFavorite={handleToggleFavoriteById}
-                        wordNote={wordNotes[e.id] || ""}
-                        onSaveNote={(note) => setWordNotes(setWordNote(accountCode, e.id, note))}
                         addedByLabel={accountNameByCode[e.addedBy] || e.addedBy}
                         editedByLabel={accountNameByCode[e.editedBy] || e.editedBy}
                       />
@@ -1260,7 +1258,13 @@ export default function MainView({
           />
         )}
         {zoomEntry && (
-          <WordZoomModal entry={zoomEntry} cfg={cfg} onClose={() => setZoomEntry(null)} />
+          <WordZoomModal
+            entry={zoomEntry}
+            cfg={cfg}
+            onClose={() => setZoomEntry(null)}
+            wordNote={wordNotes[zoomEntry.id] || ""}
+            onSaveNote={(note) => setWordNotes(setWordNote(accountCode, zoomEntry.id, note))}
+          />
         )}
         {showQuiz && (
           <QuizModal

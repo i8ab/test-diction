@@ -12,10 +12,15 @@ import { useSwipeDownClose } from "../../lib/utils/useModalDismiss";
 // Big, centered "zoom" view of a single word — just the word and its meaning
 // (plus definition, if any) in a large, readable font. Opened via the zoom
 // icon on each entry card.
-export default function WordZoomModal({ entry, cfg, onClose }) {
+export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSaveNote }) {
   const swipe = useSwipeDownClose(onClose, { enabled: true });
   const [sharing, setSharing] = useState(false);
   const isAr = cfg.dir === "rtl";
+  const [noteDraft, setNoteDraft] = useState(wordNote || "");
+
+  useEffect(() => {
+    setNoteDraft(wordNote || "");
+  }, [wordNote, entry?.id]);
 
   // Pronunciation practice: record one attempt via the browser's speech
   // recognition and grade it against the target word (see
@@ -262,6 +267,36 @@ export default function WordZoomModal({ entry, cfg, onClose }) {
           <div style={{ fontSize: 14, color: "var(--muted-strong)", marginTop: 10, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
             <strong style={{ color: "var(--danger)" }}>{tr(cfg.dir === "rtl", "Antonyms", "مضادات")}</strong>
             <PairListDisplay cfg={cfg} pairs={entry.antonyms} />
+          </div>
+        )}
+
+        {typeof onSaveNote === "function" && (
+          <div style={{ marginTop: 22, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-strong)", marginBottom: 6 }}>
+              {tr(isAr, "Personal note", "ملاحظة شخصية")}
+            </label>
+            <textarea
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+              onBlur={() => {
+                if ((noteDraft || "") !== (wordNote || "")) onSaveNote(noteDraft);
+              }}
+              rows={3}
+              placeholder={tr(isAr, "Write a private note…", "اكتب ملاحظة خاصة…")}
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                borderRadius: 10,
+                border: "1px solid rgba(var(--border-rgb),0.2)",
+                padding: "12px 14px",
+                fontSize: 15,
+                background: "var(--input-bg)",
+                color: "var(--ink)",
+                resize: "vertical",
+                fontFamily: "inherit",
+                lineHeight: 1.5,
+              }}
+            />
           </div>
         )}
       </div>

@@ -50,12 +50,11 @@ function MobilePairChips({ label, pairs, tone = "success" }) {
 function EntryCard({
   entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpenZoom,
   isStudied, onToggleStudied, isFavorite, onToggleFavorite,
-  addedByLabel, editedByLabel, wordNote = "", onSaveNote,
+  addedByLabel, editedByLabel,
   mobileLayout = false, tabletLayout = false,
 }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const [open, setOpen] = useState(false);
-  const [noteDraft, setNoteDraft] = useState(wordNote || "");
   const hasDefinition = !!entry.definition;
   const hasExample = !!entry.example || !!(entry.examples && entry.examples.length);
   const hasSynAnt = !!((entry.synonyms && entry.synonyms.length) || (entry.antonyms && entry.antonyms.length));
@@ -297,35 +296,6 @@ function EntryCard({
               <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 8 }}>
                 {tr(isAr, `added by ${addedByLabel}`, `أضافها ${addedByLabel}`)}
                 {entry.editedBy && <span> · {tr(isAr, `edited by ${editedByLabel}`, `عدّلها ${editedByLabel}`)}</span>}
-              </div>
-            )}
-
-            {typeof onSaveNote === "function" && (
-              <div style={{ marginTop: 10 }}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--muted-strong)", marginBottom: 4 }}>
-                  {tr(isAr, "Personal note", "ملاحظة شخصية")}
-                </label>
-                <textarea
-                  value={noteDraft}
-                  onChange={(e) => setNoteDraft(e.target.value)}
-                  onBlur={() => {
-                    if ((noteDraft || "") !== (wordNote || "")) onSaveNote(noteDraft);
-                  }}
-                  rows={2}
-                  placeholder={tr(isAr, "Write a private note…", "اكتب ملاحظة خاصة…")}
-                  style={{
-                    width: "100%",
-                    boxSizing: "border-box",
-                    borderRadius: 10,
-                    border: "1px solid rgba(var(--border-rgb),0.2)",
-                    padding: "10px 12px",
-                    fontSize: 14,
-                    background: "var(--input-bg)",
-                    color: "var(--ink)",
-                    resize: "vertical",
-                    fontFamily: "inherit",
-                  }}
-                />
               </div>
             )}
           </div>

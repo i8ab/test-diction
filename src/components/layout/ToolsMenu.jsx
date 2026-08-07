@@ -157,10 +157,8 @@ export default function ToolsMenu({
   function handleItemClick(item) {
     if (item.disabled) return;
     closeMenu();
-    // تأخير بسيط عشان القائمة تقفل بسلاسة قبل فتح المودال
-    setTimeout(() => {
-      if (typeof item.onClick === "function") item.onClick();
-    }, 80);
+    // Open immediately — no artificial delay (was 80ms lag on every device)
+    if (typeof item.onClick === "function") item.onClick();
   }
 
   // Always a full modal (all devices) so the whole list is reachable + scrollable

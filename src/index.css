@@ -1,5 +1,27 @@
   html, body { margin: 0; padding: 0; background: var(--paper); }
   * { box-sizing: border-box; }
+
+  /* Global: kill blue/teal mobile tap highlight everywhere */
+  html, body, *,
+  *::before, *::after {
+    -webkit-tap-highlight-color: transparent !important;
+  }
+  a, button, [role="button"], [tabindex],
+  label, summary, input, select, textarea {
+    -webkit-tap-highlight-color: transparent !important;
+  }
+  /* No persistent blue wash on focus for clickable chrome (keep focus-visible for a11y) */
+  a:focus, button:focus, [role="button"]:focus, [tabindex]:focus {
+    outline: none;
+  }
+  a:focus-visible, button:focus-visible, [role="button"]:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid rgba(var(--focus-rgb), 0.45);
+    outline-offset: 2px;
+  }
+  /* Soft press feedback only — no colored background flash */
+  a:active, [role="button"]:active, [tabindex]:active {
+    -webkit-tap-highlight-color: transparent !important;
+  }
   :root {
     --paper: #FAFDFE;
     --card: #FFFFFF;
@@ -106,8 +128,49 @@
   @keyframes gradientMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
   @keyframes underlineGrow { from { width: 0; } to { width: 100%; } }
 
-  .modal-backdrop { animation: fadeIn 0.22s ease both; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
-  .modal-card { animation: scaleIn 0.32s cubic-bezier(0.22,1,0.36,1) both; }
+  /* Fast modal open on ALL devices — no blur, near-instant enter */
+  @keyframes modalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes modalPopIn {
+    from { opacity: 0; transform: scale(0.98) translateY(4px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .modal-backdrop,
+  .header-menu-backdrop {
+    animation: modalFadeIn 0.08s ease both !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .modal-card,
+  .header-menu-panel,
+  .responsive-modal,
+  .auth-card {
+    animation: modalPopIn 0.1s cubic-bezier(0.2, 0.9, 0.3, 1) both !important;
+  }
+  /* Respect reduced motion: open instantly */
+  @media (prefers-reduced-motion: reduce) {
+    .modal-backdrop,
+    .header-menu-backdrop,
+    .modal-card,
+    .header-menu-panel,
+    .responsive-modal {
+      animation: none !important;
+    }
+  }
+  /* Inside dialogs: kill continuous brand pulse/shine (many badges = jank on open) */
+  .modal-card .brand-mark-badge,
+  .modal-card .brand-mark-ring,
+  .modal-card .brand-mark-title,
+  .header-menu-panel .brand-mark-badge {
+    animation: none !important;
+  }
+  .modal-card .brand-mark-badge-shine::after,
+  .header-menu-panel .brand-mark-badge-shine::after {
+    animation: none !important;
+    display: none !important;
+  }
 
   .auth-card { animation: fadeInUp 0.55s cubic-bezier(0.22,1,0.36,1) both; }
   .auth-field-1 { animation: staggerIn 0.5s ease both 0.08s; }
@@ -1769,6 +1832,32 @@ html[data-device="tablet"] .entry-card--tablet .entry-longform {
   flex-direction: column !important;
   align-items: stretch !important;
 }
+
+/* Kill mobile tap / focus blue wash on the whole card */
+.entry-card,
+.entry-card * {
+  -webkit-tap-highlight-color: transparent !important;
+}
+.entry-card [role="button"],
+.entry-card [role="button"]:focus,
+.entry-card [role="button"]:active {
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+.entry-card [role="button"]:focus-visible {
+  outline: 2px solid rgba(var(--focus-rgb), 0.45) !important;
+  outline-offset: 2px;
+  background: transparent !important;
+}
+/* Prevent accidental text-selection blue wash while tapping to expand */
+.entry-card [role="button"] {
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
 .entry-action-bar {
   gap: 8px;
 }
@@ -1777,6 +1866,7 @@ html[data-device="tablet"] .entry-card--tablet .entry-longform {
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
+  -webkit-tap-highlight-color: transparent !important;
 }
 .entry-action-btn:active {
   transform: scale(0.96);

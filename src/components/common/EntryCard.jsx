@@ -137,8 +137,21 @@ function EntryCard({
     >
       {/* Content — expands on tap; actions are outside this zone */}
       <div
-        style={{ cursor: "pointer", minWidth: 0 }}
-        onClick={() => setOpen((o) => !o)}
+        style={{
+          cursor: "pointer",
+          minWidth: 0,
+          WebkitTapHighlightColor: "transparent",
+          outline: "none",
+          background: "transparent",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          touchAction: "manipulation",
+        }}
+        onClick={(e) => {
+          setOpen((o) => !o);
+          // Drop focus after tap so mobile browsers don't leave a blue/teal wash
+          try { e.currentTarget.blur(); } catch (_) {}
+        }}
         role="button"
         tabIndex={0}
         aria-expanded={open}

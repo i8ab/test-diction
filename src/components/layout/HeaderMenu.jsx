@@ -968,6 +968,8 @@ export default function HeaderMenu({
                   setBrandCustomGlyph(loadCustomGlyph());
                   setBrandAddMode(false);
                   setBrandDraftCustom("");
+                  // Close settings first so only one modal paints (was stacking → lag)
+                  setSettingsOpen(false);
                   setAppearanceModalOpen(true);
                 }}
                 trailing={

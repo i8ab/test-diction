@@ -1060,6 +1060,7 @@ export default function MainView({
                         cfg={cfg}
                         isAdmin={isAdmin}
                         isAr={appIsAr}
+                        mobileLayout={deviceMode === "mobile"}
                         canEdit={isAdmin || e.addedBy === accountCode}
                         onDelete={handleDelete}
                         onEdit={handleEditRequest}

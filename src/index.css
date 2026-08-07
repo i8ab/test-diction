@@ -1287,26 +1287,26 @@ html[data-device="mobile"] .app-main-row {
 
 
 /* Entry cards — mobile: hide long definition/examples until Zoom */
-html[data-device="mobile"] .entry-longform {
+.entry-card--mobile .entry-longform {
   display: none !important;
 }
-html[data-device="mobile"] .entry-mobile-zoom-hint {
+.entry-card--mobile .entry-mobile-zoom-hint {
   display: block !important;
 }
-html[data-device="mobile"] .entry-card {
+.entry-card--mobile {
   padding: 10px 10px !important;
   gap: 8px !important;
   border-radius: 12px !important;
 }
-html[data-device="mobile"] .entry-card-word-row {
+.entry-card--mobile .entry-card-word-row {
   gap: 6px !important;
 }
-html[data-device="mobile"] .entry-card-word {
+.entry-card--mobile .entry-card-word {
   font-size: 16px !important;
   max-width: calc(100% - 40px);
   overflow-wrap: anywhere;
 }
-html[data-device="mobile"] .entry-card-speak-inline button {
+.entry-card--mobile .entry-card-speak-inline button {
   width: 34px;
   height: 34px;
   padding: 0 !important;
@@ -1316,13 +1316,13 @@ html[data-device="mobile"] .entry-card-speak-inline button {
   justify-content: center;
   flex-shrink: 0;
 }
-html[data-device="mobile"] .entry-card-meaning {
+.entry-card--mobile .entry-card-meaning {
   margin-top: 6px !important;
 }
-html[data-device="mobile"] .entry-card-actions {
+.entry-card--mobile .entry-card-actions {
   gap: 0 !important;
 }
-html[data-device="mobile"] .entry-card-actions > button {
+.entry-card--mobile .entry-card-actions > button {
   min-width: 40px !important;
   min-height: 40px !important;
 }

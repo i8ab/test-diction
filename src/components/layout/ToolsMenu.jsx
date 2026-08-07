@@ -179,7 +179,7 @@ export default function ToolsMenu({
           ? {
               position: "fixed",
               inset: 0,
-              zIndex: 2100,
+              zIndex: 3100,
               background: "rgba(0,0,0,0.4)",
               display: "flex",
               alignItems: "flex-end",
@@ -188,7 +188,7 @@ export default function ToolsMenu({
             }
           : {
               position: "fixed",
-              zIndex: 2100,
+              zIndex: 3100,
               top: anchor ? Math.min(anchor.top + 8, window.innerHeight - 420) : 60,
               left: isAr
                 ? undefined

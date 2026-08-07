@@ -88,7 +88,7 @@ export default function ChallengeModal({
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 90,
+        zIndex: 3000,
         background: "rgba(0,0,0,0.5)",
         display: "flex",
         alignItems: "flex-end",

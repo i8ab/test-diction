@@ -138,7 +138,7 @@ function StatsModal({ entries, sectionLabel, studiedIds, studiedAt, srsBox, srsD
   const statCardStyle = { flex: "1 1 120px", background: "var(--input-bg)", borderRadius: 6, padding: "12px 14px", textAlign: "center" };
 
   return (
-    <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 2000 }}>
+    <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 3000 }}>
       <BodyScrollLock />
       <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={isAr ? "rtl" : "ltr"} role="dialog" aria-modal="true" aria-labelledby="stats-modal-title"
         style={{ width: "100%", maxWidth: 540, maxHeight: "88vh", overflowY: "auto", background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>

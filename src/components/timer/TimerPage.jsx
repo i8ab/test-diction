@@ -1026,7 +1026,7 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 2000,
+        zIndex: 3000,
         display: "flex",
         flexDirection: "column",
         background: bgCss,

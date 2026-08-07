@@ -938,26 +938,22 @@ export default function MainView({
 
       <div className="app-container app-main-row">
         <aside className="letter-rail" aria-label="Alphabet">
-          {cfg.letters.map((l) => {
-            const has = availableLetters.has(l);
-            return (
-              <button
-                key={l}
-                type="button"
-                disabled={!has}
-                onClick={() => jumpTo(l)}
-                className={"letter-rail-btn" + (has ? " has-words" : "")}
-                style={{
-                  fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif",
-                  color: has ? cfg.accent : "rgba(var(--border-rgb),0.22)",
-                  fontWeight: has ? 700 : 400,
-                  cursor: has ? "pointer" : "default",
-                }}
-              >
-                {l}
-              </button>
-            );
-          })}
+          {cfg.letters.filter((l) => availableLetters.has(l)).map((l) => (
+            <button
+              key={l}
+              type="button"
+              onClick={() => jumpTo(l)}
+              className="letter-rail-btn has-words"
+              style={{
+                fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif",
+                color: cfg.accent,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              {l}
+            </button>
+          ))}
         </aside>
 
         <div className="word-list-main">
@@ -969,27 +965,39 @@ export default function MainView({
             <EmptyState hasQuery={!!query.trim() || studyFilter !== "all"} onAdd={onOpenAdd} accent={cfg.accent} isAr={appIsAr} />
           ) : (
             <>
-              {cfg.letters.filter((l) => visibleGrouped[l]).map((letter) => (
-                <div key={letter} ref={(el) => (letterRefs.current[letter] = el)} style={{ marginBottom: 26 }}>
-                  <div style={{ fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif", fontSize: 15, fontWeight: 700, color: cfg.accent, borderBottom: `1px solid ${cfg.accentSoft}`, paddingBottom: 4, marginBottom: 10 }}>
-                    {letter}
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {visibleGrouped[letter].map((e) => (
-                      <EntryCard key={e.id} entry={e} cfg={cfg} isAdmin={isAdmin} isAr={appIsAr}
+              {/* قائمة متصلة — طولها = عدد الكلمات، من غير عناوين حروف فواصل */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {flatSorted.slice(0, visibleCount).map((e, idx) => {
+                  const letterKey = firstLetterKey(e.word, section);
+                  const prevLetter = idx > 0 ? firstLetterKey(flatSorted[idx - 1].word, section) : null;
+                  const isFirstOfLetter = letterKey && letterKey !== prevLetter;
+                  return (
+                    <div
+                      key={e.id}
+                      ref={isFirstOfLetter ? ((el) => { letterRefs.current[letterKey] = el; }) : undefined}
+                    >
+                      <EntryCard
+                        entry={e}
+                        cfg={cfg}
+                        isAdmin={isAdmin}
+                        isAr={appIsAr}
                         canEdit={isAdmin || e.addedBy === accountCode}
-                        onDelete={handleDelete} onEdit={handleEditRequest}
+                        onDelete={handleDelete}
+                        onEdit={handleEditRequest}
                         onOpenZoom={handleZoomRequest}
-                        isStudied={studiedIds.has(e.id)} onToggleStudied={handleToggleStudiedById}
-                        isFavorite={favoriteIds.has(e.id)} onToggleFavorite={handleToggleFavoriteById}
+                        isStudied={studiedIds.has(e.id)}
+                        onToggleStudied={handleToggleStudiedById}
+                        isFavorite={favoriteIds.has(e.id)}
+                        onToggleFavorite={handleToggleFavoriteById}
                         wordNote={wordNotes[e.id] || ""}
                         onSaveNote={(note) => setWordNotes(setWordNote(accountCode, e.id, note))}
                         addedByLabel={accountNameByCode[e.addedBy] || e.addedBy}
-                        editedByLabel={accountNameByCode[e.editedBy] || e.editedBy} />
-                    ))}
-                  </div>
-                </div>
-              ))}
+                        editedByLabel={accountNameByCode[e.editedBy] || e.editedBy}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
               {hasMore && (
                 <div ref={loadMoreRef} style={{ display: "flex", justifyContent: "center", padding: "10px 0 24px" }}>
                   <button onClick={() => setVisibleCount((c) => Math.min(c + PAGE_SIZE, flatSorted.length))}

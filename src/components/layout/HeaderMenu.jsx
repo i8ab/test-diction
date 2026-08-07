@@ -300,6 +300,12 @@ export default function HeaderMenu({
     setNotifOpen(false);
     setBannerOpen(false);
     setInfoExpanded(null);
+    setOpen(false);
+    // Prefer the full detailed guide from the parent (InfoGuideModal).
+    if (onOpenInfo) {
+      onOpenInfo();
+      return;
+    }
     setInfoOpen(true);
   }
 

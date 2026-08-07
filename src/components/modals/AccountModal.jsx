@@ -1,8 +1,9 @@
-// Signed-in user's own account settings (display name + optional password change).
+// Signed-in user's own account settings (display name + password change).
+// Password is stored hashed — we show a mask + Change button (cannot reveal real password).
 import { useState, useEffect } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
-import { XIcon, CheckIcon, LoaderIcon, KeyIcon, UserIcon, EyeIcon, EyeOffIcon } from "../common/Icons";
+import { XIcon, CheckIcon, LoaderIcon, KeyIcon, UserIcon, EyeIcon, EyeOffIcon, EditIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 function AccountModal({ account, onClose, onSave, isAr, lang }) {
@@ -12,8 +13,9 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
   const [changePassword, setChangePassword] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [password2, setPassword2] = useState("");
-  const [showPw, setShowPw] = useState(false);
-  const [showPw2, setShowPw2] = useState(false);
+  // New password fields shown as plain text by default (user asked for normal display while changing)
+  const [showPw, setShowPw] = useState(true);
+  const [showPw2, setShowPw2] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -35,6 +37,11 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
         setSaving(false);
         return;
       }
+      if (passwordInput.length < 6) {
+        setError(T("Password must be at least 6 characters.", "كلمة المرور ٦ أحرف على الأقل."));
+        setSaving(false);
+        return;
+      }
       if (passwordInput !== password2) {
         setError(T("Passwords do not match.", "كلمتا المرور غير متطابقتين."));
         setSaving(false);
@@ -53,7 +60,8 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
     onClose();
   }
 
-  const pwInputStyle = { ...inputStyle, paddingInlineEnd: 44 };
+  const pwInputStyle = { ...inputStyle, paddingInlineEnd: 44, borderRadius: 12 };
+  const hasPassword = !!(account && account.passwordHash);
 
   return (
     <div
@@ -82,22 +90,14 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
           width: "100%",
           maxWidth: 440,
           background: CARD,
-          borderRadius: 12,
+          borderRadius: 16,
           padding: "clamp(16px, 3vw, 24px)",
           boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)",
           maxHeight: "90dvh",
           overflowY: "auto",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 4,
-            gap: 8,
-          }}
-        >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, gap: 8 }}>
           <h2
             id="account-modal-title"
             style={{
@@ -126,6 +126,7 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
             <XIcon size={20} />
           </button>
         </div>
+
         <form onSubmit={handleSubmit} style={{ marginTop: 14 }}>
           <label style={labelStyle} htmlFor="account-name">
             {T("Display name", "الاسم الظاهر")}
@@ -134,7 +135,7 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
             id="account-name"
             value={nameInput}
             onChange={(e) => setNameInput(e.target.value)}
-            style={inputStyle}
+            style={{ ...inputStyle, borderRadius: 12 }}
             autoFocus
             autoCapitalize="off"
             autoCorrect="off"
@@ -151,6 +152,7 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
               color: "var(--muted-strong)",
               fontFamily: "ui-monospace, monospace",
               fontWeight: 600,
+              borderRadius: 12,
             }}
             dir="ltr"
           >
@@ -160,85 +162,95 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
           {account.role === "admin" && (
             <>
               <label style={labelStyle}>{T("Role", "الدور")}</label>
-              <div style={{ ...inputStyle, background: "var(--input-bg)", color: BRASS, fontWeight: 600 }}>
+              <div style={{ ...inputStyle, background: "var(--input-bg)", color: BRASS, fontWeight: 600, borderRadius: 12 }}>
                 {T("Admin", "مسؤول")}
               </div>
             </>
           )}
 
-          {/* Password change is collapsed by default — never shown open */}
-          {!changePassword ? (
-            <button
-              type="button"
-              onClick={() => setChangePassword(true)}
-              className="touch-target"
+          {/* Password: always visible row + Change beside it */}
+          <label style={labelStyle}>
+            <KeyIcon size={12} style={{ marginInlineEnd: 4, verticalAlign: -1 }} />
+            {T("Password", "كلمة المرور")}
+          </label>
+          <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+            <div
               style={{
-                marginTop: 16,
-                width: "100%",
+                ...inputStyle,
+                flex: 1,
+                margin: 0,
+                borderRadius: 12,
+                background: "var(--input-bg)",
+                color: INK,
+                fontFamily: "ui-monospace, monospace",
+                fontWeight: 700,
+                letterSpacing: "0.12em",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
+              }}
+              dir="ltr"
+              title={T(
+                "Password is stored encrypted and cannot be shown. Use Change to set a new one.",
+                "كلمة المرور مشفّرة ومش ممكن نعرضها. استخدم تغيير لتعيين واحدة جديدة."
+              )}
+            >
+              {hasPassword ? "••••••••" : T("Not set", "غير معيّنة")}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setChangePassword((v) => !v);
+                if (changePassword) {
+                  setPasswordInput("");
+                  setPassword2("");
+                } else {
+                  setShowPw(true);
+                  setShowPw2(true);
+                }
+              }}
+              className="touch-target"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "0 14px",
                 minHeight: 44,
-                padding: "10px 12px",
-                borderRadius: 8,
+                borderRadius: 12,
                 border: "1px solid rgba(var(--border-rgb),0.2)",
-                background: "var(--input-bg)",
+                background: changePassword ? "var(--accent-1-soft)" : CARD,
+                color: changePassword ? "var(--accent-1)" : INK,
+                fontWeight: 700,
+                fontSize: 13,
                 cursor: "pointer",
-                fontWeight: 600,
-                fontSize: 14,
-                color: INK,
+                flexShrink: 0,
               }}
             >
-              <KeyIcon size={15} />
-              {T("Change password", "تغيير كلمة المرور")}
+              <EditIcon size={14} />
+              {changePassword ? T("Cancel", "إلغاء") : T("Change", "تغيير")}
             </button>
-          ) : (
+          </div>
+          <p style={{ margin: "6px 0 0", fontSize: 11.5, color: "var(--muted)", lineHeight: 1.4 }}>
+            {T(
+              "For security the real password is never shown. Tap Change to set a new one.",
+              "للأمان كلمة المرور الحقيقية مش بتتعرض. دوس تغيير عشان تعيّن واحدة جديدة."
+            )}
+          </p>
+
+          {changePassword && (
             <div
               style={{
                 marginTop: 14,
-                padding: "12px 12px 4px",
-                borderRadius: 10,
-                border: "1px solid rgba(var(--border-rgb),0.15)",
-                background: "var(--input-bg)",
+                padding: "14px 12px 10px",
+                borderRadius: 14,
+                border: "1px solid rgba(var(--accent-rgb, 25,167,206), 0.25)",
+                background: "color-mix(in srgb, var(--accent-1) 6%, var(--input-bg))",
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 4,
-                }}
-              >
-                <span style={{ fontSize: 13, fontWeight: 700, color: INK }}>
-                  {T("Change password", "تغيير كلمة المرور")}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setChangePassword(false);
-                    setPasswordInput("");
-                    setPassword2("");
-                    setShowPw(false);
-                    setShowPw2(false);
-                  }}
-                  style={{
-                    border: "none",
-                    background: "none",
-                    cursor: "pointer",
-                    color: "var(--muted)",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    padding: 6,
-                  }}
-                >
-                  {T("Cancel", "إلغاء")}
-                </button>
+              <div style={{ fontSize: 13, fontWeight: 800, color: INK, marginBottom: 8 }}>
+                {T("Set a new password", "عيّن كلمة مرور جديدة")}
               </div>
 
               <label style={labelStyle} htmlFor="account-password">
-                <KeyIcon size={12} style={{ marginInlineEnd: 4, verticalAlign: -1 }} />
                 {T("New password", "كلمة المرور الجديدة")}
               </label>
               <div style={{ position: "relative" }}>
@@ -250,6 +262,7 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
                   placeholder={T("At least 6 characters", "٦ أحرف على الأقل")}
                   style={pwInputStyle}
                   autoComplete="new-password"
+                  autoFocus
                 />
                 <button
                   type="button"
@@ -275,7 +288,7 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
               <label style={labelStyle} htmlFor="account-password2">
                 {T("Confirm new password", "تأكيد كلمة المرور الجديدة")}
               </label>
-              <div style={{ position: "relative", marginBottom: 8 }}>
+              <div style={{ position: "relative", marginBottom: 4 }}>
                 <input
                   id="account-password2"
                   type={showPw2 ? "text" : "password"}
@@ -316,10 +329,14 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
             type="submit"
             disabled={saving}
             className="touch-target"
-            style={{ ...primaryBtnStyle, minHeight: 48 }}
+            style={{
+              ...primaryBtnStyle,
+              minHeight: 48,
+              borderRadius: 12,
+              background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+            }}
           >
-            {saving ? <LoaderIcon size={16} /> : <CheckIcon size={16} />}{" "}
-            {T("Save changes", "حفظ التغييرات")}
+            {saving ? <LoaderIcon size={16} /> : <CheckIcon size={16} />} {T("Save changes", "حفظ التغييرات")}
           </button>
         </form>
       </div>

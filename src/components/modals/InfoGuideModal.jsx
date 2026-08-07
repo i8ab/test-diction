@@ -1,351 +1,239 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { tr } from "../../lib/config/i18n";
-import { INK, CARD, BRASS } from "../../lib/config/theme";
-import { XIcon, BookIcon, QuizIcon, ClockIcon, CalendarIcon, CheckIcon, StatsIcon, FlameIcon, SearchIcon, MicIcon, LayersIcon, StarIcon, WandIcon, TrophyIcon, UsersIcon, GlobeIcon, DownloadIcon, WifiOffIcon, SpeakerIcon } from "../common/Icons";
+import { INK, CARD } from "../../lib/config/theme";
+import { XIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
-const SECTIONS = [
+/**
+ * Each block is a full explanation: what the feature is + how to use it on the site.
+ * Not a short list — detailed guides one after another.
+ */
+const GUIDES = [
   {
-    id: "basics",
-    icon: BookIcon,
-    titleEn: "Dictionary basics",
-    titleAr: "أساسيات القاموس",
-    bodyEn: [
-      "Switch EN→AR / AR→AR from the section tabs.",
-      "Search by word or meaning. Use the mic for voice search when available.",
-      "Tap a card to expand definition, examples, synonyms.",
-      "Star = favorite · Eye = mark as studied · Zoom = big view + pronunciation practice.",
-      "When adding a word: pick a type (noun/verb/…) or enable “More than one type” for multiple meanings.",
-      "Auto-fill (English words) fills definition + examples only — not synonyms.",
+    id: "search",
+    titleEn: "Search & filters",
+    titleAr: "البحث والفلاتر",
+    whatEn: "Find any word quickly and narrow the list to what you need right now.",
+    whatAr: "تلاقي أي كلمة بسرعة وتضيّق القائمة على اللي محتاجه دلوقتي.",
+    stepsEn: [
+      "Use the search box at the top of the dictionary list. Type the English word or the Arabic meaning.",
+      "If your browser supports it, tap the mic icon to search by voice.",
+      "Filters under the search bar: All · Studied · Not studied · Favorites · Due today.",
+      "“Due today” shows studied words the spaced-repetition system wants you to review now.",
     ],
-    bodyAr: [
-      "بدّل EN→AR / AR→AR من تبويبات القسم.",
-      "ابحث بالكلمة أو المعنى. الميكروفون للبحث الصوتي لو متاح.",
-      "اضغط الكرت لفتح التعريف والأمثلة والمرادفات.",
-      "نجمة = مفضلة · عين = علّم كمدروسة · تكبير = عرض كبير + تمرين نطق.",
-      "عند الإضافة: اختار نوع الكلمة (اسم/فعل/…) أو «أكتر من نوع» لمعاني متعددة.",
-      "التعبئة التلقائية (للكلمات الإنجليزية) بتجيب التعريف والأمثلة فقط — مش المرادفات.",
+    stepsAr: [
+      "خانة البحث فوق قائمة الكلمات. اكتب الكلمة الإنجليزية أو المعنى بالعربي.",
+      "لو المتصفح بيدعم، دوس أيقونة الميكروفون للبحث بالصوت.",
+      "الفلاتر تحت البحث: الكل · درست · لسه · مفضلة · مستحقة.",
+      "«مستحقة» = كلمات مدروسة نظام التكرار المتباعد عايزك تراجعها دلوقتي.",
     ],
   },
   {
-    id: "filters",
-    icon: SearchIcon,
-    titleEn: "Filters",
-    titleAr: "الفلاتر",
-    bodyEn: [
-      "All / Studied / Not studied / Favorites / Due today.",
-      "Due today = studied words scheduled for review by spaced repetition (SRS).",
+    id: "cards",
+    titleEn: "Word cards",
+    titleAr: "كروت الكلمات",
+    whatEn: "Each entry is a card: word, meaning, type badges, and actions.",
+    whatAr: "كل مدخل كرت: الكلمة، المعنى، نوعها، والأزرار.",
+    stepsEn: [
+      "Tap a card to expand definition, examples, synonyms, and antonyms.",
+      "Star = favorite · Eye = mark studied / unstudied · Zoom = large practice view.",
+      "Speaker icons play pronunciation (Cambridge for English when available).",
+      "In the expanded card you can write a personal note saved on this device.",
     ],
-    bodyAr: [
-      "الكل / درست / لسه / مفضلة / مستحقة.",
-      "مستحقة = كلمات مدروسة جاهزة للمراجعة حسب نظام التكرار المتباعد.",
-    ],
-  },
-  {
-    id: "quick",
-    icon: LayersIcon,
-    titleEn: "Quick review",
-    titleAr: "مراجعة سريعة",
-    bodyEn: [
-      "Open from More ⋯ → Quick review.",
-      "You see the word first — try to recall the meaning.",
-      "Show meaning → then choose “I knew it” or “Still learning”.",
-      "Best for a 2–5 minute refresh of due words.",
-    ],
-    bodyAr: [
-      "من المزيد ⋯ → مراجعة سريعة.",
-      "تشوف الكلمة الأول — حاول تفتكر المعنى.",
-      "إظهار المعنى → بعدين «عرفتها» أو «لسه بتعلّم».",
-      "مناسبة لمراجعة سريعة ٢–٥ دقايق للكلمات المستحقة.",
+    stepsAr: [
+      "اضغط الكرت لفتح التعريف والأمثلة والمرادفات والأضداد.",
+      "نجمة = مفضلة · عين = علّم كمُذاكرة / إلغاء · تكبير = عرض كبير للتمرين.",
+      "أيقونات السماعة بتشغّل النطق (كامبريدج للإنجليزي لما يكون متاح).",
+      "جوه الكرت المفتوح تقدر تكتب ملاحظة شخصية بتتحفظ على الجهاز.",
     ],
   },
   {
-    id: "quiz",
-    icon: QuizIcon,
-    titleEn: "Quiz & flashcards",
-    titleAr: "اختبار وبطاقات",
-    bodyEn: [
-      "Quiz builds questions from your studied words (multiple choice or typing).",
-      "If a word has more than one type (noun/verb…), the quiz tells you which type it is asking for.",
-      "Flashcards flip through cards for passive review.",
-      "Answers update spaced-repetition levels automatically.",
+    id: "add",
+    titleEn: "Adding & editing words",
+    titleAr: "إضافة وتعديل الكلمات",
+    whatEn: "Grow the shared dictionary with clear meanings and optional structure.",
+    whatAr: "زوّد القاموس المشترك بمعاني واضحة وهيكل اختياري.",
+    stepsEn: [
+      "Tap + / Add (or press N when not typing in a field).",
+      "Fill Word and Meaning (required). Definition and examples are optional.",
+      "Word type: pick noun, verb, adjective… or enable “More than one type” and enter each meaning with its type.",
+      "For English words, Auto-fill loads definition + examples only (not synonyms).",
+      "Save. Everyone in the group can see the new entry; your studied progress stays personal.",
     ],
-    bodyAr: [
-      "الاختبار بيبني أسئلة من كلماتك المدروسة (اختيار أو كتابة).",
-      "لو الكلمة ليها أكتر من نوع (اسم/فعل…)، السؤال بيوضّح النوع المطلوب.",
-      "البطاقات لتمرير سريع ومراجعة خفيفة.",
-      "الإجابات بتحدّث مستوى التكرار المتباعد تلقائيًا.",
-    ],
-  },
-  {
-    id: "timer",
-    icon: ClockIcon,
-    titleEn: "Timer",
-    titleAr: "المؤقّت",
-    bodyEn: [
-      "Countdown or stopwatch for study sessions.",
-      "Pin shrinks it to a floating bubble so you can keep browsing the dictionary.",
-      "Finished countdown minutes count toward daily goals and achievements.",
-    ],
-    bodyAr: [
-      "عدّ تنازلي أو ساعة توقيت لجلسات المذاكرة.",
-      "تثبيت = فقاعة عائمة وتقدر تكمل تصفح القاموس.",
-      "دقائق العدّ التنازلي بتتحسب في أهداف اليوم والإنجازات.",
-    ],
-  },
-  {
-    id: "calendar",
-    icon: CalendarIcon,
-    titleEn: "Calendar & Word of the day",
-    titleAr: "التقويم وكلمة اليوم",
-    bodyEn: [
-      "Monthly map of days you marked words as studied. Tap a day to see which words.",
-      "Pin for a mini calendar widget.",
-      "Word of the day highlights a fresh entry from your dictionary each day.",
-    ],
-    bodyAr: [
-      "خريطة شهرية للأيام اللي علّمت فيها كلمات كمدروسة. اضغط يوم عشان تشوف الكلمات.",
-      "تثبيت = ودجت تقويم صغير.",
-      "كلمة اليوم بتبرز مدخل جديد من قاموسك كل يوم.",
-    ],
-  },
-  {
-    id: "goals",
-    icon: FlameIcon,
-    titleEn: "Goals & challenges",
-    titleAr: "أهداف وتحديات",
-    bodyEn: [
-      "Orange floating button (or More ⋯ → Goals): daily words, timer minutes, weekly targets.",
-      "Weekly challenge rotates automatically.",
-      "Pin keeps a small progress bubble on screen.",
-    ],
-    bodyAr: [
-      "الزرار البرتقالي العائم (أو المزيد ⋯ → أهداف): كلمات يومية، دقائق مؤقّت، هدف أسبوعي.",
-      "تحدي الأسبوع بيتغيّر لوحده.",
-      "تثبيت = فقاعة تقدّم صغيرة على الشاشة.",
-    ],
-  },
-  {
-    id: "todo",
-    icon: CheckIcon,
-    titleEn: "To-do list",
-    titleAr: "قائمة المهام",
-    bodyEn: [
-      "Green floating button (bottom) opens to-dos anywhere. Also under More ⋯.",
-      "Press Start on a task to run a live timer beside it (how long you’ve been working).",
-      "Only one task runs at a time. Stop or complete to bank the time.",
-      "Export/Import JSON for backup. Pin for a floating mini list.",
-    ],
-    bodyAr: [
-      "الزرار الأخضر العائم (تحت) بيفتح المهام من أي مكان. كمان من المزيد ⋯.",
-      "دوس «ابدأ» جنب مهمة عشان مؤقت حيّ يعدّ وقت الشغل عليها.",
-      "مهمة واحدة بس شغّالة في نفس الوقت. إيقاف أو إنهاء بيحفظ الوقت.",
-      "تصدير/استيراد JSON للنسخ الاحتياطي. تثبيت = قائمة مصغّرة عائمة.",
-    ],
-  },
-  {
-    id: "focus",
-    icon: StatsIcon,
-    titleEn: "Focus mode",
-    titleAr: "وضع التركيز",
-    bodyEn: [
-      "Header menu (☰) → Focus mode hides banners and extras.",
-      "Keeps search + word list for distraction-free study.",
-      "Shortcut: F · Exit chip at the top while active.",
-    ],
-    bodyAr: [
-      "قائمة الهيدر (☰) → وضع التركيز يخفي البنرات والإضافات.",
-      "يفضل البحث + قائمة الكلمات للمذاكرة من غير تشتيت.",
-      "اختصار: F · شريحة خروج فوق وانت فيه.",
-    ],
-  },
-  {
-    id: "keys",
-    icon: SearchIcon,
-    titleEn: "Keyboard shortcuts",
-    titleAr: "اختصارات الكيبورد",
-    bodyEn: [
-      "/ focus search · N add word · Q quiz · T to-do · R quick review · F focus.",
-      "Ignored while typing in an input field.",
-    ],
-    bodyAr: [
-      "/ تركيز البحث · N إضافة · Q اختبار · T مهام · R مراجعة سريعة · F تركيز.",
-      "متشتغلش وانت بتكتب جوه خانة إدخال.",
-    ],
-  },
-  {
-    id: "notes",
-    icon: BookIcon,
-    titleEn: "Personal notes",
-    titleAr: "ملاحظات شخصية",
-    bodyEn: [
-      "Expand any word card → “My note” field.",
-      "Saved on this device for your account (local).",
-    ],
-    bodyAr: [
-      "افتح أي كرت كلمة → حقل «ملاحظتي».",
-      "بتتحفظ على الجهاز لحسابك (محلي).",
+    stepsAr: [
+      "دوس + / إضافة (أو حرف N وانت مش جوه خانة كتابة).",
+      "اكتب الكلمة والمعنى (مطلوبين). التعريف والأمثلة اختياري.",
+      "نوع الكلمة: اسم، فعل، صفة… أو فعّل «أكتر من نوع» وسجّل كل معنى بنوعه.",
+      "للكلمات الإنجليزية: «تعبئة تلقائية» بتجيب التعريف والأمثلة فقط (مش المرادفات).",
+      "احفظ. المجموعة كلها تشوف الكلمة؛ تقدّم مذاكرتك يفضل شخصي.",
     ],
   },
   {
     id: "pron",
-    icon: SpeakerIcon,
     titleEn: "Pronunciation (Cambridge)",
     titleAr: "النطق (كامبريدج)",
-    bodyEn: [
-      "Speaker icons play Cambridge Dictionary audio for English words (US or UK).",
-      "Settings → English accent (Cambridge): choose American or British as default.",
-      "Zoom view: separate US / UK buttons, plus mic practice with a score.",
-      "Arabic uses browser speech with your chosen dialect. Browser TTS is the fallback if Cambridge is unavailable.",
+    whatEn: "Hear English words with American or British Cambridge audio.",
+    whatAr: "اسمع الكلمات الإنجليزية بنطق كامبريدج أمريكي أو بريطاني.",
+    stepsEn: [
+      "Settings (☰ → Settings) → English accent (Cambridge): choose American or British as the default.",
+      "Tap any speaker icon on a card to play the preferred accent.",
+      "Open Zoom on a word: use the US and UK buttons separately.",
+      "In Zoom, use the mic to practice saying the word and get a score.",
+      "Arabic speech uses the browser voice and the dialect you pick in Zoom.",
     ],
-    bodyAr: [
-      "أيقونات السماعة بتشغّل نطق قاموس كامبريدج للكلمات الإنجليزية (أمريكي أو بريطاني).",
-      "الإعدادات → لهجة الإنجليزية (كامبريدج): اختار أمريكي أو بريطاني كافتراضي.",
-      "العرض الكبير: أزرار US / UK منفصلة + ميكروفون لتمرين النطق مع درجة.",
-      "العربي بيستخدم نطق المتصفح حسب اللهجة. لو كامبريدج مش متاح، في احتياطي من المتصفح.",
-    ],
-  },
-  {
-    id: "dictation",
-    icon: MicIcon,
-    titleEn: "Listening & Dictation",
-    titleAr: "استماع وإملاء",
-    bodyEn: [
-      "Open from More ⋯ → Dictation.",
-      "Mode 1: Hear the word → type its meaning.",
-      "Mode 2: See the meaning → type the word.",
-      "Each answer updates spaced-repetition (SRS) for that word.",
-    ],
-    bodyAr: [
-      "من المزيد ⋯ → استماع وإملاء.",
-      "وضع ١: اسمع الكلمة → اكتب معناها.",
-      "وضع ٢: شوف المعنى → اكتب الكلمة.",
-      "كل إجابة بتحدّث التكرار المتباعد (SRS) للكلمة.",
+    stepsAr: [
+      "الإعدادات (☰ → إعدادات) → لهجة الإنجليزية (كامبريدج): أمريكي أو بريطاني كافتراضي.",
+      "اضغط أي سماعة على الكرت لتشغيل اللهجة المختارة.",
+      "افتح التكبير على كلمة: أزرار US و UK كل واحد لوحده.",
+      "في التكبير استخدم الميكروفون لتمرين نطق الكلمة مع درجة.",
+      "نطق العربي من المتصفح حسب اللهجة اللي تختارها في التكبير.",
     ],
   },
   {
-    id: "random",
-    icon: WandIcon,
-    titleEn: "Random word",
-    titleAr: "كلمة عشوائية",
-    bodyEn: [
-      "More ⋯ → Random word for fast one-by-one practice.",
-      "No repeats until every word in the set is shown. Prefers unstudied / due words.",
-      "“Knew it” / “Forgot” marks studied and updates SRS. You can also “Mark as studied” alone.",
-      "Keyboard: Space/Enter = reveal · 1 = knew · 2 = forgot.",
+    id: "quiz",
+    titleEn: "Quiz, flashcards & review",
+    titleAr: "اختبار وبطاقات ومراجعة",
+    whatEn: "Practice what you studied with quizzes, cards, quick review, random word, and dictation.",
+    whatAr: "تمرّن على اللي ذاكرته باختبارات وبطاقات ومراجعة سريعة وكلمة عشوائية وإملاء.",
+    stepsEn: [
+      "Open More ⋯ → Quiz. Choose time range, MCQ or typing, optionally “due only”.",
+      "If a word has several types (noun vs verb), the question tells you which type is required.",
+      "Flashcards: flip through studied words. Quick review: recall then reveal.",
+      "Random word: one word at a time, no repeats until the set is done; Knew it / Forgot updates SRS and can mark studied.",
+      "Dictation: hear → type meaning, or see meaning → type the word.",
     ],
-    bodyAr: [
-      "المزيد ⋯ → كلمة عشوائية لممارسة سريعة كلمة بكلمة.",
-      "من غير تكرار لحد ما تخلص كل كلمات المجموعة. يفضّل غير المُذاكرة والمستحقة.",
-      "«عرفتها» / «نسيتها» بعلّموا كمُذاكرة ويحدّثوا SRS. وفي زر «علّم كمُذاكرة» لوحده.",
-      "كيبورد: مسافة/Enter = إظهار · 1 = عرفتها · 2 = نسيتها.",
+    stepsAr: [
+      "المزيد ⋯ → اختبار. اختار المدى الزمني، اختيار أو كتابة، واختياري «مستحقة فقط».",
+      "لو الكلمة ليها أكتر من نوع (اسم/فعل)، السؤال بيوضّح النوع المطلوب.",
+      "البطاقات: تقليب الكلمات المدروسة. مراجعة سريعة: افتكر بعدين اكشف.",
+      "كلمة عشوائية: كلمة بكلمة من غير تكرار لحد ما تخلص المجموعة؛ عرفتها/نسيتها بتحدّث SRS وممكن تعلّم كمُذاكرة.",
+      "إملاء: اسمع → اكتب المعنى، أو شوف المعنى → اكتب الكلمة.",
+    ],
+  },
+  {
+    id: "todo",
+    titleEn: "To-do list & work timer",
+    titleAr: "المهام ومؤقت الشغل",
+    whatEn: "Personal tasks with a live timer while you work on one of them.",
+    whatAr: "مهام شخصية مع مؤقت حيّ وانت شغال على واحدة منها.",
+    stepsEn: [
+      "Green floating button (bottom) or More ⋯ → To-do.",
+      "Add a task, then press Start beside it — a live timer shows how long you’ve been working.",
+      "Only one task runs at a time. Stop or mark done to save the elapsed time.",
+      "Pin minimizes to a floating bubble that shows the active task and timer.",
+      "Export / Import JSON to back up your list.",
+    ],
+    stepsAr: [
+      "الزرار الأخضر العائم (تحت) أو المزيد ⋯ → مهام.",
+      "ضيف مهمة، بعدين دوس «ابدأ» جنبها — مؤقت حيّ بيحسب وقت شغلك.",
+      "مهمة واحدة بس شغّالة في نفس الوقت. إيقاف أو تعليم كمنتهية بيحفظ الوقت.",
+      "تثبيت = فقاعة عائمة فيها المهمة الحالية والوقت.",
+      "تصدير / استيراد JSON للنسخ الاحتياطي.",
+    ],
+  },
+  {
+    id: "goals",
+    titleEn: "Goals, timer & calendar",
+    titleAr: "أهداف ومؤقّت وتقويم",
+    whatEn: "Track daily study targets, focus time, and which days you studied.",
+    whatAr: "تتبّع أهداف المذاكرة اليومية ووقت التركيز وأيام المذاكرة.",
+    stepsEn: [
+      "Orange Goals button (or More ⋯ → Goals): set daily words and minutes; weekly challenge rotates automatically.",
+      "Timer page: countdown or stopwatch. Finished minutes count toward goals and achievements. Pin for a floating bubble.",
+      "Calendar: map of days you marked words studied — tap a day to see the words.",
+      "Word of the day appears on the main list as a daily highlight from your dictionary.",
+    ],
+    stepsAr: [
+      "زرار الأهداف البرتقالي (أو المزيد ⋯ → أهداف): كلمات ودقائق يومية؛ تحدي الأسبوع بيتغيّر لوحده.",
+      "صفحة المؤقّت: عدّ تنازلي أو ساعة. الدقائق بتتحسب في الأهداف والإنجازات. تثبيت = فقاعة.",
+      "التقويم: أيام اللي علّمت فيها كلمات — اضغط يوم عشان تشوف الكلمات.",
+      "كلمة اليوم تظهر في القائمة الرئيسية كتمييز يومي من قاموسك.",
     ],
   },
   {
     id: "achievements",
-    icon: StarIcon,
     titleEn: "Achievements",
     titleAr: "الإنجازات",
-    bodyEn: [
-      "Header menu (☰) → Achievements, or More ⋯ → Achievements.",
-      "Split into categories (studying, streak, quizzes, SRS, timer, dictation, favorites…).",
-      "Each category has 10 levels. Tap one to see % progress toward the next level.",
-      "Badges unlock automatically as you hit each threshold.",
+    whatEn: "Progress tracks with ten levels each and a clear percentage.",
+    whatAr: "مسارات تقدّم كل واحد فيها عشر مستويات ونسبة واضحة.",
+    stepsEn: [
+      "Open ☰ → Achievements (or More ⋯).",
+      "You’ll see categories: studying, streak, quizzes, perfect scores, SRS, focus time, dictation, favorites.",
+      "Each category shows overall %. Tap it to open the ten levels and see exact progress (e.g. 12 / 20 toward the next badge).",
+      "Badges unlock automatically when you cross each threshold — no manual claim.",
     ],
-    bodyAr: [
-      "قائمة الهيدر (☰) → الإنجازات، أو المزيد ⋯ → الإنجازات.",
-      "متقسمة لأقسام (مذاكرة، سلسلة أيام، اختبارات، SRS، مؤقّت، إملاء، مفضلة…).",
-      "كل قسم فيه ١٠ مستويات. اضغط قسم عشان تشوف نسبة قربك من المستوى الجاي.",
-      "الشارات بتتفتح لوحدها لما توصل لكل هدف.",
+    stepsAr: [
+      "افتح ☰ → الإنجازات (أو المزيد ⋯).",
+      "هتشوف أقسام: مذاكرة، سلسلة أيام، اختبارات، نتائج كاملة، SRS، وقت تركيز، إملاء، مفضلة.",
+      "كل قسم فيه نسبة عامة %. اضغطه عشان تفتح العشر مستويات وتشوف التقدّم بالظبط (مثلاً ١٢ / ٢٠ للمستوى الجاي).",
+      "الشارات بتتفتح لوحدها لما تعدّي كل هدف — مفيش مطالبة يدوي.",
     ],
   },
   {
-    id: "leaderboard",
-    icon: TrophyIcon,
-    titleEn: "Leaderboard",
-    titleAr: "لوحة الصدارة",
-    bodyEn: [
-      "Compare progress with others in your group (studied words, streaks, quizzes).",
-      "Open from More ⋯ or tools menu when available.",
+    id: "focus",
+    titleEn: "Focus mode",
+    titleAr: "وضع التركيز",
+    whatEn: "Hide banners and extras so only search and words remain.",
+    whatAr: "إخفاء البنرات والإضافات عشان يفضل البحث والكلمات بس.",
+    stepsEn: [
+      "☰ → Focus mode, or press F when not typing in a field.",
+      "Site banner and floating extras hide; dictionary stays usable.",
+      "Exit with the chip at the top or press F again.",
     ],
-    bodyAr: [
-      "قارن تقدّمك مع باقي أفراد مجموعتك (كلمات، سلاسل، اختبارات).",
-      "من المزيد ⋯ أو قائمة الأدوات لما تكون متاحة.",
+    stepsAr: [
+      "☰ → وضع التركيز، أو حرف F وانت مش بتكتب في خانة.",
+      "بانر الموقع والإضافات العائمة بتختفي؛ القاموس يفضل شغّال.",
+      "اخرج من الشريحة فوق أو دوس F تاني.",
+    ],
+  },
+  {
+    id: "settings",
+    titleEn: "Settings & account",
+    titleAr: "الإعدادات والحساب",
+    whatEn: "Language, theme, accent, notifications, and your password.",
+    whatAr: "اللغة والمظهر واللهجة والإشعارات وكلمة المرور.",
+    stepsEn: [
+      "☰ → Settings: light/dark, site language (menus only), English Cambridge accent, color theme.",
+      "Notifications: enable study reminders if the browser allows.",
+      "☰ → My account: change display name. Password shows as •••••••• with a Change button beside it (the real password is never stored in plain text).",
+      "Admins also see Admin panel and Site banner under the menu.",
+    ],
+    stepsAr: [
+      "☰ → إعدادات: فاتح/داكن، لغة الموقع (للقوائم)، لهجة كامبريدج، لون الواجهة.",
+      "الإشعارات: تذكيرات مذاكرة لو المتصفح يسمح.",
+      "☰ → حسابي: غيّر الاسم الظاهر. كلمة المرور تظهر •••••••• وزرار «تغيير» جنبها (الباسورد الحقيقي مش متخزّن نص صريح).",
+      "الأدمن كمان يشوف لوحة التحكم وبانر الموقع من القائمة.",
     ],
   },
   {
     id: "group",
-    icon: UsersIcon,
-    titleEn: "Shared dictionary",
-    titleAr: "قاموس مشترك",
-    bodyEn: [
-      "One shared dictionary for your group; each person’s studied words and progress stay personal.",
-      "Admins can manage accounts, requests, and the site-wide banner.",
+    titleEn: "Shared group & offline",
+    titleAr: "المجموعة والأوفلاين",
+    whatEn: "One dictionary for the group; progress is personal; cache helps offline.",
+    whatAr: "قاموس واحد للمجموعة؛ التقدّم شخصي؛ والكاش بيساعد من غير نت.",
+    stepsEn: [
+      "Everyone shares the same word list. Studied flags, favorites, and achievements are per account.",
+      "Leaderboard (More ⋯) compares progress inside the group.",
+      "If the network drops, a cached copy of the dictionary may still open for browsing.",
+      "Admins can download a full backup (words + accounts + log) from the Admin panel → Tools.",
     ],
-    bodyAr: [
-      "قاموس واحد مشترك لمجموعتك؛ كلمات كل شخص المدروسة وتقدّمه شخصيين.",
-      "الأدمن يدير الحسابات والطلبات وبانر الموقع.",
-    ],
-  },
-  {
-    id: "lang",
-    icon: GlobeIcon,
-    titleEn: "Language & appearance",
-    titleAr: "اللغة والمظهر",
-    bodyEn: [
-      "Settings → Site language: English / Arabic / … for menus (not dictionary content).",
-      "Light/Dark mode and color theme accents.",
-      "English accent (Cambridge) US or UK for speaker buttons.",
-    ],
-    bodyAr: [
-      "الإعدادات → لغة الموقع: إنجليزي / عربي / … للقوائم (مش محتوى القاموس).",
-      "وضع فاتح/داكن وألوان الواجهة.",
-      "لهجة الإنجليزية (كامبريدج) أمريكي أو بريطاني لأزرار السماعة.",
-    ],
-  },
-  {
-    id: "offline",
-    icon: WifiOffIcon,
-    titleEn: "Offline & backup",
-    titleAr: "بدون إنترنت والنسخ",
-    bodyEn: [
-      "Cached dictionary data stays available if the connection drops.",
-      "Export/import CSV (and to-do JSON) so your data remains yours.",
-    ],
-    bodyAr: [
-      "نسخة مخزّنة من القاموس تفضل متاحة لو الاتصال وقع.",
-      "تصدير/استيراد CSV (وJSON للمهام) عشان بياناتك تفضل معاك.",
-    ],
-  },
-  {
-    id: "reminders",
-    icon: StatsIcon,
-    titleEn: "Smart reminders",
-    titleAr: "تذكيرات ذكية",
-    bodyEn: [
-      "Settings → Notifications: enable study reminders (where the browser allows).",
-      "SRS brings due words back before you forget them — use Due filter + Quick review.",
-    ],
-    bodyAr: [
-      "الإعدادات → الإشعارات: فعّل تذكيرات المذاكرة (حسب دعم المتصفح).",
-      "نظام SRS بيرجّع الكلمات المستحقة قبل ما تنساها — فلتر مستحقة + مراجعة سريعة.",
+    stepsAr: [
+      "الكل بيشارك نفس قائمة الكلمات. المُذاكرة والمفضلة والإنجازات لكل حساب لوحده.",
+      "لوحة الصدارة (المزيد ⋯) بتقارن التقدّم جوه المجموعة.",
+      "لو النت وقع، نسخة مخزّنة من القاموس ممكن تفضل تفتح للتصفح.",
+      "الأدمن ينزّل نسخة احتياطية كاملة من لوحة التحكم → أدوات.",
     ],
   },
 ];
 
 export default function InfoGuideModal({ isAr, onClose }) {
-  const [active, setActive] = useState(SECTIONS[0].id);
-
   useEffect(() => {
-    function onKey(e) { if (e.key === "Escape") onClose(); }
+    function onKey(e) {
+      if (e.key === "Escape") onClose();
+    }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
-
-  const sec = SECTIONS.find((s) => s.id === active) || SECTIONS[0];
-  const Icon = sec.icon;
-  const title = isAr ? sec.titleAr : sec.titleEn;
-  const body = isAr ? sec.bodyAr : sec.bodyEn;
 
   return (
     <div
@@ -361,7 +249,9 @@ export default function InfoGuideModal({ isAr, onClose }) {
         justifyContent: "center",
         padding: "12px 12px max(12px, env(safe-area-inset-bottom))",
       }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <BodyScrollLock />
       <div
@@ -369,22 +259,20 @@ export default function InfoGuideModal({ isAr, onClose }) {
           width: "100%",
           maxWidth: 520,
           maxHeight: "92dvh",
-          overflow: "hidden",
+          overflow: "auto",
           background: CARD,
           borderRadius: 16,
-          padding: "18px 16px 20px",
+          padding: "18px 16px 28px",
           boxShadow: "0 20px 50px -12px rgba(0,0,0,0.35)",
-          display: "flex",
-          flexDirection: "column",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, position: "sticky", top: 0, background: CARD, zIndex: 1, paddingBottom: 8 }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: INK }}>
-              {tr(isAr, "Information", "معلومات")}
+              {tr(isAr, "How to use the site", "إزاي تستخدم الموقع")}
             </h2>
             <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "var(--muted)" }}>
-              {tr(isAr, "Guides for every main feature", "دليل لكل ميزة أساسية")}
+              {tr(isAr, "Each section explains a feature and the steps on the site", "كل جزء بيشرح ميزة وخطوات استخدامها على الموقع")}
             </p>
           </div>
           <button
@@ -397,67 +285,65 @@ export default function InfoGuideModal({ isAr, onClose }) {
           </button>
         </div>
 
-        <div style={{ display: "flex", gap: 10, minHeight: 0, flex: 1, marginTop: 10 }}>
-          <div
-            style={{
-              width: 128,
-              flexShrink: 0,
-              overflowY: "auto",
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
-              paddingInlineEnd: 4,
-            }}
-          >
-            {SECTIONS.map((s) => {
-              const on = s.id === active;
-              const SIcon = s.icon;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setActive(s.id)}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {GUIDES.map((g, index) => (
+            <article
+              key={g.id}
+              style={{
+                padding: "14px 14px 16px",
+                borderRadius: 14,
+                border: "1px solid rgba(var(--border-rgb),0.12)",
+                background: "var(--input-bg)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
+                <span
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "8px 8px",
+                    width: 26,
+                    height: 26,
                     borderRadius: 8,
-                    border: "none",
-                    cursor: "pointer",
-                    textAlign: "start",
-                    font: "inherit",
-                    fontSize: 11.5,
-                    fontWeight: on ? 700 : 600,
-                    background: on ? "var(--accent-1-soft)" : "transparent",
-                    color: on ? "var(--accent-1)" : "var(--muted-strong)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    color: "#fff",
+                    background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+                    flexShrink: 0,
                   }}
                 >
-                  <SIcon size={13} />
-                  <span style={{ lineHeight: 1.25 }}>{isAr ? s.titleAr : s.titleEn}</span>
-                </button>
-              );
-            })}
-          </div>
+                  {index + 1}
+                </span>
+                <h3 style={{ margin: 0, fontSize: 15.5, fontWeight: 800, color: INK }}>
+                  {tr(isAr, g.titleEn, g.titleAr)}
+                </h3>
+              </div>
 
-          <div style={{ flex: 1, minWidth: 0, overflowY: "auto", paddingInlineStart: 4 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <span style={{
-                width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
-                background: "color-mix(in srgb, var(--accent-1) 16%, transparent)", color: "var(--accent-1)",
-              }}>
-                <Icon size={16} />
-              </span>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: INK }}>{title}</h3>
-            </div>
-            <ul style={{ margin: 0, paddingInlineStart: 18, display: "flex", flexDirection: "column", gap: 8 }}>
-              {body.map((line, i) => (
-                <li key={i} style={{ fontSize: 13.5, color: "var(--muted-strong)", lineHeight: 1.5 }}>
-                  {line}
-                </li>
-              ))}
-            </ul>
-          </div>
+              <p style={{ margin: "0 0 10px", fontSize: 13.5, color: "var(--muted-strong)", lineHeight: 1.5 }}>
+                {tr(isAr, g.whatEn, g.whatAr)}
+              </p>
+
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: "var(--accent-1)",
+                  marginBottom: 6,
+                }}
+              >
+                {tr(isAr, "How to use it", "طريقة الاستخدام")}
+              </div>
+              <ol style={{ margin: 0, paddingInlineStart: 18, display: "flex", flexDirection: "column", gap: 7 }}>
+                {(isAr ? g.stepsAr : g.stepsEn).map((step, i) => (
+                  <li key={i} style={{ fontSize: 13.5, color: INK, lineHeight: 1.5 }}>
+                    {step}
+                  </li>
+                ))}
+              </ol>
+            </article>
+          ))}
         </div>
       </div>
     </div>

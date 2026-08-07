@@ -383,8 +383,8 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                     >
                       <div
                         style={{
-                          width: 42,
-                          height: 42,
+                          width: 44,
+                          height: 44,
                           borderRadius: 12,
                           flexShrink: 0,
                           display: "flex",
@@ -393,13 +393,23 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                           fontWeight: 800,
                           fontSize: 13,
                           color: "#fff",
+                          overflow: "hidden",
                           background:
                             a.role === "admin"
                               ? `linear-gradient(135deg, ${BRASS}, #c9a227)`
                               : "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
                         }}
+                        aria-hidden="true"
                       >
-                        {initials(a.name)}
+                        {a.avatar ? (
+                          <img
+                            src={a.avatar}
+                            alt=""
+                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                          />
+                        ) : (
+                          initials(a.name)
+                        )}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14.5, fontWeight: 700, color: INK, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>

@@ -83,21 +83,95 @@ const GUIDES = [
   },
   {
     id: "quiz",
-    titleEn: "Quiz, flashcards & review",
-    titleAr: "اختبار وبطاقات ومراجعة",
-    whatEn: "Practice studied words with quizzes, cards, random word, and dictation.",
-    whatAr: "تمرّن على الكلمات المدروسة باختبارات وبطاقات وكلمة عشوائية وإملاء.",
+    titleEn: "Quiz",
+    titleAr: "الاختبار",
+    whatEn: "Build questions from your studied words to check recall.",
+    whatAr: "يبني أسئلة من كلماتك المدروسة عشان تختبر تذكّرك.",
     stepsEn: [
-      "More ⋯ → Quiz: pick range, MCQ or typing, optional due-only.",
-      "Multi-type words: the question labels the required type (noun/verb).",
-      "Random word: no repeats until the set is done.",
-      "Dictation: hear → type meaning, or see meaning → type the word.",
+      "Open More ⋯ → Quiz.",
+      "Choose time range, multiple-choice or typing, and optionally “due only”.",
+      "If a word has more than one type (noun/verb…), the question tells you which type is required.",
+      "Correct and wrong answers update spaced-repetition (SRS) for that word.",
     ],
     stepsAr: [
-      "المزيد ⋯ → اختبار: المدى، اختيار أو كتابة، ومستحقة فقط اختياري.",
-      "الكلمات متعددة النوع: السؤال بيوضّح النوع المطلوب.",
-      "كلمة عشوائية: من غير تكرار لحد ما تخلص المجموعة.",
-      "إملاء: اسمع → اكتب المعنى، أو شوف المعنى → اكتب الكلمة.",
+      "افتح المزيد ⋯ → اختبار.",
+      "اختار المدى الزمني، اختيار من متعدد أو كتابة، واختياري «مستحقة فقط».",
+      "لو الكلمة ليها أكتر من نوع (اسم/فعل…)، السؤال بيوضّح النوع المطلوب.",
+      "الإجابات الصح والغلط بتحدّث التكرار المتباعد (SRS) للكلمة.",
+    ],
+  },
+  {
+    id: "flashcards",
+    titleEn: "Flashcards",
+    titleAr: "البطاقات التعليمية",
+    whatEn: "Flip through studied words for light, focused review.",
+    whatAr: "تقليب الكلمات المدروسة لمراجعة خفيفة ومركّزة.",
+    stepsEn: [
+      "Open More ⋯ → Flashcards.",
+      "See one side of the card, then flip to reveal the other.",
+      "Use it for passive review without scoring pressure.",
+    ],
+    stepsAr: [
+      "افتح المزيد ⋯ → بطاقات.",
+      "شوف وجه الكرت، بعدين اقلبه عشان تظهر الوجه التاني.",
+      "مناسب لمراجعة هادية من غير ضغط درجات.",
+    ],
+  },
+  {
+    id: "quick",
+    titleEn: "Quick review",
+    titleAr: "مراجعة سريعة",
+    whatEn: "Short recall sessions for due words.",
+    whatAr: "جلسات تذكّر قصيرة للكلمات المستحقة.",
+    stepsEn: [
+      "Open More ⋯ → Quick review.",
+      "You see the word first — try to recall the meaning.",
+      "Reveal, then choose “I knew it” or “Still learning”.",
+      "Best for 2–5 minutes on due words.",
+    ],
+    stepsAr: [
+      "افتح المزيد ⋯ → مراجعة سريعة.",
+      "تشوف الكلمة الأول — حاول تفتكر المعنى.",
+      "اكشف المعنى، بعدين اختار «عرفتها» أو «لسه بتعلّم».",
+      "مناسبة لـ ٢–٥ دقايق على الكلمات المستحقة.",
+    ],
+  },
+  {
+    id: "random",
+    titleEn: "Random word",
+    titleAr: "كلمة عشوائية",
+    whatEn: "Practice one word at a time without repeating until the set is done.",
+    whatAr: "تمرين كلمة بكلمة من غير تكرار لحد ما تخلص المجموعة.",
+    stepsEn: [
+      "Open More ⋯ → Random word.",
+      "Tap the card to reveal the meaning.",
+      "“Knew it” / “Forgot” updates SRS and can mark the word studied.",
+      "Keyboard: Space/Enter = reveal · 1 = knew · 2 = forgot.",
+    ],
+    stepsAr: [
+      "افتح المزيد ⋯ → كلمة عشوائية.",
+      "اضغط الكرت لإظهار المعنى.",
+      "«عرفتها» / «نسيتها» بيحدّثوا SRS وممكن يعلّموا الكلمة كمُذاكرة.",
+      "كيبورد: مسافة/Enter = إظهار · 1 = عرفتها · 2 = نسيتها.",
+    ],
+  },
+  {
+    id: "dictation",
+    titleEn: "Listening & dictation",
+    titleAr: "استماع وإملاء",
+    whatEn: "Type what you hear, or type the word from its meaning.",
+    whatAr: "اكتب اللي بتسمعه، أو اكتب الكلمة من معناها.",
+    stepsEn: [
+      "Open More ⋯ → Dictation.",
+      "Mode 1: Hear the word → type its meaning.",
+      "Mode 2: See the meaning → type the word.",
+      "Each answer updates spaced-repetition for that word.",
+    ],
+    stepsAr: [
+      "افتح المزيد ⋯ → استماع وإملاء.",
+      "وضع ١: اسمع الكلمة → اكتب معناها.",
+      "وضع ٢: شوف المعنى → اكتب الكلمة.",
+      "كل إجابة بتحدّث التكرار المتباعد للكلمة.",
     ],
   },
   {
@@ -119,19 +193,53 @@ const GUIDES = [
   },
   {
     id: "goals",
-    titleEn: "Goals, timer & calendar",
-    titleAr: "أهداف ومؤقّت وتقويم",
-    whatEn: "Daily targets, focus minutes, and a study calendar.",
-    whatAr: "أهداف يومية ودقائق تركيز وتقويم مذاكرة.",
+    titleEn: "Goals & challenges",
+    titleAr: "الأهداف والتحديات",
+    whatEn: "Daily word and minute targets, plus a rotating weekly challenge.",
+    whatAr: "أهداف يومية للكلمات والدقائق، مع تحدي أسبوعي يتغيّر.",
     stepsEn: [
-      "Orange Goals button: daily words/minutes and weekly challenge.",
-      "Timer: countdown or stopwatch; minutes count toward goals.",
-      "Calendar: days you marked words studied.",
+      "Open the orange Goals button, or More ⋯ → Goals.",
+      "Set daily words and timer minutes.",
+      "Weekly challenge rotates automatically. Pin keeps a small progress bubble.",
     ],
     stepsAr: [
-      "زرار الأهداف البرتقالي: كلمات/دقائق يومية وتحدي أسبوعي.",
-      "المؤقّت: عدّ تنازلي أو ساعة؛ الدقائق بتتحسب في الأهداف.",
-      "التقويم: أيام اللي علّمت فيها كلمات كمدروسة.",
+      "افتح الزرار البرتقالي، أو المزيد ⋯ → أهداف.",
+      "حدّد كلمات اليوم ودقائق المؤقّت.",
+      "تحدي الأسبوع بيتغيّر لوحده. التثبيت = فقاعة تقدّم صغيرة.",
+    ],
+  },
+  {
+    id: "timer",
+    titleEn: "Study timer",
+    titleAr: "مؤقّت المذاكرة",
+    whatEn: "Countdown or stopwatch for focused study sessions.",
+    whatAr: "عدّ تنازلي أو ساعة توقيت لجلسات مذاكرة مركّزة.",
+    stepsEn: [
+      "Open Timer from the tools / More menu.",
+      "Use countdown or stopwatch. Finished minutes count toward goals and achievements.",
+      "Pin shrinks it to a floating bubble so you can keep using the dictionary.",
+    ],
+    stepsAr: [
+      "افتح المؤقّت من الأدوات / المزيد.",
+      "عدّ تنازلي أو ساعة. الدقائق بتتحسب في الأهداف والإنجازات.",
+      "التثبيت يصغّره لفقاعة عائمة وتكمل استخدام القاموس.",
+    ],
+  },
+  {
+    id: "calendar",
+    titleEn: "Calendar",
+    titleAr: "التقويم",
+    whatEn: "A monthly map of days you marked words as studied.",
+    whatAr: "خريطة شهرية للأيام اللي علّمت فيها كلمات كمدروسة.",
+    stepsEn: [
+      "Open Calendar from tools / More.",
+      "Tap a day to see which words you studied.",
+      "Pin for a mini calendar widget on screen.",
+    ],
+    stepsAr: [
+      "افتح التقويم من الأدوات / المزيد.",
+      "اضغط يوم عشان تشوف الكلمات اللي ذاكرتها.",
+      "تثبيت = ودجت تقويم صغير على الشاشة.",
     ],
   },
   {
@@ -230,6 +338,8 @@ function GuideSection({ guide, isAr, open, onToggle, index }) {
           textAlign: "start",
           font: "inherit",
           color: "inherit",
+          textDecoration: "none",
+          WebkitAppearance: "none",
         }}
       >
         <span
@@ -249,7 +359,20 @@ function GuideSection({ guide, isAr, open, onToggle, index }) {
         >
           {index + 1}
         </span>
-        <span style={{ flex: 1, fontSize: 15, fontWeight: 800, color: INK }}>{title}</span>
+        <span
+          style={{
+            flex: 1,
+            fontSize: 15,
+            fontWeight: 800,
+            color: INK,
+            textDecoration: "none",
+            opacity: 1,
+            lineHeight: 1.35,
+            letterSpacing: "0.01em",
+          }}
+        >
+          {title}
+        </span>
         <span
           style={{
             display: "inline-flex",

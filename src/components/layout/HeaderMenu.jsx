@@ -176,6 +176,15 @@ export default function HeaderMenu({
   const [langModalOpen, setLangModalOpen] = useState(false);
   const [accentModalOpen, setAccentModalOpen] = useState(false);
   const [appearanceModalOpen, setAppearanceModalOpen] = useState(false);
+  const [uiDensity, setUiDensity] = useState(() => {
+    try { return localStorage.getItem("tt_ui_density") || "comfortable"; } catch (_) { return "comfortable"; }
+  });
+  const [uiRadius, setUiRadius] = useState(() => {
+    try {
+      const v = localStorage.getItem("tt_ui_radius");
+      return v === "sharp" || v === "round" || v === "soft" ? v : "soft";
+    } catch (_) { return "soft"; }
+  });
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoExpanded, setInfoExpanded] = useState(null);
   const [busyCode, setBusyCode] = useState(null);
@@ -195,6 +204,20 @@ export default function HeaderMenu({
   const [bannerSaving, setBannerSaving] = useState(false);
   const [bannerMsg, setBannerMsg] = useState("");
   const [enAccentPref, setEnAccentPref] = useState(loadEnAccent);
+
+  useEffect(() => {
+    try {
+      document.documentElement.dataset.density = uiDensity;
+      localStorage.setItem("tt_ui_density", uiDensity);
+    } catch (_) {}
+  }, [uiDensity]);
+
+  useEffect(() => {
+    try {
+      document.documentElement.dataset.radius = uiRadius;
+      localStorage.setItem("tt_ui_radius", uiRadius);
+    } catch (_) {}
+  }, [uiRadius]);
   const [bannerRemainingLabel, setBannerRemainingLabel] = useState("");
 
   // Broadcast form (admin, under Notifications)
@@ -729,9 +752,8 @@ export default function HeaderMenu({
                   }
                 />
               )}
-         )}
 
-                            <Row
+              <Row
                 tint="#af52de"
                 icon={<MicIcon size={14} />}
                 label={T("Accent / dialect", "اللهجة / النطق")}
@@ -1616,6 +1638,72 @@ export default function HeaderMenu({
                 }}>
                 <MoonIcon size={16} /> {T("Dark", "داكن")}
               </button>
+            </div>
+
+            <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8, marginTop: 4 }}>
+              {T("List density", "كثافة القائمة")}
+            </div>
+            <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
+              {T("Comfortable = more space. Compact = tighter cards and lists.", "مريح = مسافات أكبر. مضغوط = كروت وقوائم أضيق.")}
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
+              <button type="button" onClick={() => setUiDensity("comfortable")} className="touch-target"
+                style={{
+                  minHeight: 44, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
+                  border: uiDensity === "comfortable" ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                  background: uiDensity === "comfortable" ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                  color: "var(--ink)",
+                }}>
+                {T("Comfortable", "مريح")}
+              </button>
+              <button type="button" onClick={() => setUiDensity("compact")} className="touch-target"
+                style={{
+                  minHeight: 44, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
+                  border: uiDensity === "compact" ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                  background: uiDensity === "compact" ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                  color: "var(--ink)",
+                }}>
+                {T("Compact", "مضغوط")}
+              </button>
+            </div>
+
+            <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
+              {T("Modal corners", "دائرية النوافذ")}
+            </div>
+            <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
+              {T("How rounded the dialog windows look.", "قد إيه زوايا نوافذ الحوار تكون مدوّرة.")}
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 18 }}>
+              {[
+                { id: "sharp", en: "Sharp", ar: "حادّة", r: 6 },
+                { id: "soft", en: "Soft", ar: "ناعمة", r: 16 },
+                { id: "round", en: "Round", ar: "دائرية", r: 28 },
+              ].map((opt) => {
+                const active = uiRadius === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setUiRadius(opt.id)}
+                    className="touch-target"
+                    style={{
+                      minHeight: 52, borderRadius: opt.r, cursor: "pointer", fontWeight: 700, fontSize: 12,
+                      border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                      background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                      color: "var(--ink)",
+                      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
+                    }}
+                  >
+                    <span style={{
+                      width: 28, height: 18,
+                      border: "2px solid var(--accent-1)",
+                      borderRadius: opt.r > 20 ? 10 : opt.r > 10 ? 6 : 2,
+                      background: "color-mix(in srgb, var(--accent-1) 20%, transparent)",
+                    }} />
+                    {T(opt.en, opt.ar)}
+                  </button>
+                );
+              })}
             </div>
 
             {onChangeAccent && (

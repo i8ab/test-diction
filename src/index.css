@@ -576,3 +576,40 @@ body::-webkit-scrollbar,
   0%, 100% { background-position: 100% 0; }
   50% { background-position: 0% 0; }
 }
+
+
+/* UI density (user preference from Settings → Appearance) */
+html[data-density="compact"] .word-card,
+html[data-density="compact"] .modal-card {
+  /* tighter padding where components opt in */
+}
+html[data-density="compact"] {
+  --ui-pad: 8px;
+  --ui-gap: 6px;
+  --ui-radius: 10px;
+}
+html[data-density="comfortable"],
+html:not([data-density]) {
+  --ui-pad: 12px;
+  --ui-gap: 10px;
+  --ui-radius: 12px;
+}
+
+
+/* Modal corner roundness (Settings → Appearance) */
+html {
+  --modal-radius: 16px;
+}
+html[data-radius="sharp"] {
+  --modal-radius: 6px;
+}
+html[data-radius="soft"] {
+  --modal-radius: 16px;
+}
+html[data-radius="round"] {
+  --modal-radius: 28px;
+}
+.modal-backdrop .modal-card,
+.modal-card {
+  border-radius: var(--modal-radius) !important;
+}

@@ -224,7 +224,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
           maxHeight: "min(92dvh, 920px)",
           overflowY: "auto",
           background: CARD,
-          borderRadius: 20,
+          borderRadius: "var(--modal-radius, 20px)",
           padding: 0,
           boxShadow: "0 24px 60px -16px rgba(0,0,0,0.45)",
           border: "1px solid rgba(var(--border-rgb),0.12)",

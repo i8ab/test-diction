@@ -151,7 +151,7 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
           width: "100%",
           maxWidth: 440,
           background: CARD,
-          borderRadius: 16,
+          borderRadius: "var(--modal-radius, 16px)",
           padding: "clamp(16px, 3vw, 24px)",
           boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)",
           maxHeight: "90dvh",

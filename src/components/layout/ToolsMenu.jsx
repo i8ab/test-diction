@@ -82,6 +82,14 @@ export default function ToolsMenu({
       });
     }
     setOpen(true);
+    // Preload heavy full-page tools so opening them feels instant
+    try {
+      import("../timer/TimerPage");
+      import("../calendar/CalendarPage");
+      import("../todo/TodoPage");
+      import("../goals/GoalsPage");
+      import("../dashboard/DashboardPage");
+    } catch (_) {}
   }
 
   function toggleOpen() {
@@ -199,27 +207,23 @@ export default function ToolsMenu({
           width: "100%",
           maxWidth: 420,
           maxHeight: "min(92dvh, 92vh)",
-          overflowY: "auto",
-          WebkitOverflowScrolling: "touch",
-          overscrollBehavior: "contain",
-          padding: "14px 12px 20px",
+          overflow: "hidden",
           display: "flex",
           flexDirection: "column",
-          gap: 4,
+          padding: 0,
         }}
       >
+        {/* Header outside scroll area — prevents items showing above MORE */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "4px 8px 10px",
+            padding: "14px 14px 12px",
             borderBottom: "1px solid rgba(var(--border-rgb),0.12)",
-            marginBottom: 4,
-            position: "sticky",
-            top: 0,
-            zIndex: 5,
             background: "var(--card)",
+            flexShrink: 0,
+            borderRadius: "16px 16px 0 0",
           }}
         >
           <span
@@ -254,79 +258,90 @@ export default function ToolsMenu({
           </button>
         </div>
 
-        {categories.map((cat, catIdx) => (
-          <div key={cat.id} style={{ marginBottom: catIdx < categories.length - 1 ? 4 : 0 }}>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: "var(--muted-strong)",
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
-                padding: "10px 12px 2px",
-                opacity: 0.9,
-              }}
-            >
-              {cat.title}
-            </div>
+        <div
+          style={{
+            flex: "1 1 auto",
+            minHeight: 0,
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+            overscrollBehavior: "contain",
+            padding: "8px 12px 20px",
+          }}
+        >
+          {categories.map((cat, catIdx) => (
+            <div key={cat.id} style={{ marginBottom: catIdx < categories.length - 1 ? 4 : 0 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--muted-strong)",
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  padding: "10px 12px 2px",
+                  opacity: 0.9,
+                }}
+              >
+                {cat.title}
+              </div>
 
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-                padding: "0 4px",
-              }}
-            >
-              {cat.items.map((it) => (
-                <button
-                  key={it.key}
-                  type="button"
-                  role="menuitem"
-                  disabled={!!it.disabled}
-                  onClick={() => handleItemClick(it)}
-                  className="lift-hover tools-menu-item"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    width: "100%",
-                    padding: "9px 10px",
-                    borderRadius: 10,
-                    border: "none",
-                    background: "transparent",
-                    color: "var(--ink)",
-                    fontSize: 13.5,
-                    fontWeight: 600,
-                    fontFamily: "inherit",
-                    cursor: it.disabled ? "not-allowed" : "pointer",
-                    opacity: it.disabled ? 0.5 : 1,
-                    textAlign: "start",
-                    transition: "background 0.12s ease",
-                    minHeight: 42,
-                  }}
-                >
-                  <span
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  padding: "0 4px",
+                }}
+              >
+                {cat.items.map((it) => (
+                  <button
+                    key={it.key}
+                    type="button"
+                    role="menuitem"
+                    disabled={!!it.disabled}
+                    onClick={() => handleItemClick(it)}
+                    className="tools-menu-item"
                     style={{
-                      display: "inline-flex",
+                      display: "flex",
                       alignItems: "center",
-                      justifyContent: "center",
-                      width: 32,
-                      height: 32,
-                      borderRadius: 9,
-                      background: `${it.tint}18`,
-                      color: it.tint,
-                      flexShrink: 0,
+                      gap: 10,
+                      width: "100%",
+                      padding: "9px 10px",
+                      borderRadius: 10,
+                      border: "none",
+                      background: "transparent",
+                      color: "var(--ink)",
+                      fontSize: 13.5,
+                      fontWeight: 600,
+                      fontFamily: "inherit",
+                      cursor: it.disabled ? "not-allowed" : "pointer",
+                      opacity: it.disabled ? 0.5 : 1,
+                      textAlign: "start",
+                      transition: "background 0.12s ease",
+                      minHeight: 42,
                     }}
                   >
-                    {it.icon}
-                  </span>
-                  <span style={{ flex: 1, lineHeight: 1.3 }}>{it.label}</span>
-                </button>
-              ))}
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 32,
+                        height: 32,
+                        borderRadius: 9,
+                        background: `${it.tint}18`,
+                        color: it.tint,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {it.icon}
+                    </span>
+                    <span style={{ flex: 1, lineHeight: 1.3 }}>{it.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );

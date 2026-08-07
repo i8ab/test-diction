@@ -1421,7 +1421,7 @@ export default function MainView({
     </div>
 
     {showTimer && (
-      <Suspense fallback={null}>
+      <Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 6000, background: "var(--paper)" }} aria-hidden />}>
         <TimerPage
           isAr={appIsAr}
           initialBubble={timerBubble}
@@ -1432,7 +1432,7 @@ export default function MainView({
     )}
 
     {showCalendar && (
-      <Suspense fallback={null}>
+      <Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 6000, background: "var(--paper)" }} aria-hidden />}>
         <CalendarPage
           isAr={appIsAr}
           studiedAt={studiedAt}
@@ -1445,7 +1445,7 @@ export default function MainView({
     )}
 
     {showTodo && (
-      <Suspense fallback={null}>
+      <Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 6000, background: "var(--paper)" }} aria-hidden />}>
         <TodoPage
           isAr={appIsAr}
           initialBubble={todoBubble}
@@ -1456,7 +1456,7 @@ export default function MainView({
     )}
 
     {showGoals && (
-      <Suspense fallback={null}>
+      <Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 6000, background: "var(--paper)" }} aria-hidden />}>
         <GoalsPage
           isAr={appIsAr}
           studiedAt={studiedAt}

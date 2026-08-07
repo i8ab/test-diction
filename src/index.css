@@ -1727,3 +1727,30 @@ html[data-device="tablet"] .entry-card--tablet .entry-longform {
 .entry-card--mobile .entry-longform {
   display: none !important;
 }
+
+
+/* Mobile vertical word cards — content full width, actions as bottom bar */
+.entry-card--mobile {
+  padding: 14px 14px 12px !important;
+  border-radius: 16px !important;
+  gap: 0 !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+.entry-card--mobile .entry-longform {
+  display: none !important;
+}
+.entry-card--mobile .entry-mobile-action-bar button:active {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
+.entry-card--mobile .entry-card-speak-inline button,
+.entry-card--mobile button[aria-label*="Pronounce"],
+.entry-card--mobile button[aria-label*="نطق"] {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--input-bg);
+  border: 1px solid rgba(var(--border-rgb), 0.12) !important;
+  justify-content: center;
+}

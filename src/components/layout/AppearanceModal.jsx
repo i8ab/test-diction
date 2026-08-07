@@ -30,6 +30,8 @@ export default function AppearanceModal({
   setUiDensity,
   uiRadius,
   setUiRadius,
+  onChangeUiScale = null,
+  uiScale = 1,
 }) {
   if (!open) return null;
   const node = (

@@ -722,7 +722,7 @@ function HeaderMenu({
         T={T}
         isAr={isAr}
         deviceMode={deviceMode}
-        onChangeDeviceMode={(id) => { onChangeDeviceMode(id); setDeviceModalOpen(false); setOpen(false); }}
+        onChangeDeviceMode={(id) => { if (typeof onChangeDeviceMode === "function") onChangeDeviceMode(id); setDeviceModalOpen(false); setOpen(false); }}
       />
 
 
@@ -772,6 +772,8 @@ function HeaderMenu({
         setUiDensity={setUiDensity}
         uiRadius={uiRadius}
         setUiRadius={setUiRadius}
+        onChangeUiScale={onChangeUiScale}
+        uiScale={uiScale}
       />
 
 

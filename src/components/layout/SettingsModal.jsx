@@ -134,12 +134,11 @@ export default function SettingsModal({
                 }
               />
 
-                 {onChangeAppLang && (
-                <Row
+              <Row
                   tint="#5b8def"
                   icon={<GlobeIcon size={14} />}
                   label={T("Language", "اللغة", "Sprache", "Langue")}
-                  onClick={() => setLangModalOpen(true)}
+                  onClick={() => setLangModalOpen && setLangModalOpen(true)}
                   trailing={
                     <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
                       {(UI_LANGS.find((l) => l.id === appLang) || {}).native || "English"}
@@ -147,9 +146,8 @@ export default function SettingsModal({
                     </span>
                   }
                 />
-              )}
 
-              {typeof onChangeDeviceMode === "function" && (
+              {typeof setDeviceModalOpen === "function" && (
                 <Row
                   tint="#19A7CE"
                   icon={<LayersIcon size={14} />}

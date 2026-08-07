@@ -28,6 +28,14 @@ import {
 } from "../common/Icons";
 import NumberStepper from "../common/NumberStepper";
 import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
+import {
+  BRAND_PRESETS,
+  loadPresetId,
+  loadCustomGlyph,
+  savePresetId,
+  saveCustomGlyph,
+} from "../common/BrandMark";
+import { PlusIcon } from "../common/Icons";
 
 const INFO_SECTIONS = [
   {
@@ -137,11 +145,13 @@ const INFO_SECTIONS = [
     titleAr: "المزيد",
     bodyEn: [
       "Focus mode (F): hides banners for distraction-free study.",
+      "Settings → Appearance: logo mark, light/dark, density, corners, colors.",
       "Leaderboard, offline cache, CSV backup, site language in Settings.",
       "Notifications: optional study reminders when the browser allows.",
     ],
     bodyAr: [
       "وضع التركيز (F): يخفي البنرات للمذاكرة من غير تشتيت.",
+      "الإعدادات → المظهر: شعار الموقع، فاتح/داكن، الكثافة، الزوايا، الألوان.",
       "لوحة الصدارة، كاش أوفلاين، نسخ CSV، لغة الموقع من الإعدادات.",
       "الإشعارات: تذكيرات مذاكرة اختيارية حسب دعم المتصفح.",
     ],
@@ -173,6 +183,10 @@ export default function HeaderMenu({
   const [requestsOpen, setRequestsOpen] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [brandPresetId, setBrandPresetId] = useState(() => loadPresetId());
+  const [brandCustomGlyph, setBrandCustomGlyph] = useState(() => loadCustomGlyph());
+  const [brandAddMode, setBrandAddMode] = useState(false);
+  const [brandDraftCustom, setBrandDraftCustom] = useState("");
   const [langModalOpen, setLangModalOpen] = useState(false);
   const [accentModalOpen, setAccentModalOpen] = useState(false);
   const [appearanceModalOpen, setAppearanceModalOpen] = useState(false);
@@ -729,7 +743,13 @@ export default function HeaderMenu({
                 tint="#f5a623"
                 icon={theme === "dark" ? <SunIcon size={14} /> : <MoonIcon size={14} />}
                 label={T("Appearance", "المظهر")}
-                onClick={() => setAppearanceModalOpen(true)}
+                onClick={() => {
+                  setBrandPresetId(loadPresetId());
+                  setBrandCustomGlyph(loadCustomGlyph());
+                  setBrandAddMode(false);
+                  setBrandDraftCustom("");
+                  setAppearanceModalOpen(true);
+                }}
                 trailing={
                   <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
                     {theme === "dark" ? T("Dark", "داكن") : T("Light", "فاتح")}
@@ -1608,8 +1628,149 @@ export default function HeaderMenu({
               <button type="button" onClick={() => setAppearanceModalOpen(false)} aria-label={T("Close", "إغلاق")} style={{ border: "none", background: "var(--input-bg)", borderRadius: 10, width: 36, height: 36, cursor: "pointer", color: "var(--icon-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}><XIcon size={18} /></button>
             </div>
             <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.45 }}>
-              {T("Customize light/dark mode and the accent color of the interface.", "خصّص الوضع الفاتح/الداكن ولون الواجهة.")}
+              {T("Customize logo, light/dark mode, and the accent color of the interface.", "خصّص الشعار والوضع الفاتح/الداكن ولون الواجهة.")}
             </p>
+
+            <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
+              {T("Logo mark", "شعار الموقع")}
+            </div>
+            <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
+              {T("Pick a mark for the site header. Same animation for all options.", "اختار شكل الشعار في الهيدر. نفس الحركة لكل الخيارات.")}
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 10 }}>
+              {BRAND_PRESETS.map((p) => {
+                const active = brandPresetId === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setBrandPresetId(p.id);
+                      savePresetId(p.id);
+                      setBrandAddMode(false);
+                    }}
+                    title={T(p.en, p.ar)}
+                    className="touch-target"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "8px 4px",
+                      borderRadius: 12,
+                      border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.12)",
+                      background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    <span
+                      className="brand-mark-badge"
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 10,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "linear-gradient(145deg, var(--accent-1), var(--accent-2))",
+                        boxShadow: "0 4px 12px -4px color-mix(in srgb, var(--accent-1) 50%, transparent)",
+                        position: "relative",
+                        fontSize: 16,
+                      }}
+                    >
+                      <span className="brand-mark-badge-shine" style={{ position: "absolute", inset: 0, borderRadius: "inherit", overflow: "hidden" }} />
+                      <span className="brand-mark-glyph" style={{ position: "relative", zIndex: 1 }}>{p.glyph}</span>
+                    </span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-strong)", textAlign: "center", lineHeight: 1.2 }}>
+                      {T(p.en, p.ar)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ marginBottom: 18 }}>
+              {!brandAddMode ? (
+                <button
+                  type="button"
+                  onClick={() => setBrandAddMode(true)}
+                  className="touch-target"
+                  style={{
+                    width: "100%",
+                    minHeight: 44,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    borderRadius: 12,
+                    border: brandPresetId === "custom" ? "2px solid var(--accent-1)" : "1px dashed rgba(var(--border-rgb),0.35)",
+                    background: brandPresetId === "custom" ? "color-mix(in srgb, var(--accent-1) 10%, var(--card))" : "transparent",
+                    color: "var(--ink)",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  <PlusIcon size={16} />
+                  {brandPresetId === "custom"
+                    ? T(`Custom: ${brandCustomGlyph}`, `مخصص: ${brandCustomGlyph}`)
+                    : T("Add your own mark", "أضف شعارك الخاص")}
+                </button>
+              ) : (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const g = (brandDraftCustom || "").trim().slice(0, 4);
+                    if (!g) return;
+                    setBrandCustomGlyph(g);
+                    saveCustomGlyph(g);
+                    setBrandPresetId("custom");
+                    savePresetId("custom");
+                    setBrandAddMode(false);
+                    setBrandDraftCustom("");
+                  }}
+                  style={{ display: "flex", gap: 8, alignItems: "center" }}
+                >
+                  <input
+                    value={brandDraftCustom}
+                    onChange={(e) => setBrandDraftCustom(e.target.value.slice(0, 4))}
+                    placeholder={T("Emoji or letter", "إيموجي أو حرف")}
+                    autoFocus
+                    style={{
+                      flex: 1,
+                      minHeight: 42,
+                      borderRadius: 10,
+                      border: "1px solid rgba(var(--border-rgb),0.2)",
+                      background: "var(--input-bg)",
+                      color: "var(--ink)",
+                      padding: "8px 12px",
+                      fontSize: 16,
+                      fontFamily: "inherit",
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    style={{
+                      minHeight: 42,
+                      padding: "0 14px",
+                      borderRadius: 10,
+                      border: "none",
+                      background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+                      color: "#fff",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <CheckIcon size={14} />
+                    {T("Save", "حفظ")}
+                  </button>
+                </form>
+              )}
+            </div>
 
             <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
               {T("Mode", "الوضع")}

@@ -9,6 +9,7 @@ import { XIcon, CheckIcon, PlusIcon } from "./Icons";
 
 const STORAGE_KEY = "tt_brand_mark_id";
 const CUSTOM_KEY = "tt_brand_mark_custom";
+export const BRAND_MARK_CHANGED_EVENT = "tt-brand-mark-changed";
 
 /** 18+ diverse presets — content differs, animation shell is identical */
 export const BRAND_PRESETS = [
@@ -38,7 +39,7 @@ export const BRAND_PRESETS = [
   { id: "flag", en: "Flag", ar: "علم", glyph: "🚩" },
 ];
 
-function loadPresetId() {
+export function loadPresetId() {
   try {
     const id = localStorage.getItem(STORAGE_KEY);
     if (id === "custom") return "custom";
@@ -47,7 +48,7 @@ function loadPresetId() {
   return "book";
 }
 
-function loadCustomGlyph() {
+export function loadCustomGlyph() {
   try {
     const g = localStorage.getItem(CUSTOM_KEY);
     if (g && g.trim()) return g.trim().slice(0, 4);
@@ -55,12 +56,14 @@ function loadCustomGlyph() {
   return "✨";
 }
 
-function savePresetId(id) {
+export function savePresetId(id) {
   try { localStorage.setItem(STORAGE_KEY, id); } catch (_) {}
+  try { window.dispatchEvent(new CustomEvent(BRAND_MARK_CHANGED_EVENT)); } catch (_) {}
 }
 
-function saveCustomGlyph(g) {
+export function saveCustomGlyph(g) {
   try { localStorage.setItem(CUSTOM_KEY, g); } catch (_) {}
+  try { window.dispatchEvent(new CustomEvent(BRAND_MARK_CHANGED_EVENT)); } catch (_) {}
 }
 
 function BadgeShell({ sizeCfg, children, interactive, onClick, title }) {
@@ -133,6 +136,19 @@ export default function BrandMark({ size = "md", showUnderline = false, isAr = f
   const [addMode, setAddMode] = useState(false);
   const [draftCustom, setDraftCustom] = useState("");
   const wrapRef = useRef(null);
+
+  useEffect(() => {
+    function refreshFromStorage() {
+      setPresetId(loadPresetId());
+      setCustomGlyph(loadCustomGlyph());
+    }
+    window.addEventListener(BRAND_MARK_CHANGED_EVENT, refreshFromStorage);
+    window.addEventListener("storage", refreshFromStorage);
+    return () => {
+      window.removeEventListener(BRAND_MARK_CHANGED_EVENT, refreshFromStorage);
+      window.removeEventListener("storage", refreshFromStorage);
+    };
+  }, []);
 
   useEffect(() => {
     if (!pickerOpen) return;

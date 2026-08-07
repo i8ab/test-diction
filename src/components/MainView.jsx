@@ -938,22 +938,28 @@ export default function MainView({
 
       <div className="app-container app-main-row">
         <aside className="letter-rail" aria-label="Alphabet">
-          {cfg.letters.filter((l) => availableLetters.has(l)).map((l) => (
-            <button
-              key={l}
-              type="button"
-              onClick={() => jumpTo(l)}
-              className="letter-rail-btn has-words"
-              style={{
-                fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif",
-                color: cfg.accent,
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              {l}
-            </button>
-          ))}
+          {cfg.letters.map((l) => {
+            const hasWords = availableLetters.has(l);
+            return (
+              <button
+                key={l}
+                type="button"
+                onClick={() => hasWords && jumpTo(l)}
+                disabled={!hasWords}
+                className={`letter-rail-btn${hasWords ? " has-words" : " no-words"}`}
+                style={{
+                  fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif",
+                  color: hasWords ? cfg.accent : "var(--muted, #9a948c)",
+                  fontWeight: hasWords ? 700 : 500,
+                  cursor: hasWords ? "pointer" : "default",
+                  opacity: hasWords ? 1 : 0.45,
+                }}
+                title={hasWords ? undefined : (isAr ? "لا توجد كلمات بهذا الحرف" : "No words for this letter")}
+              >
+                {l}
+              </button>
+            );
+          })}
         </aside>
 
         <div className="word-list-main">

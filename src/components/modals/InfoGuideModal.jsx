@@ -1,325 +1,253 @@
 import { useEffect, useState } from "react";
 import { tr } from "../../lib/config/i18n";
-import { INK, CARD } from "../../lib/config/theme";
 import { XIcon, ChevronIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
+/** One guide entry = one feature. Never merge features in a single item. */
 const GUIDES = [
   {
     id: "search",
     titleEn: "Search & filters",
     titleAr: "البحث والفلاتر",
-    whatEn: "Find any word quickly and narrow the list to what you need right now.",
-    whatAr: "تلاقي أي كلمة بسرعة وتضيّق القائمة على اللي محتاجه دلوقتي.",
+    whatEn: "Find words quickly and narrow the list.",
+    whatAr: "تلاقي الكلمات بسرعة وتضيّق القائمة.",
     stepsEn: [
-      "Use the search box at the top of the dictionary list. Type the English word or the Arabic meaning.",
-      "If your browser supports it, tap the mic icon to search by voice.",
-      "Filters under the search bar: All · Studied · Not studied · Favorites · Due today.",
-      "“Due today” shows studied words the spaced-repetition system wants you to review now.",
+      "Use the search box at the top of the list (word or meaning).",
+      "Mic icon = voice search when the browser supports it.",
+      "Filters: All · Studied · Not studied · Favorites · Due today.",
     ],
     stepsAr: [
-      "خانة البحث فوق قائمة الكلمات. اكتب الكلمة الإنجليزية أو المعنى بالعربي.",
-      "لو المتصفح بيدعم، دوس أيقونة الميكروفون للبحث بالصوت.",
-      "الفلاتر تحت البحث: الكل · درست · لسه · مفضلة · مستحقة.",
-      "«مستحقة» = كلمات مدروسة نظام التكرار المتباعد عايزك تراجعها دلوقتي.",
+      "خانة البحث فوق القائمة (كلمة أو معنى).",
+      "أيقونة الميكروفون = بحث صوتي لو المتصفح يدعم.",
+      "الفلاتر: الكل · درست · لسه · مفضلة · مستحقة.",
     ],
   },
   {
     id: "cards",
     titleEn: "Word cards",
     titleAr: "كروت الكلمات",
-    whatEn: "Each entry is a card: word, meaning, type badges, and actions.",
-    whatAr: "كل مدخل كرت: الكلمة، المعنى، نوعها، والأزرار.",
+    whatEn: "Each entry is a card with actions.",
+    whatAr: "كل مدخل كرت عليه أزرار.",
     stepsEn: [
-      "Tap a card to expand definition, examples, synonyms, and antonyms.",
-      "Star = favorite · Eye = mark studied / unstudied · Zoom = large practice view.",
-      "Speaker icons play pronunciation (Cambridge for English when available).",
-      "In the expanded card you can write a personal note saved on this device.",
+      "Tap a card to expand definition, examples, synonyms.",
+      "Star = favorite · Eye = studied · Zoom = large practice view.",
+      "Speaker = pronunciation. Personal note field is inside the expanded card.",
     ],
     stepsAr: [
-      "اضغط الكرت لفتح التعريف والأمثلة والمرادفات والأضداد.",
-      "نجمة = مفضلة · عين = علّم كمُذاكرة / إلغاء · تكبير = عرض كبير للتمرين.",
-      "أيقونات السماعة بتشغّل النطق (كامبريدج للإنجليزي لما يكون متاح).",
-      "جوه الكرت المفتوح تقدر تكتب ملاحظة شخصية بتتحفظ على الجهاز.",
+      "اضغط الكرت لفتح التعريف والأمثلة والمرادفات.",
+      "نجمة = مفضلة · عين = مُذاكرة · تكبير = عرض كبير.",
+      "السماعة = نطق. الملاحظة الشخصية جوه الكرت المفتوح.",
     ],
   },
   {
     id: "add",
     titleEn: "Adding & editing words",
     titleAr: "إضافة وتعديل الكلمات",
-    whatEn: "Grow the shared dictionary with clear meanings and optional structure.",
-    whatAr: "زوّد القاموس المشترك بمعاني واضحة وهيكل اختياري.",
+    whatEn: "Grow the shared dictionary.",
+    whatAr: "زوّد القاموس المشترك.",
     stepsEn: [
-      "Tap + / Add (or press N when not typing in a field).",
-      "Fill Word and Meaning (required). Definition and examples are optional.",
-      "Word type: pick noun, verb, adjective… or enable “More than one type”.",
-      "For English words, Auto-fill loads definition + examples only.",
-      "Save. Everyone sees the entry; your studied progress stays personal.",
+      "Tap + / Add (or press N when not typing).",
+      "Word and meaning are required. Optional: type, multi-sense, definition, examples.",
+      "Auto-fill (English) fills definition + examples only.",
     ],
     stepsAr: [
-      "دوس + / إضافة (أو حرف N وانت مش جوه خانة كتابة).",
-      "اكتب الكلمة والمعنى (مطلوبين). التعريف والأمثلة اختياري.",
-      "نوع الكلمة: اسم، فعل، صفة… أو فعّل «أكتر من نوع».",
-      "للكلمات الإنجليزية: «تعبئة تلقائية» = تعريف وأمثلة فقط.",
-      "احفظ. المجموعة تشوف الكلمة؛ مذاكرتك تفضل شخصية.",
+      "دوس + / إضافة (أو N وانت مش بتكتب).",
+      "الكلمة والمعنى مطلوبين. اختياري: النوع، أكتر من معنى، تعريف، أمثلة.",
+      "التعبئة التلقائية (إنجليزي) = تعريف + أمثلة فقط.",
     ],
   },
   {
     id: "pron",
     titleEn: "Pronunciation (Cambridge)",
     titleAr: "النطق (كامبريدج)",
-    whatEn: "Hear English words with American or British Cambridge audio.",
-    whatAr: "اسمع الكلمات الإنجليزية بنطق كامبريدج أمريكي أو بريطاني.",
+    whatEn: "US and UK Cambridge audio for English words.",
+    whatAr: "نطق كامبريدج أمريكي وبريطاني للإنجليزي.",
     stepsEn: [
-      "Settings → English accent (Cambridge): American or British default.",
-      "Tap any speaker icon to play the preferred accent.",
-      "Zoom view: separate US and UK buttons + mic practice score.",
+      "Settings → Accent: choose American or British default.",
+      "Speaker icons play that accent. Zoom view has separate US / UK buttons.",
     ],
     stepsAr: [
-      "الإعدادات → لهجة الإنجليزية (كامبريدج): أمريكي أو بريطاني.",
-      "اضغط أي سماعة لتشغيل اللهجة المختارة.",
-      "العرض الكبير: أزرار US و UK + تمرين ميكروفون مع درجة.",
+      "الإعدادات → اللهجة: أمريكي أو بريطاني كافتراضي.",
+      "السماعة بتشغّل اللهجة دي. العرض الكبير فيه US و UK منفصلين.",
     ],
   },
   {
     id: "quiz",
     titleEn: "Quiz",
     titleAr: "الاختبار",
-    whatEn: "Build questions from your studied words to check recall.",
-    whatAr: "يبني أسئلة من كلماتك المدروسة عشان تختبر تذكّرك.",
+    whatEn: "Questions from your studied words.",
+    whatAr: "أسئلة من كلماتك المدروسة.",
     stepsEn: [
-      "Open More ⋯ → Quiz.",
-      "Choose time range, multiple-choice or typing, and optionally “due only”.",
-      "If a word has more than one type (noun/verb…), the question tells you which type is required.",
-      "Correct and wrong answers update spaced-repetition (SRS) for that word.",
+      "More ⋯ → Quiz. Choose range, MCQ or typing, optional due-only.",
+      "Multi-type words: the question labels the required type.",
+      "Answers update spaced repetition (SRS).",
     ],
     stepsAr: [
-      "افتح المزيد ⋯ → اختبار.",
-      "اختار المدى الزمني، اختيار من متعدد أو كتابة، واختياري «مستحقة فقط».",
-      "لو الكلمة ليها أكتر من نوع (اسم/فعل…)، السؤال بيوضّح النوع المطلوب.",
-      "الإجابات الصح والغلط بتحدّث التكرار المتباعد (SRS) للكلمة.",
+      "المزيد ⋯ → اختبار. المدى، اختيار أو كتابة، ومستحقة فقط اختياري.",
+      "الكلمات متعددة النوع: السؤال بيوضّح النوع المطلوب.",
+      "الإجابات بتحدّث التكرار المتباعد (SRS).",
     ],
   },
   {
     id: "flashcards",
     titleEn: "Flashcards",
     titleAr: "البطاقات التعليمية",
-    whatEn: "Flip through studied words for light, focused review.",
-    whatAr: "تقليب الكلمات المدروسة لمراجعة خفيفة ومركّزة.",
+    whatEn: "Flip cards for light review.",
+    whatAr: "تقليب كروت لمراجعة خفيفة.",
     stepsEn: [
-      "Open More ⋯ → Flashcards.",
-      "See one side of the card, then flip to reveal the other.",
-      "Use it for passive review without scoring pressure.",
+      "More ⋯ → Flashcards.",
+      "See one side, flip to reveal the other — no score pressure.",
     ],
     stepsAr: [
-      "افتح المزيد ⋯ → بطاقات.",
-      "شوف وجه الكرت، بعدين اقلبه عشان تظهر الوجه التاني.",
-      "مناسب لمراجعة هادية من غير ضغط درجات.",
+      "المزيد ⋯ → بطاقات.",
+      "شوف وجه، اقلب عشان الوجه التاني — من غير ضغط درجات.",
     ],
   },
   {
     id: "quick",
     titleEn: "Quick review",
     titleAr: "مراجعة سريعة",
-    whatEn: "Short recall sessions for due words.",
-    whatAr: "جلسات تذكّر قصيرة للكلمات المستحقة.",
+    whatEn: "Short recall for due words.",
+    whatAr: "تذكّر سريع للمستحقة.",
     stepsEn: [
-      "Open More ⋯ → Quick review.",
-      "You see the word first — try to recall the meaning.",
-      "Reveal, then choose “I knew it” or “Still learning”.",
-      "Best for 2–5 minutes on due words.",
+      "More ⋯ → Quick review.",
+      "Recall the meaning, reveal, then “Knew it” or “Still learning”.",
     ],
     stepsAr: [
-      "افتح المزيد ⋯ → مراجعة سريعة.",
-      "تشوف الكلمة الأول — حاول تفتكر المعنى.",
-      "اكشف المعنى، بعدين اختار «عرفتها» أو «لسه بتعلّم».",
-      "مناسبة لـ ٢–٥ دقايق على الكلمات المستحقة.",
+      "المزيد ⋯ → مراجعة سريعة.",
+      "افتكر المعنى، اكشف، بعدين «عرفتها» أو «لسه بتعلّم».",
     ],
   },
   {
     id: "random",
     titleEn: "Random word",
     titleAr: "كلمة عشوائية",
-    whatEn: "Practice one word at a time without repeating until the set is done.",
-    whatAr: "تمرين كلمة بكلمة من غير تكرار لحد ما تخلص المجموعة.",
+    whatEn: "One word at a time, no repeats until the set is done.",
+    whatAr: "كلمة بكلمة من غير تكرار لحد ما تخلص المجموعة.",
     stepsEn: [
-      "Open More ⋯ → Random word.",
-      "Tap the card to reveal the meaning.",
-      "“Knew it” / “Forgot” updates SRS and can mark the word studied.",
-      "Keyboard: Space/Enter = reveal · 1 = knew · 2 = forgot.",
+      "More ⋯ → Random word. Tap to reveal. Knew it / Forgot updates SRS.",
     ],
     stepsAr: [
-      "افتح المزيد ⋯ → كلمة عشوائية.",
-      "اضغط الكرت لإظهار المعنى.",
-      "«عرفتها» / «نسيتها» بيحدّثوا SRS وممكن يعلّموا الكلمة كمُذاكرة.",
-      "كيبورد: مسافة/Enter = إظهار · 1 = عرفتها · 2 = نسيتها.",
+      "المزيد ⋯ → كلمة عشوائية. اضغط للكشف. عرفتها/نسيتها بتحدّث SRS.",
     ],
   },
   {
     id: "dictation",
     titleEn: "Listening & dictation",
     titleAr: "استماع وإملاء",
-    whatEn: "Type what you hear, or type the word from its meaning.",
-    whatAr: "اكتب اللي بتسمعه، أو اكتب الكلمة من معناها.",
-    stepsEn: [
-      "Open More ⋯ → Dictation.",
-      "Mode 1: Hear the word → type its meaning.",
-      "Mode 2: See the meaning → type the word.",
-      "Each answer updates spaced-repetition for that word.",
-    ],
-    stepsAr: [
-      "افتح المزيد ⋯ → استماع وإملاء.",
-      "وضع ١: اسمع الكلمة → اكتب معناها.",
-      "وضع ٢: شوف المعنى → اكتب الكلمة.",
-      "كل إجابة بتحدّث التكرار المتباعد للكلمة.",
-    ],
+    whatEn: "Hear → type meaning, or see meaning → type the word.",
+    whatAr: "اسمع → اكتب المعنى، أو شوف المعنى → اكتب الكلمة.",
+    stepsEn: ["More ⋯ → Dictation. Each answer updates SRS."],
+    stepsAr: ["المزيد ⋯ → استماع وإملاء. كل إجابة بتحدّث SRS."],
   },
   {
     id: "todo",
-    titleEn: "To-do list & work timer",
-    titleAr: "المهام ومؤقت الشغل",
-    whatEn: "Personal tasks with a live timer on the active task.",
-    whatAr: "مهام شخصية مع مؤقت حيّ على المهمة الشغّالة.",
+    titleEn: "To-do list",
+    titleAr: "قائمة المهام",
+    whatEn: "Tasks with a live work timer.",
+    whatAr: "مهام مع مؤقت شغل حيّ.",
     stepsEn: [
-      "Green floating button or More ⋯ → To-do.",
-      "Start beside a task → live timer. One active task at a time.",
-      "Pin = floating bubble with active task + time.",
+      "Green button or More ⋯ → To-do.",
+      "Start on a task for a live timer. One active task at a time.",
     ],
     stepsAr: [
-      "الزرار الأخضر العائم أو المزيد ⋯ → مهام.",
-      "ابدأ جنب مهمة → مؤقت حيّ. مهمة واحدة في نفس الوقت.",
-      "تثبيت = فقاعة فيها المهمة والوقت.",
+      "الزرار الأخضر أو المزيد ⋯ → مهام.",
+      "ابدأ على مهمة لمؤقت حيّ. مهمة واحدة في نفس الوقت.",
     ],
   },
   {
     id: "goals",
     titleEn: "Goals & challenges",
     titleAr: "الأهداف والتحديات",
-    whatEn: "Daily word and minute targets, plus a rotating weekly challenge.",
-    whatAr: "أهداف يومية للكلمات والدقائق، مع تحدي أسبوعي يتغيّر.",
-    stepsEn: [
-      "Open the orange Goals button, or More ⋯ → Goals.",
-      "Set daily words and timer minutes.",
-      "Weekly challenge rotates automatically. Pin keeps a small progress bubble.",
-    ],
-    stepsAr: [
-      "افتح الزرار البرتقالي، أو المزيد ⋯ → أهداف.",
-      "حدّد كلمات اليوم ودقائق المؤقّت.",
-      "تحدي الأسبوع بيتغيّر لوحده. التثبيت = فقاعة تقدّم صغيرة.",
-    ],
+    whatEn: "Daily words/minutes and a weekly challenge.",
+    whatAr: "كلمات/دقائق يومية وتحدي أسبوعي.",
+    stepsEn: ["Orange Goals button or More ⋯ → Goals."],
+    stepsAr: ["الزرار البرتقالي أو المزيد ⋯ → أهداف."],
   },
   {
     id: "timer",
     titleEn: "Study timer",
     titleAr: "مؤقّت المذاكرة",
-    whatEn: "Countdown or stopwatch for focused study sessions.",
-    whatAr: "عدّ تنازلي أو ساعة توقيت لجلسات مذاكرة مركّزة.",
-    stepsEn: [
-      "Open Timer from the tools / More menu.",
-      "Use countdown or stopwatch. Finished minutes count toward goals and achievements.",
-      "Pin shrinks it to a floating bubble so you can keep using the dictionary.",
-    ],
-    stepsAr: [
-      "افتح المؤقّت من الأدوات / المزيد.",
-      "عدّ تنازلي أو ساعة. الدقائق بتتحسب في الأهداف والإنجازات.",
-      "التثبيت يصغّره لفقاعة عائمة وتكمل استخدام القاموس.",
-    ],
+    whatEn: "Countdown or stopwatch; minutes count toward goals.",
+    whatAr: "عدّ تنازلي أو ساعة؛ الدقائق بتتحسب في الأهداف.",
+    stepsEn: ["Open Timer from tools. Pin for a floating bubble."],
+    stepsAr: ["افتح المؤقّت من الأدوات. تثبيت = فقاعة عائمة."],
   },
   {
     id: "calendar",
     titleEn: "Calendar",
     titleAr: "التقويم",
-    whatEn: "A monthly map of days you marked words as studied.",
-    whatAr: "خريطة شهرية للأيام اللي علّمت فيها كلمات كمدروسة.",
-    stepsEn: [
-      "Open Calendar from tools / More.",
-      "Tap a day to see which words you studied.",
-      "Pin for a mini calendar widget on screen.",
-    ],
-    stepsAr: [
-      "افتح التقويم من الأدوات / المزيد.",
-      "اضغط يوم عشان تشوف الكلمات اللي ذاكرتها.",
-      "تثبيت = ودجت تقويم صغير على الشاشة.",
-    ],
+    whatEn: "Map of days you studied words.",
+    whatAr: "خريطة أيام المذاكرة.",
+    stepsEn: ["Open Calendar · tap a day to see words."],
+    stepsAr: ["افتح التقويم · اضغط يوم عشان تشوف الكلمات."],
   },
   {
     id: "achievements",
     titleEn: "Achievements",
     titleAr: "الإنجازات",
-    whatEn: "Categories with ten levels each and live percent progress.",
-    whatAr: "أقسام وكل قسم عشر مستويات مع نسبة تقدّم حية.",
-    stepsEn: [
-      "☰ → Achievements. Tap a category to expand levels.",
-      "Each level shows current / target and % toward the next badge.",
-    ],
-    stepsAr: [
-      "☰ → الإنجازات. اضغط قسم عشان تفتح المستويات.",
-      "كل مستوى فيه الحالي / الهدف ونسبة للمستوى الجاي.",
-    ],
+    whatEn: "Categories with 10 levels and % progress.",
+    whatAr: "أقسام بعشر مستويات ونسبة تقدّم.",
+    stepsEn: ["☰ → Achievements. Tap a category for levels."],
+    stepsAr: ["☰ → الإنجازات. اضغط قسم عشان المستويات."],
   },
   {
     id: "focus",
     titleEn: "Focus mode",
     titleAr: "وضع التركيز",
-    whatEn: "Hide banners and extras for distraction-free study.",
-    whatAr: "إخفاء البنرات والإضافات للمذاكرة من غير تشتيت.",
-    stepsEn: [
-      "☰ → Focus mode, or press F (when not typing in a field).",
-      "Exit with the top chip or F again.",
-    ],
-    stepsAr: [
-      "☰ → وضع التركيز، أو حرف F (مش جوه خانة كتابة).",
-      "اخرج من الشريحة فوق أو F تاني.",
-    ],
+    whatEn: "Hide banners for distraction-free study.",
+    whatAr: "إخفاء البنرات للمذاكرة من غير تشتيت.",
+    stepsEn: ["☰ → Focus mode, or press F."],
+    stepsAr: ["☰ → وضع التركيز، أو حرف F."],
   },
   {
     id: "settings",
     titleEn: "Settings & account",
     titleAr: "الإعدادات والحساب",
-    whatEn: "Theme, language, Cambridge accent, notifications, profile photo and password.",
-    whatAr: "المظهر واللغة ولهجة كامبريدج والإشعارات وصورة الحساب وكلمة المرور.",
+    whatEn: "Theme, language, accent, notifications, profile photo.",
+    whatAr: "المظهر واللغة واللهجة والإشعارات وصورة الحساب.",
     stepsEn: [
-      "☰ → Settings for theme, site language, and English accent.",
-      "Open account from the profile photo button in the header (not from the menu list).",
-      "In My account: name, password (Change beside the mask), and profile photo upload.",
+      "☰ → Settings opens a hub. Language, Accent, and Appearance each open their own modal.",
+      "Profile photo and name: header avatar button → My account.",
     ],
     stepsAr: [
-      "☰ → إعدادات للمظهر ولغة الموقع ولهجة الإنجليزية.",
-      "افتح الحساب من زرار صورة الملف في الهيدر (مش من قائمة المينيو).",
-      "في حسابي: الاسم، كلمة المرور (تغيير جنب القناع)، ورفع صورة الملف.",
+      "☰ → إعدادات. اللغة واللهجة والمظهر كل واحد في نافذة لوحده.",
+      "الصورة والاسم: زرار الأفاتار في الهيدر → حسابي.",
     ],
   },
   {
     id: "group",
     titleEn: "Shared group & offline",
     titleAr: "المجموعة والأوفلاين",
-    whatEn: "Shared dictionary; personal progress; offline cache; admin tools.",
-    whatAr: "قاموس مشترك؛ تقدّم شخصي؛ كاش أوفلاين؛ أدوات الأدمن.",
+    whatEn: "Shared dictionary, personal progress, admin tools.",
+    whatAr: "قاموس مشترك، تقدّم شخصي، أدوات أدمن.",
     stepsEn: [
-      "Studied words and achievements are per account.",
-      "Admins can block users so they cannot open the site.",
-      "Admin panel → Tools for invite link and full backup.",
+      "Studied flags are per account. Admins can block users.",
+      "Admin panel → Tools: invite link and full backup.",
     ],
     stepsAr: [
-      "المُذاكرة والإنجازات لكل حساب لوحده.",
-      "الأدمن يقدر يحظر مستخدمين عشان ميفتحوش الموقع.",
+      "المُذاكرة لكل حساب. الأدمن يقدر يحظر مستخدمين.",
       "لوحة التحكم → أدوات: رابط الدعوة والنسخة الاحتياطية.",
     ],
   },
 ];
 
-function GuideSection({ guide, isAr, open, onToggle, index }) {
+function GuideCard({ guide, isAr, open, onToggle, index }) {
   const title = isAr ? guide.titleAr : guide.titleEn;
   const what = isAr ? guide.whatAr : guide.whatEn;
   const steps = isAr ? guide.stepsAr : guide.stepsEn;
 
   return (
-    <article
+    <div
       style={{
         borderRadius: 14,
-        border: "1px solid rgba(var(--border-rgb),0.14)",
-        background: open ? "color-mix(in srgb, var(--accent-1) 6%, var(--input-bg))" : "var(--input-bg)",
+        background: "var(--card)",
+        border: open
+          ? "1px solid color-mix(in srgb, var(--accent-1) 45%, transparent)"
+          : "1px solid rgba(var(--border-rgb),0.14)",
+        boxShadow: open ? "0 8px 24px -12px rgba(0,0,0,0.35)" : "none",
         overflow: "hidden",
+        transition: "border-color 0.15s ease, box-shadow 0.15s ease",
       }}
     >
       <button
@@ -330,23 +258,22 @@ function GuideSection({ guide, isAr, open, onToggle, index }) {
           width: "100%",
           display: "flex",
           alignItems: "center",
-          gap: 10,
-          padding: "12px 14px",
+          gap: 12,
+          padding: "14px 14px",
+          margin: 0,
           border: "none",
-          background: "transparent",
+          background: open ? "color-mix(in srgb, var(--accent-1) 8%, var(--card))" : "transparent",
           cursor: "pointer",
           textAlign: "start",
-          font: "inherit",
-          color: "inherit",
-          textDecoration: "none",
-          WebkitAppearance: "none",
+          fontFamily: "inherit",
         }}
       >
         <span
           style={{
-            width: 28,
-            height: 28,
-            borderRadius: 8,
+            width: 30,
+            height: 30,
+            borderRadius: 10,
+            flexShrink: 0,
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
@@ -354,7 +281,6 @@ function GuideSection({ guide, isAr, open, onToggle, index }) {
             fontWeight: 800,
             color: "#fff",
             background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-            flexShrink: 0,
           }}
         >
           {index + 1}
@@ -362,61 +288,96 @@ function GuideSection({ guide, isAr, open, onToggle, index }) {
         <span
           style={{
             flex: 1,
-            fontSize: 15,
-            fontWeight: 800,
-            color: INK,
-            textDecoration: "none",
-            opacity: 1,
+            minWidth: 0,
+            fontSize: 14.5,
+            fontWeight: 700,
+            color: "var(--ink)",
             lineHeight: 1.35,
-            letterSpacing: "0.01em",
           }}
         >
           {title}
         </span>
         <span
+          aria-hidden
           style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
             display: "inline-flex",
-            color: "var(--muted)",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "var(--input-bg)",
+            color: "var(--muted-strong)",
             transform: open ? "rotate(90deg)" : "rotate(0deg)",
             transition: "transform 0.2s ease",
+            flexShrink: 0,
           }}
         >
-          <ChevronIcon size={16} />
+          <ChevronIcon size={14} />
         </span>
       </button>
 
-      {open && (
-        <div style={{ padding: "0 14px 14px 14px", borderTop: "1px solid rgba(var(--border-rgb),0.1)" }}>
-          <p style={{ margin: "12px 0 10px", fontSize: 13.5, color: "var(--muted-strong)", lineHeight: 1.55 }}>
+      {open ? (
+        <div style={{ padding: "0 14px 16px", background: "var(--card)" }}>
+          <div
+            style={{
+              height: 1,
+              background: "rgba(var(--border-rgb),0.12)",
+              marginBottom: 12,
+            }}
+          />
+          <p
+            style={{
+              margin: "0 0 12px",
+              fontSize: 13.5,
+              lineHeight: 1.55,
+              color: "var(--muted-strong)",
+            }}
+          >
             {what}
           </p>
           <div
             style={{
               fontSize: 11,
               fontWeight: 800,
-              letterSpacing: "0.04em",
+              letterSpacing: "0.05em",
               textTransform: "uppercase",
               color: "var(--accent-1)",
-              marginBottom: 6,
+              marginBottom: 8,
             }}
           >
             {tr(isAr, "How to use it", "طريقة الاستخدام")}
           </div>
-          <ol style={{ margin: 0, paddingInlineStart: 18, display: "flex", flexDirection: "column", gap: 7 }}>
+          <ol
+            style={{
+              margin: 0,
+              paddingInlineStart: 18,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
             {steps.map((step, i) => (
-              <li key={i} style={{ fontSize: 13.5, color: INK, lineHeight: 1.5 }}>
+              <li
+                key={i}
+                style={{
+                  fontSize: 13.5,
+                  lineHeight: 1.5,
+                  color: "var(--ink)",
+                }}
+              >
                 {step}
               </li>
             ))}
           </ol>
         </div>
-      )}
-    </article>
+      ) : null}
+    </div>
   );
 }
 
 export default function InfoGuideModal({ isAr, onClose }) {
-  const [openIds, setOpenIds] = useState(() => new Set([GUIDES[0].id]));
+  const [openIds, setOpenIds] = useState(() => new Set());
 
   useEffect(() => {
     function onKey(e) {
@@ -435,14 +396,6 @@ export default function InfoGuideModal({ isAr, onClose }) {
     });
   }
 
-  function expandAll() {
-    setOpenIds(new Set(GUIDES.map((g) => g.id)));
-  }
-
-  function collapseAll() {
-    setOpenIds(new Set());
-  }
-
   return (
     <div
       role="dialog"
@@ -451,11 +404,11 @@ export default function InfoGuideModal({ isAr, onClose }) {
         position: "fixed",
         inset: 0,
         zIndex: 9000,
-        background: "rgba(0,0,0,0.45)",
+        background: "rgba(0,0,0,0.5)",
         display: "flex",
-        alignItems: "flex-end",
+        alignItems: "center",
         justifyContent: "center",
-        padding: "12px 12px max(12px, env(safe-area-inset-bottom))",
+        padding: 16,
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -465,54 +418,77 @@ export default function InfoGuideModal({ isAr, onClose }) {
       <div
         style={{
           width: "100%",
-          maxWidth: 520,
-          maxHeight: "92dvh",
+          maxWidth: 480,
+          maxHeight: "min(88dvh, 720px)",
           display: "flex",
           flexDirection: "column",
+          background: "var(--card)",
+          color: "var(--ink)",
+          borderRadius: 20,
+          border: "1px solid rgba(var(--border-rgb),0.12)",
+          boxShadow: "0 24px 60px -16px rgba(0,0,0,0.45)",
           overflow: "hidden",
-          background: CARD,
-          borderRadius: 16,
-          boxShadow: "0 20px 50px -12px rgba(0,0,0,0.35)",
         }}
       >
-        <div
+        <header
           style={{
             flexShrink: 0,
-            padding: "16px 16px 12px",
+            padding: "18px 18px 14px",
             borderBottom: "1px solid rgba(var(--border-rgb),0.12)",
-            background: CARD,
+            background: "linear-gradient(180deg, color-mix(in srgb, var(--accent-1) 10%, var(--card)), var(--card))",
           }}
         >
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
             <div style={{ minWidth: 0 }}>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: INK }}>
+              <h2
+                style={{
+                  margin: 0,
+                  fontFamily: "'Fraunces', serif",
+                  fontSize: 20,
+                  fontWeight: 700,
+                  color: "var(--ink)",
+                }}
+              >
                 {tr(isAr, "How to use the site", "إزاي تستخدم الموقع")}
               </h2>
-              <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "var(--muted)", lineHeight: 1.4 }}>
-                {tr(isAr, "Tap a section to open or close it", "اضغط على قسم لفتحه أو غلقه")}
+              <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted-strong)", lineHeight: 1.4 }}>
+                {tr(isAr, "Each topic is separate — open only what you need", "كل موضوع لوحده — افتح اللي محتاجه بس")}
               </p>
             </div>
             <button
               type="button"
               onClick={onClose}
               aria-label={tr(isAr, "Close", "إغلاق")}
-              style={{ background: "none", border: "none", cursor: "pointer", padding: 6, color: "var(--muted)", flexShrink: 0 }}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                border: "none",
+                background: "var(--input-bg)",
+                color: "var(--icon-muted)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
             >
-              <XIcon size={22} />
+              <XIcon size={18} />
             </button>
           </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
             <button
               type="button"
-              onClick={expandAll}
+              onClick={() => setOpenIds(new Set(GUIDES.map((g) => g.id)))}
               style={{
-                fontSize: 12,
-                fontWeight: 700,
-                padding: "6px 12px",
-                borderRadius: 8,
-                border: "1px solid rgba(var(--border-rgb),0.18)",
+                flex: 1,
+                minHeight: 38,
+                borderRadius: 10,
+                border: "1px solid rgba(var(--border-rgb),0.16)",
                 background: "var(--input-bg)",
-                color: INK,
+                color: "var(--ink)",
+                fontWeight: 700,
+                fontSize: 12.5,
                 cursor: "pointer",
               }}
             >
@@ -520,26 +496,37 @@ export default function InfoGuideModal({ isAr, onClose }) {
             </button>
             <button
               type="button"
-              onClick={collapseAll}
+              onClick={() => setOpenIds(new Set())}
               style={{
-                fontSize: 12,
-                fontWeight: 700,
-                padding: "6px 12px",
-                borderRadius: 8,
-                border: "1px solid rgba(var(--border-rgb),0.18)",
+                flex: 1,
+                minHeight: 38,
+                borderRadius: 10,
+                border: "1px solid rgba(var(--border-rgb),0.16)",
                 background: "var(--input-bg)",
-                color: INK,
+                color: "var(--ink)",
+                fontWeight: 700,
+                fontSize: 12.5,
                 cursor: "pointer",
               }}
             >
               {tr(isAr, "Collapse all", "غلق الكل")}
             </button>
           </div>
-        </div>
+        </header>
 
-        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "12px 14px 20px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            background: "var(--paper)",
+          }}
+        >
           {GUIDES.map((g, index) => (
-            <GuideSection
+            <GuideCard
               key={g.id}
               guide={g}
               isAr={isAr}

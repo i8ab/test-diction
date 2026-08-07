@@ -23,7 +23,7 @@ function stretchArabicText(text, amount) {
 
 const hasArabic = (text) => /[\u0600-\u06FF]/.test(text || "");
 import {
-  UsersIcon, SunIcon, MoonIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon, CheckIcon, TrashIcon, LayersIcon, LoaderIcon, SettingsIcon, BookIcon,
+  UsersIcon, SunIcon, MoonIcon, GlobeIcon, UserIcon, LogoutIcon, PaletteIcon, MenuIcon, BellIcon, BellOffIcon, XIcon, CheckIcon, TrashIcon, LayersIcon, LoaderIcon, SettingsIcon, BookIcon,
   SearchIcon, QuizIcon, ClockIcon, CalendarIcon, FlameIcon, StatsIcon, MicIcon, StarIcon, WandIcon,
 } from "../common/Icons";
 import NumberStepper from "../common/NumberStepper";
@@ -173,6 +173,9 @@ export default function HeaderMenu({
   const [requestsOpen, setRequestsOpen] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [langModalOpen, setLangModalOpen] = useState(false);
+  const [accentModalOpen, setAccentModalOpen] = useState(false);
+  const [appearanceModalOpen, setAppearanceModalOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoExpanded, setInfoExpanded] = useState(null);
   const [busyCode, setBusyCode] = useState(null);
@@ -357,10 +360,10 @@ export default function HeaderMenu({
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [settingsOpen, notifOpen, bannerOpen, infoOpen]);
+  }, [settingsOpen, notifOpen, bannerOpen, infoOpen, langModalOpen, accentModalOpen, appearanceModalOpen]);
 
   // Lock background scroll for any open settings-style modal (click-outside still closes).
-  useBodyScrollLock(settingsOpen || notifOpen || bannerOpen || infoOpen);
+  useBodyScrollLock(settingsOpen || notifOpen || bannerOpen || infoOpen || langModalOpen || accentModalOpen || appearanceModalOpen);
 
   function itemClick(fn) { fn(); }
 
@@ -702,83 +705,44 @@ export default function HeaderMenu({
               <Row
                 tint="#f5a623"
                 icon={theme === "dark" ? <SunIcon size={14} /> : <MoonIcon size={14} />}
-                label={theme === "dark" ? T( "Light Mode", "الوضع الفاتح") : T( "Dark Mode", "الوضع الداكن")}
-                onClick={onToggleTheme}
+                label={T("Appearance", "المظهر")}
+                onClick={() => setAppearanceModalOpen(true)}
+                trailing={
+                  <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                    {theme === "dark" ? T("Dark", "داكن") : T("Light", "فاتح")}
+                    {isAr ? " ◂" : " ▸"}
+                  </span>
+                }
               />
 
-              {/* Site language (chrome only — not dictionary content) */}
-              {onChangeAppLang && (
-                <div style={{ padding: "8px 10px 12px", borderBottom: "1px solid rgba(var(--border-rgb),0.1)" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--icon-muted)", marginBottom: 8 }}>
-                    {T("Site language", "لغة الموقع", "Sprache der Website", "Langue du site")}
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    {UI_LANGS.map((l) => {
-                      const active = lang === l.id;
-                      return (
-                        <button
-                          key={l.id}
-                          type="button"
-                          onClick={() => onChangeAppLang(l.id)}
-                          className="touch-target"
-                          style={{
-                            minHeight: 42, padding: "8px 10px", borderRadius: 10, cursor: "pointer",
-                            fontSize: 13, fontWeight: 700,
-                            border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.18)",
-                            background: active ? "color-mix(in srgb, var(--accent-1) 14%, var(--card))" : "var(--input-bg)",
-                            color: "var(--ink)",
-                          }}
-                        >
-                          {l.native}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6, lineHeight: 1.4 }}>
-                    {T(
-                      "Changes menus, settings, and account screens — not dictionary words.",
-                      "بتغيّر القوائم والإعدادات والحساب — مش كلمات القاموس.",
-                      "Ändert Menüs, Einstellungen und Konto — nicht die Wörterbuchinhalte.",
-                      "Change les menus, réglages et compte — pas le contenu du dictionnaire."
-                    )}
-                  </div>
-                </div>
+                 {onChangeAppLang && (
+                <Row
+                  tint="#5b8def"
+                  icon={<GlobeIcon size={14} />}
+                  label={T("Language", "اللغة", "Sprache", "Langue")}
+                  onClick={() => setLangModalOpen(true)}
+                  trailing={
+                    <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                      {(UI_LANGS.find((l) => l.id === lang) || {}).native || "English"}
+                      {isAr ? " ◂" : " ▸"}
+                    </span>
+                  }
+                />
               )}
+         )}
 
-              {/* English pronunciation accent (Cambridge US / UK) */}
-              <div style={{ padding: "8px 10px 12px", borderBottom: "1px solid rgba(var(--border-rgb),0.1)" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--icon-muted)", marginBottom: 8 }}>
-                  {T("English accent (Cambridge)", "لهجة الإنجليزية (كامبريدج)")}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  {EN_ACCENTS.map((a) => {
-                    const active = enAccentPref === a.code;
-                    return (
-                      <button
-                        key={a.code}
-                        type="button"
-                        onClick={() => { setEnAccentPref(a.code); saveEnAccent(a.code); }}
-                        className="touch-target"
-                        style={{
-                          minHeight: 42, padding: "8px 10px", borderRadius: 10, cursor: "pointer",
-                          fontSize: 13, fontWeight: 700,
-                          border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.18)",
-                          background: active ? "color-mix(in srgb, var(--accent-1) 14%, var(--card))" : "var(--input-bg)",
-                          color: "var(--ink)",
-                        }}
-                      >
-                        {T(a.en, a.ar)}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6, lineHeight: 1.4 }}>
-                  {T(
-                    "Speaker buttons play Cambridge Dictionary audio. In the zoom view you can pick US or UK for each word.",
-                    "أزرار السماعة بتشغّل نطق قاموس كامبريدج. في العرض الكبير تقدر تختار أمريكي أو بريطاني لكل كلمة."
-                  )}
-                </div>
-              </div>
+                            <Row
+                tint="#af52de"
+                icon={<MicIcon size={14} />}
+                label={T("Accent / dialect", "اللهجة / النطق")}
+                onClick={() => setAccentModalOpen(true)}
+                trailing={
+                  <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                    {enAccentPref === "uk" ? T("British", "بريطاني") : T("American", "أمريكي")}
+                    {isAr ? " ◂" : " ▸"}
+                  </span>
+                }
+              />
 
               {/* ========== Information — opens small modal ========== */}
               <div style={{ borderTop: "1px solid rgba(var(--border-rgb),0.12)", marginTop: 4, paddingTop: 4 }}>
@@ -839,25 +803,7 @@ export default function HeaderMenu({
                 </div>
               )}
 
-              {onChangeAccent && (
-                <div style={{ padding: "10px 12px", marginTop: 2, borderTop: "1px solid rgba(var(--border-rgb),0.12)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, color: "var(--icon-muted)", marginBottom: 9 }}>
-                    <PaletteIcon size={13} /> {T( "Color theme", "لون الواجهة")}
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {Object.entries(ACCENT_THEMES).map(([key, t]) => {
-                      const swatch = (t[theme] || t.light).a1;
-                      const active = key === accentTheme;
-                      return (
-                        <button key={key} type="button" onClick={() => onChangeAccent(key)}
-                          title={T( t.label.en, t.label.ar)} aria-label={T( t.label.en, t.label.ar)}
-                          className="header-menu-swatch touch-target"
-                          style={{ width: 28, height: 28, borderRadius: "50%", background: swatch, border: active ? "2px solid var(--ink)" : "1px solid rgba(var(--border-rgb),0.3)", cursor: "pointer", padding: 0, boxShadow: active ? "0 0 0 3px var(--card), 0 0 0 4px " + swatch + "55" : "none" }} />
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              
 
             </div>
           </div>
@@ -1569,6 +1515,137 @@ export default function HeaderMenu({
           </div>
         </div>
       )}
+
+      {/* Language settings — dedicated modal */}
+      {langModalOpen && (
+        <div onClick={() => setLangModalOpen(false)} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 2600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="lang-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <h2 id="lang-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Language", "اللغة")}</h2>
+              <button type="button" onClick={() => setLangModalOpen(false)} aria-label={T("Close", "إغلاق")} style={{ border: "none", background: "var(--input-bg)", borderRadius: 10, width: 36, height: 36, cursor: "pointer", color: "var(--icon-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}><XIcon size={18} /></button>
+            </div>
+            <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.45 }}>
+              {T("Changes menus, settings, and account screens — not dictionary words.", "بتغيّر القوائم والإعدادات والحساب — مش كلمات القاموس.")}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {UI_LANGS.map((l) => {
+                const active = lang === l.id;
+                return (
+                  <button key={l.id} type="button" onClick={() => { onChangeAppLang && onChangeAppLang(l.id); setLangModalOpen(false); }} className="touch-target"
+                    style={{
+                      minHeight: 48, padding: "12px 14px", borderRadius: 12, cursor: "pointer", textAlign: "start",
+                      fontSize: 15, fontWeight: 700, color: "var(--ink)",
+                      border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                      background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                    }}>
+                    <span>{l.native}</span>
+                    {active ? <CheckIcon size={16} /> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Accent / dialect — dedicated modal */}
+      {accentModalOpen && (
+        <div onClick={() => setAccentModalOpen(false)} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 2600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="accent-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <h2 id="accent-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Accent / dialect", "اللهجة / النطق")}</h2>
+              <button type="button" onClick={() => setAccentModalOpen(false)} aria-label={T("Close", "إغلاق")} style={{ border: "none", background: "var(--input-bg)", borderRadius: 10, width: 36, height: 36, cursor: "pointer", color: "var(--icon-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}><XIcon size={18} /></button>
+            </div>
+            <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.45 }}>
+              {T("Default Cambridge Dictionary accent for speaker buttons. In zoom view you can still pick US or UK per word.", "اللهجة الافتراضية من كامبريدج لأزرار السماعة. في العرض الكبير تقدر تختار أمريكي أو بريطاني لكل كلمة.")}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {EN_ACCENTS.map((a) => {
+                const active = enAccentPref === a.code;
+                return (
+                  <button key={a.code} type="button" onClick={() => { setEnAccentPref(a.code); saveEnAccent(a.code); setAccentModalOpen(false); }} className="touch-target"
+                    style={{
+                      minHeight: 48, padding: "12px 14px", borderRadius: 12, cursor: "pointer", textAlign: "start",
+                      fontSize: 15, fontWeight: 700, color: "var(--ink)",
+                      border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                      background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                    }}>
+                    <span>{T(a.en, a.ar)}</span>
+                    {active ? <CheckIcon size={16} /> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Appearance — theme + color scheme */}
+      {appearanceModalOpen && (
+        <div onClick={() => setAppearanceModalOpen(false)} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 2600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="appearance-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <h2 id="appearance-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Appearance", "المظهر")}</h2>
+              <button type="button" onClick={() => setAppearanceModalOpen(false)} aria-label={T("Close", "إغلاق")} style={{ border: "none", background: "var(--input-bg)", borderRadius: 10, width: 36, height: 36, cursor: "pointer", color: "var(--icon-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}><XIcon size={18} /></button>
+            </div>
+            <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.45 }}>
+              {T("Customize light/dark mode and the accent color of the interface.", "خصّص الوضع الفاتح/الداكن ولون الواجهة.")}
+            </p>
+
+            <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
+              {T("Mode", "الوضع")}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
+              <button type="button" onClick={() => { if (theme === "dark") onToggleTheme(); }} className="touch-target"
+                style={{
+                  minHeight: 48, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
+                  border: theme === "light" ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                  background: theme === "light" ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                  color: "var(--ink)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                }}>
+                <SunIcon size={16} /> {T("Light", "فاتح")}
+              </button>
+              <button type="button" onClick={() => { if (theme === "light") onToggleTheme(); }} className="touch-target"
+                style={{
+                  minHeight: 48, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
+                  border: theme === "dark" ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                  background: theme === "dark" ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                  color: "var(--ink)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                }}>
+                <MoonIcon size={16} /> {T("Dark", "داكن")}
+              </button>
+            </div>
+
+            {onChangeAccent && (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
+                  {T("Color theme", "لون الواجهة")}
+                </div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {Object.entries(ACCENT_THEMES).map(([key, th]) => {
+                    const swatch = (th[theme] || th.light).a1;
+                    const active = key === accentTheme;
+                    return (
+                      <button key={key} type="button" onClick={() => onChangeAccent(key)}
+                        title={T(th.label.en, th.label.ar)} aria-label={T(th.label.en, th.label.ar)}
+                        className="header-menu-swatch touch-target"
+                        style={{
+                          width: 36, height: 36, borderRadius: "50%", background: swatch, cursor: "pointer", padding: 0,
+                          border: active ? "2px solid var(--ink)" : "1px solid rgba(var(--border-rgb),0.3)",
+                          boxShadow: active ? `0 0 0 3px var(--card), 0 0 0 5px ${swatch}55` : "none",
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
 
     </div>
   );

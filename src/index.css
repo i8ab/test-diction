@@ -316,39 +316,9 @@
   box-sizing: border-box;
 }
 
-.app-main-row {
-  flex-wrap: nowrap;
-}
 
-/* Phone: letter rail becomes a horizontal chip strip */
+/* section tabs on phone */
 @media (max-width: 640px) {
-  .app-main-row {
-    flex-direction: column;
-    gap: 10px !important;
-  }
-  .letter-rail {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    flex: 0 0 auto !important;
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    max-height: none !important;
-    position: relative !important;
-    top: auto !important;
-    gap: 2px 4px !important;
-    justify-content: flex-start;
-    padding: 2px 0 8px;
-    border-bottom: 1px solid rgba(var(--border-rgb),0.1);
-    margin-bottom: 2px;
-    overflow: visible !important;
-  }
-  .letter-rail::-webkit-scrollbar {
-    display: none;
-    width: 0;
-    height: 0;
-  }
   header .section-tab {
     flex: 1 1 auto;
     text-align: center;
@@ -1028,89 +998,113 @@ canvas {
   word-break: break-word;
 }
 
+/* ============================================================
+   سكة الحروف A–Z — تخطيط مدمج مع الصفحة
+   ديسكتوب: عمود ضيق ثابت جنب قائمة الكلمات
+   موبايل: شريط أفقي فوق القائمة
+   ============================================================ */
 
-
-/* ===== سكة الحروف مدمجة في تخطيط الصفحة ===== */
 .app-main-row {
-  display: grid !important;
-  grid-template-columns: 36px minmax(0, 1fr);
-  gap: clamp(12px, 2vw, 20px);
-  align-items: start;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 14px;
   width: 100%;
   max-width: var(--app-max, 920px);
+  margin-left: auto;
+  margin-right: auto;
+  padding: clamp(14px, 2.5vw, 22px) clamp(12px, 3vw, 24px) clamp(40px, 8vw, 72px);
   box-sizing: border-box;
 }
 
 .letter-rail {
-  grid-column: 1;
-  display: flex !important;
-  flex-direction: column !important;
-  flex-wrap: nowrap !important;
+  flex: 0 0 40px;
+  width: 40px;
+  min-width: 40px;
+  max-width: 40px;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 1px;
-  width: 36px;
-  max-width: 36px;
+  gap: 0;
   position: sticky;
   top: 120px;
   max-height: calc(100dvh - 140px);
   overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  padding: 0;
+  padding: 4px 0;
   margin: 0;
   border: none;
   background: transparent;
-  z-index: 2;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  z-index: 5;
 }
 
-.letter-rail::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.letter-rail::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
 
 .letter-rail-btn {
   display: block;
-  width: 100%;
-  max-width: 36px;
-  line-height: 1.3;
-  padding: 2px 0;
+  width: 40px;
+  min-width: 40px;
+  max-width: 40px;
+  box-sizing: border-box;
   margin: 0;
+  padding: 3px 0;
+  line-height: 1.2;
+  font-size: 12.5px;
   text-align: center;
   border: none;
   background: none;
-  cursor: pointer;
+  border-radius: 6px;
 }
 
-.app-main-row > div:last-child {
-  grid-column: 2;
+.letter-rail-btn.has-words:hover {
+  background: rgba(var(--border-rgb), 0.08);
+}
+
+.word-list-main {
+  flex: 1 1 auto;
   min-width: 0;
+  width: auto;
 }
 
 @media (max-width: 640px) {
   .app-main-row {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 10px !important;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 10px;
   }
   .letter-rail {
-    position: relative !important;
-    top: auto !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    max-height: none !important;
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    max-height: none;
+    position: relative;
+    top: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
     justify-content: flex-start;
-    gap: 2px 4px !important;
-    padding: 2px 0 8px;
-    border-bottom: 1px solid rgba(var(--border-rgb), 0.1);
-    margin-bottom: 2px;
+    align-items: center;
+    gap: 2px 4px;
+    padding: 4px 0 10px;
+    border-bottom: 1px solid rgba(var(--border-rgb), 0.12);
+    overflow: visible;
   }
   .letter-rail-btn {
     width: auto;
-    max-width: none;
     min-width: 28px;
-    padding: 4px 6px;
+    max-width: none;
+    padding: 5px 7px;
+    font-size: 13px;
   }
-  .app-main-row > div:last-child {
+  .word-list-main {
     width: 100%;
   }
 }

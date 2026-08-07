@@ -936,41 +936,31 @@ export default function MainView({
         )}
       </div>
 
-      <div className="app-container app-main-row" style={{ margin: "0 auto", padding: "clamp(14px, 2.5vw, 22px) clamp(12px, 3vw, 24px) clamp(40px, 8vw, 72px)" }}>
-        <nav
-          className="letter-rail"
-          aria-label="Alphabet"
-          style={{
-            flex: "0 0 36px",
-            width: 36,
-            minWidth: 36,
-            display: "flex",
-            flexDirection: "column",
-            flexWrap: "nowrap",
-            gap: 1,
-            position: "sticky",
-            top: 130,
-            alignSelf: "flex-start",
-            maxHeight: "calc(100dvh - 160px)",
-            overflowY: "auto",
-            overflowX: "hidden",
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-          }}
-        >
-          <style>{`.letter-rail::-webkit-scrollbar{display:none;width:0;height:0}`}</style>
+      <div className="app-container app-main-row">
+        <aside className="letter-rail" aria-label="Alphabet">
           {cfg.letters.map((l) => {
             const has = availableLetters.has(l);
             return (
-              <button key={l} disabled={!has} onClick={() => jumpTo(l)} className="letter-rail-btn"
-                style={{ fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif", fontSize: 13, padding: "2px 0", border: "none", background: "none", color: has ? cfg.accent : "rgba(var(--border-rgb),0.2)", fontWeight: has ? 700 : 400, cursor: has ? "pointer" : "default", textAlign: "center" }}>
+              <button
+                key={l}
+                type="button"
+                disabled={!has}
+                onClick={() => jumpTo(l)}
+                className={"letter-rail-btn" + (has ? " has-words" : "")}
+                style={{
+                  fontFamily: section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif",
+                  color: has ? cfg.accent : "rgba(var(--border-rgb),0.22)",
+                  fontWeight: has ? 700 : 400,
+                  cursor: has ? "pointer" : "default",
+                }}
+              >
                 {l}
               </button>
             );
           })}
-        </nav>
+        </aside>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="word-list-main">
           {!entriesLoaded ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--muted-strong)", padding: "30px 0" }}>
               <LoaderIcon size={18} /><span>{tr(isAr, "Loading entries…", "جارٍ تحميل الكلمات…")}</span>

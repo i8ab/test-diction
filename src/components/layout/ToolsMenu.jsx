@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { tr } from "../../lib/config/i18n";
 import {
   ChevronIcon, XIcon, TrophyIcon, StatsIcon, QuizIcon, LayersIcon,
@@ -104,15 +105,8 @@ export default function ToolsMenu({
     };
   }, [open]);
 
-  // قفل التمرير أثناء فتح القائمة على الموبايل
-  useEffect(() => {
-    if (!open || !isCompact) return undefined;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open, isCompact]);
+  // قفل تمرير الخلفية لأي حجم شاشة طالما القائمة مفتوحة
+  useBodyScrollLock(open);
 
   // تجميع العناصر في فئات منطقية
   const categories = [

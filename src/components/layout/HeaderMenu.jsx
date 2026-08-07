@@ -426,7 +426,7 @@ export default function HeaderMenu({
   }, [settingsOpen, notifOpen, bannerOpen, infoOpen, langModalOpen, accentModalOpen, appearanceModalOpen]);
 
   // Lock background scroll for any open settings-style modal (click-outside still closes).
-  useBodyScrollLock(settingsOpen || notifOpen || bannerOpen || infoOpen || langModalOpen || accentModalOpen || appearanceModalOpen);
+  useBodyScrollLock(open || settingsOpen || notifOpen || bannerOpen || infoOpen || langModalOpen || accentModalOpen || appearanceModalOpen);
 
   function itemClick(fn) { fn(); }
 
@@ -594,19 +594,23 @@ export default function HeaderMenu({
               background: var(--card); border: 1px solid rgba(var(--border-rgb),0.14);
               border-radius: 17px;
               box-shadow: 0 22px 48px -18px rgba(0,0,0,0.42), 0 2px 8px -2px rgba(0,0,0,0.15);
-              overflow: hidden; z-index: 40;
+              overflow: hidden;
+              z-index: 40;
+              display: flex;
+              flex-direction: column;
+              max-height: min(70vh, 520px);
             }
             @media (max-width: 480px) {
               .header-menu-panel {
                 position: fixed; top: auto; bottom: 0; inset-inline: 0;
                 max-width: none; min-width: 0; width: 100%;
                 border-radius: 18px 18px 0 0;
-                max-height: min(85dvh, 640px);
+                max-height: min(78dvh, 560px);
               }
             }
           `}</style>
           <div className="header-menu-panel" role="menu">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 8px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 8px", flexShrink: 0, borderBottom: "1px solid rgba(var(--border-rgb),0.1)" }}>
               <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
                 {T( "Menu", "القائمة")}
               </span>
@@ -620,7 +624,7 @@ export default function HeaderMenu({
                 <XIcon size={12} />
               </button>
             </div>
-            <div style={{ overflowY: "auto", overflowX: "hidden", maxHeight: "min(480px, calc(100dvh - 100px))", overscrollBehavior: "contain", padding: "0 6px 6px", display: "flex", flexDirection: "column", gap: 1 }}>
+            <div style={{ overflowY: "auto", overflowX: "hidden", flex: "1 1 auto", minHeight: 0, overscrollBehavior: "contain", padding: "6px 6px 10px", display: "flex", flexDirection: "column", gap: 1 }}>
               <Row
                 tint="#64748b"
                 icon={<SettingsIcon size={14} />}

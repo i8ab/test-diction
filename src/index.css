@@ -342,12 +342,52 @@
 /* ================= Responsive layout (fluid, non-breaking) ================= */
 :root {
   --app-max: 920px;
+  --entry-pad-y: 12px;
+  --entry-pad-x: 14px;
+  --entry-action: 48px;
+  --entry-gap: 10px;
 }
+/* Desktop: use more horizontal space so cards stretch left/right less empty */
 @media (min-width: 1200px) {
-  :root { --app-max: 1040px; }
+  :root { --app-max: 1180px; }
+}
+@media (min-width: 1440px) {
+  :root { --app-max: 1320px; }
 }
 @media (min-width: 1600px) {
-  :root { --app-max: 1200px; }
+  :root { --app-max: 1480px; }
+}
+@media (min-width: 1920px) {
+  :root { --app-max: 1640px; }
+}
+
+/* Card height (Appearance setting) */
+html[data-card-height="compact"] {
+  --entry-pad-y: 6px;
+  --entry-pad-x: 12px;
+  --entry-action: 40px;
+  --entry-gap: 6px;
+}
+html[data-card-height="normal"],
+html:not([data-card-height]) {
+  --entry-pad-y: 10px;
+  --entry-pad-x: 14px;
+  --entry-action: 46px;
+  --entry-gap: 8px;
+}
+html[data-card-height="comfortable"] {
+  --entry-pad-y: 14px;
+  --entry-pad-x: 16px;
+  --entry-action: 52px;
+  --entry-gap: 12px;
+}
+
+/* Desktop-only: slightly tighter side padding so list sits wider */
+@media (min-width: 1200px) {
+  .app-container.app-main-row {
+    padding-left: clamp(8px, 1.5vw, 16px);
+    padding-right: clamp(8px, 1.5vw, 16px);
+  }
 }
 
 .app-container {

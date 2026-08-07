@@ -1157,7 +1157,7 @@ export default function MainView({
           ) : (
             <>
               {/* قائمة بالكلمات مع شريط فاصل عند بداية كل حرف */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--entry-gap, 10px)" }}>
                 {flatSorted.slice(0, visibleCount).map((e, idx) => {
                   const letterKey = firstLetterKey(e.word, section);
                   const prevLetter = idx > 0 ? firstLetterKey(flatSorted[idx - 1].word, section) : null;

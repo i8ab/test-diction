@@ -229,6 +229,12 @@ export default function HeaderMenu({
       return v === "sharp" || v === "round" || v === "soft" ? v : "soft";
     } catch (_) { return "soft"; }
   });
+  const [cardHeight, setCardHeight] = useState(() => {
+    try {
+      const v = localStorage.getItem("tt_card_height");
+      return v === "compact" || v === "comfortable" || v === "normal" ? v : "normal";
+    } catch (_) { return "normal"; }
+  });
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoExpanded, setInfoExpanded] = useState(null);
   const [busyCode, setBusyCode] = useState(null);
@@ -243,6 +249,7 @@ export default function HeaderMenu({
   const [bannerLetterSpacing, setBannerLetterSpacing] = useState(0);
   const [bannerFlash, setBannerFlash] = useState(false);
   const [bannerRepeats, setBannerRepeats] = useState(4);
+  const [bannerSize, setBannerSize] = useState("md"); // sm | md | lg | xl
   const [bannerDurationAmount, setBannerDurationAmount] = useState(0);
   const [bannerDurationUnit, setBannerDurationUnit] = useState("hours"); // minutes | hours | days
   const [bannerSaving, setBannerSaving] = useState(false);
@@ -262,6 +269,13 @@ export default function HeaderMenu({
       localStorage.setItem("tt_ui_radius", uiRadius);
     } catch (_) {}
   }, [uiRadius]);
+
+  useEffect(() => {
+    try {
+      document.documentElement.dataset.cardHeight = cardHeight;
+      localStorage.setItem("tt_card_height", cardHeight);
+    } catch (_) {}
+  }, [cardHeight]);
   const [bannerRemainingLabel, setBannerRemainingLabel] = useState("");
 
   // Broadcast form (admin, under Notifications)
@@ -287,6 +301,7 @@ export default function HeaderMenu({
     setBannerLetterSpacing(typeof b.letterSpacing === "number" ? b.letterSpacing : 0);
     setBannerFlash(!!b.flash);
     setBannerRepeats(typeof b.repeats === "number" ? Math.max(1, Math.min(12, b.repeats)) : 4);
+    setBannerSize(b.size === "sm" || b.size === "lg" || b.size === "xl" ? b.size : "md");
     // Prefer durationMinutes; fall back to legacy durationHours
     let mins = 0;
     if (typeof b.durationMinutes === "number" && b.durationMinutes > 0) mins = b.durationMinutes;
@@ -498,6 +513,7 @@ export default function HeaderMenu({
       letterSpacing: Math.max(0, Math.min(30, Number(bannerLetterSpacing) || 0)),
       flash: !!bannerFlash,
       repeats: Math.max(1, Math.min(12, Math.round(Number(bannerRepeats) || 4))),
+      size: bannerSize === "sm" || bannerSize === "lg" || bannerSize === "xl" ? bannerSize : "md",
       durationMinutes: (() => {
         const amt = Math.max(0, Number(bannerDurationAmount) || 0);
         if (!amt) return 0;
@@ -1331,6 +1347,40 @@ export default function HeaderMenu({
                           ))}
                         </div>
                       </div>
+                      <div>
+                        <label style={fieldLabel}>{T("Banner size", "حجم الشريط")}</label>
+                        <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
+                          {T("How much vertical space the banner takes on screen.", "قد إيه من الشاشة الشريط هياخد (ارتفاع).")}
+                        </p>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                          {[
+                            { id: "sm", en: "S", ar: "صغير", h: 28 },
+                            { id: "md", en: "M", ar: "وسط", h: 40 },
+                            { id: "lg", en: "L", ar: "كبير", h: 52 },
+                            { id: "xl", en: "XL", ar: "أكبر", h: 64 },
+                          ].map((opt) => {
+                            const active = bannerSize === opt.id;
+                            return (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => setBannerSize(opt.id)}
+                                className="touch-target"
+                                style={{
+                                  minHeight: 44, borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 12,
+                                  border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                                  background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                                  color: "var(--ink)",
+                                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
+                                }}
+                              >
+                                <span style={{ width: "70%", height: Math.max(6, opt.h / 8), borderRadius: 3, background: active ? "var(--accent-1)" : "rgba(var(--border-rgb),0.35)" }} />
+                                {T(opt.en, opt.ar)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                       <button
                         type="button"
                         className="touch-target"
@@ -1945,6 +1995,38 @@ export default function HeaderMenu({
                 }}>
                 {T("Compact", "مضغوط")}
               </button>
+            </div>
+
+            <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
+              {T("Card height", "ارتفاع الكارت")}
+            </div>
+            <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
+              {T("How tall word cards look (top–bottom padding).", "قد إيه ارتفاع كروت الكلمات (من فوق لتحت).")}
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 18 }}>
+              {[
+                { id: "compact", en: "Thin", ar: "رفيع" },
+                { id: "normal", en: "Normal", ar: "عادي" },
+                { id: "comfortable", en: "Tall", ar: "مرتفع" },
+              ].map((opt) => {
+                const active = cardHeight === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setCardHeight(opt.id)}
+                    className="touch-target"
+                    style={{
+                      minHeight: 44, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
+                      border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                      background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                      color: "var(--ink)",
+                    }}
+                  >
+                    {T(opt.en, opt.ar)}
+                  </button>
+                );
+              })}
             </div>
 
             {typeof onChangeUiScale === "function" && (

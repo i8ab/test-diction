@@ -221,6 +221,9 @@ export default function SiteBanner({ banner, isAr }) {
   const flashOn = !!(banner && banner.flash);
   const letterSpacing = typeof (banner && banner.letterSpacing) === "number" ? banner.letterSpacing : 0;
   const repeats = Math.max(1, Math.min(12, Math.round(Number(banner && banner.repeats) || 4)));
+  const sizeKey = banner && (banner.size === "sm" || banner.size === "lg" || banner.size === "xl") ? banner.size : "md";
+  const bannerH = ({ sm: 28, md: 40, lg: 52, xl: 64 })[sizeKey] || 40;
+  const bannerFs = ({ sm: 12.5, md: 14.5, lg: 16, xl: 17.5 })[sizeKey] || 14.5;
   const tickerText = buildTickerMessage(banner.message, letterSpacing, msgRtl, repeats);
 
   function dismiss() {
@@ -242,7 +245,7 @@ export default function SiteBanner({ banner, isAr }) {
         position: "sticky",
         top: 0,
         zIndex: 3000,
-        height: 40,
+        height: bannerH,
         overflow: "hidden",
         background: bg,
         borderBottom: `1px solid ${c.border}`,
@@ -289,7 +292,7 @@ export default function SiteBanner({ banner, isAr }) {
           pointerEvents: "none",
           color: c.text,
           fontFamily: msgRtl ? "'Amiri', 'Source Sans 3', serif" : "'Source Sans 3', sans-serif",
-          fontSize: 14.5,
+          fontSize: bannerFs,
           fontWeight: 700,
           lineHeight: 1.35,
           paddingInline: 12,

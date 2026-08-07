@@ -64,6 +64,7 @@ function EntryCard({
   // Compact actions on desktop; slightly roomier on touch layouts
   const touchy = mobileLayout || tabletLayout;
 
+  const actionSize = touchy ? 52 : "var(--entry-action, 48px)";
   const actionBtnBase = {
     border: "none",
     background: "var(--input-bg)",
@@ -77,12 +78,12 @@ function EntryCard({
     justifyContent: "center",
     gap: 2,
     // Fixed personal hit box — not stretching into neighbors
-    width: touchy ? 52 : 48,
-    height: touchy ? 52 : 48,
-    minWidth: touchy ? 52 : 48,
-    maxWidth: touchy ? 52 : 48,
-    minHeight: touchy ? 52 : 48,
-    maxHeight: touchy ? 52 : 48,
+    width: actionSize,
+    height: actionSize,
+    minWidth: actionSize,
+    maxWidth: actionSize,
+    minHeight: actionSize,
+    maxHeight: actionSize,
     flex: "0 0 auto",
     borderRadius: 12,
     fontSize: 10,
@@ -128,7 +129,9 @@ function EntryCard({
         border: "1px solid rgba(var(--border-rgb),0.12)",
         borderInlineStart: `4px solid ${isStudied ? "var(--success)" : cfg.accent}`,
         borderRadius: touchy ? 16 : 12,
-        padding: touchy ? "14px 14px 12px" : "12px 14px 10px",
+        padding: touchy
+          ? "14px 14px 12px"
+          : "var(--entry-pad-y, 10px) var(--entry-pad-x, 14px) calc(var(--entry-pad-y, 10px) - 2px)",
         display: "flex",
         flexDirection: "column",
         gap: 0,

@@ -69,7 +69,7 @@ function AuthScreens({
   signupError, setSignupError, signupSaving, handleSignup,
   usernameInput, setUsernameInput,
   passwordInput, setPasswordInput,
-  authError, setAuthError, loggingIn, handleLogin, onGuest,
+  authError, setAuthError, loggingIn, handleLogin,
   linkMode = false, onCancelLink = null,
 }) {
   const [showLoginPw, setShowLoginPw] = useState(false);
@@ -130,37 +130,32 @@ function AuthScreens({
   }
 
   if (authStage === "intro") {
+    // Keep the feature list focused — fewer cards = less paint work and a cleaner look
     const introFeatures = [
       { icon: SearchIcon, title: atr("Instant search", "بحث فوري"), desc: atr("Look up any word between English and Arabic in a heartbeat.", "ابحث عن أي كلمة بين الإنجليزية والعربية في لحظة.") },
       { icon: SpeakerIcon, title: atr("Cambridge pronunciation", "نطق كامبريدج"), desc: atr("American and British audio from Cambridge Dictionary, plus practice scoring.", "نطق أمريكي وبريطاني من قاموس كامبريدج مع تمرين وتقييم.") },
       { icon: QuizIcon, title: atr("Practice quizzes", "اختبارات تدريبية"), desc: atr("Quizzes, flashcards, random word, and dictation — with multi-type words labeled clearly.", "اختبارات وبطاقات وكلمة عشوائية وإملاء — مع توضيح نوع الكلمة لو ليها أكتر من معنى.") },
       { icon: EditIcon, title: atr("Grow the dictionary", "أضِف كلمات جديدة"), desc: atr("Add words with types, multiple senses, auto-fill definitions and examples.", "أضف كلمات بأنواع ومعاني متعددة وتعبئة تلقائية للتعريف والأمثلة.") },
       { icon: UsersIcon, title: atr("Shared with your group", "مشترك مع مجموعتك"), desc: atr("One dictionary for everyone, with each person's progress tracked separately.", "قاموس واحد للجميع، وتقدّم كل شخص محفوظ بشكل منفصل.") },
-      { icon: GlobeIcon, title: atr("Fully bilingual", "ثنائي اللغة بالكامل"), desc: atr("Switch the whole app between English and Arabic anytime.", "بدّل الموقع بالكامل بين الإنجليزية والعربية في أي وقت.") },
-      { icon: StarIcon, title: atr("Achievements by category", "إنجازات بالأقسام"), desc: atr("Ten levels per track — studying, streaks, quizzes, focus time, and more — with live % progress.", "عشر مستويات لكل مسار — مذاكرة وسلاسل واختبارات ووقت تركيز وغيرها — مع نسبة تقدّم حية.") },
-      { icon: TrophyIcon, title: atr("Leaderboard", "لوحة الصدارة"), desc: atr("See how you stack up against the rest of your group.", "شوف ترتيبك مقارنة بباقي أفراد مجموعتك.") },
       { icon: StatsIcon, title: atr("Smart review (SRS)", "مراجعة ذكية"), desc: atr("Spaced-repetition brings words back right before you'd forget them.", "التكرار المتباعد بيرجّع الكلمات قبل ما تنساها.") },
-      { icon: CheckIcon, title: atr("To-do with work timer", "مهام مع مؤقت شغل"), desc: atr("Start a task and watch a live timer track how long you've been on it.", "ابدأ مهمة وشوف مؤقت حيّ بيحسب وقت شغلك عليها.") },
+      { icon: TrophyIcon, title: atr("Leaderboard", "لوحة الصدارة"), desc: atr("See how you stack up against the rest of your group.", "شوف ترتيبك مقارنة بباقي أفراد مجموعتك.") },
       { icon: WifiOffIcon, title: atr("Works offline", "يعمل بدون إنترنت"), desc: atr("Your saved words stay with you even without a connection.", "كلماتك المحفوظة تفضل معاك حتى من غير اتصال بالإنترنت.") },
-      { icon: LayersIcon, title: atr("Flashcards mode", "وضع البطاقات التعليمية"), desc: atr("Flip through your words as flashcards for quick, focused review sessions.", "قلّب كلماتك كبطاقات تعليمية لمراجعة سريعة ومركزة.") },
-      { icon: CalendarIcon, title: atr("Word of the day", "كلمة اليوم"), desc: atr("A fresh word from your dictionary highlighted for you every single day.", "كلمة جديدة من قاموسك تُعرض لك كل يوم.") },
-      { icon: DownloadIcon, title: atr("Backup & CSV import/export", "نسخ احتياطي واستيراد/تصدير CSV"), desc: atr("Export your whole dictionary to CSV, or import one — your data is always yours to keep.", "صدّر قاموسك بالكامل كملف CSV أو استورد واحدًا — بياناتك ملكك دائمًا.") },
     ];
     return (
       <div
         dir={appIsAr ? "rtl" : "ltr"}
         className="auth-page"
-        style={{ position: "relative", minHeight: "100dvh", background: PAPER, backgroundImage: "radial-gradient(circle at 1px 1px, rgba(var(--border-rgb),0.06) 1px, transparent 0)", backgroundSize: "18px 18px", overflowX: "hidden" }}>
-        <div className="auth-orb" style={{ width: 420, height: 420, top: "-14%", insetInlineStart: "-10%", background: "radial-gradient(circle, var(--accent-1) 0%, transparent 70%)", animationDuration: "15s" }} />
-        <div className="auth-orb" style={{ width: 360, height: 360, top: "14%", insetInlineEnd: "-12%", background: "radial-gradient(circle, var(--accent-2) 0%, transparent 70%)", animationDuration: "17s", animationDelay: "-5s" }} />
-        <div className="auth-orb" style={{ width: 240, height: 240, bottom: "-6%", insetInlineStart: "22%", background: "radial-gradient(circle, var(--focus-rgb,25,167,206), transparent 70%)", opacity: 0.25, animationDuration: "11s", animationDelay: "-3s" }} />
+        style={{ position: "relative", minHeight: "100dvh", background: PAPER, backgroundImage: "radial-gradient(circle at 1px 1px, rgba(var(--border-rgb),0.05) 1px, transparent 0)", backgroundSize: "20px 20px", overflowX: "hidden" }}>
+        {/* Soft static wash — no continuous GPU animation on large orbs */}
+        <div className="auth-orb auth-orb-static" style={{ width: 380, height: 380, top: "-12%", insetInlineStart: "-8%", background: "radial-gradient(circle, color-mix(in srgb, var(--accent-1) 55%, transparent) 0%, transparent 70%)" }} />
+        <div className="auth-orb auth-orb-static" style={{ width: 300, height: 300, top: "18%", insetInlineEnd: "-10%", background: "radial-gradient(circle, color-mix(in srgb, var(--accent-2) 45%, transparent) 0%, transparent 70%)" }} />
 
-        <div className="auth-intro-inner" style={{ position: "relative", zIndex: 1, maxWidth: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(16px, 3vw, 28px) clamp(14px, 4vw, 32px) clamp(40px, 6vw, 72px)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "clamp(28px, 6vw, 84px)", gap: 10, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="auth-intro-inner" style={{ position: "relative", zIndex: 1, maxWidth: "min(960px, 100%)", margin: "0 auto", padding: "clamp(16px, 3vw, 28px) clamp(14px, 4vw, 32px) clamp(40px, 6vw, 64px)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "clamp(24px, 5vw, 56px)", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
               <BrandMark size="sm" />
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
               <button type="button" onClick={toggleTheme} className="lift-hover touch-target" aria-label={atr("Toggle theme", "تبديل المظهر")}
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: "50%", color: "var(--icon-muted)", background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.2)" }}>
                 {theme === "dark" ? <SunIcon size={15} /> : <MoonIcon size={15} />}
@@ -169,17 +164,17 @@ function AuthScreens({
             </div>
           </div>
 
-          <div className="auth-field-1" style={{ textAlign: "center", maxWidth: 680, margin: "0 auto" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: BRASS, background: "var(--accent-1-soft)", padding: "6px 14px", borderRadius: 20, marginBottom: 18 }}>
+          <div className="auth-field-1" style={{ textAlign: "center", maxWidth: 640, margin: "0 auto" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 650, letterSpacing: "0.04em", color: BRASS, background: "var(--accent-1-soft)", padding: "5px 12px", borderRadius: 999, marginBottom: 16 }}>
               <GlobeIcon size={12} /> {atr("English ⇄ Arabic dictionary", "قاموس إنجليزي ⇄ عربي")}
             </div>
-            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(28px, 5.5vw, 52px)", fontWeight: 600, color: INK, margin: "0 0 16px", lineHeight: 1.15 }}>
+            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(26px, 5vw, 44px)", fontWeight: 600, color: INK, margin: "0 0 14px", lineHeight: 1.2, letterSpacing: "-0.01em" }}>
               {atr("Learn words that stick, together.", "تعلّم كلمات تثبت في ذاكرتك… مع فريقك.")}
             </h1>
-            <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: "clamp(14px, 2vw, 18px)", color: "var(--muted-strong)", margin: "0 auto 30px", maxWidth: 560, lineHeight: 1.65 }}>
+            <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: "clamp(14px, 2vw, 17px)", color: "var(--muted-strong)", margin: "0 auto 26px", maxWidth: 520, lineHeight: 1.6 }}>
               {atr("A shared bilingual dictionary with pronunciation, quick quizzes and progress tracking — built for you and your study group.", "قاموس مشترك ثنائي اللغة فيه نطق واختبارات سريعة ومتابعة للتقدّم — مصمَّم لك ولمجموعتك.")}
             </p>
-            <div style={{ maxWidth: 720, margin: "0 auto 28px" }}>
+            <div style={{ maxWidth: 640, margin: "0 auto 24px" }}>
               <DevicePicker
                 mode={deviceMode}
                 onSelect={(id) => typeof onChangeDeviceMode === "function" && onChangeDeviceMode(id)}
@@ -192,87 +187,36 @@ function AuthScreens({
                 <LoginIcon size={16} /> {atr("Sign in", "تسجيل الدخول")}
               </button>
               <button type="button" onClick={() => { setSignupError(""); goToStage("signup"); }} className="lift-hover touch-target"
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 26px", minHeight: 48, fontFamily: "'Source Sans 3', sans-serif", fontSize: 15, fontWeight: 700, color: INK, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 8, cursor: "pointer" }}>
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 26px", minHeight: 48, fontFamily: "'Source Sans 3', sans-serif", fontSize: 15, fontWeight: 700, color: INK, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, cursor: "pointer" }}>
                 <PlusIcon size={16} /> {atr("Create account", "إنشاء حساب")}
               </button>
-              {typeof onGuest === "function" && (
-                <button type="button" onClick={onGuest} className="lift-hover touch-target"
-                  style={{ padding: "12px 20px", minHeight: 44, borderRadius: 10, border: "1px dashed rgba(var(--border-rgb),0.35)", background: "transparent", color: "var(--muted-strong)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
-                  {atr("Browse as guest", "تصفح كضيف")}
-                </button>
-              )}
             </div>
           </div>
 
           <style>{`
-            .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 122px; gap: 14px; grid-auto-flow: dense; margin-top: clamp(40px, 6vw, 68px); }
-            .bento-item { position: relative; overflow: hidden; background: var(--card); border: 1px solid rgba(var(--border-rgb),0.14); border-radius: 16px; padding: 20px; box-shadow: 0 2px 0 rgba(0,0,0,0.04), 0 16px 40px -24px rgba(var(--border-rgb),0.4); transition: transform 0.35s cubic-bezier(0.22,1,0.36,1), box-shadow 0.35s ease, border-color 0.3s ease; display: flex; flex-direction: column; justify-content: flex-end; }
-            .bento-item:hover { transform: translateY(-5px) scale(1.015); box-shadow: 0 24px 50px -20px rgba(var(--border-rgb),0.5); border-color: rgba(var(--focus-rgb),0.4); }
-            .bento-num { position: absolute; top: 6px; inset-inline-end: 12px; font-family: 'Fraunces', serif; font-size: 58px; font-weight: 600; color: var(--ink); opacity: 0.06; line-height: 1; pointer-events: none; transition: opacity 0.35s ease, transform 0.35s ease; }
-            .bento-item:hover .bento-num { opacity: 0.11; transform: scale(1.08); }
-            .bento-icon { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; background: var(--accent-1-soft); color: var(--accent-1); margin-bottom: 12px; transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1); }
-            .bento-item:hover .bento-icon { transform: rotate(-8deg) scale(1.1); }
-            .bento-big { grid-column: span 2; grid-row: span 2; }
-            .bento-big .bento-icon { width: 44px; height: 44px; border-radius: 13px; }
-            .bento-big .bento-num { font-size: 78px; }
-            .bento-wide { grid-column: span 2; grid-row: span 1; }
-            .bento-solo { grid-column: span 1; grid-row: span 1; }
-            .bento-more { grid-column: span 2; grid-row: span 1; border-style: dashed; border-width: 1.5px; align-items: center; justify-content: center; text-align: center; color: var(--muted); cursor: pointer; height: auto; }
-            .bento-more:hover { border-color: rgba(var(--focus-rgb),0.5); color: var(--ink); }
-            .bento-more .bento-more-chevron { transition: transform 0.3s cubic-bezier(0.22,1,0.36,1); margin-inline-start: 4px; transform: rotate(90deg); }
-            .bento-more.is-open .bento-more-chevron { transform: rotate(270deg); }
-            .bento-more-peek { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.35s cubic-bezier(0.22,1,0.36,1); width: 100%; }
-            .bento-more.is-open .bento-more-peek { grid-template-rows: 1fr; }
-            .bento-more-peek-inner { overflow: hidden; min-height: 0; }
-            @media (max-width: 900px) {
-              .bento-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 140px; }
-              .bento-big, .bento-wide, .bento-more { grid-column: span 2; grid-row: span 1; }
+            .auth-orb-static { animation: none !important; will-change: auto; opacity: 0.4; }
+            .bento-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: clamp(36px, 5vw, 56px); }
+            .bento-item { position: relative; overflow: hidden; background: var(--card); border: 1px solid rgba(var(--border-rgb),0.12); border-radius: 14px; padding: 18px 18px 16px; box-shadow: 0 1px 0 rgba(0,0,0,0.03); transition: border-color 0.2s ease, box-shadow 0.2s ease; display: flex; flex-direction: column; gap: 6px; }
+            @media (hover: hover) and (pointer: fine) {
+              .bento-item:hover { border-color: rgba(var(--focus-rgb),0.35); box-shadow: 0 8px 24px -16px rgba(var(--border-rgb),0.45); }
+              .bento-item:hover .bento-icon { background: color-mix(in srgb, var(--accent-1) 18%, var(--accent-1-soft)); }
+            }
+            .bento-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--accent-1-soft); color: var(--accent-1); margin-bottom: 4px; transition: background 0.2s ease; }
+            @media (min-width: 720px) {
+              .bento-grid { grid-template-columns: repeat(4, 1fr); gap: 14px; }
             }
             @media (max-width: 480px) {
-              .bento-grid { grid-template-columns: 1fr; grid-auto-rows: minmax(120px, auto); }
-              .bento-big, .bento-wide, .bento-solo, .bento-more { grid-column: span 1; }
-            }
-            @media (min-width: 1400px) {
-              .bento-grid { grid-template-columns: repeat(4, 1fr); grid-auto-rows: 140px; gap: 18px; }
+              .bento-grid { grid-template-columns: 1fr; }
             }
           `}</style>
           <div className="bento-grid">
-            {introFeatures.map((f, i) => {
-              const shape = [ "bento-big", "bento-wide", "bento-solo", "bento-solo", "bento-wide", "bento-solo", "bento-wide", "bento-solo", "bento-solo", "bento-wide" ][i] || "bento-solo";
-              return (
-                <div key={f.title} className={`bento-item auth-field-1 ${shape}`} style={{ animationDelay: `${0.08 + i * 0.05}s` }}>
-                  <span className="bento-num">{String(i + 1).padStart(2, "0")}</span>
-                  <div className="bento-icon"><f.icon size={shape === "bento-big" ? 20 : 18} /></div>
-                  <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: shape === "bento-big" ? 19 : 16, fontWeight: 600, color: INK, margin: "0 0 6px" }}>{f.title}</h3>
-                  <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13.5, color: "var(--muted-strong)", margin: 0, lineHeight: 1.55 }}>{f.desc}</p>
-                </div>
-              );
-            })}
-            <div
-              className={`bento-item bento-more auth-field-1${moreFeaturesOpen ? " is-open" : ""}`}
-              style={{ animationDelay: `${0.08 + introFeatures.length * 0.05}s` }}
-              role="button"
-              tabIndex={0}
-              aria-expanded={moreFeaturesOpen}
-              onClick={() => setMoreFeaturesOpen((o) => !o)}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setMoreFeaturesOpen((o) => !o); } }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <PlusIcon size={18} style={{ opacity: 0.6 }} />
-                <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, margin: 0 }}>{atr("More features on the way", "المزيد من المميزات قريبًا")}</p>
-                <ChevronIcon size={13} className="bento-more-chevron" />
+            {introFeatures.map((f) => (
+              <div key={f.title} className="bento-item">
+                <div className="bento-icon"><f.icon size={17} /></div>
+                <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: 15, fontWeight: 600, color: INK, margin: 0 }}>{f.title}</h3>
+                <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, color: "var(--muted-strong)", margin: 0, lineHeight: 1.5 }}>{f.desc}</p>
               </div>
-              <div className="bento-more-peek">
-                <div className="bento-more-peek-inner">
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 12, marginTop: 12, borderTop: "1px dashed rgba(var(--border-rgb),0.3)", opacity: 0.75 }}>
-                    <FlameIcon size={16} />
-                    <span style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 12.5 }}>
-                      {atr("Daily streaks and study challenges", "سلاسل يومية وتحديات مذاكرة")}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
@@ -282,12 +226,16 @@ function AuthScreens({
   if (authStage === "signup") {
     return (
       <Shell>
-        <div className="auth-card" style={{ ...authCardStyle, maxWidth: "min(420px, 100%)" }} dir={appIsAr ? "rtl" : "ltr"}>
-          <LanguageToggle lang={appLang} onChangeLang={onChangeAppLang} isAr={appIsAr} onToggle={toggleAppLang} />
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
-            <BrandMark size="lg" showUnderline />
+        <div className="auth-card" style={{ ...authCardStyle, maxWidth: "min(400px, 100%)", padding: "28px 26px 26px" }} dir={appIsAr ? "rtl" : "ltr"}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <BrandMark size="lg" showUnderline />
+            </div>
+            <div style={{ flexShrink: 0, paddingTop: 2 }}>
+              <LanguageToggle lang={appLang} onChangeLang={onChangeAppLang} isAr={appIsAr} onToggle={toggleAppLang} floating={false} />
+            </div>
           </div>
-          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 18px" }}>
+          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "14px 0 18px", lineHeight: 1.55 }}>
             {atr(
               "Pick a display name, a unique username, and a password. An admin must approve your request before you can sign in.",
               "اختَر اسمًا ظاهرًا ويوزرنيم فريدًا وكلمة مرور. لازم الأدمن يوافق على طلبك قبل ما تقدر تسجّل دخول."
@@ -481,8 +429,7 @@ function AuthScreens({
   if (authStage === "login") {
     return (
       <Shell>
-        {/* ستارة سوداء + ضوء كشاف أصفر على كلمة المرور */}
-        {/* ستارة سودة + حقل باسورد منوّر عبر Portal فوق كل حاجة */}
+        {/* Password spotlight (when revealed) */}
         {showLoginPw && typeof document !== "undefined" && createPortal(
           <>
             <div
@@ -491,7 +438,7 @@ function AuthScreens({
                 position: "fixed",
                 inset: 0,
                 zIndex: 20000,
-                background: "#000",
+                background: "rgba(0,0,0,0.72)",
                 pointerEvents: "none",
               }}
             />
@@ -578,15 +525,25 @@ function AuthScreens({
           className="auth-card"
           style={{
             ...authCardStyle,
-            maxWidth: "min(420px, 100%)",
+            maxWidth: "min(400px, 100%)",
             position: "relative",
             zIndex: "auto",
+            padding: "28px 26px 26px",
           }}
           dir={appIsAr ? "rtl" : "ltr"}
         >
-          <LanguageToggle lang={appLang} onChangeLang={onChangeAppLang} isAr={appIsAr} onToggle={toggleAppLang} />
+          {/* Header row: brand + language (no overlap) */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <BrandMark size="lg" showUnderline />
+            </div>
+            <div style={{ flexShrink: 0, paddingTop: 2 }}>
+              <LanguageToggle lang={appLang} onChangeLang={onChangeAppLang} isAr={appIsAr} onToggle={toggleAppLang} floating={false} />
+            </div>
+          </div>
+
           {!deviceMode && typeof onChangeDeviceMode === "function" && (
-            <div style={{ margin: "8px 0 14px" }}>
+            <div style={{ margin: "10px 0 6px" }}>
               <DevicePicker
                 mode={deviceMode}
                 onSelect={onChangeDeviceMode}
@@ -595,9 +552,7 @@ function AuthScreens({
               />
             </div>
           )}
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
-            <BrandMark size="lg" showUnderline />
-          </div>
+
           {linkMode ? (
             <div style={{
               margin: "14px 0 18px",
@@ -636,7 +591,7 @@ function AuthScreens({
               )}
             </div>
           ) : (
-            <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "16px 0 22px" }}>
+            <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "14px 0 18px", lineHeight: 1.5 }}>
               {atr(
                 "Enter your username and password.",
                 "أدخل اسم المستخدم وكلمة المرور."
@@ -653,7 +608,6 @@ function AuthScreens({
               ref={loginPwWrapRef}
               style={{
                 position: "relative",
-                /* عند الإظهار: نخفي الحقل الأصلي ونعرض النسخة المنوّرة عبر Portal */
                 visibility: showLoginPw ? "hidden" : "visible",
               }}
             >

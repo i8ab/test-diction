@@ -204,10 +204,10 @@ function LanguageToggle({ lang = "en", onChangeLang, isAr, onToggle, floating = 
 
 function Shell({ children }) {
   return (
-    <div style={{ position: "relative", minHeight: "100dvh", background: PAPER, backgroundImage: "radial-gradient(circle at 1px 1px, rgba(var(--border-rgb),0.06) 1px, transparent 0)", backgroundSize: "18px 18px", display: "flex", alignItems: "center", justifyContent: "center", padding: "clamp(12px, 3vw, 28px)", overflowX: "clip", overflowY: "auto" }}>
-      <div className="auth-orb" style={{ width: 320, height: 320, top: "-8%", insetInlineStart: "-6%", background: "radial-gradient(circle, var(--accent-1) 0%, transparent 70%)", animationDuration: "12s" }} />
-      <div className="auth-orb" style={{ width: 260, height: 260, bottom: "-8%", insetInlineEnd: "-4%", background: "radial-gradient(circle, var(--accent-2) 0%, transparent 70%)", animationDuration: "14s", animationDelay: "-4s" }} />
-      <div className="auth-orb" style={{ width: 180, height: 180, top: "38%", insetInlineEnd: "8%", background: "radial-gradient(circle, var(--focus-rgb, 25,167,206), transparent 70%)", opacity: 0.28, animationDuration: "9s", animationDelay: "-2s" }} />
+    <div style={{ position: "relative", minHeight: "100dvh", background: PAPER, backgroundImage: "radial-gradient(circle at 1px 1px, rgba(var(--border-rgb),0.05) 1px, transparent 0)", backgroundSize: "20px 20px", display: "flex", alignItems: "center", justifyContent: "center", padding: "clamp(12px, 3vw, 28px)", overflowX: "clip", overflowY: "auto" }}>
+      {/* Static soft washes — no continuous animation (avoids jank on login) */}
+      <div className="auth-orb" style={{ width: 300, height: 300, top: "-8%", insetInlineStart: "-6%", background: "radial-gradient(circle, color-mix(in srgb, var(--accent-1) 50%, transparent) 0%, transparent 70%)", animation: "none", opacity: 0.4, willChange: "auto" }} />
+      <div className="auth-orb" style={{ width: 240, height: 240, bottom: "-8%", insetInlineEnd: "-4%", background: "radial-gradient(circle, color-mix(in srgb, var(--accent-2) 40%, transparent) 0%, transparent 70%)", animation: "none", opacity: 0.35, willChange: "auto" }} />
       <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
         {children}
       </div>

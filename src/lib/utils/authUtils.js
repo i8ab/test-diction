@@ -73,8 +73,10 @@ export async function verifyPassword(password, saltCode, expectedHash) {
 }
 
 /**
- * Try canonical + legacy encodings (hex/base64, several salt layouts).
- * Returns { ok, needsUpgrade } so login can rewrite to the canonical hash.
+ * Try canonical first (fast path), then a small set of legacy encodings.
+ * PBKDF2 is only attempted when the stored hash looks like a long hex digest
+ * that didn't match any SHA-256 form — never on the common wrong-password path
+ * for modern accounts. Returns { ok, needsUpgrade }.
  */
 export async function verifyPasswordDetailed(password, saltCode, expectedHash) {
   if (!expectedHash) return { ok: false, needsUpgrade: false };
@@ -83,60 +85,69 @@ export async function verifyPasswordDetailed(password, saltCode, expectedHash) {
   const expected = String(expectedHash).trim();
   const expectedLower = expected.toLowerCase();
 
+  // Fast path: canonical form used by all new hashes
+  const canonical = await hashPassword(pw, salt);
+  if (canonical === expectedLower || canonical === expected) {
+    return { ok: true, needsUpgrade: false };
+  }
+
+  // Compact legacy set (most common older layouts only)
   const material = [
-    `${salt}::${pw}`,
     `${pw}::${salt}`,
     `${salt}:${pw}`,
     `${pw}:${salt}`,
     `${salt}${pw}`,
     `${pw}${salt}`,
-    `${salt}|${pw}`,
     pw,
     `${salt}::${pw.trim()}`,
     `twoTongues:${salt}:${pw}`,
-    `tt:${salt}:${pw}`,
   ];
 
-  const seen = new Set();
+  const seen = new Set([`${salt}::${pw}`]);
   for (const m of material) {
     if (seen.has(m)) continue;
     seen.add(m);
     const hex = await sha256Hex(m);
-    const b64 = await sha256Base64(m);
     if (hex === expectedLower || hex === expected) {
-      const canonical = await hashPassword(pw, salt);
-      return { ok: true, needsUpgrade: hex !== canonical.toLowerCase() };
-    }
-    if (b64 === expected || b64 === expectedLower) {
       return { ok: true, needsUpgrade: true };
+    }
+    // Only compute base64 when expected looks like base64 (not pure hex)
+    if (!/^[0-9a-f]{64}$/i.test(expected)) {
+      const b64 = await sha256Base64(m);
+      if (b64 === expected || b64 === expectedLower) {
+        return { ok: true, needsUpgrade: true };
+      }
     }
   }
 
-  // PBKDF2 variants (some older builds may have used deriveBits)
-  try {
-    const enc = new TextEncoder();
-    const pwKey = await crypto.subtle.importKey(
-      "raw",
-      enc.encode(pw),
-      "PBKDF2",
-      false,
-      ["deriveBits"]
-    );
-    for (const iterations of [100000, 10000, 1000]) {
-      for (const saltStr of [salt, `${salt}::pw`, pw]) {
-        const bits = await crypto.subtle.deriveBits(
-          { name: "PBKDF2", hash: "SHA-256", salt: enc.encode(saltStr), iterations },
-          pwKey,
-          256
-        );
-        const hex = Array.from(new Uint8Array(bits)).map((b) => b.toString(16).padStart(2, "0")).join("");
-        if (hex === expectedLower || hex === expected) {
-          return { ok: true, needsUpgrade: true };
+  // PBKDF2 only for hashes that didn't match any SHA form and look like hex digests.
+  // Skip the expensive 100k iteration path first — try cheaper counts.
+  if (/^[0-9a-f]{64}$/i.test(expected)) {
+    try {
+      const enc = new TextEncoder();
+      const pwKey = await crypto.subtle.importKey(
+        "raw",
+        enc.encode(pw),
+        "PBKDF2",
+        false,
+        ["deriveBits"]
+      );
+      for (const iterations of [1000, 10000, 100000]) {
+        for (const saltStr of [salt, `${salt}::pw`]) {
+          const bits = await crypto.subtle.deriveBits(
+            { name: "PBKDF2", hash: "SHA-256", salt: enc.encode(saltStr), iterations },
+            pwKey,
+            256
+          );
+          const hex = Array.from(new Uint8Array(bits)).map((b) => b.toString(16).padStart(2, "0")).join("");
+          if (hex === expectedLower || hex === expected) {
+            return { ok: true, needsUpgrade: true };
+          }
         }
       }
+    } catch (_) {
+      /* PBKDF2 unavailable or failed — ignore */
     }
-  } catch (_) {
-    /* PBKDF2 unavailable or failed — ignore */
   }
 
   return { ok: false, needsUpgrade: false };

@@ -390,27 +390,7 @@ export default function DictionaryApp() {
     setTimeout(() => setToast(""), 3000);
   }
 
-  function handleGuest() {
-    let studied = [], studiedAt = {}, favorites = [];
-    try {
-      const raw = localStorage.getItem("twoTongues.guestStudied");
-      if (raw) {
-        const data = JSON.parse(raw);
-        studied = data.studied || [];
-        studiedAt = data.studiedAt || {};
-        favorites = data.favorites || [];
-      }
-    } catch (_) {}
-    setAccounts((prev) => {
-      const others = prev.filter((a) => a.code !== "guest");
-      return [...others, { code: "guest", name: "Guest", role: "user", studied, studiedAt, favorites, status: "active" }];
-    });
-    setName("Guest");
-    setIsAdmin(false);
-    setAccountCode("guest");
-    setAuthStage("in");
-    try { window.history.replaceState({ authStage: "in", showAdd: false, showAccount: false, showAdmin: false, section: "en-ar" }, ""); } catch (_) {}
-  }
+  // Guest mode removed intentionally — sign-in required.
 
 
   const studiedIds = useMemo(() => {
@@ -1282,8 +1262,11 @@ export default function DictionaryApp() {
     if (!uCheck.ok) { setAuthError(uCheck.error); return; }
     if (!passwordInput) { setAuthError("Enter your password."); return; }
 
+    setLoggingIn(true);
+
     let curAccounts = accounts;
     let account = curAccounts.find((a) => normalizeUsername(a.username) === uCheck.username);
+    // Only hit the network if the account isn't already in memory
     if (!account) {
       try {
         const rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
@@ -1294,25 +1277,31 @@ export default function DictionaryApp() {
         setSiteBanner(rec.siteBanner || null);
         commitRecordVersion(rec.version);
         account = curAccounts.find((a) => normalizeUsername(a.username) === uCheck.username);
-      } catch (e) { /* fall through */ }
+      } catch (_) { /* fall through */ }
     }
-    if (!account) { setAuthError("That username doesn't match any account."); return; }
+    if (!account) {
+      setLoggingIn(false);
+      setAuthError("That username doesn't match any account.");
+      return;
+    }
     if (account.status === "pending") {
+      setLoggingIn(false);
       setAuthError("Your account is still waiting for admin approval.");
       return;
     }
     if (account.status === "rejected") {
+      setLoggingIn(false);
       setAuthError("Your account request was declined. Contact an admin.");
       return;
     }
     if (account.status === "blocked") {
+      setLoggingIn(false);
       setAuthError(appIsAr
         ? "تم حظر حسابك من دخول الموقع. تواصل مع المسؤول."
         : "Your account is blocked from accessing the site. Contact an admin.");
       return;
     }
 
-    setLoggingIn(true);
     let passwordOk = false;
     let shouldUpgradeHash = false;
     try {
@@ -1322,9 +1311,6 @@ export default function DictionaryApp() {
         shouldUpgradeHash = !!(result.ok && result.needsUpgrade);
       }
       // Legacy / recovery: personal code accepted as password once.
-      // Also covers accounts whose hash was produced by an older build
-      // whose algorithm we no longer match — users can sign in with the
-      // personal code and we rewrite the hash to the canonical form.
       if (!passwordOk) {
         const typed = passwordInput.trim();
         if (typed && typed === String(account.code)) {
@@ -1338,9 +1324,8 @@ export default function DictionaryApp() {
           a.code === account.code ? { ...a, passwordHash: newHash } : a
         );
         account = curAccounts.find((a) => a.code === account.code) || account;
-        // Persist hash upgrade after password verification below.
       }
-    } catch (err) {
+    } catch (_) {
       setLoggingIn(false);
       setAuthError("Couldn't verify the password — try again.");
       return;
@@ -1351,13 +1336,11 @@ export default function DictionaryApp() {
       return;
     }
 
-    setLoggingIn(false);
-
+    // Enter the app immediately — network writes must never block the UI.
     setName(account.name);
     setIsAdmin(account.role === "admin");
     setAccountCode(account.code);
     savePersonalCode(account.code);
-    // حفظ تسجيل الدخول على الجهاز — تعدد الحسابات للأدمن فقط
     let linking = false;
     try { linking = sessionStorage.getItem("twoTongues.linkMode") === "1"; } catch (_) {}
     const nextVault = upsertVaultAccount(account, {
@@ -1372,25 +1355,7 @@ export default function DictionaryApp() {
     } else {
       setMainAccountCodeState(getMainAccountCode());
     }
-    // Keep password field until login fully succeeds — cleared after session is saved.
 
-    // Persist any password-hash upgrade now that password is verified.
-    if (shouldUpgradeHash) {
-      try {
-        const newVersion = await saveRecord(
-          { entries, accounts: curAccounts, logs, siteBanner },
-          recordVersionRef.current
-        );
-        setAccounts(curAccounts);
-        commitRecordVersion(newVersion);
-      } catch (e) {
-        setAccounts(curAccounts);
-      }
-    }
-
-    // Record a session token (for optional multi-device awareness). Failure to
-    // persist it must never block sign-in — personalCode in localStorage is
-    // what keeps the user signed in across refresh / new tabs.
     const sid = generateSessionId();
     saveSessionId(sid);
     const accountCodeLogin = account.code;
@@ -1406,22 +1371,40 @@ export default function DictionaryApp() {
           account.code
         )
       : null;
-    try {
-      await persistAccounts((accs) => accs.map((a) =>
-        a.code === accountCodeLogin
-          ? {
-              ...a,
-              sessionId: sid,
-              sessionAt: stamped,
-              ...(isFirstSignIn ? { firstSignInAt: stamped } : {}),
-            }
-          : a
-      ), logEntry);
-    } catch (_) {
-      // Signed in locally regardless.
-    }
+
     setPasswordInput("");
+    setLoggingIn(false);
     goToStage("in");
+
+    // Background: hash upgrade + session stamp (non-blocking)
+    (async () => {
+      if (shouldUpgradeHash) {
+        try {
+          const newVersion = await saveRecord(
+            { entries, accounts: curAccounts, logs, siteBanner },
+            recordVersionRef.current
+          );
+          setAccounts(curAccounts);
+          commitRecordVersion(newVersion);
+        } catch (_) {
+          setAccounts(curAccounts);
+        }
+      }
+      try {
+        await persistAccounts((accs) => accs.map((a) =>
+          a.code === accountCodeLogin
+            ? {
+                ...a,
+                sessionId: sid,
+                sessionAt: stamped,
+                ...(isFirstSignIn ? { firstSignInAt: stamped } : {}),
+              }
+            : a
+        ), logEntry);
+      } catch (_) {
+        // Signed in locally regardless.
+      }
+    })();
   }
 
   /** تبديل فوري لحساب محفوظ — بدون تسجيل خروج كامل */
@@ -1765,7 +1748,7 @@ export default function DictionaryApp() {
         signupError={signupError} setSignupError={setSignupError} signupSaving={signupSaving} handleSignup={handleSignup}
         usernameInput={usernameInput} setUsernameInput={setUsernameInput}
         passwordInput={passwordInput} setPasswordInput={setPasswordInput}
-        authError={authError} setAuthError={setAuthError} loggingIn={loggingIn} handleLogin={handleLogin} onGuest={handleGuest}
+        authError={authError} setAuthError={setAuthError} loggingIn={loggingIn} handleLogin={handleLogin}
         linkMode={linkMode} onCancelLink={cancelLinkAccount}
       />
     );

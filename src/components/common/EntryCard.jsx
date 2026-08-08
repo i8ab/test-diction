@@ -12,6 +12,39 @@ import {
   EyeIcon, EyeOffIcon, SpeakButton,
 } from "./Icons";
 
+/** Compact Cambridge Dictionary crest (shield only — no banner text). */
+function CambridgeShieldIcon({ size = 18 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 28"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      style={{ display: "block" }}
+    >
+      {/* Shield outline */}
+      <path
+        d="M12 1.5C12 1.5 3.5 4.2 3.5 4.2V12.8C3.5 19.2 7.8 24.6 12 26.5C16.2 24.6 20.5 19.2 20.5 12.8V4.2S12 1.5 12 1.5Z"
+        fill="#1D2A57"
+        stroke="#C4A35A"
+        strokeWidth="1.2"
+      />
+      {/* Inner book / open pages hint */}
+      <path
+        d="M12 7.2V20.2M12 7.2C10.2 6.6 8.2 6.4 7 6.8V18.8C8.2 18.4 10.2 18.6 12 19.2M12 7.2C13.8 6.6 15.8 6.4 17 6.8V18.8C15.8 18.4 13.8 18.6 12 19.2"
+        stroke="#E8D5A3"
+        strokeWidth="1.15"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Small star / crest jewel */}
+      <circle cx="12" cy="12.5" r="1.35" fill="#C4A35A" />
+    </svg>
+  );
+}
+
 function MobilePairChips({ label, pairs, tone = "success" }) {
   const words = (pairs || []).map((p) => (p && (p.word || p.meaning) ? (p.word || p.meaning) : "")).filter(Boolean);
   if (!words.length) return null;
@@ -164,7 +197,7 @@ function EntryCard({
           }
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
           <span
             dir={cfg.wordDir}
             style={{
@@ -173,22 +206,71 @@ function EntryCard({
               fontWeight: 700,
               color: INK,
               lineHeight: 1.25,
-              flex: 1,
+              flex: "0 1 auto",
               minWidth: 0,
               overflowWrap: "anywhere",
             }}
           >
             {entry.word}
           </span>
+          {/* POS chips sit beside the word (not under it) to save vertical space */}
+          {entryPosList(entry).length > 0 && (
+            <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4, flex: "0 1 auto", minWidth: 0 }}>
+              {entryPosList(entry).map((p) => (
+                <span
+                  key={p}
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: "2px 7px",
+                    borderRadius: 999,
+                    background: "color-mix(in srgb, var(--accent-1) 14%, transparent)",
+                    color: "var(--accent-1)",
+                    border: "1px solid color-mix(in srgb, var(--accent-1) 35%, transparent)",
+                    lineHeight: 1.3,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {posLabel(p, isAr)}
+                </span>
+              ))}
+            </span>
+          )}
+          <span style={{ flex: "1 1 0", minWidth: 4 }} aria-hidden="true" />
+          {/* Compact Cambridge shield — next to speaker, no banner/padding waste */}
+          {isEnglishWord && (
+            <a
+              href={cambridgeUrl(entry.word)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              title={tr(isAr, "Cambridge Dictionary", "قاموس كامبريدج")}
+              aria-label={tr(isAr, "Open in Cambridge Dictionary", "افتح في قاموس كامبريدج")}
+              className="lift-hover"
+              style={{
+                flexShrink: 0,
+                width: 28,
+                height: 28,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 6,
+                textDecoration: "none",
+              }}
+            >
+              <CambridgeShieldIcon size={18} />
+            </a>
+          )}
           <span
             className="entry-speak-slot"
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
-            style={{ flexShrink: 0, width: 40, height: 40, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+            style={{ flexShrink: 0, width: 36, height: 36, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
           >
             <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={isAr} size={18} />
           </span>
-          <span style={{ flexShrink: 0, width: 28, height: 28, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ flexShrink: 0, width: 26, height: 26, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
             <ChevronIcon
               size={14}
               color={cfg.accent}
@@ -200,29 +282,8 @@ function EntryCard({
           </span>
         </div>
 
-        {entryPosList(entry).length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-            {entryPosList(entry).map((p) => (
-              <span
-                key={p}
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: "3px 9px",
-                  borderRadius: 999,
-                  background: "color-mix(in srgb, var(--accent-1) 14%, transparent)",
-                  color: "var(--accent-1)",
-                  border: "1px solid color-mix(in srgb, var(--accent-1) 35%, transparent)",
-                }}
-              >
-                {posLabel(p, isAr)}
-              </span>
-            ))}
-          </div>
-        )}
-
         {/* Meanings visible on every layout (phone / tablet / PC) */}
-        <div style={{ marginTop: 10 }}>{renderMeaning()}</div>
+        <div style={{ marginTop: 8 }}>{renderMeaning()}</div>
 
         {(isStudied || isFavorite) && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
@@ -254,18 +315,6 @@ function EntryCard({
                   {tr(isAr, "Zoom", "تكبير")}
                 </button>
               </p>
-            )}
-
-            {isEnglishWord && (
-              <a
-                href={cambridgeUrl(entry.word)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="lift-hover"
-                style={{ display: "inline-flex", alignItems: "center", marginTop: 2, background: "#1D2A57", borderRadius: 3, padding: "4px 8px" }}
-              >
-                <img src="https://dictionary.cambridge.org/external/images/freesearch/sbl.png?version=6.0.78" alt={tr(isAr, "Cambridge Dictionary", "قاموس كامبريدج")} style={{ height: 18, display: "block" }} />
-              </a>
             )}
 
             {/* Full definition/examples: hidden via .entry-longform until Zoom */}

@@ -382,11 +382,11 @@ html[data-card-height="comfortable"] {
   --entry-gap: 12px;
 }
 
-/* Desktop-only: push list + letter-rail to the far left; keep right side empty for Goals/To-do FABs */
+/* Desktop-only: push list + letter-rail to the far left; tight right gap for Goals/To-do FABs */
 @media (min-width: 1200px) {
   .app-container.app-main-row {
     padding-left: clamp(4px, 0.8vw, 10px);
-    padding-right: clamp(72px, 7vw, 100px);
+    padding-right: clamp(56px, 5vw, 72px);
   }
 }
 
@@ -1115,10 +1115,10 @@ canvas {
   gap: 10px;
   width: 100%;
   max-width: var(--app-max, 920px);
-  /* Align list + letter-rail to the far left; leave right side empty for floating Goals/To-do */
+  /* Align list + letter-rail to the far left; tight right gap just enough for Goals/To-do FABs */
   margin-left: 0;
   margin-right: auto;
-  padding: clamp(14px, 2.5vw, 22px) clamp(72px, 8vw, 96px) clamp(40px, 8vw, 72px) clamp(6px, 1.2vw, 12px);
+  padding: clamp(14px, 2.5vw, 22px) clamp(56px, 5.5vw, 72px) clamp(40px, 8vw, 72px) clamp(6px, 1.2vw, 12px);
   box-sizing: border-box;
 }
 
@@ -1638,7 +1638,7 @@ html[data-device="tablet"] .app-main-row {
   margin-right: auto !important;
   padding-bottom: 24px !important;
   padding-inline-start: clamp(6px, 1.2vw, 12px) !important;
-  padding-inline-end: 88px; /* room for side dock / FABs — keep empty */
+  padding-inline-end: 64px; /* room for side dock — tighter so cards stretch further */
 }
 html[data-device="tablet"] .letter-rail {
   flex: 0 0 52px !important;

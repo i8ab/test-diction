@@ -226,14 +226,20 @@ function AuthScreens({
   if (authStage === "signup") {
     return (
       <Shell>
-        <div className="auth-card" style={{ ...authCardStyle, maxWidth: "min(400px, 100%)", padding: "28px 26px 26px" }} dir={appIsAr ? "rtl" : "ltr"}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <BrandMark size="lg" showUnderline />
-            </div>
-            <div style={{ flexShrink: 0, paddingTop: 2 }}>
-              <LanguageToggle lang={appLang} onChangeLang={onChangeAppLang} isAr={appIsAr} onToggle={toggleAppLang} floating={false} />
-            </div>
+        <div className="auth-card" style={{ ...authCardStyle, maxWidth: "min(400px, 100%)", padding: "22px 26px 26px" }} dir={appIsAr ? "rtl" : "ltr"}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              marginBottom: 16,
+              marginInline: -4,
+            }}
+          >
+            <LanguageToggle lang={appLang} onChangeLang={onChangeAppLang} isAr={appIsAr} onToggle={toggleAppLang} floating={false} />
+          </div>
+          <div style={{ marginBottom: 2 }}>
+            <BrandMark size="md" showUnderline />
           </div>
           <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "14px 0 18px", lineHeight: 1.55 }}>
             {atr(
@@ -528,22 +534,30 @@ function AuthScreens({
             maxWidth: "min(400px, 100%)",
             position: "relative",
             zIndex: "auto",
-            padding: "28px 26px 26px",
+            padding: "22px 26px 26px",
           }}
           dir={appIsAr ? "rtl" : "ltr"}
         >
-          {/* Header row: brand + language (no overlap) */}
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <BrandMark size="lg" showUnderline />
-            </div>
-            <div style={{ flexShrink: 0, paddingTop: 2 }}>
-              <LanguageToggle lang={appLang} onChangeLang={onChangeAppLang} isAr={appIsAr} onToggle={toggleAppLang} floating={false} />
-            </div>
+          {/* Language alone on its own row — never beside the title */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              marginBottom: 16,
+              marginInline: -4,
+            }}
+          >
+            <LanguageToggle lang={appLang} onChangeLang={onChangeAppLang} isAr={appIsAr} onToggle={toggleAppLang} floating={false} />
+          </div>
+
+          {/* Brand on a separate full-width row */}
+          <div style={{ marginBottom: 2 }}>
+            <BrandMark size="md" showUnderline />
           </div>
 
           {!deviceMode && typeof onChangeDeviceMode === "function" && (
-            <div style={{ margin: "10px 0 6px" }}>
+            <div style={{ margin: "12px 0 6px" }}>
               <DevicePicker
                 mode={deviceMode}
                 onSelect={onChangeDeviceMode}

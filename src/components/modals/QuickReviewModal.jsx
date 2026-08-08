@@ -231,7 +231,9 @@ export default function QuickReviewModal({
 
 const iconBtn = {
   border: "none", background: "transparent", color: "var(--icon-muted)",
-  padding: 4, cursor: "pointer", display: "inline-flex", alignItems: "center", borderRadius: 6,
+  width: 36, height: 36, padding: 0, cursor: "pointer",
+  display: "inline-flex", alignItems: "center", justifyContent: "center",
+  borderRadius: 10, flexShrink: 0, lineHeight: 0,
 };
 const primaryBtn = {
   display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,

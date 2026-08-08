@@ -86,15 +86,21 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
     setMicState("preparing");
     setPronError("");
     setPronResult(null);
-    const stopMeter = startMicLevelMeter(setMicLevel);
+    // Start the level meter only after SpeechRecognition is actually listening.
+    // Opening getUserMedia first competes for the mic on some browsers and
+    // makes quiet speech much harder to catch.
+    let stopMeter = () => {};
     try {
       const lang = cfg.wordDir === "rtl" ? arDialect : enAccentLang(enAccent);
-      const result = await scorePronunciation(entry.word, lang, () => setMicState("listening"));
+      const result = await scorePronunciation(entry.word, lang, () => {
+        setMicState("listening");
+        stopMeter = startMicLevelMeter(setMicLevel);
+      });
       setPronResult(result);
     } catch (e) {
       setPronError(tr(isAr, "Didn't catch that — try again.", "معرفتش أسمع صح — جرّب تاني."));
     } finally {
-      stopMeter();
+      try { stopMeter(); } catch (_) {}
       setMicLevel(0);
       setMicState("idle");
     }
@@ -133,11 +139,11 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 3, margin: "0 -8px 8px", padding: "6px 8px", background: "color-mix(in srgb, var(--card, #fff) 92%, transparent)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", borderRadius: 12 }}>
           <button onClick={handleShare} disabled={sharing} aria-label={tr(cfg.dir === "rtl", "Share this word", "شارك الكلمة دي")}
             title={tr(cfg.dir === "rtl", "Share this word", "شارك الكلمة دي")}
-            style={{ border: "none", background: "var(--input-bg)", cursor: sharing ? "default" : "pointer", color: "var(--icon-muted)", padding: 8, borderRadius: 10, display: "inline-flex" }}>
+            style={{ border: "none", background: "var(--input-bg)", cursor: sharing ? "default" : "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}>
             {sharing ? <LoaderIcon size={18} /> : <ShareIcon size={18} />}
           </button>
           <button onClick={onClose} aria-label={tr(cfg.dir === "rtl", "Close", "إغلاق")}
-            style={{ border: "none", background: "var(--input-bg)", cursor: "pointer", color: "var(--icon-muted)", padding: 8, borderRadius: 10, display: "inline-flex" }}>
+            style={{ border: "none", background: "var(--input-bg)", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}>
             <XIcon size={18} />
           </button>
         </div>

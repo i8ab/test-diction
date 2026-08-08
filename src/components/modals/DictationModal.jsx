@@ -158,9 +158,9 @@ export default function DictationModal({
             type="button"
             onClick={onClose}
             aria-label={tr(isAr, "Close", "إغلاق")}
-            style={{ background: "none", border: "none", cursor: "pointer", padding: 6, color: "var(--muted)" }}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}
           >
-            <XIcon size={22} />
+            <XIcon size={20} />
           </button>
         </div>
 

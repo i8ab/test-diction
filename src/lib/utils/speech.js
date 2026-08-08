@@ -151,7 +151,7 @@ export function saveArDialect(code) {
  * Capture one spoken phrase. Uses multiple alternatives and a longer capture
  * window so short words / letter-level differences are less likely to be lost.
  */
-export function recognizeSpeech(lang, { onStart, timeoutMs = 9000 } = {}) {
+export function recognizeSpeech(lang, { onStart, timeoutMs = 14000 } = {}) {
   return new Promise((resolve, reject) => {
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) {
@@ -160,15 +160,18 @@ export function recognizeSpeech(lang, { onStart, timeoutMs = 9000 } = {}) {
     }
     const rec = new Ctor();
     rec.lang = lang || "en-US";
-    rec.continuous = false;
+    // continuous + interim keeps the recognizer open longer so quiet or
+    // slightly delayed speech is less likely to be dropped on first try.
+    rec.continuous = true;
     rec.interimResults = true;
-    rec.maxAlternatives = 5;
+    rec.maxAlternatives = 8;
 
     let settled = false;
     let best = "";
     let bestConf = -1;
     let silenceTimer = null;
     let hardTimer = null;
+    let heardAnything = false;
 
     function finish(text) {
       if (settled) return;
@@ -193,9 +196,15 @@ export function recognizeSpeech(lang, { onStart, timeoutMs = 9000 } = {}) {
       hardTimer = setTimeout(() => finish(best), timeoutMs);
     };
 
+    rec.onspeechstart = () => {
+      heardAnything = true;
+      try { clearTimeout(silenceTimer); } catch (_) {}
+    };
+
     rec.onspeechend = () => {
-      // Small grace so trailing letters aren't cut off
-      silenceTimer = setTimeout(() => finish(best), 450);
+      // Longer grace so trailing syllables / quiet endings aren't cut off
+      try { clearTimeout(silenceTimer); } catch (_) {}
+      silenceTimer = setTimeout(() => finish(best), 900);
     };
 
     rec.onresult = (e) => {
@@ -206,20 +215,25 @@ export function recognizeSpeech(lang, { onStart, timeoutMs = 9000 } = {}) {
           for (let j = 0; j < result.length; j++) {
             const alt = result[j];
             const t = (alt && alt.transcript) || "";
-            const c = typeof alt.confidence === "number" ? alt.confidence : 0.5;
-            if (t && c >= bestConf) {
+            const c = typeof alt.confidence === "number" ? alt.confidence : 0.45;
+            // Prefer any non-empty transcript; accept lower confidence so
+            // quiet speech still surfaces instead of being discarded.
+            if (t && (c >= bestConf || !best)) {
               bestConf = c;
               best = t;
+              heardAnything = true;
             }
           }
-          if (result.isFinal) {
-            finish(best);
+          if (result.isFinal && best) {
+            // Short settle delay after final so late alternatives can arrive
+            try { clearTimeout(silenceTimer); } catch (_) {}
+            silenceTimer = setTimeout(() => finish(best), 350);
             return;
           }
         }
         // Reset silence grace whenever we get interim audio
         try { clearTimeout(silenceTimer); } catch (_) {}
-        silenceTimer = setTimeout(() => finish(best), 700);
+        silenceTimer = setTimeout(() => finish(best), 1100);
       } catch (_) {
         /* keep listening */
       }
@@ -229,6 +243,11 @@ export function recognizeSpeech(lang, { onStart, timeoutMs = 9000 } = {}) {
       const code = (e && e.error) || "error";
       // no-speech / aborted still return whatever we caught
       if (code === "no-speech" || code === "aborted") {
+        finish(best);
+        return;
+      }
+      // network / audio-capture: still return partial if we heard something
+      if (heardAnything && best) {
         finish(best);
         return;
       }
@@ -354,10 +373,11 @@ function similarityScore(expected, heard) {
 export async function scorePronunciation(expected, lang, onListening) {
   const heard = await recognizeSpeech(lang || "en-US", {
     onStart: onListening,
-    timeoutMs: 10000,
+    timeoutMs: 14000,
   });
   const score = similarityScore(expected, heard);
-  const passed = score >= 72;
+  // Slightly more forgiving pass threshold for quieter / accented speech
+  const passed = score >= 65;
   return {
     score,
     heard,
@@ -377,8 +397,10 @@ export function startMicLevelMeter(onLevel) {
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
+          // Prefer pickup of quiet speech for the level meter visualization.
+          // (SpeechRecognition uses its own mic path; this only drives the UI bars.)
+          echoCancellation: false,
+          noiseSuppression: false,
           autoGainControl: true,
         },
       });

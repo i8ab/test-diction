@@ -53,7 +53,7 @@ function LeaderboardModal({ accounts, sectionEntries, accountCode, sectionLabel,
             <TrophyIcon size={19} color={BRASS} /> {tr(isAr, "Leaderboard", "الترتيب")}
             {sectionLabel && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>· {sectionLabel}</span>}
           </h2>
-          <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}><XIcon size={20} /></button>
+          <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}><XIcon size={20} /></button>
         </div>
         <p style={{ fontSize: 13, color: "var(--muted)", margin: "10px 0 16px" }}>
           {tr(isAr, "Ranked by words verified through the Quiz (not just marked \"studied\"); average quiz score and mastered words break ties.", "الترتيب حسب الكلمات اللي اتأكدت فعليًا عن طريق الاختبار (مش بس اللي اتعلّمت عليها \"درستها\")؛ متوسط نتيجة الاختبارات وعدد الكلمات المتقنة بيفصلوا التعادل.")}

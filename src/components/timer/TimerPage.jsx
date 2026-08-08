@@ -363,7 +363,7 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
   const [running, setRunning] = useState(false);
   const [remainingMs, setRemainingMs] = useState(25 * 60 * 1000);
   const [elapsedMs, setElapsedMs] = useState(0);
-  const [showSettings, setShowSettings] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
   const [doneFlash, setDoneFlash] = useState(false);
   // Pomodoro: phase work | break | idle-between (waiting for user to confirm next section)
   const [pomoPhase, setPomoPhase] = useState("work"); // work | break
@@ -589,6 +589,15 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
   }, []);
 
   useEffect(() => () => { try { ambientRef.current && ambientRef.current.stop(); } catch {} }, []);
+
+  useEffect(() => {
+    if (!showSettings) return;
+    function onKey(e) {
+      if (e.key === "Escape") setShowSettings(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [showSettings]);
 
   // Keep parent in sync after refresh restore (bubble vs full page).
   useEffect(() => {
@@ -1199,8 +1208,8 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
           </span>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <button type="button" onClick={() => setShowSettings((s) => !s)} style={{ ...btnGhost, padding: "8px 12px", fontSize: 13, whiteSpace: "nowrap" }}>
-            {showSettings ? tr(isAr, "Hide", "إخفاء") : tr(isAr, "Settings", "إعدادات")}
+          <button type="button" onClick={() => setShowSettings(true)} style={{ ...btnGhost, padding: "8px 12px", fontSize: 13, whiteSpace: "nowrap" }}>
+            {tr(isAr, "Settings", "إعدادات")}
           </button>
           <button
             type="button"
@@ -1412,28 +1421,87 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
         )}
       </div>
 
-      {/* Settings panel */}
+      {/* Settings modal */}
       {showSettings && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={tr(isAr, "Timer settings", "إعدادات المؤقّت")}
+          onClick={() => setShowSettings(false)}
           style={{
-            flexShrink: 0,
-            maxHeight: "48vh",
-            overflowY: "auto",
-            padding: "18px 20px 28px",
-            background: isLightBg ? "rgba(251,247,239,0.97)" : "rgba(12,16,22,0.97)",
-            backdropFilter: "blur(14px)",
-            borderTop: `1px solid ${panelBorder}`,
+            position: "fixed",
+            inset: 0,
+            zIndex: 8000,
+            background: "rgba(0,0,0,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
           }}
         >
           <div
+            onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: 720,
-              margin: "0 auto",
-              display: "flex",
-              flexDirection: "column",
-              gap: 18,
+              width: "100%",
+              maxWidth: 560,
+              maxHeight: "min(88vh, 820px)",
+              overflowY: "auto",
+              padding: "16px 18px 24px",
+              borderRadius: 18,
+              background: isLightBg ? "rgba(251,247,239,0.98)" : "rgba(12,16,22,0.98)",
+              backdropFilter: "blur(16px)",
+              border: `1px solid ${panelBorder}`,
+              boxShadow: "0 24px 60px -16px rgba(0,0,0,0.45)",
+              color: prefs.textColor,
             }}
           >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 14,
+                position: "sticky",
+                top: 0,
+                zIndex: 2,
+                background: isLightBg ? "rgba(251,247,239,0.98)" : "rgba(12,16,22,0.98)",
+                paddingBottom: 8,
+              }}
+            >
+              <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: "0.02em" }}>
+                {tr(isAr, "Timer settings", "إعدادات المؤقّت")}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSettings(false)}
+                aria-label={tr(isAr, "Close", "إغلاق")}
+                style={{
+                  border: "none",
+                  background: panelBg,
+                  cursor: "pointer",
+                  color: prefs.textColor,
+                  width: 36,
+                  height: 36,
+                  padding: 0,
+                  borderRadius: 10,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  lineHeight: 0,
+                  opacity: 0.9,
+                }}
+              >
+                <XIcon size={18} />
+              </button>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 18,
+              }}
+            >
             {/* Mode */}
             <section>
               <Label muted={muted}>{tr(isAr, "Mode", "الوضع")}</Label>
@@ -1824,6 +1892,7 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
                 "نصيحة: زر X أثناء التشغيل يصغّر لفقاعة فوق الديكشنري (من غير ما يوقف المؤقّت). على الكمبيوتر Chrome يقدر يفتح نافذة فوق التطبيقات. الموبايل لا يسمح لموقع يظهر فوق تطبيقات تانية — قيد من النظام."
               )}
             </p>
+            </div>
           </div>
         </div>
       )}

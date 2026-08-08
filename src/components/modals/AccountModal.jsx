@@ -165,7 +165,7 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
           <h2 id="account-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(17px, 3vw, 19px)", fontWeight: 600, color: INK, margin: 0 }}>
             {T("My account", "حسابي")}
           </h2>
-          <button onClick={onClose} className="touch-target" aria-label={T("Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", minWidth: 40, minHeight: 40 }}>
+          <button onClick={onClose} className="touch-target" aria-label={T("Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, minWidth: 36, minHeight: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}>
             <XIcon size={20} />
           </button>
         </div>

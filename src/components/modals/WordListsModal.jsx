@@ -129,7 +129,7 @@ export default function WordListsModal({
           <div style={{ fontSize: 18, fontWeight: 800, color: INK }}>
             {tr(isAr, "Word lists", "قوائم الكلمات")}
           </div>
-          <button type="button" onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)" }}>
+          <button type="button" onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}>
             <XIcon size={20} />
           </button>
         </div>

@@ -179,9 +179,9 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
               style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", fontSize: 13, fontWeight: 700, color: "#fff", background: micState !== "idle" ? "var(--muted)" : cfg.accent, border: "none", borderRadius: 999, cursor: micState !== "idle" ? "default" : "pointer" }}>
               <MicIcon size={14} />
               {micState === "listening"
-                ? tr(isAr, "Listening — say the word now…", "بسمع — قول الكلمة دلوقتي…")
+                ? tr(isAr, "Listening — speak now…", "بسمع — اتكلم دلوقتي…")
                 : micState === "preparing"
-                ? tr(isAr, "Loading model / mic…", "بحمّل الموديل والميك…")
+                ? tr(isAr, "Getting ready…", "بتجهز…")
                 : tr(isAr, "Practice pronunciation", "تمرين النطق")}
             </button>
             {micState === "listening" && (

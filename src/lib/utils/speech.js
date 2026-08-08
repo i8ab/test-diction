@@ -119,15 +119,19 @@ export function speakWord(text, dir, opts = {}) {
 }
 
 /**
- * Feature detection: Whisper path needs getUserMedia + AudioContext.
- * Kept name for compatibility with existing call sites that check
- * `!!getSpeechRecognitionCtor()`.
+ * Feature detection for speech input.
+ * Prefer Web Speech API when available; otherwise mic + AudioContext (Whisper).
+ * Name kept for call sites that check `!!getSpeechRecognitionCtor()`.
  */
 export function getSpeechRecognitionCtor() {
   if (typeof window === "undefined") return null;
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return null;
-  if (!(window.AudioContext || window.webkitAudioContext)) return null;
-  return true;
+  const web = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  if (web) return web;
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia &&
+      (window.AudioContext || window.webkitAudioContext)) {
+    return true;
+  }
+  return null;
 }
 
 const DIALECT_KEY = "twoTongues.arDialect";
@@ -156,13 +160,177 @@ export function saveArDialect(code) {
 }
 
 // ---------------------------------------------------------------------------
-// Whisper (in-browser) STT — replaces Web Speech API
+// Hybrid STT: Web Speech API (primary, works immediately) + Whisper (fallback)
 // ---------------------------------------------------------------------------
+
+function webSpeechCtor() {
+  if (typeof window === "undefined") return null;
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function applyWordGrammar(rec, hintWord) {
+  try {
+    const GrammarList = window.SpeechGrammarList || window.webkitSpeechGrammarList;
+    if (!GrammarList || !hintWord) return;
+    const word = String(hintWord).trim().replace(/[;<>|\\]/g, "");
+    if (!word || word.length > 40) return;
+    const list = new GrammarList();
+    list.addFromString("#JSGF V1.0; grammar word; public <word> = " + word + " ;", 1);
+    rec.grammars = list;
+  } catch (_) {}
+}
+
+/** One Web Speech pass — returns transcript or "". */
+function recognizeWebSpeechOnce(lang, { onStart, timeoutMs = 7000, hintWord = "" } = {}) {
+  return new Promise((resolve) => {
+    const Ctor = webSpeechCtor();
+    if (!Ctor) {
+      resolve("");
+      return;
+    }
+    const rec = new Ctor();
+    rec.lang = lang || "en-US";
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.maxAlternatives = 10;
+    applyWordGrammar(rec, hintWord);
+
+    let settled = false;
+    /** @type {{ text: string, conf: number }[]} */
+    const candidates = [];
+    let silenceTimer = null;
+    let hardTimer = null;
+
+    function addCandidate(text, conf) {
+      const t = String(text || "").trim();
+      if (!t) return;
+      candidates.push({
+        text: t,
+        conf: typeof conf === "number" ? conf : 0.4,
+      });
+    }
+
+    /** Prefer the alternative closest to the target word, not the engine's top guess. */
+    function pickBest() {
+      if (!candidates.length) return "";
+      const hint = String(hintWord || "").trim();
+      if (!hint) {
+        // Highest confidence, then longest
+        candidates.sort((a, b) => b.conf - a.conf || b.text.length - a.text.length);
+        return candidates[0].text;
+      }
+      let bestText = candidates[0].text;
+      let bestScore = -1;
+      let bestConf = -1;
+      for (const c of candidates) {
+        // Score whole phrase and each token
+        let s = similarityScore(hint, c.text);
+        const tokens = normalizeSpoken(c.text).split(/\s+/).filter(Boolean);
+        for (const tok of tokens) {
+          s = Math.max(s, similarityScore(hint, tok));
+        }
+        if (s > bestScore || (s === bestScore && c.conf > bestConf)) {
+          bestScore = s;
+          bestConf = c.conf;
+          // Prefer the single best token if it's a better match than the full phrase
+          let chosen = c.text;
+          if (tokens.length > 1) {
+            let tokBest = tokens[0];
+            let tokScore = similarityScore(hint, tokBest);
+            for (const tok of tokens) {
+              const ts = similarityScore(hint, tok);
+              if (ts > tokScore) {
+                tokScore = ts;
+                tokBest = tok;
+              }
+            }
+            if (tokScore >= s - 2) chosen = tokBest;
+          }
+          bestText = chosen;
+        }
+      }
+      return bestText;
+    }
+
+    function finish() {
+      if (settled) return;
+      settled = true;
+      try { clearTimeout(silenceTimer); } catch (_) {}
+      try { clearTimeout(hardTimer); } catch (_) {}
+      try { rec.onstart = rec.onresult = rec.onerror = rec.onend = null; } catch (_) {}
+      try { rec.abort(); } catch (_) {
+        try { rec.stop(); } catch (_) {}
+      }
+      resolve(pickBest());
+    }
+
+    rec.onstart = () => {
+      if (onStart) onStart();
+      hardTimer = setTimeout(finish, timeoutMs);
+    };
+    rec.onspeechend = () => {
+      try { clearTimeout(silenceTimer); } catch (_) {}
+      silenceTimer = setTimeout(finish, 700);
+    };
+    rec.onresult = (e) => {
+      try {
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const result = e.results[i];
+          if (!result) continue;
+          for (let j = 0; j < result.length; j++) {
+            const alt = result[j];
+            if (!alt) continue;
+            addCandidate(alt.transcript, alt.confidence);
+          }
+          if (result.isFinal) {
+            try { clearTimeout(silenceTimer); } catch (_) {}
+            // Brief wait for any late alternatives
+            silenceTimer = setTimeout(finish, 280);
+            return;
+          }
+        }
+        if (candidates.length) {
+          try { clearTimeout(silenceTimer); } catch (_) {}
+          silenceTimer = setTimeout(finish, 900);
+        }
+      } catch (_) {}
+    };
+    rec.onerror = () => finish();
+    rec.onend = () => finish();
+    try {
+      rec.start();
+    } catch (_) {
+      resolve("");
+    }
+  });
+}
+
+async function recognizeWithWebSpeech(lang, { onStart, timeoutMs = 7000, hintWord = "", maxAttempts = 2 } = {}) {
+  if (!webSpeechCtor()) return "";
+  let notified = false;
+  for (let i = 0; i < maxAttempts; i++) {
+    if (i > 0) await new Promise((r) => setTimeout(r, 200));
+    const text = await recognizeWebSpeechOnce(lang, {
+      onStart: !notified
+        ? () => {
+            notified = true;
+            if (onStart) onStart();
+          }
+        : undefined,
+      timeoutMs,
+      hintWord,
+    });
+    if (text) return text;
+  }
+  return "";
+}
+
+// --- Whisper (optional fallback) ---
 
 let _whisperPipe = null;
 let _whisperLoading = null;
+let _whisperFailed = false;
 
-/** Map BCP-47 / dialect codes to Whisper language ids. */
 function whisperLangFrom(lang) {
   const s = String(lang || "").toLowerCase();
   if (s.startsWith("ar")) return "arabic";
@@ -170,28 +338,23 @@ function whisperLangFrom(lang) {
   return "english";
 }
 
-/**
- * Lazy-load Xenova Whisper tiny (quantized). First call downloads ~40MB and
- * caches it in the browser; later calls reuse the same pipeline.
- */
 export async function loadWhisperPipeline(onProgress) {
+  if (_whisperFailed) throw new Error("whisper unavailable");
   if (_whisperPipe) return _whisperPipe;
   if (_whisperLoading) return _whisperLoading;
 
   _whisperLoading = (async () => {
     const mod = await import("@huggingface/transformers");
     const { pipeline, env } = mod;
-    // Prefer remote weights from Hugging Face hub; cache in IndexedDB/Cache API.
     try {
       env.allowLocalModels = false;
       env.useBrowserCache = true;
     } catch (_) {}
-
     const pipe = await pipeline(
       "automatic-speech-recognition",
       "Xenova/whisper-tiny",
       {
-        quantized: true,
+        dtype: "q8",
         progress_callback: typeof onProgress === "function" ? onProgress : undefined,
       }
     );
@@ -203,58 +366,17 @@ export async function loadWhisperPipeline(onProgress) {
     return await _whisperLoading;
   } catch (err) {
     _whisperLoading = null;
+    _whisperFailed = true;
     throw err;
   }
 }
 
-/** Decode a recorded Blob to mono Float32Array @ 16 kHz for Whisper. */
-async function blobToFloat32_16k(blob) {
-  const arrayBuf = await blob.arrayBuffer();
-  const Ctx = window.AudioContext || window.webkitAudioContext;
-  const ctx = new Ctx();
-  let decoded;
-  try {
-    decoded = await ctx.decodeAudioData(arrayBuf.slice(0));
-  } finally {
-    try { await ctx.close(); } catch (_) {}
-  }
-
-  // Mix down to mono
-  const ch = decoded.numberOfChannels;
-  const len = decoded.length;
-  const mono = new Float32Array(len);
-  for (let c = 0; c < ch; c++) {
-    const data = decoded.getChannelData(c);
-    for (let i = 0; i < len; i++) mono[i] += data[i] / ch;
-  }
-
-  // Resample to 16 kHz if needed
-  const srcRate = decoded.sampleRate;
-  const targetRate = 16000;
-  if (srcRate === targetRate) return mono;
-
-  const newLen = Math.max(1, Math.round(len * (targetRate / srcRate)));
-  const out = new Float32Array(newLen);
-  const ratio = len / newLen;
-  for (let i = 0; i < newLen; i++) {
-    const x = i * ratio;
-    const i0 = Math.floor(x);
-    const i1 = Math.min(i0 + 1, len - 1);
-    const t = x - i0;
-    out[i] = mono[i0] * (1 - t) + mono[i1] * t;
-  }
-  return out;
-}
-
-/**
- * Record mic audio for durationMs (or until silence after speech).
- * Calls onStart when capture begins. Returns a Blob (webm/ogg/mp4).
- */
-function recordMicBlob({ durationMs = 3200, onStart, onLevel } = {}) {
+/** Capture mono PCM and resample to 16 kHz (no MediaRecorder — more reliable). */
+function capturePcm16k({ durationMs = 2800, onStart, onLevel } = {}) {
   return new Promise(async (resolve, reject) => {
     let stream = null;
-    let mediaRecorder = null;
     let ctx = null;
+    let processor = null;
     let raf = null;
     const chunks = [];
     let settled = false;
@@ -262,19 +384,20 @@ function recordMicBlob({ durationMs = 3200, onStart, onLevel } = {}) {
     function cleanup() {
       try { if (raf) cancelAnimationFrame(raf); } catch (_) {}
       try {
-        if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+        if (processor) {
+          processor.onaudioprocess = null;
+          processor.disconnect();
+        }
       } catch (_) {}
-      try {
-        if (stream) stream.getTracks().forEach((t) => t.stop());
-      } catch (_) {}
-      try { if (ctx) ctx.close(); } catch (_) {}
+      try { if (stream) stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
+      try { if (ctx && ctx.state !== "closed") ctx.close(); } catch (_) {}
     }
 
-    function done(blob) {
+    function done(audio) {
       if (settled) return;
       settled = true;
       cleanup();
-      resolve(blob);
+      resolve(audio);
     }
 
     function fail(err) {
@@ -293,12 +416,15 @@ function recordMicBlob({ durationMs = 3200, onStart, onLevel } = {}) {
           channelCount: 1,
         },
       });
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      ctx = new Ctx();
+      if (ctx.state === "suspended") {
+        try { await ctx.resume(); } catch (_) {}
+      }
+      const src = ctx.createMediaStreamSource(stream);
 
-      // Optional live level meter from the same stream
       if (onLevel) {
         try {
-          ctx = new (window.AudioContext || window.webkitAudioContext)();
-          const src = ctx.createMediaStreamSource(stream);
           const analyser = ctx.createAnalyser();
           analyser.fftSize = 256;
           src.connect(analyser);
@@ -315,34 +441,64 @@ function recordMicBlob({ durationMs = 3200, onStart, onLevel } = {}) {
         } catch (_) {}
       }
 
-      const mime =
-        (typeof MediaRecorder !== "undefined" &&
-          ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"].find(
-            (t) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)
-          )) ||
-        "";
-
-      mediaRecorder = mime
-        ? new MediaRecorder(stream, { mimeType: mime })
-        : new MediaRecorder(stream);
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) chunks.push(e.data);
+      const bufferSize = 4096;
+      processor = ctx.createScriptProcessor(bufferSize, 1, 1);
+      processor.onaudioprocess = (e) => {
+        if (settled) return;
+        const input = e.inputBuffer.getChannelData(0);
+        chunks.push(new Float32Array(input));
       };
-      mediaRecorder.onerror = (e) => fail((e && e.error) || new Error("record failed"));
-      mediaRecorder.onstop = () => {
-        const type = (mediaRecorder && mediaRecorder.mimeType) || mime || "audio/webm";
-        done(new Blob(chunks, { type }));
-      };
+      src.connect(processor);
+      // Silent output so the processor actually runs without feedback
+      const mute = ctx.createGain();
+      mute.gain.value = 0;
+      processor.connect(mute);
+      mute.connect(ctx.destination);
 
-      mediaRecorder.start(200);
       if (onStart) onStart();
 
       setTimeout(() => {
         try {
-          if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
-        } catch (_) {
-          fail(new Error("stop failed"));
+          // Merge
+          let total = 0;
+          for (const c of chunks) total += c.length;
+          const merged = new Float32Array(total);
+          let off = 0;
+          for (const c of chunks) {
+            merged.set(c, off);
+            off += c.length;
+          }
+          // Resample to 16 kHz
+          const srcRate = ctx.sampleRate || 44100;
+          const targetRate = 16000;
+          let out = merged;
+          if (srcRate !== targetRate && total > 0) {
+            const newLen = Math.max(1, Math.round(total * (targetRate / srcRate)));
+            out = new Float32Array(newLen);
+            const ratio = total / newLen;
+            for (let i = 0; i < newLen; i++) {
+              const x = i * ratio;
+              const i0 = Math.floor(x);
+              const i1 = Math.min(i0 + 1, total - 1);
+              const t = x - i0;
+              out[i] = merged[i0] * (1 - t) + merged[i1] * t;
+            }
+          }
+          // Amplify quiet speech
+          let peak = 0;
+          for (let i = 0; i < out.length; i++) {
+            const a = Math.abs(out[i]);
+            if (a > peak) peak = a;
+          }
+          if (peak > 0.001 && peak < 0.2) {
+            const gain = Math.min(5, 0.35 / peak);
+            for (let i = 0; i < out.length; i++) {
+              out[i] = Math.max(-1, Math.min(1, out[i] * gain));
+            }
+          }
+          done(out);
+        } catch (err) {
+          fail(err);
         }
       }, Math.max(1200, durationMs));
     } catch (err) {
@@ -351,79 +507,110 @@ function recordMicBlob({ durationMs = 3200, onStart, onLevel } = {}) {
   });
 }
 
-/**
- * Capture speech with Whisper.
- * @param {string} lang  BCP-47 or dialect code (e.g. en-US, ar-EG)
- * @param {{ onStart?: Function, onLevel?: Function, onProgress?: Function, durationMs?: number }} [opts]
- * @returns {Promise<string>} transcript
- */
-export async function recognizeSpeech(lang, { onStart, onLevel, onProgress, durationMs = 3200 } = {}) {
-  if (!getSpeechRecognitionCtor()) {
-    throw new Error("Speech recognition not supported");
-  }
-
-  // Load model (may download on first use)
-  const pipe = await loadWhisperPipeline(onProgress);
-
-  const blob = await recordMicBlob({
-    durationMs,
-    onStart,
-    onLevel,
-  });
-
-  if (!blob || blob.size < 100) return "";
-
-  const audio = await blobToFloat32_16k(blob);
-  // Amplify quiet speech a bit before inference
-  let peak = 0;
-  for (let i = 0; i < audio.length; i++) {
-    const a = Math.abs(audio[i]);
-    if (a > peak) peak = a;
-  }
-  if (peak > 0 && peak < 0.25) {
-    const gain = Math.min(4, 0.35 / peak);
-    for (let i = 0; i < audio.length; i++) {
-      audio[i] = Math.max(-1, Math.min(1, audio[i] * gain));
-    }
-  }
-
-  const language = whisperLangFrom(lang);
-  const result = await pipe(audio, {
-    language,
-    task: "transcribe",
-    return_timestamps: false,
-  });
-
-  const text = typeof result === "string"
-    ? result
-    : (result && (result.text || result.output || "")) || "";
-  return cleanWhisperText(text);
-}
-
-/** Strip Whisper noise / hallucinations common on short clips. */
 function cleanWhisperText(raw) {
   let t = String(raw || "").trim();
   if (!t) return "";
-  // Bracketed / parenthetical ASR junk
   t = t
     .replace(/\[.*?\]/g, " ")
     .replace(/\(.*?\)/g, " ")
     .replace(/\{.*?\}/g, " ");
-  // Known empty / music tags
   t = t.replace(/\b(blank_audio|music|silence|applause|laughter|inaudible)\b/gi, " ");
-  // Leading punctuation / quotes
   t = t.replace(/^[\s"'«»]+|[\s"'«»]+$/g, "");
   t = t.replace(/\s+/g, " ").trim();
-  // Treat pure punctuation as empty
   if (!/[\p{L}\p{N}]/u.test(t)) return "";
   return t;
 }
 
+async function recognizeWithWhisper(lang, { onStart, onLevel, onProgress, durationMs = 2800 } = {}) {
+  if (_whisperFailed) return "";
+  let pipe;
+  try {
+    pipe = await loadWhisperPipeline(onProgress);
+  } catch (_) {
+    return "";
+  }
+  let audio;
+  try {
+    audio = await capturePcm16k({ durationMs, onStart, onLevel });
+  } catch (_) {
+    return "";
+  }
+  if (!audio || audio.length < 1600) return ""; // < ~0.1s at 16k
+  try {
+    const result = await pipe(audio, {
+      language: whisperLangFrom(lang),
+      task: "transcribe",
+      return_timestamps: false,
+    });
+    const text = typeof result === "string"
+      ? result
+      : (result && (result.text || result.output || "")) || "";
+    return cleanWhisperText(text);
+  } catch (_) {
+    return "";
+  }
+}
+
 /**
- * When the user says a single dictionary word, Whisper sometimes returns a
- * whole phrase. Pick the token that best matches the expected word so scoring
- * isn't unfairly dragged down by extra words.
+ * Capture one spoken phrase.
+ * Web Speech first (fast). If we know the target word and the match is weak,
+ * also try Whisper and keep whichever is closer to the target.
  */
+export async function recognizeSpeech(lang, {
+  onStart,
+  onLevel,
+  onProgress,
+  durationMs = 2800,
+  hintWord = "",
+} = {}) {
+  if (!getSpeechRecognitionCtor()) {
+    throw new Error("Speech recognition not supported");
+  }
+
+  let notified = false;
+  const markStart = () => {
+    if (!notified) {
+      notified = true;
+      if (onStart) onStart();
+    }
+  };
+
+  let webText = "";
+  try {
+    webText = await recognizeWithWebSpeech(lang, {
+      onStart: markStart,
+      timeoutMs: Math.max(5000, durationMs),
+      hintWord,
+      maxAttempts: 2,
+    });
+  } catch (_) {}
+
+  const hint = String(hintWord || "").trim();
+  const webScore = hint && webText ? similarityScore(hint, webText) : (webText ? 50 : 0);
+
+  // Strong match from Web Speech — no need for Whisper
+  if (webText && webScore >= 80) return webText;
+
+  // Weak/empty → try Whisper and pick the better match to the target
+  let whisperText = "";
+  try {
+    whisperText = await recognizeWithWhisper(lang, {
+      onStart: markStart,
+      onLevel,
+      onProgress,
+      durationMs,
+    });
+  } catch (_) {}
+
+  if (!webText && !whisperText) return "";
+  if (!hint) return webText || whisperText;
+
+  const wScore = whisperText ? similarityScore(hint, whisperText) : -1;
+  if (wScore > webScore) return whisperText;
+  if (webText) return webText;
+  return whisperText || "";
+}
+
 function pickBestHeardToken(expected, heardRaw) {
   const target = normalizeSpoken(expected);
   const full = normalizeSpoken(heardRaw);
@@ -441,7 +628,6 @@ function pickBestHeardToken(expected, heardRaw) {
         bestTok = tok;
       }
     }
-    // Also compare against the full phrase (in case target is multi-part)
     const fullScore = similarityScore(target, full);
     if (fullScore > bestScore) {
       return { heard: heardRaw.trim(), score: fullScore, raw: heardRaw };
@@ -457,17 +643,17 @@ function pickBestHeardToken(expected, heardRaw) {
 }
 
 /**
- * Score spoken pronunciation against expected word via Whisper.
- * Returns { score, heard, transcript, passed, empty, raw }.
+ * Score spoken pronunciation against expected word.
+ * Uses hybrid STT (Web Speech → Whisper).
  */
 export async function scorePronunciation(expected, lang, onListening, onProgress, onLevel) {
   const target = String(expected || "").trim();
-  // Slightly shorter window — users say one word, not a paragraph
   const heardRaw = await recognizeSpeech(lang || "en-US", {
     onStart: onListening,
     onProgress,
     onLevel,
     durationMs: 2800,
+    hintWord: target,
   });
   if (!heardRaw) {
     return {

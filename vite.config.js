@@ -1,13 +1,14 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+// Whisper (transformers.js) is large and ships its own WASM — keep it out of
+// optimizeDeps so Vite doesn't pre-bundle it incorrectly.
 export default defineConfig({
   plugins: [react()],
-  server: {
-    port: 5173,
+  optimizeDeps: {
+    exclude: ["@huggingface/transformers"],
   },
   build: {
-    outDir: "dist",
-    sourcemap: false,
+    target: "es2020",
   },
 });

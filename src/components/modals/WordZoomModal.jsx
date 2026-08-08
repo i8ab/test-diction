@@ -3,7 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD } from "../../lib/config/theme";
 import { cambridgeUrl, shareWordCard } from "../../lib/utils/wordCard";
 import { detectDir, detectFont } from "../../lib/utils/searchUtils";
-import { getSpeechRecognitionCtor, scorePronunciation, AR_DIALECTS, loadArDialect, saveArDialect, loadEnAccent, enAccentLang, startMicLevelMeter, startVoiceRecording } from "../../lib/utils/speech";
+import { getSpeechRecognitionCtor, scorePronunciation, AR_DIALECTS, loadArDialect, saveArDialect, loadEnAccent, enAccentLang, startVoiceRecording } from "../../lib/utils/speech";
 import { LoaderIcon, ShareIcon, SpeakButton, XIcon, MicIcon } from "../common/Icons";
 import { PairListDisplay } from "../common/PairList";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
@@ -22,23 +22,15 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
     setNoteDraft(wordNote || "");
   }, [wordNote, entry?.id]);
 
-  // Pronunciation practice: record one attempt via the browser's speech
-  // recognition and grade it against the target word (see
-  // scorePronunciation in lib/utils/speech.js). Hidden entirely when the
-  // browser has no SpeechRecognition support.
+  // Pronunciation practice via in-browser Whisper (see scorePronunciation).
+  // Hidden when the device has no mic / AudioContext support.
   const speechSupported = useMemo(() => !!getSpeechRecognitionCtor(), []);
-  // "preparing": button pressed, mic not armed yet (permission/hardware
-  // startup) — the user should NOT talk yet, since audio in this window is
-  // silently lost. "listening": the recognizer's own onstart fired, so it's
-  // actually capturing audio now. Splitting these two states (instead of a
-  // single "listening" flag flipped at click time) is what fixes attempts
-  // being missed because the person started talking a beat too early.
+  // preparing = model download / mic arming; listening = recording (~3s)
   const [micState, setMicState] = useState("idle"); // idle | preparing | listening
-  const [micLevel, setMicLevel] = useState(0); // 0..1, live mic volume while listening
-  const [pronResult, setPronResult] = useState(null); // { transcript, score, passed } | null
+  const [micLevel, setMicLevel] = useState(0);
+  const [pronResult, setPronResult] = useState(null);
   const [pronError, setPronError] = useState("");
   const [arDialect, setArDialect] = useState(loadArDialect);
-  // English accent comes from settings only (no per-word US/UK picker in zoom)
   const enAccent = loadEnAccent();
   const [recState, setRecState] = useState("idle"); // idle | recording | ready
   const [recUrl, setRecUrl] = useState(null);
@@ -64,7 +56,6 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
       recCtlRef.current = null;
       return;
     }
-    // start
     if (recUrl) {
       try { URL.revokeObjectURL(recUrl); } catch (_) {}
       setRecUrl(null);
@@ -80,27 +71,40 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
     }
   }
 
-
   async function handlePracticePronunciation() {
     if (micState !== "idle") return;
     setMicState("preparing");
     setPronError("");
     setPronResult(null);
-    // Start the level meter only after SpeechRecognition is actually listening.
-    // Opening getUserMedia first competes for the mic on some browsers and
-    // makes quiet speech much harder to catch.
-    let stopMeter = () => {};
+    setMicLevel(0);
     try {
       const lang = cfg.wordDir === "rtl" ? arDialect : enAccentLang(enAccent);
-      const result = await scorePronunciation(entry.word, lang, () => {
-        setMicState("listening");
-        stopMeter = startMicLevelMeter(setMicLevel);
-      });
-      setPronResult(result);
+      const result = await scorePronunciation(
+        entry.word,
+        lang,
+        () => setMicState("listening"),
+        undefined,
+        (lvl) => setMicLevel(lvl)
+      );
+      if (result && result.empty) {
+        setPronError(
+          tr(
+            isAr,
+            "Still couldn't hear you — speak a bit closer to the mic and try again.",
+            "لسه معرفتش أسمعك — قرّب من الميك شوية وجرّب تاني."
+          )
+        );
+      } else {
+        setPronResult(result);
+      }
     } catch (e) {
-      setPronError(tr(isAr, "Didn't catch that — try again.", "معرفتش أسمع صح — جرّب تاني."));
+      const msg = String((e && e.message) || e || "");
+      if (/not supported/i.test(msg)) {
+        setPronError(tr(isAr, "Speech recognition isn't available on this device.", "التعرف على الصوت مش متاح على الجهاز ده."));
+      } else {
+        setPronError(tr(isAr, "Didn't catch that — try again.", "معرفتش أسمع صح — جرّب تاني."));
+      }
     } finally {
-      try { stopMeter(); } catch (_) {}
       setMicLevel(0);
       setMicState("idle");
     }
@@ -175,9 +179,9 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
               style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", fontSize: 13, fontWeight: 700, color: "#fff", background: micState !== "idle" ? "var(--muted)" : cfg.accent, border: "none", borderRadius: 999, cursor: micState !== "idle" ? "default" : "pointer" }}>
               <MicIcon size={14} />
               {micState === "listening"
-                ? tr(isAr, "Listening — speak now…", "بسمع دلوقتي — اتكلم…")
+                ? tr(isAr, "Listening — say the word now…", "بسمع — قول الكلمة دلوقتي…")
                 : micState === "preparing"
-                ? tr(isAr, "One sec…", "لحظة واحدة…")
+                ? tr(isAr, "Loading model / mic…", "بحمّل الموديل والميك…")
                 : tr(isAr, "Practice pronunciation", "تمرين النطق")}
             </button>
             {micState === "listening" && (

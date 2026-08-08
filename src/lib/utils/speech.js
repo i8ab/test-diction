@@ -1,6 +1,7 @@
-// TTS + Web Speech Recognition helpers.
-// English pronunciation prefers Cambridge Dictionary audio (US / UK) via
+// TTS + Whisper (in-browser) speech recognition helpers.
+// English TTS prefers Cambridge Dictionary audio (US / UK) via
 // /api/cambridge-audio, with browser speechSynthesis as fallback.
+// STT uses @huggingface/transformers Whisper-tiny — no Web Speech API.
 
 const EN_ACCENT_KEY = "twoTongues.enAccent";
 
@@ -117,9 +118,16 @@ export function speakWord(text, dir, opts = {}) {
   })();
 }
 
+/**
+ * Feature detection: Whisper path needs getUserMedia + AudioContext.
+ * Kept name for compatibility with existing call sites that check
+ * `!!getSpeechRecognitionCtor()`.
+ */
 export function getSpeechRecognitionCtor() {
   if (typeof window === "undefined") return null;
-  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return null;
+  if (!(window.AudioContext || window.webkitAudioContext)) return null;
+  return true;
 }
 
 const DIALECT_KEY = "twoTongues.arDialect";
@@ -147,123 +155,282 @@ export function saveArDialect(code) {
   } catch (_) {}
 }
 
+// ---------------------------------------------------------------------------
+// Whisper (in-browser) STT — replaces Web Speech API
+// ---------------------------------------------------------------------------
+
+let _whisperPipe = null;
+let _whisperLoading = null;
+
+/** Map BCP-47 / dialect codes to Whisper language ids. */
+function whisperLangFrom(lang) {
+  const s = String(lang || "").toLowerCase();
+  if (s.startsWith("ar")) return "arabic";
+  if (s.startsWith("en")) return "english";
+  return "english";
+}
+
 /**
- * Capture one spoken phrase. Uses multiple alternatives and a longer capture
- * window so short words / letter-level differences are less likely to be lost.
+ * Lazy-load Xenova Whisper tiny (quantized). First call downloads ~40MB and
+ * caches it in the browser; later calls reuse the same pipeline.
  */
-export function recognizeSpeech(lang, { onStart, timeoutMs = 14000 } = {}) {
-  return new Promise((resolve, reject) => {
-    const Ctor = getSpeechRecognitionCtor();
-    if (!Ctor) {
-      reject(new Error("Speech recognition not supported"));
-      return;
-    }
-    const rec = new Ctor();
-    rec.lang = lang || "en-US";
-    // continuous + interim keeps the recognizer open longer so quiet or
-    // slightly delayed speech is less likely to be dropped on first try.
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.maxAlternatives = 8;
+export async function loadWhisperPipeline(onProgress) {
+  if (_whisperPipe) return _whisperPipe;
+  if (_whisperLoading) return _whisperLoading;
 
+  _whisperLoading = (async () => {
+    const mod = await import("@huggingface/transformers");
+    const { pipeline, env } = mod;
+    // Prefer remote weights from Hugging Face hub; cache in IndexedDB/Cache API.
+    try {
+      env.allowLocalModels = false;
+      env.useBrowserCache = true;
+    } catch (_) {}
+
+    const pipe = await pipeline(
+      "automatic-speech-recognition",
+      "Xenova/whisper-tiny",
+      {
+        quantized: true,
+        progress_callback: typeof onProgress === "function" ? onProgress : undefined,
+      }
+    );
+    _whisperPipe = pipe;
+    return pipe;
+  })();
+
+  try {
+    return await _whisperLoading;
+  } catch (err) {
+    _whisperLoading = null;
+    throw err;
+  }
+}
+
+/** Decode a recorded Blob to mono Float32Array @ 16 kHz for Whisper. */
+async function blobToFloat32_16k(blob) {
+  const arrayBuf = await blob.arrayBuffer();
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  const ctx = new Ctx();
+  let decoded;
+  try {
+    decoded = await ctx.decodeAudioData(arrayBuf.slice(0));
+  } finally {
+    try { await ctx.close(); } catch (_) {}
+  }
+
+  // Mix down to mono
+  const ch = decoded.numberOfChannels;
+  const len = decoded.length;
+  const mono = new Float32Array(len);
+  for (let c = 0; c < ch; c++) {
+    const data = decoded.getChannelData(c);
+    for (let i = 0; i < len; i++) mono[i] += data[i] / ch;
+  }
+
+  // Resample to 16 kHz if needed
+  const srcRate = decoded.sampleRate;
+  const targetRate = 16000;
+  if (srcRate === targetRate) return mono;
+
+  const newLen = Math.max(1, Math.round(len * (targetRate / srcRate)));
+  const out = new Float32Array(newLen);
+  const ratio = len / newLen;
+  for (let i = 0; i < newLen; i++) {
+    const x = i * ratio;
+    const i0 = Math.floor(x);
+    const i1 = Math.min(i0 + 1, len - 1);
+    const t = x - i0;
+    out[i] = mono[i0] * (1 - t) + mono[i1] * t;
+  }
+  return out;
+}
+
+/**
+ * Record mic audio for durationMs (or until silence after speech).
+ * Calls onStart when capture begins. Returns a Blob (webm/ogg/mp4).
+ */
+function recordMicBlob({ durationMs = 3200, onStart, onLevel } = {}) {
+  return new Promise(async (resolve, reject) => {
+    let stream = null;
+    let mediaRecorder = null;
+    let ctx = null;
+    let raf = null;
+    const chunks = [];
     let settled = false;
-    let best = "";
-    let bestConf = -1;
-    let silenceTimer = null;
-    let hardTimer = null;
-    let heardAnything = false;
 
-    function finish(text) {
+    function cleanup() {
+      try { if (raf) cancelAnimationFrame(raf); } catch (_) {}
+      try {
+        if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+      } catch (_) {}
+      try {
+        if (stream) stream.getTracks().forEach((t) => t.stop());
+      } catch (_) {}
+      try { if (ctx) ctx.close(); } catch (_) {}
+    }
+
+    function done(blob) {
       if (settled) return;
       settled = true;
-      try { clearTimeout(silenceTimer); } catch (_) {}
-      try { clearTimeout(hardTimer); } catch (_) {}
-      try { rec.stop(); } catch (_) {}
-      resolve(String(text || best || "").trim());
+      cleanup();
+      resolve(blob);
     }
 
     function fail(err) {
       if (settled) return;
       settled = true;
-      try { clearTimeout(silenceTimer); } catch (_) {}
-      try { clearTimeout(hardTimer); } catch (_) {}
-      try { rec.stop(); } catch (_) {}
+      cleanup();
       reject(err);
     }
 
-    rec.onstart = () => {
-      if (onStart) onStart();
-      hardTimer = setTimeout(() => finish(best), timeoutMs);
-    };
-
-    rec.onspeechstart = () => {
-      heardAnything = true;
-      try { clearTimeout(silenceTimer); } catch (_) {}
-    };
-
-    rec.onspeechend = () => {
-      // Longer grace so trailing syllables / quiet endings aren't cut off
-      try { clearTimeout(silenceTimer); } catch (_) {}
-      silenceTimer = setTimeout(() => finish(best), 900);
-    };
-
-    rec.onresult = (e) => {
-      try {
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          const result = e.results[i];
-          if (!result) continue;
-          for (let j = 0; j < result.length; j++) {
-            const alt = result[j];
-            const t = (alt && alt.transcript) || "";
-            const c = typeof alt.confidence === "number" ? alt.confidence : 0.45;
-            // Prefer any non-empty transcript; accept lower confidence so
-            // quiet speech still surfaces instead of being discarded.
-            if (t && (c >= bestConf || !best)) {
-              bestConf = c;
-              best = t;
-              heardAnything = true;
-            }
-          }
-          if (result.isFinal && best) {
-            // Short settle delay after final so late alternatives can arrive
-            try { clearTimeout(silenceTimer); } catch (_) {}
-            silenceTimer = setTimeout(() => finish(best), 350);
-            return;
-          }
-        }
-        // Reset silence grace whenever we get interim audio
-        try { clearTimeout(silenceTimer); } catch (_) {}
-        silenceTimer = setTimeout(() => finish(best), 1100);
-      } catch (_) {
-        /* keep listening */
-      }
-    };
-
-    rec.onerror = (e) => {
-      const code = (e && e.error) || "error";
-      // no-speech / aborted still return whatever we caught
-      if (code === "no-speech" || code === "aborted") {
-        finish(best);
-        return;
-      }
-      // network / audio-capture: still return partial if we heard something
-      if (heardAnything && best) {
-        finish(best);
-        return;
-      }
-      fail(code);
-    };
-
-    rec.onend = () => {
-      finish(best);
-    };
-
     try {
-      rec.start();
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: true,
+          channelCount: 1,
+        },
+      });
+
+      // Optional live level meter from the same stream
+      if (onLevel) {
+        try {
+          ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const src = ctx.createMediaStreamSource(stream);
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 256;
+          src.connect(analyser);
+          const data = new Uint8Array(analyser.frequencyBinCount);
+          const tick = () => {
+            if (settled) return;
+            analyser.getByteFrequencyData(data);
+            let sum = 0;
+            for (let i = 0; i < data.length; i++) sum += data[i];
+            onLevel(Math.min(1, sum / (data.length * 128)));
+            raf = requestAnimationFrame(tick);
+          };
+          tick();
+        } catch (_) {}
+      }
+
+      const mime =
+        (typeof MediaRecorder !== "undefined" &&
+          ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"].find(
+            (t) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)
+          )) ||
+        "";
+
+      mediaRecorder = mime
+        ? new MediaRecorder(stream, { mimeType: mime })
+        : new MediaRecorder(stream);
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+      mediaRecorder.onerror = (e) => fail((e && e.error) || new Error("record failed"));
+      mediaRecorder.onstop = () => {
+        const type = (mediaRecorder && mediaRecorder.mimeType) || mime || "audio/webm";
+        done(new Blob(chunks, { type }));
+      };
+
+      mediaRecorder.start(200);
+      if (onStart) onStart();
+
+      setTimeout(() => {
+        try {
+          if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+        } catch (_) {
+          fail(new Error("stop failed"));
+        }
+      }, Math.max(1200, durationMs));
     } catch (err) {
       fail(err);
     }
   });
+}
+
+/**
+ * Capture speech with Whisper.
+ * @param {string} lang  BCP-47 or dialect code (e.g. en-US, ar-EG)
+ * @param {{ onStart?: Function, onLevel?: Function, onProgress?: Function, durationMs?: number }} [opts]
+ * @returns {Promise<string>} transcript
+ */
+export async function recognizeSpeech(lang, { onStart, onLevel, onProgress, durationMs = 3200 } = {}) {
+  if (!getSpeechRecognitionCtor()) {
+    throw new Error("Speech recognition not supported");
+  }
+
+  // Load model (may download on first use)
+  const pipe = await loadWhisperPipeline(onProgress);
+
+  const blob = await recordMicBlob({
+    durationMs,
+    onStart,
+    onLevel,
+  });
+
+  if (!blob || blob.size < 100) return "";
+
+  const audio = await blobToFloat32_16k(blob);
+  // Amplify quiet speech a bit before inference
+  let peak = 0;
+  for (let i = 0; i < audio.length; i++) {
+    const a = Math.abs(audio[i]);
+    if (a > peak) peak = a;
+  }
+  if (peak > 0 && peak < 0.25) {
+    const gain = Math.min(4, 0.35 / peak);
+    for (let i = 0; i < audio.length; i++) {
+      audio[i] = Math.max(-1, Math.min(1, audio[i] * gain));
+    }
+  }
+
+  const language = whisperLangFrom(lang);
+  const result = await pipe(audio, {
+    language,
+    task: "transcribe",
+    // Short clips: no chunking needed
+    return_timestamps: false,
+  });
+
+  const text = typeof result === "string"
+    ? result
+    : (result && (result.text || result.output || "")) || "";
+  return String(text || "").trim();
+}
+
+/**
+ * Score spoken pronunciation against expected word via Whisper.
+ * Returns { score, heard, transcript, passed, empty }.
+ */
+export async function scorePronunciation(expected, lang, onListening, onProgress, onLevel) {
+  const target = String(expected || "").trim();
+  const heard = await recognizeSpeech(lang || "en-US", {
+    onStart: onListening,
+    onProgress,
+    onLevel,
+    durationMs: 3000,
+  });
+  if (!heard) {
+    return {
+      score: 0,
+      heard: "",
+      transcript: "",
+      passed: false,
+      empty: true,
+    };
+  }
+  const score = similarityScore(target, heard);
+  const passed = score >= 60;
+  return {
+    score,
+    heard,
+    transcript: heard,
+    passed,
+    empty: false,
+  };
 }
 
 function normalizeSpoken(s) {
@@ -366,26 +533,6 @@ function similarityScore(expected, heard) {
   return Math.max(0, Math.min(100, score));
 }
 
-/**
- * Score spoken pronunciation against expected word.
- * Returns { score, heard, transcript, passed } for UI compatibility.
- */
-export async function scorePronunciation(expected, lang, onListening) {
-  const heard = await recognizeSpeech(lang || "en-US", {
-    onStart: onListening,
-    timeoutMs: 14000,
-  });
-  const score = similarityScore(expected, heard);
-  // Slightly more forgiving pass threshold for quieter / accented speech
-  const passed = score >= 65;
-  return {
-    score,
-    heard,
-    transcript: heard,
-    passed,
-  };
-}
-
 /** Mic level meter via getUserMedia + AnalyserNode. Returns stop function. */
 export function startMicLevelMeter(onLevel) {
   let stopped = false;
@@ -398,7 +545,6 @@ export function startMicLevelMeter(onLevel) {
       stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           // Prefer pickup of quiet speech for the level meter visualization.
-          // (SpeechRecognition uses its own mic path; this only drives the UI bars.)
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: true,

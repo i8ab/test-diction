@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { tr } from "../lib/config/i18n";
 import { useHistoryBackClose, haptic } from "../lib/utils/useModalDismiss";
 import { INK, PAPER, CARD, BRASS, errorStyle } from "../lib/config/theme";
-import { getSpeechRecognitionCtor, recognizeSpeech, loadArDialect, loadEnAccent, enAccentLang, startMicLevelMeter } from "../lib/utils/speech";
+import { getSpeechRecognitionCtor, recognizeSpeech, loadArDialect, loadEnAccent, enAccentLang } from "../lib/utils/speech";
 import { uid, isSrsDue, computeStreak } from "../lib/utils/quizHelpers";
 import {
   SearchIcon, PlusIcon, XIcon, LoaderIcon, CheckIcon, WifiOffIcon,
@@ -174,16 +174,23 @@ export default function MainView({
   const handleVoiceSearch = useCallback(async () => {
     if (!speechSupported || voiceListening) return;
     setVoiceMicState("preparing");
-    const stopMeter = startMicLevelMeter(setVoiceMicLevel);
+    setVoiceMicLevel(0);
     try {
       const lang = isAr ? loadArDialect() : enAccentLang(loadEnAccent());
-      const text = await recognizeSpeech(lang, { onStart: () => setVoiceMicState("listening") });
-      setQuery(text);
-      setShowSuggestions(true);
+      const text = await recognizeSpeech(lang, {
+        onStart: () => setVoiceMicState("listening"),
+        onLevel: (lvl) => setVoiceMicLevel(lvl),
+        durationMs: 3200,
+      });
+      if (text) {
+        setQuery(text);
+        setShowSuggestions(true);
+      } else {
+        showToast(tr(isAr, "Didn't catch that — try again.", "معرفتش أسمع صح — جرّب تاني."));
+      }
     } catch (e) {
       showToast(tr(isAr, "Didn't catch that — try again.", "معرفتش أسمع صح — جرّب تاني."));
     } finally {
-      stopMeter();
       setVoiceMicLevel(0);
       setVoiceMicState("idle");
     }

@@ -1759,7 +1759,7 @@ export default function HeaderMenu({
               <button type="button" onClick={() => setAccentModalOpen(false)} aria-label={T("Close", "إغلاق")} style={{ border: "none", background: "var(--input-bg)", borderRadius: 10, width: 36, height: 36, cursor: "pointer", color: "var(--icon-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}><XIcon size={18} /></button>
             </div>
             <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.45 }}>
-              {T("Default Cambridge Dictionary accent for speaker buttons. In zoom view you can still pick US or UK per word.", "اللهجة الافتراضية من كامبريدج لأزرار السماعة. في العرض الكبير تقدر تختار أمريكي أو بريطاني لكل كلمة.")}
+              {T("Default Cambridge Dictionary accent for all speaker buttons (including zoom view).", "اللهجة الافتراضية من كامبريدج لكل أزرار السماعة (بما فيها العرض الكبير).")}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {EN_ACCENTS.map((a) => {

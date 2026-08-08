@@ -4,7 +4,13 @@ import { tr } from "../../lib/config/i18n";
 import { XIcon, ClockIcon } from "../common/Icons";
 import NumberStepper from "../common/NumberStepper";
 import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
-import { addTimerMinutes } from "../../lib/state/goals";
+import {
+  logTimerSession,
+  getRecentTimerSessions,
+  getLast24hTimerMinutes,
+  getTodayTimerMinutes,
+  pickPomoHealthTip,
+} from "../../lib/state/goals";
 
 const TIMER_PREFS_KEY = "twoTongues.timerPrefs";
 const TIMER_STATE_KEY = "twoTongues.timerState";
@@ -44,12 +50,24 @@ const DEFAULT_PREFS = {
   textColor: "#ffffff",
   bgId: "ink",
   customBg: null, // data URL from user upload
-  mode: "countdown", // countdown | stopwatch
+  mode: "countdown", // countdown | stopwatch | pomodoro
   alarmId: "chime",
   ambientId: "off",
   alarmVolume: 0.7,
   ambientVolume: 0.25,
+  // Pomodoro
+  pomoWorkMin: 25,
+  pomoBreakMin: 5,
+  pomoCycles: 4,
 };
+
+const POMO_PRESETS = [
+  { id: "classic", en: "Classic 25 / 5", ar: "كلاسيك 25 / 5", work: 25, brk: 5 },
+  { id: "short", en: "Short 15 / 5", ar: "قصير 15 / 5", work: 15, brk: 5 },
+  { id: "deep", en: "Deep 50 / 10", ar: "عميق 50 / 10", work: 50, brk: 10 },
+  { id: "hour", en: "Hour 60 / 10", ar: "ساعة 60 / 10", work: 60, brk: 10 },
+  { id: "sprint", en: "Sprint 10 / 3", ar: "سبرنت 10 / 3", work: 10, brk: 3 },
+];
 
 const ALARM_SOUNDS = [
   { id: "chime", en: "Chime", ar: "جرس ناعم" },
@@ -347,6 +365,22 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
   const [elapsedMs, setElapsedMs] = useState(0);
   const [showSettings, setShowSettings] = useState(true);
   const [doneFlash, setDoneFlash] = useState(false);
+  // Pomodoro: phase work | break | idle-between (waiting for user to confirm next section)
+  const [pomoPhase, setPomoPhase] = useState("work"); // work | break
+  const [pomoCycle, setPomoCycle] = useState(1); // 1-based
+  const [pomoAwaiting, setPomoAwaiting] = useState(null); // null | "break" | "work" | "done"
+  const [pomoTip, setPomoTip] = useState(() => pickPomoHealthTip("work"));
+  const [sessionLog, setSessionLog] = useState(() => getRecentTimerSessions());
+  const [todayTotalMin, setTodayTotalMin] = useState(() => getTodayTimerMinutes());
+  const [last24hMin, setLast24hMin] = useState(() => getLast24hTimerMinutes());
+  const pomoPhaseRef = useRef("work");
+  const pomoCycleRef = useRef(1);
+
+  function refreshTimerLog() {
+    setSessionLog(getRecentTimerSessions());
+    setTodayTotalMin(getTodayTimerMinutes());
+    setLast24hMin(getLast24hTimerMinutes());
+  }
   const [pipOpen, setPipOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   // "full" = full-page timer UI; "bubble" = in-app floating mini timer
@@ -383,6 +417,7 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
   }, [prefs.customBg, prefs.bgId]);
 
   const displayText = prefs.mode === "stopwatch" ? formatMs(elapsedMs) : formatMs(remainingMs);
+  const isPomo = prefs.mode === "pomodoro";
 
   // Persist prefs
   useEffect(() => {
@@ -450,7 +485,7 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
     }
 
     const tick = () => {
-      if (prefs.mode === "countdown") {
+      if (prefs.mode === "countdown" || prefs.mode === "pomodoro") {
         const left = Math.max(0, (endAtRef.current || 0) - Date.now());
         setRemainingMs(left);
         if (left <= 0) {
@@ -461,13 +496,49 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
           try { ambientRef.current && ambientRef.current.stop(); } catch {}
           ambientRef.current = null;
           try {
+            const phase = pomoPhaseRef.current;
+            const cycle = pomoCycleRef.current;
             const ms = sessionDurationRef.current || 0;
-            if (ms > 0) addTimerMinutes(Math.max(1, Math.round(ms / 60000)));
+            const mins = ms > 0 ? Math.max(1, Math.round(ms / 60000)) : 0;
+            if (mins > 0) {
+              logTimerSession({
+                minutes: mins,
+                mode: prefs.mode === "pomodoro" ? "pomodoro" : "countdown",
+                phase: prefs.mode === "pomodoro" ? phase : null,
+                cycle: prefs.mode === "pomodoro" ? cycle : null,
+              });
+              refreshTimerLog();
+            }
             sessionDurationRef.current = 0;
           } catch (_) {}
           endAtRef.current = null;
           setTimeout(() => setDoneFlash(false), 2500);
           broadcastState({ running: false, remainingMs: 0, display: "00:00" });
+
+          // Pomodoro: never auto-start next section — wait for user confirm
+          if (prefs.mode === "pomodoro") {
+            const phase = pomoPhaseRef.current;
+            const cycle = pomoCycleRef.current;
+            const totalCycles = Math.max(1, prefsRef.current.pomoCycles || 4);
+            if (phase === "work") {
+              if (cycle >= totalCycles) {
+                setPomoAwaiting("done");
+              } else {
+                setPomoTip(pickPomoHealthTip("break"));
+                setPomoAwaiting("break");
+              }
+            } else {
+              const next = cycle + 1;
+              if (next > totalCycles) {
+                setPomoAwaiting("done");
+              } else {
+                pomoCycleRef.current = next;
+                setPomoCycle(next);
+                setPomoTip(pickPomoHealthTip("work"));
+                setPomoAwaiting("work");
+              }
+            }
+          }
           return;
         }
       } else {
@@ -585,15 +656,30 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
 
   const sessionDurationRef = useRef(0); // ms credited when countdown completes
 
+  function pomoWorkMs() {
+    return Math.max(1, Number(prefs.pomoWorkMin) || 25) * 60 * 1000;
+  }
+  function pomoBreakMs() {
+    return Math.max(1, Number(prefs.pomoBreakMin) || 5) * 60 * 1000;
+  }
+
   function start() {
     setErrorMsg("");
     setDoneFlash(false);
+    setPomoAwaiting(null);
     if (prefs.mode === "countdown") {
       const total = remainingMs > 0 ? remainingMs : parseHms(hours, mins, secs);
       if (total <= 0) {
         setErrorMsg(tr(isAr, "Set a duration first.", "حدد مدة أولاً."));
         return;
       }
+      setRemainingMs(total);
+      endAtRef.current = Date.now() + total;
+      sessionDurationRef.current = total;
+    } else if (prefs.mode === "pomodoro") {
+      const phase = pomoPhaseRef.current || "work";
+      setPomoTip(pickPomoHealthTip(phase === "break" ? "break" : "work"));
+      const total = phase === "break" ? pomoBreakMs() : pomoWorkMs();
       setRemainingMs(total);
       endAtRef.current = Date.now() + total;
       sessionDurationRef.current = total;
@@ -607,8 +693,53 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
     startAmbient();
   }
 
+  /** After a section ends, user confirms starting the next one */
+  function confirmPomoNext() {
+    if (!pomoAwaiting) return;
+    if (pomoAwaiting === "done") {
+      setPomoAwaiting(null);
+      pomoPhaseRef.current = "work";
+      setPomoPhase("work");
+      pomoCycleRef.current = 1;
+      setPomoCycle(1);
+      setRemainingMs(pomoWorkMs());
+      setShowSettings(true);
+      return;
+    }
+    if (pomoAwaiting === "break") {
+      pomoPhaseRef.current = "break";
+      setPomoPhase("break");
+      setPomoTip(pickPomoHealthTip("break"));
+      setPomoAwaiting(null);
+      const total = pomoBreakMs();
+      setRemainingMs(total);
+      endAtRef.current = Date.now() + total;
+      // Logged as break session; goals only count work minutes
+      sessionDurationRef.current = total;
+      runningRef.current = true;
+      setRunning(true);
+      setShowSettings(false);
+      startAmbient();
+      return;
+    }
+    if (pomoAwaiting === "work") {
+      pomoPhaseRef.current = "work";
+      setPomoPhase("work");
+      setPomoTip(pickPomoHealthTip("work"));
+      setPomoAwaiting(null);
+      const total = pomoWorkMs();
+      setRemainingMs(total);
+      endAtRef.current = Date.now() + total;
+      sessionDurationRef.current = total;
+      runningRef.current = true;
+      setRunning(true);
+      setShowSettings(false);
+      startAmbient();
+    }
+  }
+
   function pause() {
-    if (prefs.mode === "countdown") {
+    if (prefs.mode === "countdown" || prefs.mode === "pomodoro") {
       const left = Math.max(0, (endAtRef.current || Date.now()) - Date.now());
       setRemainingMs(left);
       endAtRef.current = null;
@@ -629,7 +760,16 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
     accumulatedRef.current = 0;
     setElapsedMs(0);
     const total = parseHms(hours, mins, secs);
-    setRemainingMs(prefs.mode === "countdown" ? (total || 25 * 60 * 1000) : 0);
+    if (prefs.mode === "pomodoro") {
+      pomoPhaseRef.current = "work";
+      setPomoPhase("work");
+      pomoCycleRef.current = 1;
+      setPomoCycle(1);
+      setPomoAwaiting(null);
+      setRemainingMs(pomoWorkMs());
+    } else {
+      setRemainingMs(prefs.mode === "countdown" ? (total || 25 * 60 * 1000) : 0);
+    }
     setDoneFlash(false);
     clearLiveState();
     setShowSettings(true);
@@ -1103,6 +1243,35 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
           minHeight: 0,
         }}
       >
+        {isPomo && (
+          <div style={{ fontSize: 14, fontWeight: 700, opacity: 0.85, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+            {pomoPhase === "break"
+              ? tr(isAr, "Break", "راحة")
+              : tr(isAr, "Study", "مذاكرة")}
+            {" · "}
+            {tr(isAr, `Cycle ${pomoCycle} / ${prefs.pomoCycles || 4}`, `دورة ${pomoCycle} / ${prefs.pomoCycles || 4}`)}
+          </div>
+        )}
+
+        {/* Health tip for Pomodoro */}
+        {isPomo && pomoTip && (
+          <div
+            style={{
+              maxWidth: 380,
+              fontSize: 13,
+              lineHeight: 1.5,
+              opacity: 0.88,
+              textAlign: "center",
+              padding: "8px 12px",
+              borderRadius: 12,
+              background: "rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.12)",
+            }}
+          >
+            {tr(isAr, pomoTip.en, pomoTip.ar)}
+          </div>
+        )}
+
         <div
           style={{
             fontFamily: fontCss,
@@ -1119,21 +1288,99 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
           {displayText}
         </div>
 
-        {doneFlash && (
+        {doneFlash && !pomoAwaiting && (
           <div style={{ fontSize: 18, fontWeight: 700, opacity: 0.95 }}>
             {tr(isAr, "Time's up!", "انتهى الوقت!")}
           </div>
         )}
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
-          {!running ? (
-            <button type="button" onClick={start} style={btnPrimary}>
-              {tr(isAr, "Start", "ابدأ")}
+        {pomoAwaiting && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, maxWidth: 360, textAlign: "center" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, opacity: 0.95 }}>
+              {pomoAwaiting === "break"
+                ? tr(isAr, "Study section done — start break when ready.", "خلصت المذاكرة — ابدأ الراحة لما تكون جاهز.")
+                : pomoAwaiting === "work"
+                ? tr(isAr, "Break over — start the next study cycle when ready.", "الراحة خلصت — ابدأ دورة المذاكرة الجاية لما تكون جاهز.")
+                : tr(isAr, "All cycles complete. Great work!", "كل الدورات خلصت. شغل ممتاز!")}
+            </div>
+            {pomoTip && pomoAwaiting !== "done" && (
+              <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.45 }}>
+                {tr(isAr, pomoTip.en, pomoTip.ar)}
+              </div>
+            )}
+            <button type="button" onClick={confirmPomoNext} style={btnPrimary}>
+              {pomoAwaiting === "break"
+                ? tr(isAr, "Start break", "ابدأ الراحة")
+                : pomoAwaiting === "work"
+                ? tr(isAr, "Start next study", "ابدأ المذاكرة الجاية")
+                : tr(isAr, "Done", "تم")}
             </button>
+          </div>
+        )}
+
+        {/* Today total + 24h session history */}
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 420,
+            marginTop: 4,
+            padding: "12px 14px",
+            borderRadius: 14,
+            background: "rgba(0,0,0,0.22)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            textAlign: "start",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>
+              {tr(isAr, "Today", "اليوم")}: {todayTotalMin} {tr(isAr, "min study", "د مذاكرة")}
+            </span>
+            <span style={{ fontSize: 12, opacity: 0.75 }}>
+              {tr(isAr, "Last 24h log", "سجل ٢٤ ساعة")}: {last24hMin} {tr(isAr, "min", "د")}
+            </span>
+          </div>
+          <div style={{ fontSize: 11, opacity: 0.65, marginBottom: 8 }}>
+            {tr(isAr, "Session history auto-clears after 24 hours.", "سجل الجلسات بيتمسح تلقائي بعد ٢٤ ساعة.")}
+          </div>
+          {sessionLog.length === 0 ? (
+            <div style={{ fontSize: 12, opacity: 0.7 }}>
+              {tr(isAr, "No sessions in the last 24 hours yet.", "مفيش جلسات في آخر ٢٤ ساعة لسه.")}
+            </div>
           ) : (
-            <button type="button" onClick={pause} style={btnPrimary}>
-              {tr(isAr, "Pause", "إيقاف مؤقت")}
-            </button>
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 6, maxHeight: 140, overflowY: "auto" }}>
+              {sessionLog.slice(0, 12).map((s) => {
+                const time = new Date(s.at).toLocaleTimeString(isAr ? "ar-EG" : "en-US", { hour: "2-digit", minute: "2-digit" });
+                const kind =
+                  s.mode === "pomodoro"
+                    ? s.phase === "break"
+                      ? tr(isAr, "Pomodoro break", "راحة بومودورو")
+                      : tr(isAr, "Pomodoro study", "مذاكرة بومودورو")
+                    : tr(isAr, "Timer", "تايمر");
+                return (
+                  <li key={s.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12, opacity: 0.9 }}>
+                    <span>
+                      {time} · {kind}
+                      {s.mode === "pomodoro" && s.cycle ? ` #${s.cycle}` : ""}
+                    </span>
+                    <span style={{ fontWeight: 700 }}>{s.minutes} {tr(isAr, "min", "د")}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+          {!pomoAwaiting && (
+            !running ? (
+              <button type="button" onClick={start} style={btnPrimary}>
+                {tr(isAr, "Start", "ابدأ")}
+              </button>
+            ) : (
+              <button type="button" onClick={pause} style={btnPrimary}>
+                {tr(isAr, "Pause", "إيقاف مؤقت")}
+              </button>
+            )
           )}
           <button type="button" onClick={reset} style={btnGhost}>
             {tr(isAr, "Reset", "إعادة تعيين")}
@@ -1190,10 +1437,11 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
             {/* Mode */}
             <section>
               <Label muted={muted}>{tr(isAr, "Mode", "الوضع")}</Label>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {[
                   { id: "countdown", en: "Countdown", ar: "عدّ تنازلي" },
                   { id: "stopwatch", en: "Stopwatch", ar: "ساعة توقيت" },
+                  { id: "pomodoro", en: "Pomodoro", ar: "بومودورو" },
                 ].map((m) => (
                   <button
                     key={m.id}
@@ -1205,9 +1453,17 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
                       startedAtRef.current = null;
                       accumulatedRef.current = 0;
                       setElapsedMs(0);
+                      setPomoAwaiting(null);
                       if (m.id === "countdown") {
                         const total = parseHms(hours, mins, secs) || 25 * 60 * 1000;
                         setRemainingMs(total);
+                      } else if (m.id === "pomodoro") {
+                        pomoPhaseRef.current = "work";
+                        setPomoPhase("work");
+                        pomoCycleRef.current = 1;
+                        setPomoCycle(1);
+                        const w = Math.max(1, Number(prefs.pomoWorkMin) || 25) * 60 * 1000;
+                        setRemainingMs(w);
                       } else {
                         setRemainingMs(0);
                       }
@@ -1224,6 +1480,85 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
                 ))}
               </div>
             </section>
+
+            {/* Pomodoro setup */}
+            {prefs.mode === "pomodoro" && (
+              <section>
+                <Label muted={muted}>{tr(isAr, "Pomodoro technique", "تقنية البومودورو")}</Label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                  {POMO_PRESETS.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        updatePref({ pomoWorkMin: p.work, pomoBreakMin: p.brk });
+                        if (!running) {
+                          pomoPhaseRef.current = "work";
+                          setPomoPhase("work");
+                          setRemainingMs(p.work * 60 * 1000);
+                        }
+                      }}
+                      style={{
+                        ...btnGhost,
+                        padding: "6px 12px",
+                        fontSize: 12,
+                        outline:
+                          prefs.pomoWorkMin === p.work && prefs.pomoBreakMin === p.brk
+                            ? `2px solid ${prefs.textColor}`
+                            : "none",
+                      }}
+                    >
+                      {tr(isAr, p.en, p.ar)}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-end" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "center" }}>
+                    <NumberStepper
+                      min={1}
+                      max={180}
+                      value={prefs.pomoWorkMin || 25}
+                      width={100}
+                      onChange={(v) => {
+                        updatePref({ pomoWorkMin: v });
+                        if (!running && pomoPhase === "work") setRemainingMs(v * 60 * 1000);
+                      }}
+                      aria-label={tr(isAr, "Study minutes", "دقائق المذاكرة")}
+                    />
+                    <span style={{ fontSize: 11, opacity: 0.75 }}>{tr(isAr, "Study (min)", "مذاكرة (د)")}</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "center" }}>
+                    <NumberStepper
+                      min={1}
+                      max={60}
+                      value={prefs.pomoBreakMin || 5}
+                      width={100}
+                      onChange={(v) => updatePref({ pomoBreakMin: v })}
+                      aria-label={tr(isAr, "Break minutes", "دقائق الراحة")}
+                    />
+                    <span style={{ fontSize: 11, opacity: 0.75 }}>{tr(isAr, "Break (min)", "راحة (د)")}</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "center" }}>
+                    <NumberStepper
+                      min={1}
+                      max={12}
+                      value={prefs.pomoCycles || 4}
+                      width={100}
+                      onChange={(v) => updatePref({ pomoCycles: v })}
+                      aria-label={tr(isAr, "Cycles", "عدد الدورات")}
+                    />
+                    <span style={{ fontSize: 11, opacity: 0.75 }}>{tr(isAr, "Cycles", "دورات")}</span>
+                  </div>
+                </div>
+                <p style={{ fontSize: 12, opacity: 0.7, margin: "10px 0 0", lineHeight: 1.5 }}>
+                  {tr(
+                    isAr,
+                    "Break and next cycle start only when you confirm — never auto.",
+                    "الراحة والدورة التالية بتبدأ لما توافق أنت — مش تلقائي."
+                  )}
+                </p>
+              </section>
+            )}
 
             {/* Duration — free, no hard cap beyond practical UI limits */}
             {prefs.mode === "countdown" && (

@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { dateKey, computeStreak } from "../../lib/utils/quizHelpers";
-import { XIcon, CalendarIcon, FlameIcon, ChevronIcon } from "../common/Icons";
+import { loadTimerDayStats, getTodayTimerMinutes } from "../../lib/state/goals";
+import { XIcon, CalendarIcon, FlameIcon, ChevronIcon, ClockIcon } from "../common/Icons";
 import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 const WEEKDAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -70,11 +71,26 @@ export default function CalendarPage({
   });
   const [selectedDay, setSelectedDay] = useState(null); // dateKey string
   const [bubblePos, setBubblePos] = useState({ x: null, y: null });
+  const [timerDayStats, setTimerDayStats] = useState(() => loadTimerDayStats());
   const dragRef = useRef(null);
 
   useEffect(() => {
     onBubbleChange?.(viewMode === "bubble");
   }, [viewMode, onBubbleChange]);
+
+  // Refresh timer aggregates when calendar opens / becomes visible
+  useEffect(() => {
+    setTimerDayStats(loadTimerDayStats());
+    function onVis() {
+      if (document.visibilityState === "visible") setTimerDayStats(loadTimerDayStats());
+    }
+    document.addEventListener("visibilitychange", onVis);
+    const id = setInterval(() => setTimerDayStats(loadTimerDayStats()), 15000);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      clearInterval(id);
+    };
+  }, []);
 
   useBodyScrollLock(viewMode === "full");
 
@@ -280,6 +296,10 @@ export default function CalendarPage({
 
         <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>
           {tr(isAr, "Today", "اليوم")}: {todayCount} {tr(isAr, "word(s)", "كلمة")}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
+          <ClockIcon size={12} />
+          {getTodayTimerMinutes()} {tr(isAr, "min focus", "د تركيز")}
         </div>
 
         {/* mini 7-day strip */}
@@ -554,6 +574,56 @@ export default function CalendarPage({
                 {selectedInfo?.count || 0} {tr(isAr, "word(s)", "كلمة")}
               </span>
             </div>
+
+            {/* Timer / Pomodoro summary for this day */}
+            {(() => {
+              const t = timerDayStats[selectedDay];
+              if (!t || !t.minutes) {
+                return (
+                  <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(var(--border-rgb),0.06)", fontSize: 13, color: "var(--muted)" }}>
+                    {tr(isAr, "No timer sessions logged this day.", "مفيش جلسات تايمر مسجّلة اليوم ده.")}
+                  </div>
+                );
+              }
+              return (
+                <div style={{ marginBottom: 12, padding: "12px 12px", borderRadius: 10, background: "var(--accent-1-soft)", border: "1px solid color-mix(in srgb, var(--accent-1) 25%, transparent)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, fontWeight: 700, fontSize: 13, color: INK }}>
+                    <ClockIcon size={14} />
+                    {tr(isAr, "Focus time", "وقت التركيز")}
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--muted-strong)", lineHeight: 1.55 }}>
+                    <div>
+                      <strong style={{ color: INK }}>{t.minutes}</strong> {tr(isAr, "min total", "د إجمالي")}
+                      {" · "}
+                      {t.sessions} {tr(isAr, "session(s)", "جلسة")}
+                    </div>
+                    {(t.countdownMinutes > 0 || t.pomodoroMinutes > 0) && (
+                      <div style={{ marginTop: 4 }}>
+                        {t.countdownMinutes > 0 && (
+                          <span>
+                            {tr(isAr, "Regular timer", "تايمر عادي")}: {t.countdownMinutes} {tr(isAr, "min", "د")}
+                          </span>
+                        )}
+                        {t.countdownMinutes > 0 && t.pomodoroMinutes > 0 ? " · " : null}
+                        {t.pomodoroMinutes > 0 && (
+                          <span>
+                            {tr(isAr, "Pomodoro", "بومودورو")}: {t.pomodoroMinutes} {tr(isAr, "min", "د")}
+                            {t.pomodoroWorkSessions
+                              ? ` (${t.pomodoroWorkSessions} ${tr(isAr, "study", "مذاكرة")}`
+                              : ""}
+                            {t.pomodoroBreakSessions
+                              ? ` / ${t.pomodoroBreakSessions} ${tr(isAr, "break", "راحة")})`
+                              : t.pomodoroWorkSessions
+                              ? ")"
+                              : ""}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {selectedEntries.length === 0 ? (
               <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>

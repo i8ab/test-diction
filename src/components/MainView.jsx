@@ -658,7 +658,7 @@ export default function MainView({
         <div className="app-container" style={{ margin: "0 auto", padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px) 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <BrandMark size="md" isAr={appIsAr} editable />
+              <BrandMark size="sm" isAr={appIsAr} editable />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <button

@@ -3,7 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD } from "../../lib/config/theme";
 import { cambridgeUrl, shareWordCard } from "../../lib/utils/wordCard";
 import { detectDir, detectFont } from "../../lib/utils/searchUtils";
-import { getSpeechRecognitionCtor, scorePronunciation, AR_DIALECTS, loadArDialect, saveArDialect, EN_ACCENTS, loadEnAccent, saveEnAccent, enAccentLang, startMicLevelMeter, startVoiceRecording } from "../../lib/utils/speech";
+import { getSpeechRecognitionCtor, scorePronunciation, AR_DIALECTS, loadArDialect, saveArDialect, loadEnAccent, enAccentLang, startMicLevelMeter, startVoiceRecording } from "../../lib/utils/speech";
 import { LoaderIcon, ShareIcon, SpeakButton, XIcon, MicIcon } from "../common/Icons";
 import { PairListDisplay } from "../common/PairList";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
@@ -38,7 +38,8 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
   const [pronResult, setPronResult] = useState(null); // { transcript, score, passed } | null
   const [pronError, setPronError] = useState("");
   const [arDialect, setArDialect] = useState(loadArDialect);
-  const [enAccent, setEnAccent] = useState(loadEnAccent);
+  // English accent comes from settings only (no per-word US/UK picker in zoom)
+  const enAccent = loadEnAccent();
   const [recState, setRecState] = useState("idle"); // idle | recording | ready
   const [recUrl, setRecUrl] = useState(null);
   const recCtlRef = useRef(null);
@@ -112,51 +113,60 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
   }
 
   return (
-    <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 5000 }}>
+    <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.58)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 5000 }}>
       <BodyScrollLock />
       <div onClick={(e) => e.stopPropagation()} onTouchStart={swipe.onTouchStart} onTouchMove={swipe.onTouchMove} onTouchEnd={swipe.onTouchEnd} className="modal-card word-zoom-modal" dir={cfg.dir} role="dialog" aria-modal="true" aria-labelledby="zoom-modal-word"
-        style={{ width: "100%", maxWidth: 560, maxHeight: "min(92dvh, 92vh)", overflowY: "auto", WebkitOverflowScrolling: "touch", background: CARD, borderRadius: 6, padding: "16px 32px 40px", boxShadow: "0 24px 60px -12px rgba(0,0,0,0.45)", textAlign: "center", position: "relative" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 3, margin: "0 -8px 12px", padding: "4px 8px", background: "color-mix(in srgb, var(--card, #fff) 94%, transparent)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}>
+        style={{
+          width: "100%",
+          maxWidth: 520,
+          maxHeight: "min(92dvh, 92vh)",
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+          background: CARD,
+          borderRadius: 20,
+          padding: "14px 24px 32px",
+          boxShadow: "0 28px 64px -16px rgba(0,0,0,0.5)",
+          textAlign: "center",
+          position: "relative",
+          border: "1px solid rgba(var(--border-rgb),0.12)",
+        }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 3, margin: "0 -8px 8px", padding: "6px 8px", background: "color-mix(in srgb, var(--card, #fff) 92%, transparent)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", borderRadius: 12 }}>
           <button onClick={handleShare} disabled={sharing} aria-label={tr(cfg.dir === "rtl", "Share this word", "شارك الكلمة دي")}
             title={tr(cfg.dir === "rtl", "Share this word", "شارك الكلمة دي")}
-            style={{ border: "none", background: "none", cursor: sharing ? "default" : "pointer", color: "var(--icon-muted)", padding: 6, borderRadius: 8 }}>
-            {sharing ? <LoaderIcon size={19} /> : <ShareIcon size={19} />}
+            style={{ border: "none", background: "var(--input-bg)", cursor: sharing ? "default" : "pointer", color: "var(--icon-muted)", padding: 8, borderRadius: 10, display: "inline-flex" }}>
+            {sharing ? <LoaderIcon size={18} /> : <ShareIcon size={18} />}
           </button>
           <button onClick={onClose} aria-label={tr(cfg.dir === "rtl", "Close", "إغلاق")}
-            style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 6, borderRadius: 8 }}>
-            <XIcon size={20} />
+            style={{ border: "none", background: "var(--input-bg)", cursor: "pointer", color: "var(--icon-muted)", padding: 8, borderRadius: 10, display: "inline-flex" }}>
+            <XIcon size={18} />
           </button>
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-          <div dir={cfg.wordDir} id="zoom-modal-word" style={{ fontFamily: cfg.wordFont, fontSize: "clamp(30px, 6vw, 46px)", fontWeight: 700, color: INK, lineHeight: 1.2, wordBreak: "break-word" }}>
+
+        {/* Word + single listen button (accent from settings) */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+          <div dir={cfg.wordDir} id="zoom-modal-word" style={{ fontFamily: cfg.wordFont, fontSize: "clamp(28px, 5.5vw, 44px)", fontWeight: 700, color: INK, lineHeight: 1.2, wordBreak: "break-word", letterSpacing: "-0.01em" }}>
             {entry.word}
           </div>
-          <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={cfg.dir === "rtl"} size={26} style={{ color: cfg.accent, flexShrink: 0 }} showBoth={cfg.wordDir !== "rtl"} />
+          <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={cfg.dir === "rtl"} size={22} style={{ color: cfg.accent, flexShrink: 0 }} showBoth={false} />
         </div>
-        <div style={{ width: 48, height: 3, background: cfg.accent, borderRadius: 2, margin: "18px auto" }} />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
-          <div dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: "clamp(22px, 4.5vw, 30px)", color: "var(--meaning)", lineHeight: 1.35, wordBreak: "break-word" }}>
+        <div style={{ width: 40, height: 3, background: `linear-gradient(90deg, ${cfg.accent}, transparent)`, borderRadius: 2, margin: "16px auto 18px" }} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
+          <div dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: "clamp(18px, 4vw, 26px)", color: "var(--meaning)", lineHeight: 1.4, wordBreak: "break-word" }}>
             {entry.meaning}
           </div>
-          <SpeakButton text={entry.meaning} dir={cfg.meaningDir} isAr={cfg.dir === "rtl"} size={20} style={{ color: "var(--meaning)", flexShrink: 0 }} />
+          <SpeakButton text={entry.meaning} dir={cfg.meaningDir} isAr={cfg.dir === "rtl"} size={18} style={{ color: "var(--meaning)", flexShrink: 0 }} showBoth={false} />
         </div>
         {speechSupported && (
-          <div style={{ marginTop: 18 }}>
-            {cfg.wordDir === "rtl" ? (
+          <div style={{ marginTop: 20, padding: "14px 14px 12px", borderRadius: 14, background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
+            {cfg.wordDir === "rtl" && (
               <select value={arDialect} onChange={(e) => { setArDialect(e.target.value); saveArDialect(e.target.value); }}
                 disabled={micState !== "idle"} aria-label={tr(isAr, "Dialect for voice recognition", "لهجة التعرف الصوتي")}
-                style={{ display: "block", margin: "0 auto 8px", fontSize: 12, padding: "3px 6px", borderRadius: 6, border: "1px solid rgba(var(--border-rgb),0.25)", background: "var(--input-bg)", color: "var(--muted-strong)" }}>
+                style={{ display: "block", margin: "0 auto 10px", fontSize: 12, padding: "4px 8px", borderRadius: 8, border: "1px solid rgba(var(--border-rgb),0.25)", background: "var(--card)", color: "var(--muted-strong)" }}>
                 {AR_DIALECTS.map((d) => <option key={d.code} value={d.code}>{tr(isAr, d.en, d.ar)}</option>)}
-              </select>
-            ) : (
-              <select value={enAccent} onChange={(e) => { setEnAccent(e.target.value); saveEnAccent(e.target.value); }}
-                disabled={micState !== "idle"} aria-label={tr(isAr, "English accent", "لهجة الإنجليزية")}
-                style={{ display: "block", margin: "0 auto 8px", fontSize: 12, padding: "3px 6px", borderRadius: 6, border: "1px solid rgba(var(--border-rgb),0.25)", background: "var(--input-bg)", color: "var(--muted-strong)" }}>
-                {EN_ACCENTS.map((d) => <option key={d.code} value={d.code}>{tr(isAr, d.en, d.ar)}</option>)}
               </select>
             )}
             <button type="button" onClick={handlePracticePronunciation} disabled={micState !== "idle"}
-              style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 16px", fontSize: 13, fontWeight: 700, color: "#fff", background: micState !== "idle" ? "var(--muted)" : cfg.accent, border: "none", borderRadius: 20, cursor: micState !== "idle" ? "default" : "pointer" }}>
+              style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", fontSize: 13, fontWeight: 700, color: "#fff", background: micState !== "idle" ? "var(--muted)" : cfg.accent, border: "none", borderRadius: 999, cursor: micState !== "idle" ? "default" : "pointer" }}>
               <MicIcon size={14} />
               {micState === "listening"
                 ? tr(isAr, "Listening — speak now…", "بسمع دلوقتي — اتكلم…")

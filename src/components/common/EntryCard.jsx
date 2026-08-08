@@ -130,16 +130,19 @@ function EntryCard({
   };
 
   function renderMeaning() {
+    // Multiple senses: one compact line — "verb meaning | adjective meaning"
+    // (POS next to the word itself is unchanged elsewhere.)
     if (senses.length > 1) {
       return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {senses.map((s) => (
-            <span key={s.id} dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: touchy ? 15 : 14, color: "var(--meaning)", lineHeight: 1.45 }}>
-              {s.pos ? <span style={{ color: "var(--accent-1)", fontWeight: 700, fontSize: 11, marginInlineEnd: 5 }}>{posLabel(s.pos, isAr)}</span> : null}
+        <span dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: touchy ? 15 : 14, color: "var(--meaning)", lineHeight: 1.5 }}>
+          {senses.map((s, i) => (
+            <span key={s.id}>
+              {i > 0 ? <span style={{ color: "var(--muted)", fontWeight: 500, margin: "0 6px", opacity: 0.75 }}>|</span> : null}
+              {s.pos ? <span style={{ color: "var(--accent-1)", fontWeight: 700, fontSize: 11, marginInlineEnd: 4 }}>{posLabel(s.pos, isAr)}</span> : null}
               {s.meaning}
             </span>
           ))}
-        </div>
+        </span>
       );
     }
     return (

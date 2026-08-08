@@ -196,11 +196,28 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
               </div>
             )}
             {pronResult && (
-              <div style={{ marginTop: 10, fontSize: 13, color: pronResult.passed ? "var(--success)" : "var(--muted-strong)" }}>
-                {tr(isAr, `You said "${pronResult.transcript}" — ${pronResult.score}% match`, `قلت "${pronResult.transcript}" — تطابق ${pronResult.score}%`)}
-                {pronResult.passed
-                  ? ` ✓ ${tr(isAr, "Nice!", "تمام!")}`
-                  : ` — ${tr(isAr, "try again for a closer match.", "جرّب تاني عشان تقرّب أكتر.")}`}
+              <div style={{ marginTop: 10, fontSize: 13, lineHeight: 1.55, color: pronResult.passed ? "var(--success)" : "var(--muted-strong)" }}>
+                <div>
+                  {tr(
+                    isAr,
+                    `Heard: "${pronResult.transcript}" · Target: "${entry.word}" · ${pronResult.score}%`,
+                    `سمعت: "${pronResult.transcript}" · المطلوب: "${entry.word}" · ${pronResult.score}%`
+                  )}
+                </div>
+                <div style={{ marginTop: 4, fontSize: 12, opacity: 0.95 }}>
+                  {pronResult.passed
+                    ? `✓ ${tr(isAr, "Close enough — good!", "قريب كفاية — تمام!")}`
+                    : tr(
+                        isAr,
+                        "Not a close match yet — say only the word, clearly, once.",
+                        "لسه مش قريب — قول الكلمة لوحدها بوضوح مرة واحدة."
+                      )}
+                </div>
+                {pronResult.raw && pronResult.raw !== pronResult.transcript && (
+                  <div style={{ marginTop: 4, fontSize: 11, opacity: 0.75 }}>
+                    {tr(isAr, `Full transcript: "${pronResult.raw}"`, `التفريغ كامل: "${pronResult.raw}"`)}
+                  </div>
+                )}
                 {!pronResult.passed && (
                   <button type="button" onClick={handlePracticePronunciation} disabled={micState !== "idle"}
                     style={{ display: "block", margin: "6px auto 0", border: "none", background: "none", color: cfg.accent, fontSize: 12, fontWeight: 700, cursor: micState !== "idle" ? "default" : "pointer", textDecoration: "underline" }}>

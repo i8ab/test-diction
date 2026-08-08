@@ -391,43 +391,101 @@ export async function recognizeSpeech(lang, { onStart, onLevel, onProgress, dura
   const result = await pipe(audio, {
     language,
     task: "transcribe",
-    // Short clips: no chunking needed
     return_timestamps: false,
   });
 
   const text = typeof result === "string"
     ? result
     : (result && (result.text || result.output || "")) || "";
-  return String(text || "").trim();
+  return cleanWhisperText(text);
+}
+
+/** Strip Whisper noise / hallucinations common on short clips. */
+function cleanWhisperText(raw) {
+  let t = String(raw || "").trim();
+  if (!t) return "";
+  // Bracketed / parenthetical ASR junk
+  t = t
+    .replace(/\[.*?\]/g, " ")
+    .replace(/\(.*?\)/g, " ")
+    .replace(/\{.*?\}/g, " ");
+  // Known empty / music tags
+  t = t.replace(/\b(blank_audio|music|silence|applause|laughter|inaudible)\b/gi, " ");
+  // Leading punctuation / quotes
+  t = t.replace(/^[\s"'«»]+|[\s"'«»]+$/g, "");
+  t = t.replace(/\s+/g, " ").trim();
+  // Treat pure punctuation as empty
+  if (!/[\p{L}\p{N}]/u.test(t)) return "";
+  return t;
+}
+
+/**
+ * When the user says a single dictionary word, Whisper sometimes returns a
+ * whole phrase. Pick the token that best matches the expected word so scoring
+ * isn't unfairly dragged down by extra words.
+ */
+function pickBestHeardToken(expected, heardRaw) {
+  const target = normalizeSpoken(expected);
+  const full = normalizeSpoken(heardRaw);
+  if (!full) return { heard: "", score: 0, raw: heardRaw };
+
+  const targetIsSingle = !target.includes(" ");
+  if (targetIsSingle && full.includes(" ")) {
+    const tokens = full.split(/\s+/).filter(Boolean);
+    let bestTok = tokens[0] || full;
+    let bestScore = similarityScore(target, bestTok);
+    for (const tok of tokens) {
+      const s = similarityScore(target, tok);
+      if (s > bestScore) {
+        bestScore = s;
+        bestTok = tok;
+      }
+    }
+    // Also compare against the full phrase (in case target is multi-part)
+    const fullScore = similarityScore(target, full);
+    if (fullScore > bestScore) {
+      return { heard: heardRaw.trim(), score: fullScore, raw: heardRaw };
+    }
+    return { heard: bestTok, score: bestScore, raw: heardRaw };
+  }
+
+  return {
+    heard: heardRaw.trim(),
+    score: similarityScore(target, full),
+    raw: heardRaw,
+  };
 }
 
 /**
  * Score spoken pronunciation against expected word via Whisper.
- * Returns { score, heard, transcript, passed, empty }.
+ * Returns { score, heard, transcript, passed, empty, raw }.
  */
 export async function scorePronunciation(expected, lang, onListening, onProgress, onLevel) {
   const target = String(expected || "").trim();
-  const heard = await recognizeSpeech(lang || "en-US", {
+  // Slightly shorter window — users say one word, not a paragraph
+  const heardRaw = await recognizeSpeech(lang || "en-US", {
     onStart: onListening,
     onProgress,
     onLevel,
-    durationMs: 3000,
+    durationMs: 2800,
   });
-  if (!heard) {
+  if (!heardRaw) {
     return {
       score: 0,
       heard: "",
       transcript: "",
+      raw: "",
       passed: false,
       empty: true,
     };
   }
-  const score = similarityScore(target, heard);
-  const passed = score >= 60;
+  const { heard, score, raw } = pickBestHeardToken(target, heardRaw);
+  const passed = score >= 62;
   return {
     score,
     heard,
     transcript: heard,
+    raw: raw || heardRaw,
     passed,
     empty: false,
   };
@@ -437,16 +495,19 @@ function normalizeSpoken(s) {
   return String(s || "")
     .toLowerCase()
     .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
+    // Latin + Arabic combining marks
+    .replace(/[\u0300-\u036f\u064b-\u065f\u0670]/g, "")
     // Arabic letter variants
     .replace(/[أإآٱ]/g, "ا")
     .replace(/[ة]/g, "ه")
     .replace(/[ى]/g, "ي")
     .replace(/[ؤ]/g, "و")
     .replace(/[ئ]/g, "ي")
+    .replace(/گ/g, "ك")
+    .replace(/پ/g, "ب")
     // Common English ASR confusions / filler
     .replace(/\b(uh|um|ah|er|the|a|an)\b/g, " ")
-    .replace(/['']/g, "")
+    .replace(/[''`]/g, "")
     .replace(/[^\p{L}\p{N}\s]/gu, "")
     .replace(/\s+/g, " ")
     .trim();

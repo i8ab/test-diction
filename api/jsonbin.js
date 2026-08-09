@@ -1,82 +1,85 @@
-// Server-side proxy for JSONBin.io.
+// Server-side proxy — now backed by Supabase instead of JSONBin.
 //
-// This file runs on Vercel's servers, never in the browser — so the env
-// vars it reads are never shipped to visitors. The client (index.html)
-// calls /api/jsonbin instead of talking to JSONBin directly.
+// Endpoint stays /api/jsonbin so the frontend (cloudApi.js) needs ZERO changes.
 //
-// Set these in Vercel: Project Settings -> Environment Variables
-//   JSONBIN_BIN_ID     e.g. 6a6b0f42f5f4af5e29d4be46
-//   JSONBIN_MASTER_KEY your JSONBin X-Master-Key
+// Set these in Vercel → Project Settings → Environment Variables:
+//   SUPABASE_URL                 e.g. https://pcuqzpdkpdsoiwlmspbo.supabase.co
+//   SUPABASE_SERVICE_ROLE_KEY    (preferred)  OR  SUPABASE_ANON_KEY
 //
-// After adding/changing env vars you must redeploy for them to take effect.
+// Tables (public):
+//   entries      (id, data jsonb)
+//   accounts     (id, code text, data jsonb)
+//   logs         (id, action, message, actor_name, actor_code, at)
+//   settings     (key text PK, value jsonb)   ← version + site_banner
+//   site_banner  (optional mirror)
 //
-// ---------------------------------------------------------------------------
-// CONCURRENCY — a real distributed lock (Redis) + a `version` counter
-// ---------------------------------------------------------------------------
-// The whole dictionary (entries + accounts + logs + siteBanner) lives in a
-// single JSONBin record, so without any guard, two people saving around the
-// same moment could silently clobber each other: A reads, B reads, B writes,
-// A writes — A's write overwrites B's change with no warning ("last write
-// wins").
-//
-//   - Every record carries a `version` integer, bumped by 1 on every PUT.
-//     The client sends back the version it last read as `expectedVersion`.
-//   - Right before writing, the server re-fetches the CURRENT record from
-//     JSONBin and compares its version against `expectedVersion`. If they
-//     don't match, someone else saved in between — reject with 409 and hand
-//     back the fresh record so the client can reapply its change on top and
-//     retry (see persistEntries/persistAccounts in src/App.jsx).
-//
-// On its own, that read-compare-write is only an OPTIMISTIC check, not a
-// true atomic transaction — two requests landing within the same handful of
-// milliseconds could both read the same version, both pass the comparison,
-// and both write, the second silently clobbering the first. To close that
-// completely we wrap the whole read-compare-write in a real distributed
-// lock (lib/redis.js, backed by Upstash Redis — the same one used for
-// login rate-limiting in api/login.js): only one request can hold the lock
-// at a time, so no two writes can ever overlap.
-//
-// If UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN aren't configured,
-// this falls back to the version check alone (no lock) — same
-// graceful-degradation pattern as api/login.js. That's still useful (it
-// catches and reports the common case) but leaves the small residual race
-// described above. Set those two env vars (free Upstash database) to close
-// it completely.
+// Optimistic locking uses the integer `version` in settings.
 
 import { redisConfigured, acquireLock, releaseLock } from "../lib/redis.js";
 
 const LOCK_KEY = "twoTongues:dictWriteLock";
 
-function pickBanner(record) {
-  const b = record && record.siteBanner;
-  if (!b || typeof b !== "object") return null;
+function sbHeaders() {
+  const url = process.env.SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_KEY;
+  if (!url || !key) return null;
+  return {
+    url: url.replace(/\/$/, ""),
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+  };
+}
+
+function pickBanner(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const b = raw;
   let shine = typeof b.shine === "number" ? b.shine : 40;
   if (shine < 0) shine = 0;
   if (shine > 100) shine = 100;
   let speed = typeof b.speed === "number" ? b.speed : 1;
   if (speed < 0.4) speed = 0.4;
   if (speed > 2) speed = 2;
-  let letterSpacing = typeof b.letterSpacing === "number" ? b.letterSpacing : 0;
+  let letterSpacing =
+    typeof b.letterSpacing === "number"
+      ? b.letterSpacing
+      : typeof b.letter_spacing === "number"
+        ? b.letter_spacing
+        : 0;
   if (letterSpacing < 0) letterSpacing = 0;
   if (letterSpacing > 30) letterSpacing = 30;
   let repeats = typeof b.repeats === "number" ? b.repeats : 4;
   if (repeats < 1) repeats = 1;
   if (repeats > 12) repeats = 12;
   repeats = Math.round(repeats);
-  // How long the banner stays live after updatedAt.
-  // Prefer durationMinutes; keep durationHours for older records.
-  let durationMinutes = typeof b.durationMinutes === "number" ? b.durationMinutes : 0;
+  let durationMinutes =
+    typeof b.durationMinutes === "number"
+      ? b.durationMinutes
+      : typeof b.duration_minutes === "number"
+        ? b.duration_minutes
+        : 0;
   if (!durationMinutes && typeof b.durationHours === "number" && b.durationHours > 0) {
     durationMinutes = Math.round(b.durationHours * 60);
   }
   if (durationMinutes < 0) durationMinutes = 0;
-  if (durationMinutes > 60 * 24 * 30) durationMinutes = 60 * 24 * 30; // 30 days
+  if (durationMinutes > 60 * 24 * 30) durationMinutes = 60 * 24 * 30;
+  const updatedAt =
+    typeof b.updatedAt === "number"
+      ? b.updatedAt
+      : typeof b.updated_at === "number"
+        ? b.updated_at
+        : 0;
   return {
     id: typeof b.id === "string" ? b.id : "",
     message: typeof b.message === "string" ? b.message : "",
     color: typeof b.color === "string" ? b.color : "#146C94",
     enabled: !!b.enabled,
-    updatedAt: typeof b.updatedAt === "number" ? b.updatedAt : 0,
+    updatedAt,
     shine,
     speed,
     letterSpacing,
@@ -86,133 +89,247 @@ function pickBanner(record) {
   };
 }
 
-function shapeRecord(record) {
+function logFromRow(row) {
   return {
-    entries: (record && record.entries) || [],
-    accounts: (record && record.accounts) || [],
-    logs: (record && record.logs) || [],
-    siteBanner: pickBanner(record),
-    version: (record && record.version) || 0,
+    id: row.id,
+    action: row.action || "",
+    message: row.message || "",
+    actorName: row.actor_name || row.actorName || "",
+    actorCode: row.actor_code || row.actorCode || "",
+    at: typeof row.at === "number" ? row.at : Number(row.at) || 0,
   };
 }
 
-export default async function handler(req, res) {
-  const { JSONBIN_BIN_ID, JSONBIN_MASTER_KEY } = process.env;
+function logToRow(log) {
+  return {
+    id: log.id,
+    action: log.action || "",
+    message: log.message || "",
+    actor_name: log.actorName || log.actor_name || "",
+    actor_code: log.actorCode || log.actor_code || "",
+    at: typeof log.at === "number" ? log.at : Date.now(),
+  };
+}
 
-  if (!JSONBIN_BIN_ID || !JSONBIN_MASTER_KEY) {
-    return res.status(500).json({ error: "Server not configured: missing JSONBIN_BIN_ID or JSONBIN_MASTER_KEY env vars." });
+async function sbFetch(method, path, body, extraHeaders = {}) {
+  const cfg = sbHeaders();
+  if (!cfg) throw new Error("missing SUPABASE_URL or key");
+  const opts = {
+    method,
+    headers: { ...cfg.headers, ...extraHeaders },
+  };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const r = await fetch(`${cfg.url}/rest/v1/${path}`, opts);
+  if (!r.ok) {
+    const t = await r.text().catch(() => "");
+    throw new Error(`Supabase ${method} ${path} → ${r.status}: ${t.slice(0, 300)}`);
+  }
+  const text = await r.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    return null;
+  }
+}
+
+async function loadRecord() {
+  const [entriesRows, accountsRows, logsRows, settingsRows] = await Promise.all([
+    sbFetch("GET", "entries?select=data"),
+    sbFetch("GET", "accounts?select=data"),
+    sbFetch("GET", "logs?select=*"),
+    sbFetch("GET", "settings?select=key,value"),
+  ]);
+
+  const entries = (entriesRows || []).map((r) => r.data).filter(Boolean);
+  const accounts = (accountsRows || []).map((r) => r.data).filter(Boolean);
+  const logs = (logsRows || []).map(logFromRow);
+
+  let version = 0;
+  let siteBanner = null;
+  for (const row of settingsRows || []) {
+    if (row.key === "version") {
+      version = typeof row.value === "number" ? row.value : Number(row.value) || 0;
+    }
+    if (row.key === "site_banner") {
+      siteBanner = pickBanner(row.value);
+    }
   }
 
-  const API_BASE = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
+  if (!siteBanner) {
+    try {
+      const bannerRows = await sbFetch("GET", "site_banner?select=*&limit=1");
+      if (bannerRows && bannerRows[0]) siteBanner = pickBanner(bannerRows[0]);
+    } catch (_) {}
+  }
+
+  return { entries, accounts, logs, siteBanner, version };
+}
+
+/** Delete every row in a table (PostgREST requires a filter). */
+async function clearTable(table) {
+  // id=not.is.null matches every row that has an id
+  await sbFetch("DELETE", `${table}?id=not.is.null`, undefined, {
+    Prefer: "return=minimal",
+  });
+}
+
+async function saveFullRecord(record, nextVersion) {
+  // 1) Upsert version + site_banner
+  await sbFetch(
+    "POST",
+    "settings?on_conflict=key",
+    [
+      { key: "version", value: nextVersion },
+      { key: "site_banner", value: record.siteBanner },
+    ],
+    { Prefer: "resolution=merge-duplicates,return=minimal" }
+  );
+
+  // 2) entries
+  await clearTable("entries");
+  if (record.entries?.length) {
+    const rows = record.entries.map((e) => ({ data: e }));
+    for (let i = 0; i < rows.length; i += 50) {
+      await sbFetch("POST", "entries", rows.slice(i, i + 50), {
+        Prefer: "return=minimal",
+      });
+    }
+  }
+
+  // 3) accounts
+  await clearTable("accounts");
+  if (record.accounts?.length) {
+    const rows = record.accounts.map((a) => ({
+      code: a.code || "",
+      data: a,
+    }));
+    for (let i = 0; i < rows.length; i += 50) {
+      await sbFetch("POST", "accounts", rows.slice(i, i + 50), {
+        Prefer: "return=minimal",
+      });
+    }
+  }
+
+  // 4) logs
+  await clearTable("logs");
+  if (record.logs?.length) {
+    const rows = record.logs.map(logToRow);
+    for (let i = 0; i < rows.length; i += 100) {
+      await sbFetch("POST", "logs", rows.slice(i, i + 100), {
+        Prefer: "return=minimal",
+      });
+    }
+  }
+
+  // 5) optional site_banner mirror
+  try {
+    await clearTable("site_banner");
+    if (record.siteBanner) {
+      const b = record.siteBanner;
+      await sbFetch(
+        "POST",
+        "site_banner",
+        [
+          {
+            id: b.id || `banner-${Date.now()}`,
+            message: b.message || "",
+            color: b.color || "#146C94",
+            enabled: !!b.enabled,
+            updated_at: b.updatedAt || Date.now(),
+            shine: b.shine ?? 40,
+            speed: b.speed ?? 1,
+            letter_spacing: b.letterSpacing ?? 0,
+            flash: !!b.flash,
+            repeats: b.repeats ?? 4,
+            duration_minutes: b.durationMinutes ?? 0,
+          },
+        ],
+        { Prefer: "return=minimal" }
+      );
+    }
+  } catch (_) {}
+}
+
+export default async function handler(req, res) {
+  if (!sbHeaders()) {
+    return res.status(500).json({
+      error:
+        "Server not configured: missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY",
+    });
+  }
 
   try {
     if (req.method === "GET") {
-      const r = await fetch(`${API_BASE}/latest`, {
-        headers: { "X-Master-Key": JSONBIN_MASTER_KEY },
-      });
-      if (!r.ok) return res.status(502).json({ error: "Upstream fetch failed" });
-      const data = await r.json();
-      // Every GET used to round-trip all the way to JSONBin.io on Vercel's
-      // servers, which is the main source of the "slow/laggy" feeling —
-      // JSONBin's free tier can take a noticeable moment to respond, and we
-      // paid that cost on *every single visit*, even when nothing changed.
-      // Letting Vercel's edge cache serve a short-lived cached copy (and
-      // refresh it in the background) means most visits get a near-instant
-      // response instead of waiting on JSONBin at all.
-      res.setHeader("Cache-Control", "public, max-age=0, s-maxage=10, stale-while-revalidate=55");
-      return res.status(200).json(shapeRecord(data.record));
+      const record = await loadRecord();
+      res.setHeader(
+        "Cache-Control",
+        "public, max-age=0, s-maxage=10, stale-while-revalidate=55"
+      );
+      return res.status(200).json(record);
     }
 
     if (req.method === "PUT") {
-      // Writes are open to the deployed app (no shared access code).
-      // JSONBin credentials stay server-side only.
-
       let body = req.body;
-      // Vercel usually parses JSON bodies automatically, but guard in case
-      // it arrives as a raw string.
       if (typeof body === "string") {
-        try { body = JSON.parse(body); } catch (e) { body = null; }
+        try {
+          body = JSON.parse(body);
+        } catch (e) {
+          body = null;
+        }
       }
       if (!body || typeof body !== "object") {
         return res.status(400).json({ error: "Invalid body" });
       }
       if (typeof body.expectedVersion !== "number") {
-        return res.status(400).json({ error: "Missing expectedVersion — client must send the version it last read." });
+        return res.status(400).json({
+          error:
+            "Missing expectedVersion — client must send the version it last read.",
+        });
       }
 
-      // Hold the distributed lock for the entire read-compare-write below,
-      // so no other request's write can land in the gap between our fresh
-      // read and our PUT. Falls back to "no lock" if Redis isn't
-      // configured — see the concurrency comment above.
       const useLock = redisConfigured();
       let lockToken = null;
       if (useLock) {
         lockToken = await acquireLock(LOCK_KEY);
         if (!lockToken) {
-          // Someone else held the lock the whole time we were willing to
-          // wait — tell the client it's a conflict (with a same-shaped
-          // response as a version mismatch) so its existing retry logic
-          // just re-fetches and tries again, rather than needing a
-          // separate error path.
-          const busyRes = await fetch(`${API_BASE}/latest`, { headers: { "X-Master-Key": JSONBIN_MASTER_KEY } });
-          const busyData = busyRes.ok ? await busyRes.json() : {};
+          const busy = await loadRecord();
           return res.status(409).json({
             error: "conflict",
             message: "The dictionary is busy — please try again.",
-            ...shapeRecord(busyData.record),
+            ...busy,
           });
         }
       }
 
       try {
-        // Re-fetch the freshest copy right before writing (no-cache,
-        // bypassing the CDN) so the version check is against the true
-        // current state, not a stale edge-cached response from up to ~10s
-        // ago. While we hold the lock, nobody else can be mid-write, so
-        // this read is guaranteed not to be immediately stale.
-        const freshRes = await fetch(`${API_BASE}/latest`, {
-          headers: { "X-Master-Key": JSONBIN_MASTER_KEY },
-        });
-        if (!freshRes.ok) return res.status(502).json({ error: "Upstream fetch failed" });
-        const freshData = await freshRes.json();
-        const currentVersion = (freshData.record && freshData.record.version) || 0;
-
-        if (currentVersion !== body.expectedVersion) {
-          // Someone else saved since the client last read — refuse the write
-          // instead of overwriting their change, and hand back the current
-          // record so the client can reapply its change and retry.
+        const current = await loadRecord();
+        if (current.version !== body.expectedVersion) {
           return res.status(409).json({
             error: "conflict",
             message: "The dictionary changed since you last loaded it.",
-            ...shapeRecord(freshData.record),
+            ...current,
           });
         }
 
-        const nextVersion = currentVersion + 1;
-        // Preserve siteBanner from body when provided (including null to
-        // clear); otherwise keep the existing one so older clients that
-        // don't know about the field don't wipe an active announcement.
+        const nextVersion = current.version + 1;
         let nextBanner;
         if (body.siteBanner !== undefined) {
-          nextBanner = body.siteBanner === null ? null : pickBanner({ siteBanner: body.siteBanner });
+          nextBanner =
+            body.siteBanner === null ? null : pickBanner(body.siteBanner);
         } else {
-          nextBanner = pickBanner(freshData.record);
+          nextBanner = current.siteBanner;
         }
 
         const payload = {
-          entries: body.entries,
-          accounts: body.accounts,
-          logs: body.logs,
-          version: nextVersion,
+          entries: Array.isArray(body.entries) ? body.entries : [],
+          accounts: Array.isArray(body.accounts) ? body.accounts : [],
+          logs: Array.isArray(body.logs) ? body.logs : [],
           siteBanner: nextBanner,
+          version: nextVersion,
         };
 
-        const r = await fetch(API_BASE, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_MASTER_KEY },
-          body: JSON.stringify(payload),
-        });
-        if (!r.ok) return res.status(502).json({ error: "Upstream save failed" });
+        await saveFullRecord(payload, nextVersion);
         return res.status(200).json({ ok: true, version: nextVersion });
       } finally {
         if (useLock && lockToken) await releaseLock(LOCK_KEY, lockToken);
@@ -222,6 +339,10 @@ export default async function handler(req, res) {
     res.setHeader("Allow", "GET, PUT");
     return res.status(405).json({ error: "Method not allowed" });
   } catch (e) {
-    return res.status(500).json({ error: "Proxy error" });
+    console.error("Supabase proxy error:", e);
+    return res.status(500).json({
+      error: "Proxy error",
+      detail: String(e.message || e),
+    });
   }
 }

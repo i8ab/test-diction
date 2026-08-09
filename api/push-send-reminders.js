@@ -29,28 +29,58 @@ const DEFAULT_BODY_TEMPLATE = (daysSince) =>
   `عدّى ${daysSince} يوم من غير ما تراجع. / It's been ${daysSince} day${daysSince === 1 ? "" : "s"} since you studied.`;
 
 /**
- * Load the shared dictionary record straight from JSONBin (server-side).
+ * Load the shared dictionary record straight from Supabase (server-side).
  * Avoids fetching our own /api/jsonbin which can 401 under Vercel
  * Deployment Protection and caused the cron job to 500.
  */
 async function fetchRecordDirect() {
-  const { JSONBIN_BIN_ID, JSONBIN_MASTER_KEY } = process.env;
-  if (!JSONBIN_BIN_ID || !JSONBIN_MASTER_KEY) {
-    throw new Error("missing JSONBIN_BIN_ID or JSONBIN_MASTER_KEY");
-  }
-  const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
-    headers: { "X-Master-Key": JSONBIN_MASTER_KEY },
-  });
-  if (!r.ok) throw new Error(`JSONBin fetch failed: ${r.status}`);
-  const data = await r.json();
-  const rec = data.record || {};
-  return {
-    entries: rec.entries || [],
-    accounts: rec.accounts || [],
-    logs: rec.logs || [],
-    siteBanner: rec.siteBanner || null,
-    version: rec.version || 0,
+  const url = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_KEY;
+  if (!url || !key) throw new Error("missing SUPABASE_URL or key");
+  const headers = {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
   };
+
+  const get = async (path) => {
+    const r = await fetch(`${url}/rest/v1/${path}`, { headers });
+    if (!r.ok) throw new Error(`Supabase ${path} → ${r.status}`);
+    return r.json();
+  };
+
+  const [entriesRows, accountsRows, logsRows, settingsRows] = await Promise.all([
+    get("entries?select=data"),
+    get("accounts?select=data"),
+    get("logs?select=*"),
+    get("settings?select=key,value"),
+  ]);
+
+  const entries = (entriesRows || []).map((r) => r.data).filter(Boolean);
+  const accounts = (accountsRows || []).map((r) => r.data).filter(Boolean);
+  const logs = (logsRows || []).map((row) => ({
+    id: row.id,
+    action: row.action || "",
+    message: row.message || "",
+    actorName: row.actor_name || "",
+    actorCode: row.actor_code || "",
+    at: typeof row.at === "number" ? row.at : Number(row.at) || 0,
+  }));
+
+  let version = 0;
+  let siteBanner = null;
+  for (const row of settingsRows || []) {
+    if (row.key === "version") {
+      version = typeof row.value === "number" ? row.value : Number(row.value) || 0;
+    }
+    if (row.key === "site_banner" && row.value) {
+      siteBanner = row.value;
+    }
+  }
+
+  return { entries, accounts, logs, siteBanner, version };
 }
 
 async function clearStaleLogsDirect(record) {
@@ -64,27 +94,51 @@ async function clearStaleLogsDirect(record) {
     const hasStale = logs.some((entry) => entry.action !== "first_sign_in" && !isToday(entry.at));
     if (!hasStale) return { cleared: false };
 
-    const { JSONBIN_BIN_ID, JSONBIN_MASTER_KEY } = process.env;
-    if (!JSONBIN_BIN_ID || !JSONBIN_MASTER_KEY) return { cleared: false };
+    const url = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
+    const key =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_KEY;
+    if (!url || !key) return { cleared: false };
+
+    const headers = {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    };
 
     const nextLogs = logs.filter((entry) => entry.action === "first_sign_in" || isToday(entry.at));
     const nextVersion = (record.version || 0) + 1;
-    const payload = {
-      entries: record.entries || [],
-      accounts: record.accounts || [],
-      logs: nextLogs,
-      version: nextVersion,
-      siteBanner: record.siteBanner || null,
-    };
-    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Master-Key": JSONBIN_MASTER_KEY,
-      },
-      body: JSON.stringify(payload),
+
+    // Update version
+    await fetch(`${url}/rest/v1/settings?on_conflict=key`, {
+      method: "POST",
+      headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify([{ key: "version", value: nextVersion }]),
     });
-    return { cleared: r.ok };
+
+    // Replace logs
+    await fetch(`${url}/rest/v1/logs?id=not.is.null`, {
+      method: "DELETE",
+      headers,
+    });
+    if (nextLogs.length) {
+      const rows = nextLogs.map((log) => ({
+        id: log.id,
+        action: log.action || "",
+        message: log.message || "",
+        actor_name: log.actorName || log.actor_name || "",
+        actor_code: log.actorCode || log.actor_code || "",
+        at: typeof log.at === "number" ? log.at : Date.now(),
+      }));
+      await fetch(`${url}/rest/v1/logs`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(rows),
+      });
+    }
+    return { cleared: true };
   } catch (_) {
     return { cleared: false };
   }

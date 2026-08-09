@@ -246,10 +246,12 @@ export default function MainView({
   const [goalsBubble, setGoalsBubble] = useState(() => loadGoalsView().bubble);
   const [showInfoGuide, setShowInfoGuide] = useState(false);
 
-  // System back button closes the top-most overlay on mobile instead of leaving the site
+  // System back button closes the top-most overlay on mobile instead of leaving the site.
+  // NOTE: showAdd is managed by App.jsx history (openAddModal/closeAddModal) — do NOT
+  // also hook it here. A second pushState caused: close → history.back → popstate
+  // restored showAdd:true → Add modal reopened in a loop with the word zoom card.
   useHistoryBackClose(showQuiz, () => { setShowQuiz(false); setQuizDueOnly(false); });
   useHistoryBackClose(!!zoomEntry, () => { setZoomEntry(null); setZoomAlreadyExists(false); });
-  useHistoryBackClose(showAdd, () => onCloseAdd && onCloseAdd());
   useHistoryBackClose(showGoals, () => { setShowGoals(false); setGoalsBubble(false); });
   useHistoryBackClose(showTodo, () => { setShowTodo(false); setTodoBubble(false); });
   useHistoryBackClose(showInfoGuide, () => setShowInfoGuide(false));

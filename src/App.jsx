@@ -674,11 +674,18 @@ export default function DictionaryApp() {
   }
 
   const closeAddModal = useCallback(() => {
-    if (window.history.state && window.history.state.showAdd) {
-      window.history.back(); // popstate listener will flip showAdd off
-    } else {
-      setShowAdd(false);
-    }
+    // Always clear local state first so the modal cannot stick open if history
+    // is out of sync (e.g. extra pushState from another overlay).
+    setShowAdd(false);
+    try {
+      // Use replaceState (not history.back) so closing Add never races with
+      // another overlay that is about to pushState (e.g. opening word zoom
+      // after "word already exists"). history.back is async and was re-opening
+      // Add via popstate when a second history helper had also pushed.
+      if (window.history.state && window.history.state.showAdd) {
+        window.history.replaceState({ ...window.history.state, showAdd: false }, "");
+      }
+    } catch (_) {}
   }, []);
 
   function openAccountModal() {

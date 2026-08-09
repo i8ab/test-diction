@@ -143,12 +143,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
         setError(tr(isAr, "Add at least one meaning.", "ضيف معنى واحد على الأقل."));
         return;
       }
-      for (const s of cleaned) {
-        if (!s.pos) {
-          setError(tr(isAr, "Pick a word type for each meaning.", "اختار نوع الكلمة لكل معنى."));
-          return;
-        }
-      }
+      // POS is optional per meaning (same type can have several translations).
       payloadSenses = cleaned;
       payloadMeaning = cleaned[0].meaning;
       payloadPos = cleaned[0].pos;
@@ -283,7 +278,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
                   }
                 }}
               />
-              {tr(isAr, "More than one type", "أكتر من نوع")}
+              {tr(isAr, "More than one meaning", "أكتر من معنى")}
             </label>
           </div>
 
@@ -303,13 +298,26 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
               </select>
               <label style={labelStyle} htmlFor="add-meaning">{tr(isAr, "Meaning *", "المعنى *")}</label>
               <input id="add-meaning" value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder={cfg.meaningPlaceholder} dir={cfg.meaningDir} style={{ ...inputStyle, fontFamily: cfg.meaningFont, fontSize: 16 }} />
+              <button
+                type="button"
+                onClick={() => {
+                  setMultiSense(true);
+                  setSenses([
+                    { id: uid(), pos: pos || "", meaning: meaning.trim() },
+                    { id: uid(), pos: pos || "", meaning: "" },
+                  ]);
+                }}
+                style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, border: "none", background: "none", color: cfg.accent, fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: 0 }}
+              >
+                <PlusIcon size={12} /> {tr(isAr, "Add another meaning (e.g. زلزال + هزة أرضية)", "أضف معنى تاني (مثلاً زلزال + هزة أرضية)")}
+              </button>
             </>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 8 }}>
               <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", lineHeight: 1.45 }}>
                 {tr(isAr,
-                  "Add each type with its own meaning (e.g. noun vs verb). The quiz will say which type it is asking for.",
-                  "ضيف كل نوع بمعناه (مثلاً اسم وفعل). في الاختبار هيقولك النوع المطلوب عشان متتلخبطش.")}
+                  "Add every valid meaning. Same word type is fine (e.g. earthquake → زلزال and هزة أرضية). Type is optional.",
+                  "ضيف كل معنى صحيح. نفس النوع عادي (مثلاً earthquake → زلزال وهزة أرضية). نوع الكلمة اختياري.")}
               </p>
               {senses.map((s, i) => (
                 <div key={s.id} style={{ padding: 10, borderRadius: 8, border: "1px solid rgba(var(--border-rgb),0.18)", background: "var(--input-bg)" }}>
@@ -344,7 +352,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
               ))}
               <button type="button" onClick={() => setSenses((list) => [...list, { id: uid(), pos: "", meaning: "" }])}
                 style={{ display: "flex", alignItems: "center", gap: 10, border: "none", background: "none", color: cfg.accent, fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: 0 }}>
-                <PlusIcon size={12} /> {tr(isAr, "Add another type / meaning", "أضف نوع/معنى تاني")}
+                <PlusIcon size={12} /> {tr(isAr, "Add another meaning", "أضف معنى تاني")}
               </button>
             </div>
           )}

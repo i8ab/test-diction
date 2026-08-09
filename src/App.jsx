@@ -16,6 +16,7 @@ import {
 } from "./lib/utils/authUtils";
 import { SRS_LEVEL_INTERVALS_MS, srsLevelFromStats, computeStreak, applySm2, correctToQuality, getCardState, loadSrsPrefs } from "./lib/utils/quizHelpers";
 import { evaluateAchievements } from "./lib/state/achievements";
+import { loadExamConfigCache, saveExamConfigCache, normalizeExamConfig, defaultExamConfig } from "./lib/state/exam";
 import { getTodayTimerMinutes } from "./lib/state/goals";
 import {
   pushSupported, getPushStatus, subscribeToPush, unsubscribeFromPush, savePushPrefs,
@@ -142,6 +143,8 @@ export default function DictionaryApp() {
   const [logs, setLogs] = useState([]);
   const [logsLoaded, setLogsLoaded] = useState(false);
   const [siteBanner, setSiteBanner] = useState(null); // admin-published site-wide announcement
+  const [examConfig, setExamConfig] = useState(() => loadExamConfigCache()); // admin-published exam countdown
+  const examConfigRef = useRef(loadExamConfigCache());
   const [accountCode, setAccountCode] = useState(""); // this browser's signed-in account's personal code
   const [vaultAccounts, setVaultAccounts] = useState(() => loadAccountVault());
   const [mainAccountCode, setMainAccountCodeState] = useState(() => getMainAccountCode());
@@ -201,6 +204,10 @@ export default function DictionaryApp() {
   useEffect(() => { accountsRef.current = accounts; }, [accounts]);
   useEffect(() => { logsRef.current = logs; }, [logs]);
   useEffect(() => { siteBannerRef.current = siteBanner; }, [siteBanner]);
+  useEffect(() => {
+    examConfigRef.current = examConfig;
+    saveExamConfigCache(examConfig);
+  }, [examConfig]);
 
   // Re-applies the chosen accent color palette whenever the accent choice
   // or the light/dark mode changes (each accent has its own light+dark
@@ -469,7 +476,7 @@ export default function DictionaryApp() {
     migrationDoneRef.current = true;
     try {
       const newVersion = await saveRecord(
-        { entries: rec.entries || [], accounts: migrated, logs: rec.logs || [], siteBanner: rec.siteBanner || null },
+        { entries: rec.entries || [], accounts: migrated, logs: rec.logs || [], siteBanner: rec.siteBanner || null, examConfig: rec.examConfig || examConfigRef.current},
         rec.version || 0
       );
       return { ...rec, accounts: migrated, version: newVersion };
@@ -489,6 +496,7 @@ export default function DictionaryApp() {
         setAccounts(rec.accounts);
         setLogs(rec.logs);
         setSiteBanner(rec.siteBanner || null);
+        setExamConfig(normalizeExamConfig(rec.examConfig));
         setLogsLoaded(true);
         commitRecordVersion(rec.version);
         saveOfflineCache(rec);
@@ -503,6 +511,7 @@ export default function DictionaryApp() {
               setAccounts(freshRec.accounts);
               setLogs(freshRec.logs);
               setSiteBanner(freshRec.siteBanner || null);
+              setExamConfig(normalizeExamConfig(freshRec.examConfig));
               commitRecordVersion(freshRec.version);
               saveOfflineCache(freshRec);
               account = freshRec.accounts.find((a) => a.code === savedPersonalCode);
@@ -551,7 +560,7 @@ export default function DictionaryApp() {
                   );
                   try {
                     const newVersion = await saveRecord(
-                      { entries: rec.entries, accounts: nextAccounts, logs: rec.logs, siteBanner: rec.siteBanner || null },
+                      { entries: rec.entries, accounts: nextAccounts, logs: rec.logs, siteBanner: rec.siteBanner || null, examConfig: examConfigRef.current},
                       ver
                     );
                     setAccounts(nextAccounts);
@@ -593,6 +602,7 @@ export default function DictionaryApp() {
           setAccounts(migrated);
           setLogs(cached.logs);
           setSiteBanner(cached.siteBanner || null);
+          setExamConfig(normalizeExamConfig(cached.examConfig));
           setIsOffline(true);
           setOfflineCachedAt(cached.cachedAt);
           if (savedPersonalCode) {
@@ -729,6 +739,7 @@ export default function DictionaryApp() {
     setAccounts(err.fresh.accounts || []);
     setLogs(err.fresh.logs || []);
     if (err.fresh.siteBanner !== undefined) setSiteBanner(err.fresh.siteBanner || null);
+    if (err.fresh.examConfig !== undefined) setExamConfig(normalizeExamConfig(err.fresh.examConfig));
     commitRecordVersion(err.fresh.version || 0);
     setSaveError(""); // conflict recovered by resync — no scary banner
   }
@@ -795,11 +806,11 @@ export default function DictionaryApp() {
 
           try {
             const newVersion = await saveRecord(
-              { entries: curEntries, accounts: nextAccounts, logs: nextLogs, siteBanner: curBanner },
+              { entries: curEntries, accounts: nextAccounts, logs: nextLogs, siteBanner: curBanner, examConfig: examConfigRef.current},
               curVersion
             );
             commitRecordVersion(newVersion);
-            saveOfflineCache({ entries: curEntries, accounts: nextAccounts, logs: nextLogs, siteBanner: curBanner });
+            saveOfflineCache({ entries: curEntries, accounts: nextAccounts, logs: nextLogs, siteBanner: curBanner, examConfig: examConfigRef.current});
             setSaveError("");
             break;
           } catch (e) {
@@ -874,11 +885,11 @@ export default function DictionaryApp() {
 
           try {
             const newVersion = await saveRecord(
-              { entries: nextEntries, accounts: curAccounts, logs: nextLogs, siteBanner: curBanner },
+              { entries: nextEntries, accounts: curAccounts, logs: nextLogs, siteBanner: curBanner, examConfig: examConfigRef.current},
               curVersion
             );
             commitRecordVersion(newVersion);
-            saveOfflineCache({ entries: nextEntries, accounts: curAccounts, logs: nextLogs, siteBanner: curBanner });
+            saveOfflineCache({ entries: nextEntries, accounts: curAccounts, logs: nextLogs, siteBanner: curBanner, examConfig: examConfigRef.current});
             setSaveError("");
             break;
           } catch (e) {
@@ -967,7 +978,7 @@ export default function DictionaryApp() {
       let curBanner = siteBannerRef.current;
       for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
         try {
-          const newVersion = await saveRecord({ entries: curEntries, accounts: curAccounts, logs: next, siteBanner: curBanner }, curVersion);
+          const newVersion = await saveRecord({ entries: curEntries, accounts: curAccounts, logs: next, siteBanner: curBanner, examConfig: examConfigRef.current}, curVersion);
           commitRecordVersion(newVersion);
           return;
         } catch (e) {
@@ -1008,9 +1019,9 @@ export default function DictionaryApp() {
       let curLogs = logsRef.current;
       for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
         try {
-          const newVersion = await saveRecord({ entries: curEntries, accounts: curAccounts, logs: curLogs, siteBanner: nextBanner }, curVersion);
+          const newVersion = await saveRecord({ entries: curEntries, accounts: curAccounts, logs: curLogs, siteBanner: nextBanner, examConfig: examConfigRef.current}, curVersion);
           commitRecordVersion(newVersion);
-          saveOfflineCache({ entries: curEntries, accounts: curAccounts, logs: curLogs, siteBanner: nextBanner });
+          saveOfflineCache({ entries: curEntries, accounts: curAccounts, logs: curLogs, siteBanner: nextBanner, examConfig: examConfigRef.current});
           return { ok: true };
         } catch (e) {
           if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
@@ -1036,6 +1047,60 @@ export default function DictionaryApp() {
     });
   }, []);
 
+
+
+  // Admin publishes exam countdown (date/time/color) for all users.
+  const persistExamConfig = useCallback(async (nextCfg) => {
+    const normalized = normalizeExamConfig(nextCfg);
+    setExamConfig(normalized);
+    examConfigRef.current = normalized;
+    saveExamConfigCache(normalized);
+    return enqueueSave(async () => {
+      let curVersion = recordVersionRef.current;
+      let curEntries = entriesRef.current;
+      let curAccounts = accountsRef.current;
+      let curLogs = logsRef.current;
+      let curBanner = siteBannerRef.current;
+      for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+        try {
+          const newVersion = await saveRecord({
+            entries: curEntries, accounts: curAccounts, logs: curLogs,
+            siteBanner: curBanner, examConfig: normalized,
+          }, curVersion);
+          commitRecordVersion(newVersion);
+          saveOfflineCache({
+            entries: curEntries, accounts: curAccounts, logs: curLogs,
+            siteBanner: curBanner, examConfig: normalized,
+          });
+          return { ok: true };
+        } catch (e) {
+          if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
+            curEntries = e.fresh.entries || [];
+            curAccounts = e.fresh.accounts || [];
+            curLogs = e.fresh.logs || [];
+            if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
+            if (e.fresh.examConfig !== undefined) {
+              const freshExam = normalizeExamConfig(e.fresh.examConfig);
+              // keep our intended write; only sync other fields
+            }
+            setEntries(curEntries);
+            setAccounts(curAccounts);
+            setLogs(curLogs);
+            entriesRef.current = curEntries;
+            accountsRef.current = curAccounts;
+            logsRef.current = curLogs;
+            curVersion = e.fresh.version || 0;
+            commitRecordVersion(curVersion);
+            await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+            continue;
+          }
+          if (e instanceof SaveConflictError) handleSaveConflict(e);
+          return { ok: false, error: "Couldn't save exam settings — try again." };
+        }
+      }
+      return { ok: false, error: "Couldn't save exam settings — try again." };
+    });
+  }, []);
 
   // Admin action: wipe the activity log down to just the "first sign in"
   // entries (keeps the account-creation history, drops everything else —
@@ -1236,7 +1301,7 @@ export default function DictionaryApp() {
         ),
       ]);
       const newVersion = await saveRecord(
-        { entries: rec.entries, accounts: nextAccounts, logs: nextLogs, siteBanner: rec.siteBanner || null },
+        { entries: rec.entries, accounts: nextAccounts, logs: nextLogs, siteBanner: rec.siteBanner || null, examConfig: examConfigRef.current},
         rec.version
       );
       setEntries(rec.entries);
@@ -1794,7 +1859,7 @@ export default function DictionaryApp() {
       onUnlinkVaultAccount={unlinkVaultAccount}
       onLogoutAll={() => handleLogout({ clearVault: true })}
       onLinkAccount={beginLinkAccount}
-      siteBanner={siteBanner} onPersistSiteBanner={persistSiteBanner}
+      siteBanner={siteBanner} examConfig={examConfig} onPersistExamConfig={persistExamConfig} onPersistSiteBanner={persistSiteBanner}
       showAdmin={showAdmin} onOpenAdmin={openAdminModal} onCloseAdmin={closeAdminModal}
       onAdminAddAccount={handleAdminAddAccount} onAdminEditAccount={handleAdminEditAccount} onAdminDeleteAccount={handleAdminDeleteAccount}
       onApproveRequest={handleApproveRequest} onRejectRequest={handleRejectRequest}

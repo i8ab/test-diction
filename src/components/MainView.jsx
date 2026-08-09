@@ -24,7 +24,6 @@ import ReminderBanner from "./layout/ReminderBanner";
 import BackupReminderBanner from "./layout/BackupReminderBanner";
 import ExamBanner from "./layout/ExamBanner";
 import SiteBanner from "./layout/SiteBanner";
-import WordOfTheDay from "./layout/WordOfTheDay";
 import EmptyState from "./layout/EmptyState";
 import { loadFocusMode, saveFocusMode, loadProgress } from "../lib/state/goals";
 import { loadWordNotes, setWordNote } from "../lib/state/wordNotes";
@@ -36,6 +35,7 @@ import { loadWordNotes, setWordNote } from "../lib/state/wordNotes";
 // to show the word list.
 const QuizModal = lazy(() => import("./modals/QuizModal"));
 const ExamModeModal = lazy(() => import("./modals/ExamModeModal"));
+const ExamSettingsModal = lazy(() => import("./modals/ExamSettingsModal"));
 const StatsModal = lazy(() => import("./modals/StatsModal"));
 const LeaderboardModal = lazy(() => import("./modals/LeaderboardModal"));
 const FlashcardsModal = lazy(() => import("./modals/FlashcardsModal"));
@@ -140,6 +140,7 @@ export default function MainView({
   accounts, accountCode, logs, onClearLogs, studiedIds, studiedAt, onToggleStudied, favoriteIds, onToggleFavorite, showAccount, onOpenAccount, onCloseAccount, onUpdateOwnAccount,
   srsBox, srsDueAt, quizHistory, onRecordSrsAnswer, onSaveQuizResult,
   siteBanner, onPersistSiteBanner,
+  examConfig, onPersistExamConfig,
   showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount, onApproveRequest, onRejectRequest,
   toast, showToast, theme, onToggleTheme, onChangeTheme, accentTheme, onChangeAccent,
   appIsAr, appLang = "en", onToggleAppLang, onChangeAppLang,
@@ -247,6 +248,7 @@ export default function MainView({
   const [focusMode, setFocusMode] = useState(() => loadFocusMode());
   const [showQuickReview, setShowQuickReview] = useState(false);
   const [showExamMode, setShowExamMode] = useState(false);
+  const [showExamSettings, setShowExamSettings] = useState(false);
   const [showGoals, setShowGoals] = useState(() => loadGoalsView().open);
   const [goalsBubble, setGoalsBubble] = useState(() => loadGoalsView().bubble);
   const [showInfoGuide, setShowInfoGuide] = useState(false);
@@ -920,6 +922,7 @@ export default function MainView({
                 onRejectRequest={onRejectRequest}
                 siteBanner={siteBanner}
                 onPersistSiteBanner={onPersistSiteBanner}
+                onOpenExamSettings={isAdmin ? () => setShowExamSettings(true) : undefined}
                 myAccountCode={accountCode}
               
                 focusMode={focusMode}
@@ -1099,16 +1102,18 @@ export default function MainView({
         )}
         {!focusMode && (
           <div className="mobile-banners-stack">
-            <WordOfTheDay entries={sectionEntries} section={section} cfg={cfg} isAr={appIsAr} onOpenZoom={(id) => { setZoomAlreadyExists(false); setZoomEntry(sectionEntries.find((e) => e.id === id) || null); }} />
             <ReminderBanner studiedAt={studiedAt} isAr={appIsAr} cfg={cfg} remindersOn={remindersOn} reminderTitle={reminderTitle} reminderMessage={reminderMessage} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />
             <ExamBanner
+              examConfig={examConfig}
               entries={sectionEntries}
               studiedIds={studiedIds}
               studiedAt={studiedAt}
               srsDueAt={srsDueAt}
               srsBox={srsBox}
               isAr={appIsAr}
+              isAdmin={isAdmin}
               onOpenExamMode={() => setShowExamMode(true)}
+              onOpenExamSettings={isAdmin ? () => setShowExamSettings(true) : undefined}
             />
             {isAdmin && <BackupReminderBanner isAr={appIsAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
           </div>
@@ -1387,6 +1392,18 @@ export default function MainView({
             onSaveQuizResult={onSaveQuizResult}
           />
         )}
+        
+        {showExamSettings && isAdmin && (
+          <Suspense fallback={null}>
+            <ExamSettingsModal
+              examConfig={examConfig}
+              onPersist={onPersistExamConfig}
+              isAr={appIsAr}
+              onClose={() => setShowExamSettings(false)}
+            />
+          </Suspense>
+        )}
+
         {showExamMode && (
           <Suspense fallback={null}>
             <ExamModeModal

@@ -174,10 +174,16 @@ export function buildQuiz(matchingEntries, allEntries, mode) {
     const meaningDir = "rtl";
     const meaningFont = "'Amiri', serif";
 
+    // All meanings belonging to this same entry (never use as distractors)
+    const sameEntryMeanings = new Set(
+      getEntrySenses(entry).map((s) => (s.meaning || "").trim()).filter(Boolean)
+    );
+    if (entry.meaning) sameEntryMeanings.add(String(entry.meaning).trim());
+
     let options = [correct];
     if (mode === "mcq") {
       const distractors = shuffle(
-        allMeanings.filter((m) => m && m !== correct)
+        allMeanings.filter((m) => m && m !== correct && !sameEntryMeanings.has(m))
       ).slice(0, 3);
       while (distractors.length < 3 && allMeanings.length > distractors.length + 1) {
         const extra = allMeanings[Math.floor(Math.random() * allMeanings.length)];
@@ -187,6 +193,13 @@ export function buildQuiz(matchingEntries, allEntries, mode) {
       options = shuffle([correct, ...distractors]).slice(0, 4);
     }
 
+    // Accept ANY sense meaning for this word as a correct typed answer
+    // (e.g. earthquake → زلزال or هزة أرضية).
+    const allSenseMeanings = getEntrySenses(entry)
+      .map((s) => (s.meaning || "").trim())
+      .filter(Boolean);
+    const accepted = Array.from(new Set([correct, ...allSenseMeanings].filter(Boolean)));
+
     return {
       id: `${entry.id}:${sense.id}`,
       entryId: entry.id,
@@ -194,7 +207,7 @@ export function buildQuiz(matchingEntries, allEntries, mode) {
       meaning: correct,
       correct,
       correctAnswer: correct,
-      acceptedAnswers: [correct],
+      acceptedAnswers: accepted,
       options,
       type: mode,
       mode,
@@ -211,18 +224,75 @@ export function buildQuiz(matchingEntries, allEntries, mode) {
   return shuffle(questions);
 }
 
+/**
+ * Flexible answer normalization for Arabic + English.
+ * - strips tashkeel / diacritics
+ * - unifies أ/إ/آ → ا , ة → ه , ى → ي
+ * - strips leading ال (and common prefixes وال/بال/…) from each token
+ * - strips English articles the/a/an
+ * - lowercases, drops punctuation, collapses spaces
+ */
+export function normalizeAnswer(s) {
+  let t = String(s || "")
+    .trim()
+    .toLowerCase()
+    // Arabic diacritics + tatweel
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, "")
+    // Alef variants → ا
+    .replace(/[أإآٱ]/g, "ا")
+    // ة → ه , ى → ي
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    // Drop punctuation (keep letters/numbers/spaces)
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!t) return "";
+
+  // Per-token: strip Arabic ال and English articles
+  t = t
+    .split(" ")
+    .map((tok) => {
+      if (!tok) return "";
+      // Arabic definite article / common clitics
+      if (/^(وال|بال|كال|فال|لل|ال)/.test(tok) && tok.length > 3) {
+        tok = tok.replace(/^(وال|بال|كال|فال|لل|ال)/, "");
+      } else if (tok.startsWith("ال") && tok.length > 2) {
+        tok = tok.slice(2);
+      }
+      if (tok === "the" || tok === "a" || tok === "an") return "";
+      return tok;
+    })
+    .filter(Boolean)
+    .join(" ");
+
+  return t;
+}
+
+/**
+ * True if the typed answer matches any accepted answer flexibly:
+ * exact (after norm), or either side contains the other (min length 2).
+ */
 export function isTypingCorrect(typed, correct) {
   if (!typed || !correct) return false;
-  const norm = (s) =>
-    String(s)
-      .trim()
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}\s]/gu, "")
-      .replace(/\s+/g, " ");
-  const t = norm(typed);
+  const t = normalizeAnswer(typed);
   if (!t) return false;
   const list = Array.isArray(correct) ? correct : [correct];
-  return list.some((c) => c && norm(c) === t);
+  return list.some((c) => {
+    if (!c) return false;
+    const n = normalizeAnswer(c);
+    if (!n) return false;
+    if (t === n) return true;
+    if (t.length >= 2 && n.length >= 2) {
+      if (t.includes(n) || n.includes(t)) return true;
+      const ts = t.replace(/\s+/g, "");
+      const ns = n.replace(/\s+/g, "");
+      if (ts === ns) return true;
+      if (ts.length >= 3 && ns.length >= 3 && (ts.includes(ns) || ns.includes(ts))) return true;
+    }
+    return false;
+  });
 }
 
 export function quizQuestionLabel(mode, isAr, pos) {

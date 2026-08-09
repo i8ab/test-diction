@@ -26,7 +26,7 @@ export default function ExamModeModal({
   sectionLabel = "",
 }) {
   const [stage, setStage] = useState("setup"); // setup | running | done
-  const [mode, setMode] = useState("mcq"); // flash | mcq | typing | cloze
+  const [modes, setModes] = useState(() => new Set(["mcq", "typing"])); // multi-select
   const [limit, setLimit] = useState(15);
   const [timerMin, setTimerMin] = useState(0); // 0 = off
   const [startError, setStartError] = useState("");
@@ -82,12 +82,29 @@ export default function ExamModeModal({
     return () => clearInterval(id);
   }, [stage]);
 
+  function toggleMode(key) {
+    setModes((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        if (next.size <= 1) return prev; // keep at least one
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
   function startSession() {
     const selectedPool = selectExamPool(entries, studiedIds, srsDueAt, srsBox, studiedAt, limit);
     if (!selectedPool.length) {
       setStartError(tr(isAr,
         "No weak or due words yet. Study a few words first, then come back for exam practice.",
         "مفيش كلمات ضعيفة أو مستحقة للمراجعة. ذاكر شوية كلمات الأول وبعدين ارجع لوضع الامتحان."));
+      return;
+    }
+    if (!modes.size) {
+      setStartError(tr(isAr, "Pick at least one question type.", "اختار نوع أسئلة واحد على الأقل."));
       return;
     }
     setStartError("");
@@ -111,20 +128,45 @@ export default function ExamModeModal({
       setRemainingMs(null);
     }
 
-    if (mode === "flash") {
+    const quizModes = [...modes].filter((m) => m !== "flash");
+    const flashOnly = modes.has("flash") && quizModes.length === 0;
+
+    if (flashOnly) {
       setQuestions([]);
       setStage("running");
-    } else {
-      const built = buildQuiz(selectedPool, entries, mode);
-      if (!built.length) {
-        setStartError(tr(isAr,
-          "Couldn’t build questions from these words.",
-          "مش قادر أبني أسئلة من الكلمات دي."));
-        return;
-      }
-      setQuestions(built);
-      setStage("running");
+      return;
     }
+
+    // Build a mixed quiz: for each mode, build questions, then interleave.
+    const perMode = [];
+    for (const m of quizModes) {
+      const built = buildQuiz(selectedPool, entries, m);
+      perMode.push(built);
+    }
+    // Round-robin merge so types alternate
+    const mixed = [];
+    const usedEntry = new Set();
+    let maxLen = Math.max(0, ...perMode.map((a) => a.length));
+    for (let i = 0; i < maxLen; i++) {
+      for (const arr of perMode) {
+        if (i < arr.length) {
+          const q = arr[i];
+          // Prefer variety: skip if same entryId already added from another mode this round
+          // but still allow if pool is small
+          mixed.push(q);
+        }
+      }
+    }
+    // Cap to ~limit * modes but not crazy long
+    const capped = mixed.slice(0, Math.max(limit, Math.min(mixed.length, limit * quizModes.length)));
+    if (!capped.length) {
+      setStartError(tr(isAr,
+        "Couldn't build questions from these words.",
+        "مش قادر أبني أسئلة من الكلمات دي."));
+      return;
+    }
+    setQuestions(capped);
+    setStage("running");
   }
 
   function finishSession() {
@@ -133,13 +175,13 @@ export default function ExamModeModal({
     setFinishedAt(finishedTime);
     setStage("done");
     endAtRef.current = null;
-    if (onSaveQuizResult && mode !== "flash") {
+    if (onSaveQuizResult && questions.length > 0) {
       const finalScore = results.filter((r) => r.correct).length;
       onSaveQuizResult({
         id: uid(),
         at: finishedTime,
         section: sectionLabel || "exam",
-        mode: `exam-${mode}`,
+        mode: `exam-mixed`,
         score: finalScore,
         total: results.length,
         durationMs: startedAt ? finishedTime - startedAt : 0,
@@ -303,21 +345,26 @@ export default function ExamModeModal({
               ))}
             </div>
 
-            <label style={{ ...labelStyle, marginTop: 14 }}>{tr(isAr, "Practice type", "نوع التدريب")}</label>
+            <label style={{ ...labelStyle, marginTop: 14 }}>{tr(isAr, "Question types (pick one or more)", "أنواع الأسئلة (اختار واحد أو أكتر)")}</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
-              <button type="button" onClick={() => setMode("flash")} style={chipStyle(mode === "flash")}>
+              <button type="button" onClick={() => toggleMode("flash")} style={chipStyle(modes.has("flash"))}>
                 {tr(isAr, "Quick flash", "مراجعة سريعة")}
               </button>
-              <button type="button" onClick={() => setMode("mcq")} style={chipStyle(mode === "mcq")}>
+              <button type="button" onClick={() => toggleMode("mcq")} style={chipStyle(modes.has("mcq"))}>
                 {tr(isAr, "Multiple choice", "اختيار من متعدد")}
               </button>
-              <button type="button" onClick={() => setMode("typing")} style={chipStyle(mode === "typing")}>
+              <button type="button" onClick={() => toggleMode("typing")} style={chipStyle(modes.has("typing"))}>
                 {tr(isAr, "Type answer", "اكتب الإجابة")}
               </button>
-              <button type="button" onClick={() => setMode("cloze")} style={chipStyle(mode === "cloze")}>
+              <button type="button" onClick={() => toggleMode("cloze")} style={chipStyle(modes.has("cloze"))}>
                 {tr(isAr, "Fill the blank", "أكمل الفراغ")}
               </button>
             </div>
+            <p style={{ fontSize: 12, color: "var(--muted)", margin: "8px 0 0" }}>
+              {tr(isAr,
+                "Selecting more than one mixes question types in the same session.",
+                "لو اخترت أكتر من نوع، الأسئلة هتتخلط في نفس الجلسة.")}
+            </p>
 
             <label style={{ ...labelStyle, marginTop: 14 }}>{tr(isAr, "Session timer (optional)", "مؤقّت الجلسة (اختياري)")}</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
@@ -354,12 +401,12 @@ export default function ExamModeModal({
               fontSize: 12.5, color: "var(--muted)", marginBottom: 10, gap: 8, flexWrap: "wrap",
             }}>
               <span>
-                {mode === "flash"
+                {questions.length === 0
                   ? tr(isAr, `Word ${index + 1} of ${pool.length}`, `كلمة ${index + 1} من ${pool.length}`)
                   : tr(isAr, `Question ${index + 1} of ${questions.length}`, `السؤال ${index + 1} من ${questions.length}`)}
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                {mode !== "flash" && <span>{tr(isAr, `Score: ${score}`, `النتيجة: ${score}`)}</span>}
+                {questions.length > 0 && <span>{tr(isAr, `Score: ${score}`, `النتيجة: ${score}`)}</span>}
                 {remainingMs != null && (
                   <span style={{
                     display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 700,
@@ -373,12 +420,12 @@ export default function ExamModeModal({
 
             <div style={{ width: "100%", height: 4, background: "var(--input-bg)", borderRadius: 2, marginBottom: 16 }}>
               <div style={{
-                width: `${((mode === "flash" ? index : index) / (mode === "flash" ? pool.length : questions.length)) * 100}%`,
+                width: `${(index / Math.max(1, questions.length === 0 ? pool.length : questions.length)) * 100}%`,
                 height: "100%", background: "#e85d04", borderRadius: 2, transition: "width 0.2s",
               }} />
             </div>
 
-            {mode === "flash" && pool[index] && (() => {
+            {questions.length === 0 && pool[index] && (() => {
               const entry = pool[index];
               const isArWord = entry.section === "ar-ar";
               const wordDir = isArWord ? "rtl" : "ltr";
@@ -442,7 +489,7 @@ export default function ExamModeModal({
               );
             })()}
 
-            {mode !== "flash" && questions[index] && (() => {
+            {questions.length > 0 && questions[index] && (() => {
               const q = questions[index];
               return (
                 <div>
@@ -455,18 +502,18 @@ export default function ExamModeModal({
                   }}>
                     <div dir={q.promptDir} style={{
                       flex: 1, fontFamily: q.promptFont,
-                      fontSize: mode === "cloze" ? "clamp(18px, 3.5vw, 24px)" : "clamp(24px, 4vw, 32px)",
+                      fontSize: (q.mode === "cloze" || q.type === "cloze") ? "clamp(18px, 3.5vw, 24px)" : "clamp(24px, 4vw, 32px)",
                       fontWeight: 700, color: INK, wordBreak: "break-word", lineHeight: 1.35,
                     }}>
                       {q.promptText}
                     </div>
-                    {q.promptText && mode !== "cloze" && (
+                    {q.promptText && q.mode !== "cloze" && q.type !== "cloze" && (
                       <SpeakButton text={q.word} dir={q.wordDir} isAr={isAr} size={20}
                         style={{ flexShrink: 0 }} />
                     )}
                   </div>
 
-                  {mode === "mcq" ? (
+                  {(q.mode === "mcq" || q.type === "mcq") ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {q.options.map((opt, i) => {
                         const isCorrectOpt = opt === q.correct;
@@ -505,7 +552,7 @@ export default function ExamModeModal({
                             answered ? nextQuestion() : submitTyped();
                           }
                         }}
-                        placeholder={mode === "cloze"
+                        placeholder={(q.mode === "cloze" || q.type === "cloze")
                           ? tr(isAr, "Type the missing word…", "اكتب الكلمة الناقصة…")
                           : tr(isAr, "Type your answer…", "اكتب إجابتك…")}
                         style={{
@@ -528,7 +575,7 @@ export default function ExamModeModal({
                           {tr(isAr, "Check answer", "تحقق من الإجابة")}
                         </button>
                       )}
-                      {answered && mode === "cloze" && q.fullExample && (
+                      {answered && (q.mode === "cloze" || q.type === "cloze") && q.fullExample && (
                         <p dir={q.promptDir} style={{ marginTop: 12, fontSize: 14, color: "var(--muted-strong)", fontFamily: q.promptFont }}>
                           {tr(isAr, "Full sentence: ", "الجملة كاملة: ")}
                           <span style={{ color: INK }}>{q.fullExample}</span>
@@ -557,7 +604,7 @@ export default function ExamModeModal({
             <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: 20, margin: "0 0 8px", color: INK }}>
               {tr(isAr, "Session complete", "انتهت الجلسة")}
             </h3>
-            {mode === "flash" ? (
+            {questions.length === 0 ? (
               <p style={{ fontSize: 15, color: "var(--muted-strong)", margin: "0 0 16px" }}>
                 {tr(isAr,
                   `Knew ${knew} · Still learning ${learning}`,

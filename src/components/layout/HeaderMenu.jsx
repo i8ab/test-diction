@@ -193,6 +193,7 @@ export default function HeaderMenu({
   // Admin: site-wide banner + broadcast push (live in this menu)
   siteBanner = null,
   onPersistSiteBanner = null,
+  onOpenExamSettings = null,
   myAccountCode = null,
   focusMode = false,
   onToggleFocus = null,
@@ -772,6 +773,21 @@ export default function HeaderMenu({
                     }
                   />
                 </div>
+              )}
+
+
+              {isAdmin && typeof onOpenExamSettings === "function" && (
+                <Row
+                  tint="#e85d04"
+                  icon={<FlameIcon size={14} />}
+                  label={T("Exam countdown", "عدّاد الامتحان")}
+                  onClick={() => { setOpen(false); onOpenExamSettings(); }}
+                  trailing={
+                    <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                      {isAr ? "◂" : "▸"}
+                    </span>
+                  }
+                />
               )}
 
               {isAdmin && typeof onOpenAdmin === "function" && (

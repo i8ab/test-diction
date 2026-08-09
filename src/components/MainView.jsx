@@ -22,6 +22,7 @@ import BrandMark from "./common/BrandMark";
 import ToolsMenu from "./layout/ToolsMenu";
 import ReminderBanner from "./layout/ReminderBanner";
 import BackupReminderBanner from "./layout/BackupReminderBanner";
+import ExamBanner from "./layout/ExamBanner";
 import SiteBanner from "./layout/SiteBanner";
 import WordOfTheDay from "./layout/WordOfTheDay";
 import EmptyState from "./layout/EmptyState";
@@ -34,6 +35,7 @@ import { loadWordNotes, setWordNote } from "../lib/state/wordNotes";
 // bundle, so the initial page load only ships the code actually needed
 // to show the word list.
 const QuizModal = lazy(() => import("./modals/QuizModal"));
+const ExamModeModal = lazy(() => import("./modals/ExamModeModal"));
 const StatsModal = lazy(() => import("./modals/StatsModal"));
 const LeaderboardModal = lazy(() => import("./modals/LeaderboardModal"));
 const FlashcardsModal = lazy(() => import("./modals/FlashcardsModal"));
@@ -244,6 +246,7 @@ export default function MainView({
   const [todoBubble, setTodoBubble] = useState(() => loadTodoView().bubble);
   const [focusMode, setFocusMode] = useState(() => loadFocusMode());
   const [showQuickReview, setShowQuickReview] = useState(false);
+  const [showExamMode, setShowExamMode] = useState(false);
   const [showGoals, setShowGoals] = useState(() => loadGoalsView().open);
   const [goalsBubble, setGoalsBubble] = useState(() => loadGoalsView().bubble);
   const [showInfoGuide, setShowInfoGuide] = useState(false);
@@ -253,6 +256,7 @@ export default function MainView({
   // also hook it here. A second pushState caused: close → history.back → popstate
   // restored showAdd:true → Add modal reopened in a loop with the word zoom card.
   useHistoryBackClose(showQuiz, () => { setShowQuiz(false); setQuizDueOnly(false); });
+  useHistoryBackClose(showExamMode, () => setShowExamMode(false));
   useHistoryBackClose(!!zoomEntry, () => { setZoomEntry(null); setZoomAlreadyExists(false); });
   useHistoryBackClose(showGoals, () => { setShowGoals(false); setGoalsBubble(false); });
   useHistoryBackClose(showTodo, () => { setShowTodo(false); setTodoBubble(false); });
@@ -928,6 +932,7 @@ export default function MainView({
               onLeaderboard={() => setShowLeaderboard(true)}
               onStats={() => setShowStats(true)}
               onQuiz={() => setShowQuiz(true)}
+              onExamMode={() => setShowExamMode(true)}
               onFlashcards={() => setShowFlashcards(true)}
               onTimer={() => { setTimerBubble(false); setShowTimer(true); }}
               onCalendar={() => { setCalendarBubble(false); setShowCalendar(true); }}
@@ -1096,6 +1101,15 @@ export default function MainView({
           <div className="mobile-banners-stack">
             <WordOfTheDay entries={sectionEntries} section={section} cfg={cfg} isAr={appIsAr} onOpenZoom={(id) => { setZoomAlreadyExists(false); setZoomEntry(sectionEntries.find((e) => e.id === id) || null); }} />
             <ReminderBanner studiedAt={studiedAt} isAr={appIsAr} cfg={cfg} remindersOn={remindersOn} reminderTitle={reminderTitle} reminderMessage={reminderMessage} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />
+            <ExamBanner
+              entries={sectionEntries}
+              studiedIds={studiedIds}
+              studiedAt={studiedAt}
+              srsDueAt={srsDueAt}
+              srsBox={srsBox}
+              isAr={appIsAr}
+              onOpenExamMode={() => setShowExamMode(true)}
+            />
             {isAdmin && <BackupReminderBanner isAr={appIsAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
           </div>
         )}
@@ -1372,6 +1386,22 @@ export default function MainView({
             onRecordSrsAnswer={onRecordSrsAnswer}
             onSaveQuizResult={onSaveQuizResult}
           />
+        )}
+        {showExamMode && (
+          <Suspense fallback={null}>
+            <ExamModeModal
+              entries={sectionEntries}
+              studiedIds={studiedIds}
+              studiedAt={studiedAt}
+              srsDueAt={srsDueAt}
+              srsBox={srsBox}
+              isAr={appIsAr}
+              sectionLabel={cfg.shortLabel}
+              onClose={() => setShowExamMode(false)}
+              onRecordSrsAnswer={onRecordSrsAnswer}
+              onSaveQuizResult={onSaveQuizResult}
+            />
+          </Suspense>
         )}
         {showFlashcards && (
           <FlashcardsModal

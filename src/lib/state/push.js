@@ -204,18 +204,27 @@ export function saveReminderMessage(message, accountCode) {
   } catch (_) {}
 }
 
-export function buildReminderPayload({ title, message, body, dueCount } = {}) {
+export function buildReminderPayload({ title, message, body, dueCount, examDays } = {}) {
   const custom =
     (typeof message === "string" && message.trim()) ||
     (typeof body === "string" && body.trim()) ||
     "";
+  let examBit = "";
+  if (typeof examDays === "number") {
+    if (examDays < 0) examBit = "";
+    else if (examDays === 0) examBit = "Exam is today! ";
+    else if (examDays === 1) examBit = "1 day until the exam. ";
+    else examBit = `${examDays} days until the exam. `;
+  }
   return {
     title: (title && String(title).trim()) || "Study reminder",
     body:
       custom ||
-      (dueCount
-        ? `${dueCount} words due for review`
-        : "Time to review your words"),
+      (examBit
+        ? `${examBit}${dueCount ? `${dueCount} weak/due words to review` : "Time to review"}`
+        : dueCount
+          ? `${dueCount} words due for review`
+          : "Time to review your words"),
     dueCount: dueCount || 0,
   };
 }

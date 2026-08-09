@@ -142,6 +142,7 @@ function shuffle(arr) {
 
 export function buildQuiz(matchingEntries, allEntries, mode) {
   if (!matchingEntries || matchingEntries.length < 1) return [];
+  if (mode === "cloze") return buildClozeQuiz(matchingEntries, allEntries, 25);
   const pool = matchingEntries.length >= 4 ? matchingEntries : allEntries || matchingEntries;
 
   // Expand multi-sense entries into one question per sense so the quiz can
@@ -225,10 +226,14 @@ export function isTypingCorrect(typed, correct) {
 }
 
 export function quizQuestionLabel(mode, isAr, pos) {
-  const base =
-    mode === "typing"
-      ? (isAr ? "اكتب المعنى" : "Type the meaning")
-      : (isAr ? "اختر المعنى الصحيح" : "Pick the correct meaning");
+  let base;
+  if (mode === "cloze") {
+    base = isAr ? "أكمل الفراغ بالكلمة الصحيحة" : "Fill in the blank with the correct word";
+  } else if (mode === "typing") {
+    base = isAr ? "اكتب المعنى" : "Type the meaning";
+  } else {
+    base = isAr ? "اختر المعنى الصحيح" : "Pick the correct meaning";
+  }
   if (!pos) return base;
   const tag = posLabel(pos, isAr);
   if (!tag) return base;
@@ -257,6 +262,167 @@ export function formatQuizDuration(ms, isAr) {
   const rem = s % 60;
   return isAr ? `${m}:${String(rem).padStart(2, "0")}` : `${m}:${String(rem).padStart(2, "0")}`;
 }
+
+/**
+ * Words that still need work: studied + SRS box 0 or 1 (or never quizzed).
+ * Sorted weakest / oldest-studied first.
+ */
+export function selectWeakEntries(entries, studiedIds, srsBox, studiedAt, limit = 40) {
+  const set = studiedIds instanceof Set ? studiedIds : new Set(studiedIds || []);
+  const list = (entries || []).filter((e) => {
+    if (!set.has(e.id)) return false;
+    const box = (srsBox && srsBox[e.id]) || 0;
+    return box <= 1;
+  });
+  list.sort((a, b) => {
+    const ba = (srsBox && srsBox[a.id]) || 0;
+    const bb = (srsBox && srsBox[b.id]) || 0;
+    if (ba !== bb) return ba - bb;
+    return (studiedAt?.[a.id] || 0) - (studiedAt?.[b.id] || 0);
+  });
+  return limit ? list.slice(0, limit) : list;
+}
+
+/**
+ * Due + weak combined pool for Exam Mode (unique by id).
+ */
+export function selectExamPool(entries, studiedIds, srsDueAt, srsBox, studiedAt, limit = 40) {
+  const set = studiedIds instanceof Set ? studiedIds : new Set(studiedIds || []);
+  const map = new Map();
+  for (const e of entries || []) {
+    if (!set.has(e.id)) continue;
+    const due = isSrsDue(e.id, srsDueAt);
+    const box = (srsBox && srsBox[e.id]) || 0;
+    if (due || box <= 1) map.set(e.id, e);
+  }
+  const list = [...map.values()];
+  list.sort((a, b) => {
+    const ba = (srsBox && srsBox[a.id]) || 0;
+    const bb = (srsBox && srsBox[b.id]) || 0;
+    if (ba !== bb) return ba - bb;
+    const da = isSrsDue(a.id, srsDueAt) ? 0 : 1;
+    const db = isSrsDue(b.id, srsDueAt) ? 0 : 1;
+    if (da !== db) return da - db;
+    return (studiedAt?.[a.id] || 0) - (studiedAt?.[b.id] || 0);
+  });
+  return limit ? list.slice(0, limit) : list;
+}
+
+/** Pick a usable example sentence from an entry (primary or extra). */
+export function pickEntryExample(entry) {
+  if (!entry) return "";
+  const primary = String(entry.example || "").trim();
+  if (primary) return primary;
+  const extras = Array.isArray(entry.examples) ? entry.examples : [];
+  for (const ex of extras) {
+    const t = String(ex || "").trim();
+    if (t) return t;
+  }
+  return "";
+}
+
+/**
+ * Build a cloze (fill-in-the-blank) sentence from an example.
+ * Replaces the target word (case-insensitive, whole-ish word) with a blank.
+ * Returns { sentence, blanked, ok } — ok=false if no good blank could be made.
+ */
+export function makeClozeFromExample(example, word) {
+  const ex = String(example || "").trim();
+  const w = String(word || "").trim();
+  if (!ex || !w) return { sentence: ex, blanked: "", ok: false };
+
+  // Escape regex special chars in the word
+  const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Match whole word-ish (allow Arabic/Latin letters around boundaries loosely)
+  const re = new RegExp(`(^|[^\\p{L}\\p{N}])(${escaped})([^\\p{L}\\p{N}]|$)`, "iu");
+  if (!re.test(ex)) {
+    // Fallback: simple includes (first occurrence)
+    const lower = ex.toLowerCase();
+    const idx = lower.indexOf(w.toLowerCase());
+    if (idx < 0) return { sentence: ex, blanked: "", ok: false };
+    const blanked =
+      ex.slice(0, idx) + "______" + ex.slice(idx + w.length);
+    return { sentence: ex, blanked, ok: true };
+  }
+  const blanked = ex.replace(re, (_, a, _w, b) => `${a}______${b}`);
+  return { sentence: ex, blanked, ok: true };
+}
+
+/**
+ * Build cloze questions. Falls back to typing-the-word if no example works.
+ * Correct answer is the word itself (not the meaning).
+ */
+export function buildClozeQuiz(matchingEntries, allEntries, limit = 20) {
+  if (!matchingEntries || matchingEntries.length < 1) return [];
+  const pool = matchingEntries.length >= 4 ? matchingEntries : allEntries || matchingEntries;
+
+  const items = shuffle([...matchingEntries]).slice(0, Math.min(40, matchingEntries.length));
+  const questions = [];
+
+  for (const entry of items) {
+    if (questions.length >= limit) break;
+    const isArWord = entry.section === "ar-ar";
+    const wordDir = isArWord ? "rtl" : "ltr";
+    const wordFont = isArWord ? "'Amiri', serif" : "'Fraunces', serif";
+    const example = pickEntryExample(entry);
+    const cloze = makeClozeFromExample(example, entry.word);
+
+    if (cloze.ok) {
+      questions.push({
+        id: `${entry.id}:cloze`,
+        entryId: entry.id,
+        word: entry.word,
+        meaning: (getEntrySenses(entry)[0] || {}).meaning || entry.meaning || "",
+        correct: entry.word,
+        correctAnswer: entry.word,
+        acceptedAnswers: [entry.word],
+        options: [],
+        type: "cloze",
+        mode: "cloze",
+        pos: entry.pos || "",
+        promptText: cloze.blanked,
+        promptDir: wordDir,
+        promptFont: wordFont,
+        optionDir: wordDir,
+        optionFont: wordFont,
+        wordDir,
+        wordFont,
+        clozeSentence: cloze.blanked,
+        fullExample: cloze.sentence,
+      });
+    } else {
+      // No usable example → ask to type the word from its meaning (reverse)
+      const sense = getEntrySenses(entry)[0];
+      const meaning = (sense && sense.meaning) || entry.meaning || "";
+      if (!meaning) continue;
+      questions.push({
+        id: `${entry.id}:cloze-fallback`,
+        entryId: entry.id,
+        word: entry.word,
+        meaning,
+        correct: entry.word,
+        correctAnswer: entry.word,
+        acceptedAnswers: [entry.word],
+        options: [],
+        type: "cloze",
+        mode: "cloze",
+        pos: (sense && sense.pos) || entry.pos || "",
+        promptText: meaning,
+        promptDir: "rtl",
+        promptFont: "'Amiri', serif",
+        optionDir: wordDir,
+        optionFont: wordFont,
+        wordDir,
+        wordFont,
+        clozeSentence: "",
+        fullExample: "",
+        clozeFallback: true,
+      });
+    }
+  }
+  return shuffle(questions);
+}
+
 
 // ─── SM-2 style SRS (backward-compatible with box levels) ───────────────────
 // Per-card state shape stored in account.srsCards[id]:

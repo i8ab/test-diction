@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { tr } from "../../lib/config/i18n";
 import { FlameIcon, XIcon } from "../common/Icons";
 import { pushSupported, buildReminderPayload } from "../../lib/state/push";
+import { loadExamDate, daysUntilExam } from "../../lib/state/exam";
 
 /* =========================================================================
    STUDY REMINDER BANNER
@@ -43,10 +44,12 @@ export default function ReminderBanner({
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     try {
       if (localStorage.getItem(REMINDER_NOTIFIED_KEY) === todayKey()) return;
+      const examDays = daysUntilExam(loadExamDate());
       const payload = buildReminderPayload({
         title: reminderTitle,
         message: reminderMessage,
         dueCount: daysSince,
+        examDays: examDays != null ? examDays : undefined,
       });
       new Notification(payload.title, { body: payload.body });
       localStorage.setItem(REMINDER_NOTIFIED_KEY, todayKey());

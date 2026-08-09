@@ -55,6 +55,7 @@ export default function ToolsMenu({
   onDashboard,
   onWordLists,
   onChallenges,
+  onExamMode,
   focusMode = false,
   onToggleFocus = null,
 }) {
@@ -118,6 +119,7 @@ export default function ToolsMenu({
       id: "practice",
       title: tr(isAr, "Practice", "التدريب"),
       items: [
+        { key: "exam", icon: <FlameIcon size={18} />, tint: "#e85d04", label: tr(isAr, "Exam Mode", "وضع الامتحان"), onClick: onExamMode },
         { key: "quiz", icon: <QuizIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quiz", "اختبار"), onClick: onQuiz },
         { key: "flashcards", icon: <LayersIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Flashcards", "بطاقات تعليمية"), onClick: onFlashcards },
         { key: "dictation", icon: <MicIcon size={18} />, tint: "#e76f51", label: tr(isAr, "Dictation", "استماع وإملاء"), onClick: onDictation },

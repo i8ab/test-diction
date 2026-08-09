@@ -12,7 +12,7 @@ import { useSwipeDownClose } from "../../lib/utils/useModalDismiss";
 // Big, centered "zoom" view of a single word — just the word and its meaning
 // (plus definition, if any) in a large, readable font. Opened via the zoom
 // icon on each entry card.
-export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSaveNote }) {
+export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSaveNote, alreadyExists = false }) {
   const swipe = useSwipeDownClose(onClose, { enabled: true });
   const [sharing, setSharing] = useState(false);
   const isAr = cfg.dir === "rtl";
@@ -151,6 +151,26 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
             <XIcon size={18} />
           </button>
         </div>
+
+        {alreadyExists && (
+          <div
+            role="status"
+            style={{
+              margin: "0 0 14px",
+              padding: "10px 14px",
+              borderRadius: 12,
+              background: "color-mix(in srgb, var(--warning, #e6a817) 18%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--warning, #e6a817) 45%, transparent)",
+              color: "var(--ink, #1a1a1a)",
+              fontSize: 13,
+              fontWeight: 700,
+              lineHeight: 1.45,
+              textAlign: "center",
+            }}
+          >
+            {tr(isAr, "This word is already in your dictionary.", "الكلمة دي موجودة أصلًا في قاموسك.")}
+          </div>
+        )}
 
         {/* Word + single listen button (accent from settings) */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>

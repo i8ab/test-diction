@@ -216,6 +216,7 @@ export default function MainView({
   const loadMoreRef = useRef(null);
   const [editingEntry, setEditingEntry] = useState(null);
   const [zoomEntry, setZoomEntry] = useState(null);
+  const [zoomAlreadyExists, setZoomAlreadyExists] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [mobileNavTab, setMobileNavTab] = useState("words");
@@ -247,7 +248,7 @@ export default function MainView({
 
   // System back button closes the top-most overlay on mobile instead of leaving the site
   useHistoryBackClose(showQuiz, () => { setShowQuiz(false); setQuizDueOnly(false); });
-  useHistoryBackClose(!!zoomEntry, () => setZoomEntry(null));
+  useHistoryBackClose(!!zoomEntry, () => { setZoomEntry(null); setZoomAlreadyExists(false); });
   useHistoryBackClose(showAdd, () => onCloseAdd && onCloseAdd());
   useHistoryBackClose(showGoals, () => { setShowGoals(false); setGoalsBubble(false); });
   useHistoryBackClose(showTodo, () => { setShowTodo(false); setTodoBubble(false); });
@@ -523,6 +524,7 @@ export default function MainView({
         )
       );
       onCloseAdd();
+      setZoomAlreadyExists(true);
       setZoomEntry(existing);
       return;
     }
@@ -559,7 +561,10 @@ export default function MainView({
           `«${(again && again.word) || newEntry.word}» موجودة أصلًا في القاموس.`
         )
       );
-      if (again) setZoomEntry(again);
+      if (again) {
+        setZoomAlreadyExists(true);
+        setZoomEntry(again);
+      }
     }
   }
   const handleDelete = useCallback(async (id) => {
@@ -587,7 +592,10 @@ export default function MainView({
 
   const handleZoomRequest = useCallback((id) => {
     const target = entries.find((e) => e.id === id);
-    if (target) setZoomEntry(target);
+    if (target) {
+      setZoomAlreadyExists(false);
+      setZoomEntry(target);
+    }
   }, [entries]);
 
   const handleToggleStudiedById = useCallback((id) => { haptic(12); onToggleStudied(id); }, [onToggleStudied]);
@@ -1092,7 +1100,7 @@ export default function MainView({
         )}
         {!focusMode && (
           <div className="mobile-banners-stack">
-            <WordOfTheDay entries={sectionEntries} section={section} cfg={cfg} isAr={appIsAr} onOpenZoom={(id) => setZoomEntry(sectionEntries.find((e) => e.id === id) || null)} />
+            <WordOfTheDay entries={sectionEntries} section={section} cfg={cfg} isAr={appIsAr} onOpenZoom={(id) => { setZoomAlreadyExists(false); setZoomEntry(sectionEntries.find((e) => e.id === id) || null); }} />
             <ReminderBanner studiedAt={studiedAt} isAr={appIsAr} cfg={cfg} remindersOn={remindersOn} reminderTitle={reminderTitle} reminderMessage={reminderMessage} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />
             {isAdmin && <BackupReminderBanner isAr={appIsAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
           </div>
@@ -1333,9 +1341,10 @@ export default function MainView({
           <WordZoomModal
             entry={zoomEntry}
             cfg={cfg}
-            onClose={() => setZoomEntry(null)}
+            onClose={() => { setZoomEntry(null); setZoomAlreadyExists(false); }}
             wordNote={wordNotes[zoomEntry.id] || ""}
             onSaveNote={(note) => setWordNotes(setWordNote(accountCode, zoomEntry.id, note))}
+            alreadyExists={zoomAlreadyExists}
           />
         )}
         {showQuiz && (
@@ -1490,7 +1499,7 @@ export default function MainView({
         )}
       </Suspense>
       {toast && (
-        <div role="status" aria-live="polite" style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "var(--success)", color: "#fff", padding: "10px 18px", borderRadius: 4, fontSize: 13, fontWeight: 600, boxShadow: "0 10px 24px -10px rgba(0,0,0,0.35)", zIndex: 60, display: "flex", alignItems: "center", gap: 7 }}>
+        <div role="status" aria-live="polite" style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "var(--success)", color: "#fff", padding: "10px 18px", borderRadius: 4, fontSize: 13, fontWeight: 600, boxShadow: "0 10px 24px -10px rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", gap: 7 }}>
           <CheckIcon size={14} /> {tr(isAr, toast, toast === "Account info updated." ? "تم تحديث بيانات الحساب." : toast)}
         </div>
       )}

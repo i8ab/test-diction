@@ -1409,8 +1409,8 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
         )}
       </div>
 
-      {/* Settings modal */}
-      {showSettings && (
+      {/* Settings modal — portaled to body so timer digits / page text never stack above it */}
+      {showSettings && typeof document !== "undefined" && createPortal(
         <div
           role="dialog"
           aria-modal="true"
@@ -1419,12 +1419,13 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
           style={{
             position: "fixed",
             inset: 0,
-            zIndex: 8000,
-            background: "rgba(0,0,0,0.55)",
+            zIndex: 10000,
+            background: "rgba(0,0,0,0.65)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             padding: 16,
+            isolation: "isolate",
           }}
         >
           <div
@@ -1434,6 +1435,7 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
               maxWidth: 560,
               maxHeight: "min(88vh, 820px)",
               overflowY: "auto",
+              WebkitOverflowScrolling: "touch",
               padding: "16px 18px 24px",
               borderRadius: 18,
               // Fully opaque so nothing behind the modal bleeds through
@@ -1441,6 +1443,8 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
               border: `1px solid ${panelBorder}`,
               boxShadow: "0 24px 60px -16px rgba(0,0,0,0.55)",
               color: prefs.textColor,
+              position: "relative",
+              zIndex: 1,
             }}
           >
             <div
@@ -1454,6 +1458,7 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
                 zIndex: 2,
                 background: isLightBg ? "#fbf7ef" : "#0c1016",
                 paddingBottom: 8,
+                marginTop: -4,
               }}
             >
               <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: "0.02em" }}>
@@ -1882,7 +1887,8 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
             </p>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <style>{`

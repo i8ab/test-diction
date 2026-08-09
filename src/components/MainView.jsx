@@ -511,16 +511,56 @@ export default function MainView({
   }
 
   async function handleAdd(newEntry) {
+    // Case-insensitive duplicate check within the same section (buy / Buy / BUY).
+    const key = (newEntry.word || "").trim().toLowerCase();
+    const existing = sectionEntries.find((e) => (e.word || "").trim().toLowerCase() === key);
+    if (existing) {
+      showToast(
+        tr(
+          appIsAr,
+          `"${existing.word}" is already in the dictionary.`,
+          `«${existing.word}» موجودة أصلًا في القاموس.`
+        )
+      );
+      onCloseAdd();
+      setZoomEntry(existing);
+      return;
+    }
+
     // Pass a function rather than a precomputed array: if another device
     // saves a word at the same moment, persistEntries re-runs this against
     // the freshly-fetched entries and retries, so both additions survive
     // instead of one silently overwriting the other.
+    // Also re-check duplicates against the latest server list (race-safe).
     const newRow = { ...newEntry, id: uid(), section, addedBy: accountCode, addedAt: Date.now() };
+    let skippedDup = false;
     await persistEntries(
-      (curEntries) => [...curEntries, newRow],
-      () => makeLogEntry("word_add", `${name} added "${newEntry.word}" (${cfg.shortLabel})`, name, accountCode)
+      (curEntries) => {
+        if (curEntries.some((e) => e.section === section && (e.word || "").trim().toLowerCase() === key)) {
+          skippedDup = true;
+          return curEntries;
+        }
+        return [...curEntries, newRow];
+      },
+      () =>
+        skippedDup
+          ? null
+          : makeLogEntry("word_add", `${name} added "${newEntry.word}" (${cfg.shortLabel})`, name, accountCode)
     );
     onCloseAdd();
+    if (skippedDup) {
+      const again = entries.find(
+        (e) => e.section === section && (e.word || "").trim().toLowerCase() === key
+      );
+      showToast(
+        tr(
+          appIsAr,
+          `"${(again && again.word) || newEntry.word}" is already in the dictionary.`,
+          `«${(again && again.word) || newEntry.word}» موجودة أصلًا في القاموس.`
+        )
+      );
+      if (again) setZoomEntry(again);
+    }
   }
   const handleDelete = useCallback(async (id) => {
     const target = entries.find((e) => e.id === id);
@@ -632,10 +672,35 @@ export default function MainView({
   async function handleEdit(id, updates) {
     const target = entries.find((e) => e.id === id);
     const wordChanged = target && updates.word && updates.word !== target.word;
+    // If the word text changed, block renaming onto another existing word (case-insensitive).
+    if (wordChanged) {
+      const key = (updates.word || "").trim().toLowerCase();
+      const clash = sectionEntries.find(
+        (e) => e.id !== id && (e.word || "").trim().toLowerCase() === key
+      );
+      if (clash) {
+        showToast(
+          tr(
+            appIsAr,
+            `"${clash.word}" is already in the dictionary.`,
+            `«${clash.word}» موجودة أصلًا في القاموس.`
+          )
+        );
+        return;
+      }
+    }
     await persistEntries(
-      (curEntries) => curEntries.map((e) =>
-        e.id === id ? { ...e, ...updates, editedBy: accountCode, editedAt: Date.now() } : e
-      ),
+      (curEntries) => {
+        if (wordChanged) {
+          const key = (updates.word || "").trim().toLowerCase();
+          if (curEntries.some((e) => e.id !== id && e.section === section && (e.word || "").trim().toLowerCase() === key)) {
+            return curEntries;
+          }
+        }
+        return curEntries.map((e) =>
+          e.id === id ? { ...e, ...updates, editedBy: accountCode, editedAt: Date.now() } : e
+        );
+      },
       () => makeLogEntry(
         "word_edit",
         `${name} edited "${(target && target.word) || id}"${wordChanged ? ` → "${updates.word}"` : ""}`,

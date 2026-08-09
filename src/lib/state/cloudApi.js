@@ -1,21 +1,22 @@
 /* =========================================================================
-   SHARED CLOUD STORAGE — via /api/jsonbin (Vercel serverless proxy)
+   SHARED CLOUD STORAGE — via /api/jsonbin (Vercel serverless proxy → Supabase)
    -------------------------------------------------------------------------
-   The actual JSONBin bin ID and master key live only in Vercel's server-side
-   environment variables (JSONBIN_BIN_ID, JSONBIN_MASTER_KEY) — see
-   api/jsonbin.js. This file never sees them, so nothing secret ships to
-   the browser. Set the env vars in your Vercel project settings, then
-   deploy; both of you read/write the same bin through this proxy.
+   The actual Supabase URL and key live only in Vercel's server-side
+   environment variables (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY or
+   SUPABASE_ANON_KEY) — see api/jsonbin.js. This file never sees them, so
+   nothing secret ships to the browser. Set the env vars in your Vercel
+   project settings, then deploy; everyone reads/writes the same data
+   through this proxy.
    ========================================================================= */
 // Auth is username + password only. Writes go through /api/jsonbin; the
-// JSONBin master key never ships to the browser.
+// Supabase key never ships to the browser.
 
 // `fresh: true` bypasses the browser/edge cache (see api/jsonbin.js) for the
 // rare calls where we must have the absolute latest data — e.g. checking for
 // a duplicate name right before creating an account. Everywhere else (most
 // notably the initial page load) we're happy to accept a response that's up
 // to ~10s old in exchange for it arriving instantly instead of waiting on a
-// round trip to JSONBin.io on every single visit.
+// round trip to the database on every single visit.
 export async function fetchRecord({ fresh = false } = {}) {
   const res = await fetch("/api/jsonbin", fresh ? { cache: "no-store" } : undefined);
   if (!res.ok) throw new Error("fetch failed");

@@ -217,6 +217,8 @@ export default function MainView({
   const [editingEntry, setEditingEntry] = useState(null);
   const [zoomEntry, setZoomEntry] = useState(null);
   const [zoomAlreadyExists, setZoomAlreadyExists] = useState(false);
+  // When add hits a duplicate: show message + "Go to it" — do NOT auto-open the card.
+  const [dupNotice, setDupNotice] = useState(null); // { entry } | null
   const [showQuiz, setShowQuiz] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [mobileNavTab, setMobileNavTab] = useState("words");
@@ -518,16 +520,8 @@ export default function MainView({
     const key = (newEntry.word || "").trim().toLowerCase();
     const existing = sectionEntries.find((e) => (e.word || "").trim().toLowerCase() === key);
     if (existing) {
-      showToast(
-        tr(
-          appIsAr,
-          `"${existing.word}" is already in the dictionary.`,
-          `«${existing.word}» موجودة أصلًا في القاموس.`
-        )
-      );
       onCloseAdd();
-      setZoomAlreadyExists(true);
-      setZoomEntry(existing);
+      setDupNotice({ entry: existing });
       return;
     }
 
@@ -556,16 +550,15 @@ export default function MainView({
       const again = entries.find(
         (e) => e.section === section && (e.word || "").trim().toLowerCase() === key
       );
-      showToast(
-        tr(
-          appIsAr,
-          `"${(again && again.word) || newEntry.word}" is already in the dictionary.`,
-          `«${(again && again.word) || newEntry.word}» موجودة أصلًا في القاموس.`
-        )
-      );
-      if (again) {
-        setZoomAlreadyExists(true);
-        setZoomEntry(again);
+      if (again) setDupNotice({ entry: again });
+      else {
+        showToast(
+          tr(
+            appIsAr,
+            `"${newEntry.word}" is already in the dictionary.`,
+            `«${newEntry.word}» موجودة أصلًا في القاموس.`
+          )
+        );
       }
     }
   }
@@ -1500,7 +1493,84 @@ export default function MainView({
           />
         )}
       </Suspense>
-      {toast && (
+      {dupNotice && dupNotice.entry && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            maxWidth: "min(440px, calc(100vw - 24px))",
+            background: "var(--card, #1a1f2e)",
+            color: "var(--ink, #fff)",
+            padding: "12px 14px",
+            borderRadius: 12,
+            fontSize: 13,
+            fontWeight: 600,
+            boxShadow: "0 12px 32px -8px rgba(0,0,0,0.45)",
+            zIndex: 10000,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+            border: "1px solid color-mix(in srgb, var(--warning, #e6a817) 50%, transparent)",
+          }}
+        >
+          <span style={{ flex: "1 1 160px", lineHeight: 1.4 }}>
+            {tr(
+              appIsAr,
+              `"${dupNotice.entry.word}" is already in the dictionary.`,
+              `«${dupNotice.entry.word}» موجودة أصلًا في القاموس.`
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const e = dupNotice.entry;
+              setDupNotice(null);
+              setZoomAlreadyExists(true);
+              setZoomEntry(e);
+            }}
+            style={{
+              border: "none",
+              cursor: "pointer",
+              background: "var(--accent-1, #19A7CE)",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 12,
+              padding: "8px 12px",
+              borderRadius: 8,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {tr(appIsAr, "Go to it", "اذهب إليها")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setDupNotice(null)}
+            aria-label={tr(appIsAr, "Dismiss", "إغلاق")}
+            style={{
+              border: "none",
+              cursor: "pointer",
+              background: "transparent",
+              color: "var(--muted-strong, #aaa)",
+              width: 32,
+              height: 32,
+              padding: 0,
+              borderRadius: 8,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <XIcon size={16} />
+          </button>
+        </div>
+      )}
+      {toast && !dupNotice && (
         <div role="status" aria-live="polite" style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "var(--success)", color: "#fff", padding: "10px 18px", borderRadius: 4, fontSize: 13, fontWeight: 600, boxShadow: "0 10px 24px -10px rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", gap: 7 }}>
           <CheckIcon size={14} /> {tr(isAr, toast, toast === "Account info updated." ? "تم تحديث بيانات الحساب." : toast)}
         </div>

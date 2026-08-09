@@ -10,7 +10,7 @@ import { PairListEditor } from "../common/PairList";
 import { PlusIcon, XIcon, CheckIcon, LoaderIcon, WandIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
-function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
+function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting }) {
   const isAr = cfg.dir === "rtl";
   const isEdit = !!initialEntry;
   const [word, setWord] = useState(isEdit ? initialEntry.word : "");
@@ -37,6 +37,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
   const [antonyms, setAntonyms] = useState(isEdit ? normalizePairs(initialEntry.antonyms, cfg) : []);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [dupEntry, setDupEntry] = useState(null);
 
   // "Fetch from dictionary" only makes sense for English words (there's no
   // free API for Arabic definitions), and only fills fields the user
@@ -126,18 +127,32 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
     }
 
     setSaving(true);
-    await onSubmit({
-      word: word.trim(),
-      meaning: payloadMeaning,
-      pos: payloadPos || undefined,
-      senses: payloadSenses,
-      definition: definition.trim(),
-      example: example.trim(),
-      examples: extraExamples.map((ex) => ex.trim()).filter(Boolean),
-      synonyms: cleanPairs(synonyms),
-      antonyms: cleanPairs(antonyms),
-    });
-    setSaving(false);
+    setDupEntry(null);
+    try {
+      const result = await onSubmit({
+        word: word.trim(),
+        meaning: payloadMeaning,
+        pos: payloadPos || undefined,
+        senses: payloadSenses,
+        definition: definition.trim(),
+        example: example.trim(),
+        examples: extraExamples.map((ex) => ex.trim()).filter(Boolean),
+        synonyms: cleanPairs(synonyms),
+        antonyms: cleanPairs(antonyms),
+      });
+      if (result && result.duplicate) {
+        setDupEntry(result.duplicate);
+        setError(
+          tr(
+            isAr,
+            `"${result.duplicate.word}" is already in the dictionary.`,
+            `«${result.duplicate.word}» موجودة أصلًا في القاموس.`
+          )
+        );
+      }
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -269,7 +284,33 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry }) {
           </button>
           <PairListEditor cfg={cfg} label={tr(isAr, "Synonyms (optional)", "مرادفات (اختياري)")} pairs={synonyms} onChange={setSynonyms} isAr={isAr} />
           <PairListEditor cfg={cfg} label={tr(isAr, "Antonyms (optional)", "مضادات (اختياري)")} pairs={antonyms} onChange={setAntonyms} isAr={isAr} />
-          {error && <div style={errorStyle} role="alert" aria-live="assertive">{error}</div>}
+          {error && (
+            <div style={{ ...errorStyle, display: "flex", flexDirection: "column", gap: 10, alignItems: "stretch" }} role="alert" aria-live="assertive">
+              <span>{error}</span>
+              {dupEntry && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof onGoToExisting === "function") onGoToExisting(dupEntry);
+                    else onClose();
+                  }}
+                  style={{
+                    border: "none",
+                    cursor: "pointer",
+                    background: cfg.accent,
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    width: "100%",
+                  }}
+                >
+                  {tr(isAr, "Go to it", "اذهب إليها")}
+                </button>
+              )}
+            </div>
+          )}
           <button type="submit" disabled={saving} style={{ ...primaryBtnStyle, background: cfg.accent }}>
             {saving ? <LoaderIcon size={16} /> : (isEdit ? <CheckIcon size={16} /> : <PlusIcon size={16} />)} {isEdit ? tr(isAr, "Save changes", "حفظ التغييرات") : tr(isAr, "Save word", "حفظ الكلمة")}
           </button>

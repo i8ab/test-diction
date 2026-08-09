@@ -520,9 +520,8 @@ export default function MainView({
     const key = (newEntry.word || "").trim().toLowerCase();
     const existing = sectionEntries.find((e) => (e.word || "").trim().toLowerCase() === key);
     if (existing) {
-      onCloseAdd();
-      setDupNotice({ entry: existing });
-      return;
+      // Keep Add modal open — AddModal shows the message + "Go to it" button.
+      return { duplicate: existing };
     }
 
     // Pass a function rather than a precomputed array: if another device
@@ -545,22 +544,22 @@ export default function MainView({
           ? null
           : makeLogEntry("word_add", `${name} added "${newEntry.word}" (${cfg.shortLabel})`, name, accountCode)
     );
-    onCloseAdd();
     if (skippedDup) {
       const again = entries.find(
         (e) => e.section === section && (e.word || "").trim().toLowerCase() === key
       );
-      if (again) setDupNotice({ entry: again });
-      else {
-        showToast(
-          tr(
-            appIsAr,
-            `"${newEntry.word}" is already in the dictionary.`,
-            `«${newEntry.word}» موجودة أصلًا في القاموس.`
-          )
-        );
-      }
+      if (again) return { duplicate: again };
+      showToast(
+        tr(
+          appIsAr,
+          `"${newEntry.word}" is already in the dictionary.`,
+          `«${newEntry.word}» موجودة أصلًا في القاموس.`
+        )
+      );
+      return { duplicate: null };
     }
+    onCloseAdd();
+    return { ok: true };
   }
   const handleDelete = useCallback(async (id) => {
     const target = entries.find((e) => e.id === id);
@@ -1323,7 +1322,19 @@ export default function MainView({
       </div>
 
       <Suspense fallback={null}>
-        {showAdd && <AddModal cfg={cfg} onClose={onCloseAdd} onSubmit={handleAdd} />}
+        {showAdd && (
+          <AddModal
+            cfg={cfg}
+            onClose={onCloseAdd}
+            onSubmit={handleAdd}
+            onGoToExisting={(entry) => {
+              onCloseAdd();
+              setDupNotice(null);
+              setZoomAlreadyExists(true);
+              setZoomEntry(entry);
+            }}
+          />
+        )}
         {editingEntry && (
           <AddModal
             cfg={cfg}

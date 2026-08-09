@@ -130,17 +130,18 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
           width: "100%",
           maxWidth: 520,
           maxHeight: "min(92dvh, 92vh)",
-          overflowY: "auto",
-          WebkitOverflowScrolling: "touch",
           background: CARD,
           borderRadius: 20,
-          padding: "14px 24px 32px",
           boxShadow: "0 28px 64px -16px rgba(0,0,0,0.5)",
           textAlign: "center",
           position: "relative",
           border: "1px solid rgba(var(--border-rgb),0.12)",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
         }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 3, margin: "0 -8px 8px", padding: "6px 8px", background: "color-mix(in srgb, var(--card, #fff) 92%, transparent)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", borderRadius: 12 }}>
+        {/* Header outside scroll so nothing appears above it */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, zIndex: 3, padding: "14px 24px 10px", background: CARD, borderBottom: "1px solid rgba(var(--border-rgb),0.08)" }}>
           <button onClick={handleShare} disabled={sharing} aria-label={tr(cfg.dir === "rtl", "Share this word", "شارك الكلمة دي")}
             title={tr(cfg.dir === "rtl", "Share this word", "شارك الكلمة دي")}
             style={{ border: "none", background: "var(--input-bg)", cursor: sharing ? "default" : "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}>
@@ -151,6 +152,7 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
             <XIcon size={18} />
           </button>
         </div>
+        <div style={{ overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "8px 24px 32px", flex: 1, minHeight: 0 }}>
 
         {alreadyExists && (
           <div
@@ -356,6 +358,7 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
             />
           </div>
         )}
+        </div>
       </div>
     </div>
   );

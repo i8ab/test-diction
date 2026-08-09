@@ -1434,9 +1434,6 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
               width: "100%",
               maxWidth: 560,
               maxHeight: "min(88vh, 820px)",
-              overflowY: "auto",
-              WebkitOverflowScrolling: "touch",
-              padding: "16px 18px 24px",
               borderRadius: 18,
               // Fully opaque so nothing behind the modal bleeds through
               background: isLightBg ? "#fbf7ef" : "#0c1016",
@@ -1445,20 +1442,22 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
               color: prefs.textColor,
               position: "relative",
               zIndex: 1,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
             }}
           >
+            {/* Header is outside the scroll area so nothing ever appears above it */}
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                marginBottom: 14,
-                position: "sticky",
-                top: 0,
+                flexShrink: 0,
                 zIndex: 2,
                 background: isLightBg ? "#fbf7ef" : "#0c1016",
-                paddingBottom: 8,
-                marginTop: -4,
+                padding: "16px 18px 12px",
+                borderBottom: `1px solid ${panelBorder}`,
               }}
             >
               <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: "0.02em" }}>
@@ -1493,6 +1492,11 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
                 display: "flex",
                 flexDirection: "column",
                 gap: 18,
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
+                padding: "16px 18px 24px",
+                flex: 1,
+                minHeight: 0,
               }}
             >
             {/* Mode */}

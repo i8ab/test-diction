@@ -1327,6 +1327,11 @@ export default function MainView({
             cfg={cfg}
             onClose={onCloseAdd}
             onSubmit={handleAdd}
+            findExisting={(w) => {
+              const key = (w || "").trim().toLowerCase();
+              if (!key) return null;
+              return sectionEntries.find((e) => (e.word || "").trim().toLowerCase() === key) || null;
+            }}
             onGoToExisting={(entry) => {
               onCloseAdd();
               setDupNotice(null);

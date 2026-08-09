@@ -10,7 +10,7 @@ import { PairListEditor } from "../common/PairList";
 import { PlusIcon, XIcon, CheckIcon, LoaderIcon, WandIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
-function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting }) {
+function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findExisting }) {
   const isAr = cfg.dir === "rtl";
   const isEdit = !!initialEntry;
   const [word, setWord] = useState(isEdit ? initialEntry.word : "");
@@ -39,6 +39,24 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting }) {
   const [saving, setSaving] = useState(false);
   const [dupEntry, setDupEntry] = useState(null);
   const cardRef = useRef(null);
+
+  // Live duplicate check as soon as the word is typed (even without meaning).
+  // Only for add mode — edit of the same word should not flag itself.
+  useEffect(() => {
+    if (isEdit || typeof findExisting !== "function") return;
+    const key = (word || "").trim();
+    if (!key) {
+      setDupEntry(null);
+      return;
+    }
+    const existing = findExisting(key);
+    if (existing) {
+      setDupEntry(existing);
+      setError(""); // top banner is enough; avoid double message
+    } else {
+      setDupEntry(null);
+    }
+  }, [word, isEdit, findExisting]);
 
   // "Fetch from dictionary" only makes sense for English words (there's no
   // free API for Arabic definitions), and only fills fields the user
@@ -97,7 +115,21 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!word.trim()) { setError(tr(isAr, "Word is required.", "الكلمة مطلوبة.")); return; }
+    const trimmedWord = word.trim();
+    if (!trimmedWord) { setError(tr(isAr, "Word is required.", "الكلمة مطلوبة.")); return; }
+
+    // If the word already exists, show "Go to it" even when meaning is empty.
+    if (!isEdit && typeof findExisting === "function") {
+      const existing = findExisting(trimmedWord);
+      if (existing) {
+        setDupEntry(existing);
+        setError("");
+        try {
+          if (cardRef.current) cardRef.current.scrollTop = 0;
+        } catch (_) {}
+        return;
+      }
+    }
 
     let payloadMeaning = meaning.trim();
     let payloadPos = pos || "";
@@ -131,7 +163,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting }) {
     setDupEntry(null);
     try {
       const result = await onSubmit({
-        word: word.trim(),
+        word: trimmedWord,
         meaning: payloadMeaning,
         pos: payloadPos || undefined,
         senses: payloadSenses,
@@ -143,14 +175,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting }) {
       });
       if (result && result.duplicate) {
         setDupEntry(result.duplicate);
-        setError(
-          tr(
-            isAr,
-            `"${result.duplicate.word}" is already in the dictionary.`,
-            `«${result.duplicate.word}» موجودة أصلًا في القاموس.`
-          )
-        );
-        // Scroll to top so the sticky banner + button are visible (form is long).
+        setError(""); // top banner only — avoid duplicate "Go to it"
         try {
           if (cardRef.current) cardRef.current.scrollTop = 0;
         } catch (_) {}
@@ -222,7 +247,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting }) {
               value={word}
               onChange={(e) => {
                 setWord(e.target.value);
-                if (dupEntry) { setDupEntry(null); setError(""); }
+                // dupEntry is managed by the live-check effect above
               }}
               placeholder={cfg.wordPlaceholder}
               dir={cfg.wordDir}
@@ -347,30 +372,8 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting }) {
           <PairListEditor cfg={cfg} label={tr(isAr, "Synonyms (optional)", "مرادفات (اختياري)")} pairs={synonyms} onChange={setSynonyms} isAr={isAr} />
           <PairListEditor cfg={cfg} label={tr(isAr, "Antonyms (optional)", "مضادات (اختياري)")} pairs={antonyms} onChange={setAntonyms} isAr={isAr} />
           {error && (
-            <div style={{ ...errorStyle, display: "flex", flexDirection: "column", gap: 10, alignItems: "stretch" }} role="alert" aria-live="assertive">
-              <span>{error}</span>
-              {dupEntry && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (typeof onGoToExisting === "function") onGoToExisting(dupEntry);
-                    else onClose();
-                  }}
-                  style={{
-                    border: "none",
-                    cursor: "pointer",
-                    background: cfg.accent,
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    padding: "10px 14px",
-                    borderRadius: 8,
-                    width: "100%",
-                  }}
-                >
-                  {tr(isAr, "Go to it", "اذهب إليها")}
-                </button>
-              )}
+            <div style={{ ...errorStyle }} role="alert" aria-live="assertive">
+              {error}
             </div>
           )}
           <button type="submit" disabled={saving} style={{ ...primaryBtnStyle, background: cfg.accent }}>

@@ -4,11 +4,19 @@ import { useEffect, useRef } from "react";
 /**
  * When `open` is true, push a history entry so the system back button closes
  * the modal instead of leaving the site. Call `onClose` on popstate.
+ *
+ * onClose is stored in a ref so the effect only depends on `open`. Inline
+ * arrow callbacks from parents would otherwise change identity every render,
+ * re-run cleanup (history.back), fire popstate, and reopen — an infinite loop
+ * that leaves the modal X stuck open.
  */
 export function useHistoryBackClose(open, onClose) {
   const pushed = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
-    if (!open || typeof onClose !== "function") return undefined;
+    if (!open) return undefined;
     try {
       window.history.pushState({ ttModal: 1 }, "");
       pushed.current = true;
@@ -17,7 +25,8 @@ export function useHistoryBackClose(open, onClose) {
     }
     function onPop() {
       pushed.current = false;
-      onClose();
+      const fn = onCloseRef.current;
+      if (typeof fn === "function") fn();
     }
     window.addEventListener("popstate", onPop);
     return () => {
@@ -27,7 +36,7 @@ export function useHistoryBackClose(open, onClose) {
         try { window.history.back(); } catch (_) {}
       }
     };
-  }, [open, onClose]);
+  }, [open]);
 }
 
 /**

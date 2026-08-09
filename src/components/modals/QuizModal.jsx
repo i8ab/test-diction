@@ -37,7 +37,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
   // due-only, instead of the usual "last hour" default.
   const [rangeKey, setRangeKey] = useState(initialDueOnly ? "all" : "60");
   const [customMinutes, setCustomMinutes] = useState("120");
-  const [mode, setMode] = useState("mcq"); // mcq | typing | cloze
+  const mode = "mcq"; // quiz is multiple-choice only
   const [dueOnly, setDueOnly] = useState(!!initialDueOnly);
   const [stage, setStage] = useState("setup"); // setup | running | done
   const [startError, setStartError] = useState("");
@@ -198,8 +198,8 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
           <div style={{ marginTop: 14 }}>
             <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "0 0 14px" }}>
               {tr(isAr,
-                "Pick which studied words to be tested on. The quiz mixes meaning, definition, fill-in-the-blank (when a word has an example sentence), and synonyms/antonyms for any word that has them — so it's not just rote memorization.",
-                "اختر الكلمات التي تمت دراستها والتي عايز تختبر فيها. الاختبار بيخلط بين المعنى والتعريف وإكمال الفراغ (لو الكلمة ليها جملة مثال) والمرادفات/المضادات لأي كلمة ليها — مش مجرد حفظ.")}
+                "Pick which studied words to be tested on. Questions are multiple choice — choose the correct meaning.",
+                "اختار الكلمات اللي ذاكرتها واللي عايز تختبر فيها. الأسئلة اختيار من متعدد — اختار المعنى الصحيح.")}
             </p>
             <label style={labelStyle}>{tr(isAr, "Studied within", "تمت دراستها خلال")}</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 6 }}>
@@ -229,25 +229,6 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                 `${matchingEntries.length} studied word${matchingEntries.length === 1 ? "" : "s"} match this range.`,
                 `${matchingEntries.length} كلمة متاحة من الكلمات المدروسة في هذا النطاق.`)}
             </div>
-            <label style={{ ...labelStyle, marginTop: 16 }}>{tr(isAr, "Question type", "نوع الأسئلة")}</label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 6 }}>
-              <button type="button" onClick={() => setMode("mcq")} style={chipStyle(mode === "mcq")}>
-                {tr(isAr, "Multiple choice", "اختيار من متعدد")}
-              </button>
-              <button type="button" onClick={() => setMode("typing")} style={chipStyle(mode === "typing")}>
-                {tr(isAr, "Type the answer", "اكتب الإجابة")}
-              </button>
-              <button type="button" onClick={() => setMode("cloze")} style={chipStyle(mode === "cloze")}>
-                {tr(isAr, "Fill in the blank", "أكمل الفراغ")}
-              </button>
-            </div>
-            {mode === "cloze" && (
-              <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "8px 0 0" }}>
-                {tr(isAr,
-                  "Uses each word’s example sentence when available. If a word has no example, you’ll type the word from its meaning instead.",
-                  "بيستخدم جملة المثال لكل كلمة لو موجودة. لو مفيش مثال، هتكتب الكلمة من معناها.")}
-              </p>
-            )}
             <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, fontSize: 13.5, color: "var(--muted-strong)", cursor: "pointer" }}>
               <input type="checkbox" checked={dueOnly} onChange={(e) => setDueOnly(e.target.checked)} />
               {tr(isAr, "Only words due for review (spaced repetition)", "الكلمات المستحقة للمراجعة فقط (التكرار المتباعد)")}
@@ -284,8 +265,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                     style={{ flexShrink: 0, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.25)", borderRadius: "50%", width: 38, height: 38, justifyContent: "center", color: BRASS }} />
                 )}
               </div>
-              {mode === "mcq" ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {q.options.map((opt, i) => {
                     const isCorrectOpt = opt === q.correct;
                     const isSelectedOpt = opt === selected;
@@ -303,50 +283,6 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                     );
                   })}
                 </div>
-              ) : (
-                // Typing + Cloze: free-text input, checked on submit (or Enter).
-                <div>
-                  {mode === "cloze" && q.clozeFallback && (
-                    <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 8px" }}>
-                      {tr(isAr, "No example sentence — type the word that matches this meaning:", "مفيش جملة مثال — اكتب الكلمة اللي تطابق المعنى ده:")}
-                    </p>
-                  )}
-                  <input
-                    type="text"
-                    dir={q.optionDir}
-                    autoFocus
-                    disabled={answered}
-                    value={typedAnswer}
-                    onChange={(e) => setTypedAnswer(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); answered ? nextQuestion() : submitTyped(); } }}
-                    placeholder={mode === "cloze"
-                      ? tr(isAr, "Type the missing word…", "اكتب الكلمة الناقصة…")
-                      : tr(isAr, "Type your answer…", "اكتب إجابتك…")}
-                    style={{ ...inputStyle, fontFamily: q.optionFont, fontSize: 17,
-                      borderColor: answered ? (results[results.length - 1]?.correct ? "var(--success)" : "var(--danger-border)") : undefined }}
-                  />
-                  {!answered && (
-                    <button type="button" onClick={submitTyped} disabled={!typedAnswer.trim()} style={{ ...primaryBtnStyle, opacity: typedAnswer.trim() ? 1 : 0.5, cursor: typedAnswer.trim() ? "pointer" : "default" }}>
-                      {tr(isAr, "Check answer", "تحقق من الإجابة")}
-                    </button>
-                  )}
-                  {answered && mode === "cloze" && q.fullExample && (
-                    <p dir={q.promptDir} style={{ marginTop: 12, fontSize: 14, color: "var(--muted-strong)", fontFamily: q.promptFont }}>
-                      {tr(isAr, "Full sentence: ", "الجملة كاملة: ")}
-                      <span style={{ color: INK }}>{q.fullExample}</span>
-                    </p>
-                  )}
-                  {answered && (
-                    <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 4, fontSize: 14,
-                      background: results[results.length - 1]?.correct ? "var(--success-bg)" : "var(--danger-bg)",
-                      color: results[results.length - 1]?.correct ? "var(--success)" : "var(--danger)" }}>
-                      {results[results.length - 1]?.correct
-                        ? tr(isAr, "Correct!", "إجابة صحيحة!")
-                        : tr(isAr, `Not quite — the answer is "${q.correct}".`, `مش صح — الإجابة الصح هي "${q.correct}".`)}
-                    </div>
-                  )}
-                </div>
-              )}
               {answered && (
                 <button type="button" onClick={nextQuestion} style={primaryBtnStyle}>
                   {index + 1 >= questions.length ? tr(isAr, "See results", "عرض النتيجة") : tr(isAr, "Next question", "السؤال التالي")}

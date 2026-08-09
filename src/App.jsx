@@ -560,7 +560,7 @@ export default function DictionaryApp() {
                   );
                   try {
                     const newVersion = await saveRecord(
-                      { entries: rec.entries, accounts: nextAccounts, logs: rec.logs, siteBanner: rec.siteBanner || null, examConfig: examConfigRef.current},
+                      { entries: rec.entries, accounts: nextAccounts, logs: rec.logs, siteBanner: rec.siteBanner || null},
                       ver
                     );
                     setAccounts(nextAccounts);
@@ -806,11 +806,11 @@ export default function DictionaryApp() {
 
           try {
             const newVersion = await saveRecord(
-              { entries: curEntries, accounts: nextAccounts, logs: nextLogs, siteBanner: curBanner, examConfig: examConfigRef.current},
+              { entries: curEntries, accounts: nextAccounts, logs: nextLogs, siteBanner: curBanner},
               curVersion
             );
             commitRecordVersion(newVersion);
-            saveOfflineCache({ entries: curEntries, accounts: nextAccounts, logs: nextLogs, siteBanner: curBanner, examConfig: examConfigRef.current});
+            saveOfflineCache({ entries: curEntries, accounts: nextAccounts, logs: nextLogs, siteBanner: curBanner});
             setSaveError("");
             break;
           } catch (e) {
@@ -885,11 +885,11 @@ export default function DictionaryApp() {
 
           try {
             const newVersion = await saveRecord(
-              { entries: nextEntries, accounts: curAccounts, logs: nextLogs, siteBanner: curBanner, examConfig: examConfigRef.current},
+              { entries: nextEntries, accounts: curAccounts, logs: nextLogs, siteBanner: curBanner},
               curVersion
             );
             commitRecordVersion(newVersion);
-            saveOfflineCache({ entries: nextEntries, accounts: curAccounts, logs: nextLogs, siteBanner: curBanner, examConfig: examConfigRef.current});
+            saveOfflineCache({ entries: nextEntries, accounts: curAccounts, logs: nextLogs, siteBanner: curBanner});
             setSaveError("");
             break;
           } catch (e) {
@@ -978,7 +978,7 @@ export default function DictionaryApp() {
       let curBanner = siteBannerRef.current;
       for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
         try {
-          const newVersion = await saveRecord({ entries: curEntries, accounts: curAccounts, logs: next, siteBanner: curBanner, examConfig: examConfigRef.current}, curVersion);
+          const newVersion = await saveRecord({ entries: curEntries, accounts: curAccounts, logs: next, siteBanner: curBanner}, curVersion);
           commitRecordVersion(newVersion);
           return;
         } catch (e) {
@@ -1019,9 +1019,9 @@ export default function DictionaryApp() {
       let curLogs = logsRef.current;
       for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
         try {
-          const newVersion = await saveRecord({ entries: curEntries, accounts: curAccounts, logs: curLogs, siteBanner: nextBanner, examConfig: examConfigRef.current}, curVersion);
+          const newVersion = await saveRecord({ entries: curEntries, accounts: curAccounts, logs: curLogs, siteBanner: nextBanner}, curVersion);
           commitRecordVersion(newVersion);
-          saveOfflineCache({ entries: curEntries, accounts: curAccounts, logs: curLogs, siteBanner: nextBanner, examConfig: examConfigRef.current});
+          saveOfflineCache({ entries: curEntries, accounts: curAccounts, logs: curLogs, siteBanner: nextBanner});
           return { ok: true };
         } catch (e) {
           if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
@@ -1261,61 +1261,96 @@ export default function DictionaryApp() {
     }
 
     setSignupSaving(true);
+    const code = generatePersonalCode();
+    let passwordHash;
     try {
-      const rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
-      const clash = (rec.accounts || []).some(
-        (a) => normalizeUsername(a.username) === uCheck.username
-      );
-      if (clash) {
-        setSignupError("That username is already taken. Pick another.");
-        setAccounts(rec.accounts);
-        setEntries(rec.entries);
-        setLogs(rec.logs);
-        setSiteBanner(rec.siteBanner || null);
-        commitRecordVersion(rec.version);
-        return;
+      passwordHash = await hashPassword(pCheck.password, code);
+    } catch (e) {
+      setSignupSaving(false);
+      setSignupError("Couldn't create the account — check your connection and try again.");
+      return;
+    }
+
+    const newAccount = {
+      name: trimmedName,
+      username: uCheck.username,
+      passwordHash,
+      code,
+      role: "user",
+      status: "pending",
+      createdAt: Date.now(),
+      ...(signupAvatar ? { avatar: signupAvatar } : {}),
+      gender: signupGender,
+    };
+
+    // Retry on conflict so concurrent signups in the same second don't lose requests.
+    const MAX_SIGNUP_RETRIES = 8;
+    try {
+      let lastErr = null;
+      for (let attempt = 0; attempt <= MAX_SIGNUP_RETRIES; attempt++) {
+        try {
+          const rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
+          const clash = (rec.accounts || []).some(
+            (a) => normalizeUsername(a.username) === uCheck.username
+          );
+          if (clash) {
+            setSignupError("That username is already taken. Pick another.");
+            setAccounts(rec.accounts);
+            setEntries(rec.entries);
+            setLogs(rec.logs);
+            setSiteBanner(rec.siteBanner || null);
+            setExamConfig(normalizeExamConfig(rec.examConfig));
+            commitRecordVersion(rec.version);
+            return;
+          }
+          // Ensure our pending account is present (merge by code on server too).
+          const withoutSelf = (rec.accounts || []).filter((a) => a.code !== code);
+          const nextAccounts = [...withoutSelf, newAccount];
+          const nextLogs = capLogs([
+            ...(rec.logs || []),
+            makeLogEntry(
+              "account_add",
+              `${trimmedName} (@${uCheck.username}) requested an account`,
+              trimmedName,
+              code
+            ),
+          ]);
+          const newVersion = await saveRecord(
+            {
+              entries: rec.entries,
+              accounts: nextAccounts,
+              logs: nextLogs,
+              siteBanner: rec.siteBanner || null,
+              mergeAccounts: true,
+            },
+            rec.version
+          );
+          setEntries(rec.entries);
+          setAccounts(nextAccounts);
+          setLogs(nextLogs);
+          setSiteBanner(rec.siteBanner || null);
+          setExamConfig(normalizeExamConfig(rec.examConfig));
+          commitRecordVersion(newVersion);
+          setSignupPassword("");
+          setSignupPassword2("");
+          setSignupAvatar("");
+          setSignupGender("");
+          goToStage("pendingShown");
+          return;
+        } catch (err) {
+          lastErr = err;
+          if (err instanceof SaveConflictError && attempt < MAX_SIGNUP_RETRIES) {
+            // Brief backoff, then retry with a fresh server snapshot.
+            await new Promise((r) => setTimeout(r, 40 + attempt * 30));
+            continue;
+          }
+          throw err;
+        }
       }
-      const code = generatePersonalCode();
-      const passwordHash = await hashPassword(pCheck.password, code);
-      const nextAccounts = [
-        ...(rec.accounts || []),
-        {
-          name: trimmedName,
-          username: uCheck.username,
-          passwordHash,
-          code,
-          role: "user",
-          status: "pending",
-          createdAt: Date.now(),
-          ...(signupAvatar ? { avatar: signupAvatar } : {}),
-          gender: signupGender,
-        },
-      ];
-      const nextLogs = capLogs([
-        ...(rec.logs || []),
-        makeLogEntry(
-          "account_add",
-          `${trimmedName} (@${uCheck.username}) requested an account`,
-          trimmedName,
-          code
-        ),
-      ]);
-      const newVersion = await saveRecord(
-        { entries: rec.entries, accounts: nextAccounts, logs: nextLogs, siteBanner: rec.siteBanner || null, examConfig: examConfigRef.current},
-        rec.version
-      );
-      setEntries(rec.entries);
-      setAccounts(nextAccounts);
-      setLogs(nextLogs);
-      commitRecordVersion(newVersion);
-      setSignupPassword("");
-      setSignupPassword2("");
-      setSignupAvatar("");
-      setSignupGender("");
-      goToStage("pendingShown");
+      if (lastErr) throw lastErr;
     } catch (err) {
       if (err instanceof SaveConflictError) {
-        setSignupError("Someone else just made a change — please try again.");
+        setSignupError("Too many people signing up at once — please try again.");
       } else {
         setSignupError("Couldn't create the account — check your connection and try again.");
       }

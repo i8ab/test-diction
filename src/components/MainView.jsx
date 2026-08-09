@@ -982,7 +982,23 @@ export default function MainView({
       </header>
 
       <div className="app-container" style={{ margin: "0 auto", padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px) 0" }}>
-        <div className="toolbar-row mobile-sticky-search" style={{ display: "flex", gap: 10, flexWrap: "wrap", position: "relative", zIndex: 50 }}>
+        {!focusMode && (
+          <div className="exam-banner-slot" style={{ marginBottom: 14 }}>
+            <ExamBanner
+              examConfig={examConfig}
+              entries={sectionEntries}
+              studiedIds={studiedIds}
+              studiedAt={studiedAt}
+              srsDueAt={srsDueAt}
+              srsBox={srsBox}
+              isAr={appIsAr}
+              isAdmin={isAdmin}
+              onOpenExamMode={() => setShowExamMode(true)}
+              onOpenExamSettings={isAdmin ? () => setShowExamSettings(true) : undefined}
+            />
+          </div>
+        )}
+        <div className="toolbar-row mobile-sticky-search" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", position: "relative", zIndex: 50, marginBottom: 4 }}>
           <div className="toolbar-anim toolbar-search-wrap" style={{ position: "relative", flex: "1 1 240px", animationDelay: "0.02s", zIndex: 50 }}>
             <SearchIcon size={16} color="var(--icon-muted)" style={{ position: "absolute", insetInlineStart: 12, top: "50%", transform: "translateY(-50%)" }} />
             <input
@@ -1103,18 +1119,6 @@ export default function MainView({
         {!focusMode && (
           <div className="mobile-banners-stack">
             <ReminderBanner studiedAt={studiedAt} isAr={appIsAr} cfg={cfg} remindersOn={remindersOn} reminderTitle={reminderTitle} reminderMessage={reminderMessage} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />
-            <ExamBanner
-              examConfig={examConfig}
-              entries={sectionEntries}
-              studiedIds={studiedIds}
-              studiedAt={studiedAt}
-              srsDueAt={srsDueAt}
-              srsBox={srsBox}
-              isAr={appIsAr}
-              isAdmin={isAdmin}
-              onOpenExamMode={() => setShowExamMode(true)}
-              onOpenExamSettings={isAdmin ? () => setShowExamSettings(true) : undefined}
-            />
             {isAdmin && <BackupReminderBanner isAr={appIsAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
           </div>
         )}

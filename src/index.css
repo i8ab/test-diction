@@ -1359,12 +1359,18 @@ html[data-device="desktop"] .fab-glow--goals {
   cursor: pointer;
   font-family: "Source Sans 3", sans-serif;
   padding: 6px 2px;
-  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: transparent !important;
+  outline: none;
+  box-shadow: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .mobile-bottom-nav-item svg { flex-shrink: 0; }
 .mobile-bottom-nav-item.is-active,
 .mobile-bottom-nav-item:active {
-  color: var(--accent-1);
+  /* no accent flash on tap / active — keep same muted color */
+  color: var(--muted-strong, #7FA3B5);
+  background: transparent;
 }
 html[data-device="mobile"] .app-main-row {
   padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
@@ -1455,16 +1461,24 @@ html[data-device="mobile"] .mobile-banners-stack > * {
   margin-top: 8px !important;
 }
 html[data-device="mobile"] .mobile-banners-stack {
-  max-height: 120px;
-  overflow: auto;
+  max-height: none;
+  overflow: visible;
   border-radius: 12px;
-  -webkit-overflow-scrolling: touch;
+}
+html[data-device="mobile"] .exam-banner-slot {
+  margin-bottom: 12px !important;
 }
 html[data-device="mobile"] .toolbar-row {
   flex-wrap: nowrap !important;
+  gap: 10px !important;
+  align-items: center !important;
 }
 html[data-device="mobile"] .toolbar-search-wrap {
   flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+html[data-device="mobile"] .toolbar-add-word {
+  /* stays hidden on mobile — FAB is used; keep rule below intact */
 }
 
 .mobile-fab-add {
@@ -1576,9 +1590,18 @@ html[data-device="mobile"] .mobile-sticky-search {
   padding-inline: 4px;
 }
 
-/* Bottom nav active + badge */
+/* Bottom nav: no blue/accent highlight on active or press */
 .mobile-bottom-nav-item.is-active {
-  color: var(--accent-1) !important;
+  color: var(--muted-strong, #7FA3B5) !important;
+  background: transparent !important;
+}
+.mobile-bottom-nav-item:active,
+.mobile-bottom-nav-item:focus,
+.mobile-bottom-nav-item:focus-visible {
+  color: var(--muted-strong, #7FA3B5) !important;
+  background: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 .mobile-nav-icon-wrap {
   position: relative;

@@ -89,6 +89,35 @@ function pickBanner(raw) {
   };
 }
 
+
+function pickExamConfig(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const date =
+    typeof raw.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.date)
+      ? raw.date
+      : null;
+  let time =
+    typeof raw.time === "string" && /^\d{1,2}:\d{2}$/.test(raw.time)
+      ? raw.time
+      : "09:00";
+  if (time) {
+    const [hh, mm] = time.split(":");
+    time = `${String(Number(hh)).padStart(2, "0")}:${mm}`;
+  }
+  const color =
+    typeof raw.color === "string" && raw.color.trim()
+      ? raw.color.trim()
+      : "#e85d04";
+  return {
+    enabled: raw.enabled === true && !!date,
+    date,
+    time,
+    color,
+    labelEn: typeof raw.labelEn === "string" ? raw.labelEn : "",
+    labelAr: typeof raw.labelAr === "string" ? raw.labelAr : "",
+  };
+}
+
 function logFromRow(row) {
   return {
     id: row.id,
@@ -158,12 +187,16 @@ async function loadRecord() {
 
   let version = 0;
   let siteBanner = null;
+  let examConfig = null;
   for (const row of settingsRows || []) {
     if (row.key === "version") {
       version = typeof row.value === "number" ? row.value : Number(row.value) || 0;
     }
     if (row.key === "site_banner") {
       siteBanner = pickBanner(row.value);
+    }
+    if (row.key === "exam_config") {
+      examConfig = pickExamConfig(row.value);
     }
   }
 
@@ -174,7 +207,7 @@ async function loadRecord() {
     } catch (_) {}
   }
 
-  return { entries, accounts, logs, siteBanner, version };
+  return { entries, accounts, logs, siteBanner, examConfig, version };
 }
 
 /** Delete every row in a table (PostgREST requires a filter). */
@@ -193,6 +226,7 @@ async function saveFullRecord(record, nextVersion) {
     [
       { key: "version", value: nextVersion },
       { key: "site_banner", value: record.siteBanner },
+      { key: "exam_config", value: record.examConfig || null },
     ],
     { Prefer: "resolution=merge-duplicates,return=minimal" }
   );
@@ -336,11 +370,38 @@ export default async function handler(req, res) {
           nextBanner = current.siteBanner;
         }
 
+        // Exam countdown: only overwrite when the client explicitly sends it.
+        // Otherwise keep whatever is already stored so normal saves cannot
+        // wipe an admin-set countdown.
+        let nextExam;
+        if (body.examConfig !== undefined) {
+          nextExam =
+            body.examConfig === null ? null : pickExamConfig(body.examConfig);
+        } else {
+          nextExam = current.examConfig || null;
+        }
+
+        // Accounts: if two signups race, prefer merging by code so neither
+        // pending request is dropped when the client retries with a full list.
+        let nextAccounts = Array.isArray(body.accounts) ? body.accounts : [];
+        if (body.mergeAccounts === true && Array.isArray(current.accounts)) {
+          const byCode = new Map();
+          for (const a of current.accounts) {
+            if (a && a.code) byCode.set(a.code, a);
+          }
+          for (const a of nextAccounts) {
+            if (a && a.code) byCode.set(a.code, a);
+          }
+          // Also keep any current account whose code wasn't in the body
+          nextAccounts = Array.from(byCode.values());
+        }
+
         const payload = {
-          entries: Array.isArray(body.entries) ? body.entries : [],
-          accounts: Array.isArray(body.accounts) ? body.accounts : [],
+          entries: Array.isArray(body.entries) ? body.entries : current.entries || [],
+          accounts: nextAccounts,
           logs: pruneLogsLast24h(Array.isArray(body.logs) ? body.logs : []),
           siteBanner: nextBanner,
+          examConfig: nextExam,
           version: nextVersion,
         };
 

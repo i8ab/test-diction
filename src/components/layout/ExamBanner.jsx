@@ -55,7 +55,7 @@ export default function ExamBanner({
         <div
           role="region"
           style={{
-            margin: "0 0 12px",
+            margin: 0,
             padding: "10px 14px",
             borderRadius: 10,
             background: "var(--input-bg)",
@@ -112,7 +112,7 @@ export default function ExamBanner({
       role="region"
       aria-label={tr(isAr, "Exam countdown", "عدّاد الامتحان")}
       style={{
-        margin: "0 0 12px",
+        margin: 0,
         padding: "14px 14px 12px",
         borderRadius: 12,
         background: `linear-gradient(135deg, ${accent}, ${accent}cc)`,

@@ -111,6 +111,13 @@ function logToRow(log) {
   };
 }
 
+/** Keep only logs from the last 24 hours. */
+function pruneLogsLast24h(logs) {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  return (logs || []).filter((l) => (l.at || 0) >= cutoff);
+}
+
+
 async function sbFetch(method, path, body, extraHeaders = {}) {
   const cfg = sbHeaders();
   if (!cfg) throw new Error("missing SUPABASE_URL or key");
@@ -137,13 +144,17 @@ async function loadRecord() {
   const [entriesRows, accountsRows, logsRows, settingsRows] = await Promise.all([
     sbFetch("GET", "entries?select=data"),
     sbFetch("GET", "accounts?select=data"),
-    sbFetch("GET", "logs?select=*"),
+    // Only the newest 200 logs from the DB (ordered by at desc)
+    sbFetch("GET", "logs?select=*&order=at.desc&limit=500"),
     sbFetch("GET", "settings?select=key,value"),
   ]);
 
   const entries = (entriesRows || []).map((r) => r.data).filter(Boolean);
   const accounts = (accountsRows || []).map((r) => r.data).filter(Boolean);
-  const logs = (logsRows || []).map(logFromRow);
+  // Activity log: last 24 hours only (older rows are dropped from the response
+  // and cleaned from the DB on save / daily cron).
+  let logs = pruneLogsLast24h((logsRows || []).map(logFromRow));
+  logs.sort((a, b) => (a.at || 0) - (b.at || 0));
 
   let version = 0;
   let siteBanner = null;
@@ -211,10 +222,11 @@ async function saveFullRecord(record, nextVersion) {
     }
   }
 
-  // 4) logs
+  // 4) logs — only keep last 24 hours
   await clearTable("logs");
-  if (record.logs?.length) {
-    const rows = record.logs.map(logToRow);
+  const logsToSave = pruneLogsLast24h(record.logs);
+  if (logsToSave.length) {
+    const rows = logsToSave.map(logToRow);
     for (let i = 0; i < rows.length; i += 100) {
       await sbFetch("POST", "logs", rows.slice(i, i + 100), {
         Prefer: "return=minimal",
@@ -262,9 +274,12 @@ export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
       const record = await loadRecord();
+      // Longer edge cache → fewer round-trips to Supabase on repeated opens.
+      // Browser still revalidates (max-age=0); Vercel edge can serve a copy
+      // up to 30s old and refresh in the background for another 2 minutes.
       res.setHeader(
         "Cache-Control",
-        "public, max-age=0, s-maxage=10, stale-while-revalidate=55"
+        "public, max-age=0, s-maxage=30, stale-while-revalidate=120"
       );
       return res.status(200).json(record);
     }
@@ -324,7 +339,7 @@ export default async function handler(req, res) {
         const payload = {
           entries: Array.isArray(body.entries) ? body.entries : [],
           accounts: Array.isArray(body.accounts) ? body.accounts : [],
-          logs: Array.isArray(body.logs) ? body.logs : [],
+          logs: pruneLogsLast24h(Array.isArray(body.logs) ? body.logs : []),
           siteBanner: nextBanner,
           version: nextVersion,
         };

@@ -85,13 +85,10 @@ async function fetchRecordDirect() {
 
 async function clearStaleLogsDirect(record) {
   try {
-    const now = new Date();
-    const isToday = (ts) => {
-      const d = new Date(ts);
-      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-    };
+    // Keep only activity from the last 24 hours; delete everything older.
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
     const logs = record.logs || [];
-    const hasStale = logs.some((entry) => entry.action !== "first_sign_in" && !isToday(entry.at));
+    const hasStale = logs.some((entry) => (entry.at || 0) < cutoff);
     if (!hasStale) return { cleared: false };
 
     const url = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
@@ -108,17 +105,15 @@ async function clearStaleLogsDirect(record) {
       Prefer: "return=minimal",
     };
 
-    const nextLogs = logs.filter((entry) => entry.action === "first_sign_in" || isToday(entry.at));
+    const nextLogs = logs.filter((entry) => (entry.at || 0) >= cutoff);
     const nextVersion = (record.version || 0) + 1;
 
-    // Update version
     await fetch(`${url}/rest/v1/settings?on_conflict=key`, {
       method: "POST",
       headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify([{ key: "version", value: nextVersion }]),
     });
 
-    // Replace logs
     await fetch(`${url}/rest/v1/logs?id=not.is.null`, {
       method: "DELETE",
       headers,

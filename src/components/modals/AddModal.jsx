@@ -1,5 +1,5 @@
 // Add/edit-word form modal.
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { normalizePairs } from "../../lib/utils/pairUtils";
@@ -38,6 +38,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting }) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [dupEntry, setDupEntry] = useState(null);
+  const cardRef = useRef(null);
 
   // "Fetch from dictionary" only makes sense for English words (there's no
   // free API for Arabic definitions), and only fills fields the user
@@ -149,6 +150,10 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting }) {
             `«${result.duplicate.word}» موجودة أصلًا في القاموس.`
           )
         );
+        // Scroll to top so the sticky banner + button are visible (form is long).
+        try {
+          if (cardRef.current) cardRef.current.scrollTop = 0;
+        } catch (_) {}
       }
     } finally {
       setSaving(false);
@@ -158,15 +163,72 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting }) {
   return (
     <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 5000 }}>
       <BodyScrollLock />
-      <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={cfg.dir} role="dialog" aria-modal="true" aria-labelledby="add-modal-title" style={{ width: "100%", maxWidth: 440, background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)", maxHeight: "90vh", overflowY: "auto" }}>
+      <div ref={cardRef} onClick={(e) => e.stopPropagation()} className="modal-card" dir={cfg.dir} role="dialog" aria-modal="true" aria-labelledby="add-modal-title" style={{ width: "100%", maxWidth: 440, background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)", maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <h2 id="add-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: INK, margin: 0 }}>{isEdit ? tr(isAr, "Edit word", "تعديل الكلمة") : tr(isAr, `Add to ${cfg.label}`, `إضافة إلى ${cfg.label}`)}</h2>
           <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}><XIcon size={20} /></button>
         </div>
+
+        {dupEntry && (
+          <div
+            role="alert"
+            style={{
+              marginTop: 12,
+              marginBottom: 4,
+              padding: "12px 14px",
+              borderRadius: 10,
+              background: "color-mix(in srgb, var(--danger, #c0392b) 16%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--danger, #c0392b) 45%, transparent)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--danger, #e74c3c)", lineHeight: 1.45 }}>
+              {tr(
+                isAr,
+                `"${dupEntry.word}" is already in the dictionary.`,
+                `«${dupEntry.word}» موجودة أصلًا في القاموس.`
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof onGoToExisting === "function") onGoToExisting(dupEntry);
+                else onClose();
+              }}
+              style={{
+                border: "none",
+                cursor: "pointer",
+                background: cfg.accent,
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: 14,
+                padding: "12px 14px",
+                borderRadius: 8,
+                width: "100%",
+              }}
+            >
+              {tr(isAr, "Go to it", "اذهب إليها")}
+            </button>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} style={{ marginTop: 14 }}>
           <label style={labelStyle} htmlFor="add-word">{tr(isAr, "Word *", "الكلمة *")}</label>
           <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
-            <input id="add-word" value={word} onChange={(e) => setWord(e.target.value)} placeholder={cfg.wordPlaceholder} dir={cfg.wordDir} style={{ ...inputStyle, flex: 1, fontFamily: cfg.wordFont, fontSize: 16 }} autoFocus />
+            <input
+              id="add-word"
+              value={word}
+              onChange={(e) => {
+                setWord(e.target.value);
+                if (dupEntry) { setDupEntry(null); setError(""); }
+              }}
+              placeholder={cfg.wordPlaceholder}
+              dir={cfg.wordDir}
+              style={{ ...inputStyle, flex: 1, fontFamily: cfg.wordFont, fontSize: 16 }}
+              autoFocus
+            />
             {canAutoSuggest && (
               <button type="button" onClick={handleAutoSuggest} disabled={!word.trim() || suggesting}
                 title={tr(isAr, "Fetch definition and examples only", "جلب التعريف والأمثلة فقط")}

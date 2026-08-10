@@ -192,7 +192,7 @@ export function saveXp(accountCode, data) {
       })
     );
   } catch (_) {}
-}}
+}
 
 export function levelFromXp(total) {
   let current = LEVELS[0];

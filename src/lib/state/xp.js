@@ -1,5 +1,5 @@
-// Visual XP + level system (local per account).
-// Gains XP from study actions; unlocks cosmetic rewards at milestones.
+// Visual XP + level system (local cache + optional cloud via account.xp).
+// Design: reward real learning once per unique claim — not grinding repeats.
 
 const XP_KEY = "twoTongues.xp.";
 
@@ -17,43 +17,93 @@ export const LEVELS = [
 ];
 
 export const XP_REWARDS = {
-  studyWord: 3,
-  quizCorrect: 2,
-  quizPerfect: 15,
-  dictationRound: 5,
-  flashcardKnew: 1,
-  smartCardKnew: 2,
-  conversationDone: 12,
-  extractAdd: 1,
-  dailyFirst: 10,
+  studyWordFirst: 5,
+  quizCorrectFirst: 3,
+  srsPromote: 4,
+  srsMaster: 12,
+  smartCardFirst: 3,
+  dictationWordFirst: 4,
+  quizSessionComplete: 8,
+  quizPerfect: 20,
+  conversationScenario: 15,
+  extractBatch: 2,
+  extractBatchBonus: 6,
+  dailyOpen: 5,
+  dailyStreakBonus: 10,
+  timerFocusBlock: 6,
+  goalReached: 15,
+  challengeComplete: 18,
+  favoriteFirst: 1,
+  wordNoteFirst: 2,
+  clozeFirst: 3,
+};
+
+const DAILY_CAPS = {
+  total: 120,
+  quizCorrectFirst: 40,
+  smartCardFirst: 30,
+  dictationWordFirst: 24,
+  extractBatch: 20,
 };
 
 function key(accountCode) {
   return XP_KEY + (accountCode || "anon");
 }
 
+function dayKey(ms = Date.now()) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function emptyData() {
+  return {
+    total: 0,
+    history: [],
+    unlockedRewards: [],
+    claimed: {},
+    dailyEarned: {},
+  };
+}
+
 export function loadXp(accountCode) {
   try {
     const raw = localStorage.getItem(key(accountCode));
-    if (!raw) return { total: 0, history: [], unlockedRewards: [] };
+    if (!raw) return emptyData();
     const data = JSON.parse(raw);
     return {
       total: Number(data.total) || 0,
-      history: Array.isArray(data.history) ? data.history.slice(0, 100) : [],
+      history: Array.isArray(data.history) ? data.history.slice(0, 120) : [],
       unlockedRewards: Array.isArray(data.unlockedRewards) ? data.unlockedRewards : [],
+      claimed: data.claimed && typeof data.claimed === "object" ? data.claimed : {},
+      dailyEarned: data.dailyEarned && typeof data.dailyEarned === "object" ? data.dailyEarned : {},
     };
   } catch (_) {
-    return { total: 0, history: [], unlockedRewards: [] };
+    return emptyData();
   }
 }
 
 export function saveXp(accountCode, data) {
   try {
-    localStorage.setItem(key(accountCode), JSON.stringify({
-      total: Number(data.total) || 0,
-      history: (data.history || []).slice(0, 100),
-      unlockedRewards: data.unlockedRewards || [],
-    }));
+    const claimed = { ...(data.claimed || {}) };
+    const cutoff = Date.now() - 60 * 24 * 60 * 60 * 1000;
+    for (const k of Object.keys(claimed)) {
+      if (k.startsWith("d:") && Number(claimed[k]) < cutoff) delete claimed[k];
+    }
+    const dailyEarned = { ...(data.dailyEarned || {}) };
+    const days = Object.keys(dailyEarned).sort();
+    if (days.length > 45) {
+      for (const d of days.slice(0, days.length - 45)) delete dailyEarned[d];
+    }
+    localStorage.setItem(
+      key(accountCode),
+      JSON.stringify({
+        total: Number(data.total) || 0,
+        history: (data.history || []).slice(0, 120),
+        unlockedRewards: data.unlockedRewards || [],
+        claimed,
+        dailyEarned,
+      })
+    );
   } catch (_) {}
 }
 
@@ -71,39 +121,234 @@ export function levelFromXp(total) {
   return { ...current, next, pct, total };
 }
 
-export function addXp(accountCode, amount, reason) {
-  if (!amount || amount <= 0) return loadXp(accountCode);
+export function claimKey(kind, id) {
+  if (id == null || id === "") return kind;
+  return `${kind}:${id}`;
+}
+
+export function dailyClaimKey(kind, id) {
+  const d = dayKey();
+  if (id == null || id === "") return `d:${d}:${kind}`;
+  return `d:${d}:${kind}:${id}`;
+}
+
+export function tryGrantXp(accountCode, amount, reason, options = {}) {
+  const { claim = null, dailyCategory = null } = options;
   const data = loadXp(accountCode);
+  const amt = Math.max(0, Math.floor(Number(amount) || 0));
+  if (amt <= 0) {
+    return { granted: false, amount: 0, data, leveledUp: false, levelInfo: levelFromXp(data.total), reason };
+  }
+  if (claim && data.claimed[claim]) {
+    return { granted: false, amount: 0, data, leveledUp: false, levelInfo: levelFromXp(data.total), reason };
+  }
+
+  const today = dayKey();
+  const earnedToday = Number(data.dailyEarned[today]) || 0;
+  if (earnedToday >= DAILY_CAPS.total) {
+    return { granted: false, amount: 0, data, leveledUp: false, levelInfo: levelFromXp(data.total), reason: "daily_cap" };
+  }
+
+  let finalAmt = amt;
+  if (dailyCategory && DAILY_CAPS[dailyCategory] != null) {
+    const catEarned = (data.history || [])
+      .filter((h) => h.day === today && h.category === dailyCategory)
+      .reduce((s, h) => s + (Number(h.amount) || 0), 0);
+    finalAmt = Math.min(finalAmt, Math.max(0, DAILY_CAPS[dailyCategory] - catEarned));
+  }
+  finalAmt = Math.min(finalAmt, DAILY_CAPS.total - earnedToday);
+  if (finalAmt <= 0) {
+    return { granted: false, amount: 0, data, leveledUp: false, levelInfo: levelFromXp(data.total), reason: "daily_cap" };
+  }
+
   const before = levelFromXp(data.total);
-  data.total += amount;
+  data.total += finalAmt;
+  data.dailyEarned[today] = earnedToday + finalAmt;
+  if (claim) data.claimed[claim] = Date.now();
   data.history.unshift({
     at: Date.now(),
-    amount,
+    day: today,
+    amount: finalAmt,
     reason: String(reason || "action"),
+    category: dailyCategory || null,
+    claim: claim || null,
   });
+
   const after = levelFromXp(data.total);
-  // Unlock rewards for any newly reached levels
   for (const lv of LEVELS) {
     if (data.total >= lv.xp && lv.rewardEn && !data.unlockedRewards.includes(lv.level)) {
       data.unlockedRewards.push(lv.level);
     }
   }
   saveXp(accountCode, data);
-  return { data, leveledUp: after.level > before.level, levelInfo: after };
+  return {
+    granted: true,
+    amount: finalAmt,
+    data,
+    leveledUp: after.level > before.level,
+    levelInfo: after,
+    reason,
+  };
+}
+
+export function addXp(accountCode, amount, reason) {
+  const result = tryGrantXp(accountCode, amount, reason, {
+    claim: dailyClaimKey("legacy", `${reason}:${Date.now()}`),
+  });
+  return {
+    data: result.data,
+    leveledUp: result.leveledUp,
+    levelInfo: result.levelInfo,
+    granted: result.granted,
+    amount: result.amount,
+  };
+}
+
+export function grantStudyWord(accountCode, entryId) {
+  if (!entryId) return null;
+  return tryGrantXp(accountCode, XP_REWARDS.studyWordFirst, "studyWordFirst", {
+    claim: claimKey("study", entryId),
+  });
+}
+
+export function grantQuizCorrect(accountCode, entryId) {
+  if (!entryId) return null;
+  return tryGrantXp(accountCode, XP_REWARDS.quizCorrectFirst, "quizCorrectFirst", {
+    claim: claimKey("quizOk", entryId),
+    dailyCategory: "quizCorrectFirst",
+  });
+}
+
+export function grantQuizSession(accountCode, sessionId, { perfect = false, questionCount = 0 } = {}) {
+  if (!sessionId) return null;
+  const results = [];
+  results.push(
+    tryGrantXp(accountCode, XP_REWARDS.quizSessionComplete, "quizSessionComplete", {
+      claim: claimKey("quizSession", sessionId),
+    })
+  );
+  if (perfect && questionCount >= 5) {
+    results.push(
+      tryGrantXp(accountCode, XP_REWARDS.quizPerfect, "quizPerfect", {
+        claim: claimKey("quizPerfect", sessionId),
+      })
+    );
+  }
+  return results;
+}
+
+export function grantSrsPromote(accountCode, entryId, newBox) {
+  if (!entryId || newBox == null) return null;
+  const results = [];
+  results.push(
+    tryGrantXp(accountCode, XP_REWARDS.srsPromote, "srsPromote", {
+      claim: claimKey(`srsUp:${newBox}`, entryId),
+    })
+  );
+  if (Number(newBox) >= 5) {
+    results.push(
+      tryGrantXp(accountCode, XP_REWARDS.srsMaster, "srsMaster", {
+        claim: claimKey("srsMaster", entryId),
+      })
+    );
+  }
+  return results;
+}
+
+export function grantSmartCard(accountCode, entryId) {
+  if (!entryId) return null;
+  return tryGrantXp(accountCode, XP_REWARDS.smartCardFirst, "smartCardFirst", {
+    claim: claimKey("smart", entryId),
+    dailyCategory: "smartCardFirst",
+  });
+}
+
+export function grantDictationWord(accountCode, entryId) {
+  if (!entryId) return null;
+  return tryGrantXp(accountCode, XP_REWARDS.dictationWordFirst, "dictationWordFirst", {
+    claim: claimKey("dict", entryId),
+    dailyCategory: "dictationWordFirst",
+  });
+}
+
+export function grantConversation(accountCode, scenarioId) {
+  return tryGrantXp(accountCode, XP_REWARDS.conversationScenario, "conversationScenario", {
+    claim: dailyClaimKey("conv", scenarioId || "default"),
+  });
+}
+
+export function grantExtract(accountCode, newWordCount) {
+  const n = Math.max(0, Math.floor(Number(newWordCount) || 0));
+  if (n <= 0) return [];
+  const results = [];
+  results.push(
+    tryGrantXp(accountCode, XP_REWARDS.extractBatch * n, "extractBatch", {
+      claim: dailyClaimKey("extract", `${Date.now()}`),
+      dailyCategory: "extractBatch",
+    })
+  );
+  if (n >= 5) {
+    results.push(
+      tryGrantXp(accountCode, XP_REWARDS.extractBatchBonus, "extractBatchBonus", {
+        claim: dailyClaimKey("extractBonus"),
+      })
+    );
+  }
+  return results;
+}
+
+export function grantDailyOpen(accountCode) {
+  return tryGrantXp(accountCode, XP_REWARDS.dailyOpen, "dailyOpen", {
+    claim: dailyClaimKey("dailyOpen"),
+  });
+}
+
+export function grantStreakBonus(accountCode, streakDays) {
+  const s = Math.floor(Number(streakDays) || 0);
+  if (s < 2) return null;
+  return tryGrantXp(accountCode, XP_REWARDS.dailyStreakBonus, "dailyStreakBonus", {
+    claim: claimKey("streak", s),
+  });
+}
+
+export function grantTimerBlock(accountCode, blockId) {
+  if (!blockId) return null;
+  return tryGrantXp(accountCode, XP_REWARDS.timerFocusBlock, "timerFocusBlock", {
+    claim: claimKey("timer", blockId),
+  });
+}
+
+export function grantGoal(accountCode, goalId) {
+  if (!goalId) return null;
+  return tryGrantXp(accountCode, XP_REWARDS.goalReached, "goalReached", {
+    claim: claimKey("goal", goalId),
+  });
+}
+
+export function grantChallenge(accountCode, challengeId) {
+  if (!challengeId) return null;
+  return tryGrantXp(accountCode, XP_REWARDS.challengeComplete, "challengeComplete", {
+    claim: claimKey("challenge", challengeId),
+  });
+}
+
+export function grantFavorite(accountCode, entryId) {
+  if (!entryId) return null;
+  return tryGrantXp(accountCode, XP_REWARDS.favoriteFirst, "favoriteFirst", {
+    claim: claimKey("fav", entryId),
+  });
 }
 
 export function snapshotProgress(accountCode, stats) {
-  // Store a daily snapshot for "compare with past self"
   const SNAP_KEY = "twoTongues.progressSnap." + (accountCode || "anon");
   try {
     const raw = localStorage.getItem(SNAP_KEY);
     const arr = raw ? JSON.parse(raw) : [];
     const list = Array.isArray(arr) ? arr : [];
-    const today = new Date();
-    const dayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
-    const filtered = list.filter((s) => s.dayKey !== dayKey);
+    const today = dayKey();
+    const filtered = list.filter((s) => s.dayKey !== today);
     filtered.push({
-      dayKey,
+      dayKey: today,
       at: Date.now(),
       studied: Number(stats.studied) || 0,
       quizzes: Number(stats.quizzes) || 0,
@@ -111,7 +356,6 @@ export function snapshotProgress(accountCode, stats) {
       xp: Number(stats.xp) || 0,
       mastered: Number(stats.mastered) || 0,
     });
-    // keep ~90 days
     localStorage.setItem(SNAP_KEY, JSON.stringify(filtered.slice(-90)));
   } catch (_) {}
 }
@@ -127,11 +371,6 @@ export function loadProgressSnapshots(accountCode) {
   }
 }
 
-
-// ── Cloud sync (account.xp on shared record) ───────────────────────────────
-// Local storage stays the fast cache; the account object on the server is the
-// durable copy so clearing site data does not wipe progress after re-login.
-
 export function exportXpForCloud(accountCode) {
   const data = loadXp(accountCode);
   return {
@@ -144,17 +383,11 @@ export function exportXpForCloud(accountCode) {
   };
 }
 
-/**
- * Merge local + cloud XP without losing claims from either side.
- * Prefer higher total; union claimed keys; keep newer history entries.
- */
 export function mergeXpData(local, remote) {
   const a = local && typeof local === "object" ? local : emptyData();
   const b = remote && typeof remote === "object" ? remote : emptyData();
   const claimed = { ...(b.claimed || {}), ...(a.claimed || {}) };
-  // If remote has keys local doesn't, keep them (already in spread order)
   const total = Math.max(Number(a.total) || 0, Number(b.total) || 0);
-  // If totals differ, trust the side with more claimed keys as a tie-break is already max
   const historyMap = new Map();
   for (const h of [...(b.history || []), ...(a.history || [])]) {
     if (!h || !h.at) continue;
@@ -165,18 +398,14 @@ export function mergeXpData(local, remote) {
   const unlocked = [...new Set([...(b.unlockedRewards || []), ...(a.unlockedRewards || [])])];
   const dailyEarned = { ...(b.dailyEarned || {}), ...(a.dailyEarned || {}) };
   for (const day of Object.keys(dailyEarned)) {
-    dailyEarned[day] = Math.max(Number(b.dailyEarned && b.dailyEarned[day]) || 0, Number(a.dailyEarned && a.dailyEarned[day]) || 0);
+    dailyEarned[day] = Math.max(
+      Number(b.dailyEarned && b.dailyEarned[day]) || 0,
+      Number(a.dailyEarned && a.dailyEarned[day]) || 0
+    );
   }
-  return {
-    total,
-    claimed,
-    history,
-    unlockedRewards: unlocked,
-    dailyEarned,
-  };
+  return { total, claimed, history, unlockedRewards: unlocked, dailyEarned };
 }
 
-/** Pull cloud xp onto local cache (call after login / accounts load). */
 export function hydrateXpFromCloud(accountCode, remoteXp) {
   if (!accountCode || accountCode === "guest") return loadXp(accountCode);
   const local = loadXp(accountCode);
@@ -186,14 +415,13 @@ export function hydrateXpFromCloud(accountCode, remoteXp) {
   return merged;
 }
 
-/** Stamp accounts array with the signed-in user's latest local XP before save. */
 export function attachXpToAccounts(accounts, accountCode) {
   if (!accountCode || accountCode === "guest" || !Array.isArray(accounts)) return accounts;
   const blob = exportXpForCloud(accountCode);
   return accounts.map((a) => {
     if (!a || a.code !== accountCode) return a;
     const merged = mergeXpData(blob, a.xp || null);
-    saveXp(accountCode, merged); // keep local aligned
+    saveXp(accountCode, merged);
     return {
       ...a,
       xp: {
@@ -207,3 +435,20 @@ export function attachXpToAccounts(accounts, accountCode) {
     };
   });
 }
+
+export const XP_RULES = {
+  en: [
+    "XP is granted once per unique achievement — not every time you repeat it.",
+    "Studying the same word again does not give more XP.",
+    "Correct quiz answers grant XP only the first time for each word.",
+    "Conversation scenarios reward once per day each.",
+    "A soft daily cap prevents grinding.",
+  ],
+  ar: [
+    "النقاط بتتحسب مرة واحدة لكل إنجاز فريد — مش كل ما تكرّر نفس الفعل.",
+    "مذاكرة نفس الكلمة تاني مش بتزود XP.",
+    "إجابة الكويز الصح بتدي نقاط لأول مرة بس لكل كلمة.",
+    "كل سيناريو محادثة بيُكافأ مرة واحدة في اليوم.",
+    "فيه حد يومي ناعم عشان مفيش استغلال بالتكرار.",
+  ],
+};

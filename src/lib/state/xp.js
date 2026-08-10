@@ -159,8 +159,9 @@ export function loadXp(accountCode) {
       unlockedRewards: Array.isArray(data.unlockedRewards) ? data.unlockedRewards : [],
       claimed: data.claimed && typeof data.claimed === "object" ? data.claimed : {},
       dailyEarned: data.dailyEarned && typeof data.dailyEarned === "object" ? data.dailyEarned : {},
-      equippedBadge: data.equippedBadge || null,
-      equippedFrame: data.equippedFrame || null,
+      // "" means explicit "none"; null/undefined means auto (highest unlocked)
+      equippedBadge: data.equippedBadge === "" ? "" : (data.equippedBadge || null),
+      equippedFrame: data.equippedFrame === "" ? "" : (data.equippedFrame || null),
     };
   } catch (_) {
     return emptyData();
@@ -187,8 +188,8 @@ export function saveXp(accountCode, data) {
         unlockedRewards: data.unlockedRewards || [],
         claimed,
         dailyEarned,
-        equippedBadge: data.equippedBadge || null,
-        equippedFrame: data.equippedFrame || null,
+        equippedBadge: data.equippedBadge === "" ? "" : (data.equippedBadge || null),
+        equippedFrame: data.equippedFrame === "" ? "" : (data.equippedFrame || null),
       })
     );
   } catch (_) {}
@@ -616,8 +617,8 @@ export function exportXpForCloud(accountCode) {
     history: (data.history || []).slice(0, 80),
     unlockedRewards: data.unlockedRewards || [],
     dailyEarned: data.dailyEarned || {},
-    equippedBadge: data.equippedBadge || null,
-    equippedFrame: data.equippedFrame || null,
+    equippedBadge: data.equippedBadge === "" ? "" : (data.equippedBadge || null),
+    equippedFrame: data.equippedFrame === "" ? "" : (data.equippedFrame || null),
     updatedAt: Date.now(),
   };
 }
@@ -672,8 +673,8 @@ export function attachXpToAccounts(accounts, accountCode) {
         history: (merged.history || []).slice(0, 80),
         unlockedRewards: merged.unlockedRewards || [],
         dailyEarned: merged.dailyEarned || {},
-        equippedBadge: merged.equippedBadge || null,
-        equippedFrame: merged.equippedFrame || null,
+        equippedBadge: merged.equippedBadge === "" ? "" : (merged.equippedBadge || null),
+        equippedFrame: merged.equippedFrame === "" ? "" : (merged.equippedFrame || null),
         updatedAt: Date.now(),
       },
     };

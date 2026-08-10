@@ -49,12 +49,23 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
   const [startedAt, setStartedAt] = useState(null);
   const [finishedAt, setFinishedAt] = useState(null);
   const [typedAnswer, setTypedAnswer] = useState("");
+  const [elapsedSec, setElapsedSec] = useState(0);
 
   useEffect(() => {
     function onKeyDown(e) { if (e.key === "Escape") onClose(); }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
+
+  // Live elapsed timer while quiz is running
+  useEffect(() => {
+    if (stage !== "running" || !startedAt) return;
+    setElapsedSec(Math.floor((Date.now() - startedAt) / 1000));
+    const id = setInterval(() => {
+      setElapsedSec(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [stage, startedAt]);
 
   const RANGE_OPTIONS = [
     { key: "10", label: tr(isAr, "Last 10 min", "آخر 10 دقايق") },
@@ -111,6 +122,21 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
     if (answered) return;
     const q = questions[index];
     recordAnswer(q, opt, opt === q.correct);
+  }
+
+  function skipQuestion() {
+    if (answered) return;
+    const q = questions[index];
+    // Skip counts as incorrect so SRS still gets a signal
+    recordAnswer(q, tr(isAr, "(skipped)", "(تخطي)"), false);
+  }
+
+  const optionLetters = isAr ? ["أ", "ب", "ج", "د", "هـ", "و"] : ["A", "B", "C", "D", "E", "F"];
+
+  function formatElapsed(sec) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }
 
   // Typing mode: compares the typed text to every accepted answer for
@@ -185,7 +211,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
     <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 6000 }}>
       <BodyScrollLock />
       <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={isAr ? "rtl" : "ltr"} role="dialog" aria-modal="true" aria-labelledby="quiz-modal-title"
-        style={{ width: "100%", maxWidth: 540, maxHeight: "88vh", overflowY: "auto", background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
+        style={{ width: "100%", maxWidth: 480, maxHeight: "92vh", overflowY: "auto", background: CARD, borderRadius: 20, padding: "20px 18px 18px", boxShadow: "0 24px 60px -16px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.1)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <h2 id="quiz-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: INK, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
             <QuizIcon size={19} color={BRASS} /> {tr(isAr, "Quiz", "اختبار")}
@@ -242,52 +268,233 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
 
         {stage === "running" && questions[index] && (() => {
           const q = questions[index];
+          // Number strip around current question (like the screenshot)
+          const total = questions.length;
+          const windowSize = 9;
+          let startNum = Math.max(1, (index + 1) - Math.floor(windowSize / 2));
+          let endNum = Math.min(total, startNum + windowSize - 1);
+          if (endNum - startNum + 1 < windowSize) startNum = Math.max(1, endNum - windowSize + 1);
+          const numberStrip = [];
+          for (let n = startNum; n <= endNum; n++) numberStrip.push(n);
+
           return (
-            <div style={{ marginTop: 14 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>
-                <span>{tr(isAr, `Question ${index + 1} of ${questions.length}`, `السؤال ${index + 1} من ${questions.length}`)}</span>
-                <span>{tr(isAr, `Score: ${score}`, `النتيجة: ${score}`)}</span>
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", minHeight: 0 }}>
+              {/* Top bar: timer + progress text + score */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 8 }}>
+                <div style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "6px 12px", borderRadius: 20,
+                  background: "rgba(var(--border-rgb),0.12)",
+                  fontSize: 13, fontWeight: 700, color: "var(--muted-strong)",
+                  fontVariantNumeric: "tabular-nums",
+                }}>
+                  <span style={{ opacity: 0.7 }}>⏱</span>
+                  {formatElapsed(elapsedSec)}
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>
+                  {index + 1}/{total}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: BRASS }}>
+                  {tr(isAr, `Score ${score}`, `النتيجة ${score}`)}
+                </span>
               </div>
-              <div style={{ width: "100%", height: 4, background: "var(--input-bg)", borderRadius: 2, marginBottom: 18 }}>
-                <div style={{ width: `${((index) / questions.length) * 100}%`, height: "100%", background: BRASS, borderRadius: 2, transition: "width 0.2s" }} />
+
+              {/* Thin progress bar */}
+              <div style={{ width: "100%", height: 5, background: "rgba(var(--border-rgb),0.15)", borderRadius: 3, marginBottom: 16, overflow: "hidden" }}>
+                <div style={{
+                  width: `${((index) / Math.max(total, 1)) * 100}%`,
+                  height: "100%",
+                  background: `linear-gradient(90deg, var(--accent-1), var(--accent-2))`,
+                  borderRadius: 3,
+                  transition: "width 0.25s ease",
+                }} />
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 8px" }}>
-                <p style={{ fontSize: 21, fontWeight: 700, color: "var(--muted-strong)", margin: 0 }}>{quizQuestionLabel(q.type, isAr, q.pos)}</p>
-                <SpeakButton text={quizQuestionLabel(q.type, isAr, q.pos)} dir={isAr ? "rtl" : "ltr"} isAr={isAr} size={16}
-                  style={{ flexShrink: 0 }} />
+
+              {/* Question type label */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-strong)", margin: 0, letterSpacing: "0.02em", textTransform: "uppercase" }}>
+                  {quizQuestionLabel(q.type, isAr, q.pos)}
+                </p>
+                <SpeakButton text={quizQuestionLabel(q.type, isAr, q.pos)} dir={isAr ? "rtl" : "ltr"} isAr={isAr} size={14} style={{ flexShrink: 0 }} />
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--input-bg)", borderRadius: 4, padding: "20px 16px", marginBottom: 16 }}>
-                <div dir={q.promptDir} style={{ flex: 1, minWidth: 0, fontFamily: q.promptFont, fontSize: "clamp(26px, 4.2vw, 34px)", fontWeight: 700, color: INK, wordBreak: "break-word", lineHeight: 1.3 }}>
+
+              {/* Prompt card */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: 12,
+                background: "var(--input-bg)",
+                borderRadius: 16,
+                padding: "18px 16px",
+                marginBottom: 18,
+                border: "1px solid rgba(var(--border-rgb),0.12)",
+                boxShadow: "0 4px 16px -8px rgba(0,0,0,0.15)",
+              }}>
+                <div dir={q.promptDir} style={{
+                  flex: 1, minWidth: 0,
+                  fontFamily: q.promptFont,
+                  fontSize: "clamp(22px, 4vw, 30px)",
+                  fontWeight: 700,
+                  color: INK,
+                  wordBreak: "break-word",
+                  lineHeight: 1.35,
+                }}>
                   {q.promptText}
                 </div>
                 {q.promptText && (
-                  <SpeakButton text={q.promptText} dir={q.promptDir} isAr={isAr} size={22}
-                    style={{ flexShrink: 0, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.25)", borderRadius: "50%", width: 38, height: 38, justifyContent: "center", color: BRASS }} />
+                  <SpeakButton
+                    text={q.promptText}
+                    dir={q.promptDir}
+                    isAr={isAr}
+                    size={20}
+                    style={{
+                      flexShrink: 0,
+                      background: "var(--card)",
+                      border: "1px solid rgba(var(--border-rgb),0.2)",
+                      borderRadius: "50%",
+                      width: 40, height: 40,
+                      justifyContent: "center",
+                      color: BRASS,
+                    }}
+                  />
                 )}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {q.options.map((opt, i) => {
-                    const isCorrectOpt = opt === q.correct;
-                    const isSelectedOpt = opt === selected;
-                    let bg = "var(--card)", border = "rgba(var(--border-rgb),0.2)", color = INK;
-                    if (answered && isCorrectOpt) { bg = "var(--success-bg)"; border = "var(--success)"; color = "var(--success)"; }
-                    else if (answered && isSelectedOpt && !isCorrectOpt) { bg = "var(--danger-bg)"; border = "var(--danger-border)"; color = "var(--danger)"; }
+
+              {/* Options — modern pills with letter badges (inspired by the screenshot) */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+                {q.options.map((opt, i) => {
+                  const isCorrectOpt = opt === q.correct;
+                  const isSelectedOpt = opt === selected;
+                  let bg = "var(--card)";
+                  let border = "rgba(var(--border-rgb),0.18)";
+                  let color = INK;
+                  let letterBg = "rgba(var(--border-rgb),0.12)";
+                  let letterColor = "var(--muted-strong)";
+                  if (answered && isCorrectOpt) {
+                    bg = "var(--success-bg)";
+                    border = "var(--success)";
+                    color = "var(--success)";
+                    letterBg = "var(--success)";
+                    letterColor = "#fff";
+                  } else if (answered && isSelectedOpt && !isCorrectOpt) {
+                    bg = "var(--danger-bg)";
+                    border = "var(--danger-border)";
+                    color = "var(--danger)";
+                    letterBg = "var(--danger)";
+                    letterColor = "#fff";
+                  }
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => pickOption(opt)}
+                      disabled={answered}
+                      dir={q.optionDir}
+                      style={{
+                        textAlign: "start",
+                        fontFamily: q.optionFont,
+                        fontSize: 15.5,
+                        padding: "14px 14px",
+                        background: bg,
+                        border: `1.5px solid ${border}`,
+                        color,
+                        borderRadius: 14,
+                        cursor: answered ? "default" : "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        transition: "transform 0.12s ease, box-shadow 0.12s ease",
+                        boxShadow: answered ? "none" : "0 2px 8px -4px rgba(0,0,0,0.12)",
+                        minHeight: 52,
+                      }}
+                    >
+                      <span style={{
+                        flexShrink: 0,
+                        width: 32, height: 32,
+                        borderRadius: 10,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 14, fontWeight: 800,
+                        background: letterBg,
+                        color: letterColor,
+                        fontFamily: "'Source Sans 3', sans-serif",
+                      }}>
+                        {optionLetters[i] || (i + 1)}
+                      </span>
+                      <span style={{ flex: 1, lineHeight: 1.35 }}>{opt}</span>
+                      {answered && isCorrectOpt && <CheckIcon size={18} />}
+                      {answered && isSelectedOpt && !isCorrectOpt && <XIcon size={18} />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Bottom: number strip + Skip / Next */}
+              <div style={{ marginTop: "auto", paddingTop: 8 }}>
+                {/* Number strip */}
+                <div style={{
+                  display: "flex", justifyContent: "center", alignItems: "center",
+                  gap: 6, marginBottom: 14, flexWrap: "wrap",
+                }}>
+                  {numberStrip.map((n) => {
+                    const isCurrent = n === index + 1;
+                    const isPast = n < index + 1;
                     return (
-                      <button key={i} type="button" onClick={() => pickOption(opt)} disabled={answered}
-                        dir={q.optionDir}
-                        style={{ textAlign: "start", fontFamily: q.optionFont, fontSize: 16, padding: "12px 14px", background: bg, border: `1.5px solid ${border}`, color, borderRadius: 4, cursor: answered ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                        <span>{opt}</span>
-                        {answered && isCorrectOpt && <CheckIcon size={16} />}
-                        {answered && isSelectedOpt && !isCorrectOpt && <XIcon size={16} />}
-                      </button>
+                      <div
+                        key={n}
+                        style={{
+                          width: isCurrent ? 36 : 28,
+                          height: isCurrent ? 36 : 28,
+                          borderRadius: 10,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: isCurrent ? 14 : 12,
+                          fontWeight: isCurrent ? 800 : 600,
+                          background: isCurrent
+                            ? "linear-gradient(135deg, var(--accent-1), var(--accent-2))"
+                            : isPast
+                              ? "rgba(var(--border-rgb),0.18)"
+                              : "transparent",
+                          color: isCurrent ? "#fff" : "var(--muted-strong)",
+                          border: isCurrent ? "none" : "1px solid rgba(var(--border-rgb),0.15)",
+                          transition: "all 0.2s ease",
+                        }}
+                      >
+                        {n}
+                      </div>
                     );
                   })}
                 </div>
-              {answered && (
-                <button type="button" onClick={nextQuestion} style={primaryBtnStyle}>
-                  {index + 1 >= questions.length ? tr(isAr, "See results", "عرض النتيجة") : tr(isAr, "Next question", "السؤال التالي")}
-                </button>
-              )}
+
+                {/* Actions */}
+                {!answered ? (
+                  <button
+                    type="button"
+                    onClick={skipQuestion}
+                    style={{
+                      width: "100%",
+                      padding: "13px 16px",
+                      fontSize: 15,
+                      fontWeight: 700,
+                      color: "#fff",
+                      background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+                      border: "none",
+                      borderRadius: 14,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      minHeight: 50,
+                      boxShadow: "0 8px 20px -10px rgba(var(--focus-rgb),0.55)",
+                    }}
+                  >
+                    {tr(isAr, "Skip", "تخطي")} ▶
+                  </button>
+                ) : (
+                  <button type="button" onClick={nextQuestion} style={{ ...primaryBtnStyle, marginTop: 0, borderRadius: 14, minHeight: 50 }}>
+                    {index + 1 >= questions.length
+                      ? tr(isAr, "See results", "عرض النتيجة")
+                      : tr(isAr, "Next question", "السؤال التالي")}
+                  </button>
+                )}
+              </div>
             </div>
           );
         })()}

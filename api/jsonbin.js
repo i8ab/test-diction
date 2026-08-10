@@ -308,13 +308,23 @@ export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
       const record = await loadRecord();
-      // Longer edge cache → fewer round-trips to Supabase on repeated opens.
-      // Browser still revalidates (max-age=0); Vercel edge can serve a copy
-      // up to 30s old and refresh in the background for another 2 minutes.
-      res.setHeader(
-        "Cache-Control",
-        "public, max-age=0, s-maxage=30, stale-while-revalidate=120"
-      );
+      // Signup / conflict recovery pass ?fresh=1 so we must not serve a CDN
+      // copy — otherwise a second signup 30–120s later keeps reading a stale
+      // version, retries 409 forever, and the account never gets created.
+      const wantFresh =
+        (req.query && (req.query.fresh === "1" || req.query.fresh === "true")) ||
+        (typeof req.url === "string" && /[?&]fresh=1(?:&|$)/.test(req.url));
+      if (wantFresh) {
+        res.setHeader(
+          "Cache-Control",
+          "private, no-store, no-cache, max-age=0, must-revalidate"
+        );
+      } else {
+        res.setHeader(
+          "Cache-Control",
+          "public, max-age=0, s-maxage=30, stale-while-revalidate=120"
+        );
+      }
       return res.status(200).json(record);
     }
 

@@ -1338,13 +1338,16 @@ export default function DictionaryApp() {
       gender: signupGender,
     };
 
-    // Retry on conflict so concurrent signups in the same second don't lose requests.
+    // Retry on conflict. Prefer the snapshot from the 409 body so we never
+    // depend on a possibly-cached GET. Both signups must succeed — never ask
+    // the user to "wait for someone else".
     const MAX_SIGNUP_RETRIES = 8;
     try {
       let lastErr = null;
+      // Seed from a real fresh fetch; on later conflict retries use err.fresh.
+      let rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
       for (let attempt = 0; attempt <= MAX_SIGNUP_RETRIES; attempt++) {
         try {
-          const rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
           const clash = (rec.accounts || []).some(
             (a) => normalizeUsername(a.username) === uCheck.username
           );
@@ -1358,7 +1361,7 @@ export default function DictionaryApp() {
             commitRecordVersion(rec.version);
             return;
           }
-          // Ensure our pending account is present (merge by code on server too).
+          // Ensure our pending account is present (server also merges by code).
           const withoutSelf = (rec.accounts || []).filter((a) => a.code !== code);
           const nextAccounts = [...withoutSelf, newAccount];
           const nextLogs = capLogs([
@@ -1395,7 +1398,20 @@ export default function DictionaryApp() {
         } catch (err) {
           lastErr = err;
           if (err instanceof SaveConflictError && attempt < MAX_SIGNUP_RETRIES) {
-            // Brief backoff, then retry with a fresh server snapshot.
+            // Use the authoritative snapshot from the 409 response (not a
+            // re-fetch that might still be edge-cached).
+            if (err.fresh && typeof err.fresh.version === "number") {
+              rec = await ensureMigratedAccounts({
+                entries: err.fresh.entries || [],
+                accounts: err.fresh.accounts || [],
+                logs: err.fresh.logs || [],
+                siteBanner: err.fresh.siteBanner ?? null,
+                examConfig: err.fresh.examConfig ?? null,
+                version: err.fresh.version,
+              });
+            } else {
+              rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
+            }
             await new Promise((r) => setTimeout(r, 40 + attempt * 30));
             continue;
           }
@@ -1405,9 +1421,63 @@ export default function DictionaryApp() {
       if (lastErr) throw lastErr;
     } catch (err) {
       if (err instanceof SaveConflictError) {
-        setSignupError("Too many people signing up at once — please try again.");
+        // Last resort — one more guaranteed-fresh attempt so the account is
+        // created instead of telling the user to wait.
+        try {
+          const rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
+          const clash = (rec.accounts || []).some(
+            (a) => normalizeUsername(a.username) === uCheck.username
+          );
+          if (clash) {
+            setSignupError("That username is already taken. Pick another.");
+            return;
+          }
+          const withoutSelf = (rec.accounts || []).filter((a) => a.code !== code);
+          const nextAccounts = [...withoutSelf, newAccount];
+          const nextLogs = capLogs([
+            ...(rec.logs || []),
+            makeLogEntry(
+              "account_add",
+              `${trimmedName} (@${uCheck.username}) requested an account`,
+              trimmedName,
+              code
+            ),
+          ]);
+          const newVersion = await saveRecord(
+            {
+              entries: rec.entries,
+              accounts: nextAccounts,
+              logs: nextLogs,
+              siteBanner: rec.siteBanner || null,
+              mergeAccounts: true,
+            },
+            rec.version
+          );
+          setEntries(rec.entries);
+          setAccounts(nextAccounts);
+          setLogs(nextLogs);
+          setSiteBanner(rec.siteBanner || null);
+          setExamConfig(normalizeExamConfig(rec.examConfig));
+          commitRecordVersion(newVersion);
+          setSignupPassword("");
+          setSignupPassword2("");
+          setSignupAvatar("");
+          setSignupGender("");
+          goToStage("pendingShown");
+          return;
+        } catch (_) {
+          setSignupError(
+            appIsAr
+              ? "تعذّر إنشاء الحساب حالياً — حاول مرة أخرى بعد لحظات."
+              : "Couldn't create the account right now — please try again in a moment."
+          );
+        }
       } else {
-        setSignupError("Couldn't create the account — check your connection and try again.");
+        setSignupError(
+          appIsAr
+            ? "تعذّر إنشاء الحساب — تحقق من الاتصال وحاول مرة أخرى."
+            : "Couldn't create the account — check your connection and try again."
+        );
       }
     } finally {
       setSignupSaving(false);

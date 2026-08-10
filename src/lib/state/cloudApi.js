@@ -11,14 +11,23 @@
 // Auth is username + password only. Writes go through /api/jsonbin; the
 // Supabase key never ships to the browser.
 
-// `fresh: true` bypasses the browser/edge cache (see api/jsonbin.js) for the
-// rare calls where we must have the absolute latest data — e.g. checking for
-// a duplicate name right before creating an account. Everywhere else (most
-// notably the initial page load) we're happy to accept a response that's up
-// to ~10s old in exchange for it arriving instantly instead of waiting on a
-// round trip to the database on every single visit.
+// `fresh: true` must bypass BOTH browser cache and Vercel edge cache.
+// `cache: "no-store"` alone is not enough — the edge still serves responses
+// for up to s-maxage / stale-while-revalidate (30s–120s). That made a second
+// signup ~50s later keep reading an old version, hit 409 forever, and look
+// like "nothing happened". We bust the CDN with a unique query string and
+// ask the API to emit private no-store headers.
 export async function fetchRecord({ fresh = false } = {}) {
-  const res = await fetch("/api/jsonbin", fresh ? { cache: "no-store" } : undefined);
+  const url = fresh
+    ? `/api/jsonbin?fresh=1&_t=${Date.now()}`
+    : "/api/jsonbin";
+  const res = await fetch(url, fresh
+    ? {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+      }
+    : undefined
+  );
   if (!res.ok) throw new Error("fetch failed");
   const data = await res.json();
   return {

@@ -71,6 +71,8 @@ const WandIcon = (p) => <Icon {...p} path={<><path d="m21.64 3.64-1.28-1.28a1.21
 function SpeakButton({ text, dir, isAr, size = 16, style, accent, showBoth = false }) {
   if (!text) return null;
   const isRtl = dir === "rtl" || /[\u0600-\u06FF]/.test(String(text));
+  // Arabic TTS is not useful — hide pronounce button for Arabic/RTL text.
+  if (isRtl) return null;
   if (showBoth && !isRtl) {
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 2, ...style }}>

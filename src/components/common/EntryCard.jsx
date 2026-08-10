@@ -159,6 +159,7 @@ function EntryCard({
         (mobileLayout ? " entry-card--mobile" : "") +
         (tabletLayout ? " entry-card--tablet" : "")
       }
+      dir={cfg.dir}
       style={{
         background: CARD,
         border: "1px solid rgba(var(--border-rgb),0.12)",
@@ -200,7 +201,8 @@ function EntryCard({
           }
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+        {/* Word row: keep word + controls grouped (no huge empty middle on wide desktop RTL) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
           <span
             dir={cfg.wordDir}
             style={{
@@ -239,49 +241,58 @@ function EntryCard({
               ))}
             </span>
           )}
-          <span style={{ flex: "1 1 0", minWidth: 4 }} aria-hidden="true" />
-          {/* Compact Cambridge shield — next to speaker, no banner/padding waste */}
-          {isEnglishWord && (
-            <a
-              href={cambridgeUrl(entry.word)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
-              title={tr(isAr, "Cambridge Dictionary", "قاموس كامبريدج")}
-              aria-label={tr(isAr, "Open in Cambridge Dictionary", "افتح في قاموس كامبريدج")}
-              className="lift-hover"
-              style={{
-                flexShrink: 0,
-                width: 28,
-                height: 28,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 6,
-                textDecoration: "none",
-              }}
-            >
-              <CambridgeShieldIcon size={18} />
-            </a>
-          )}
+          {/* Controls stay next to the word — packed, no huge empty middle on desktop RTL */}
           <span
-            className="entry-speak-slot"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 2,
+              flexShrink: 0,
+            }}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
-            style={{ flexShrink: 0, width: 36, height: 36, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
           >
-            <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={isAr} size={18} />
-          </span>
-          <span style={{ flexShrink: 0, width: 26, height: 26, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-            <ChevronIcon
-              size={14}
-              color={cfg.accent}
-              style={{
-                transition: "transform 0.15s",
-                transform: `${cfg.dir === "rtl" ? "scaleX(-1) " : ""}${open ? "rotate(90deg)" : ""}`,
-              }}
-            />
+            {/* Cambridge + speak only for English words */}
+            {isEnglishWord && (
+              <a
+                href={cambridgeUrl(entry.word)}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={tr(isAr, "Cambridge Dictionary", "قاموس كامبريدج")}
+                aria-label={tr(isAr, "Open in Cambridge Dictionary", "افتح في قاموس كامبريدج")}
+                className="lift-hover"
+                style={{
+                  flexShrink: 0,
+                  width: 28,
+                  height: 28,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 6,
+                  textDecoration: "none",
+                }}
+              >
+                <CambridgeShieldIcon size={18} />
+              </a>
+            )}
+            {isEnglishWord && (
+              <span
+                className="entry-speak-slot"
+                style={{ width: 36, height: 36, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={isAr} size={18} />
+              </span>
+            )}
+            <span style={{ width: 26, height: 26, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              <ChevronIcon
+                size={14}
+                color={cfg.accent}
+                style={{
+                  transition: "transform 0.15s",
+                  transform: open ? "rotate(90deg)" : "none",
+                }}
+              />
+            </span>
           </span>
         </div>
 
@@ -354,7 +365,7 @@ function EntryCard({
         )}
       </div>
 
-      {/* Action bar — each button owns a fixed hit box */}
+      {/* Action bar — each button owns a fixed hit box; inherits card dir for RTL */}
       <div
         className="entry-action-bar"
         style={{

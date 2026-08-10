@@ -387,11 +387,12 @@ html[data-card-height="comfortable"] {
   --entry-gap: 12px;
 }
 
-/* Desktop-only: push list + letter-rail to the far left; tight right gap for Goals/To-do FABs */
+/* Desktop: balanced padding; extra at inline-end for Goals/To-do FABs.
+   Logical properties so RTL flips correctly. */
 @media (min-width: 1200px) {
   .app-container.app-main-row {
-    padding-left: clamp(4px, 0.8vw, 10px);
-    padding-right: clamp(56px, 5vw, 72px);
+    padding-inline-start: clamp(12px, 1.5vw, 24px);
+    padding-inline-end: clamp(64px, 5.5vw, 80px);
   }
 }
 
@@ -1120,10 +1121,13 @@ canvas {
   gap: 10px;
   width: 100%;
   max-width: var(--app-max, 920px);
-  /* Align list + letter-rail to the far left; tight right gap just enough for Goals/To-do FABs */
-  margin-left: 0;
-  margin-right: auto;
-  padding: clamp(14px, 2.5vw, 22px) clamp(56px, 5.5vw, 72px) clamp(40px, 8vw, 72px) clamp(6px, 1.2vw, 12px);
+  /* Center on wide screens — balanced sides, no void on one edge only */
+  margin-inline: auto;
+  padding-block-start: clamp(14px, 2.5vw, 22px);
+  padding-block-end: clamp(40px, 8vw, 72px);
+  /* Slightly more room at inline-end so FABs don't cover cards */
+  padding-inline-start: clamp(12px, 2vw, 20px);
+  padding-inline-end: clamp(64px, 6vw, 80px);
   box-sizing: border-box;
 }
 
@@ -1205,8 +1209,8 @@ canvas {
     flex-wrap: nowrap;
     gap: 10px;
     /* On mobile FABs are hidden / bottom-nav; restore normal side padding */
-    padding-left: clamp(10px, 3vw, 16px);
-    padding-right: clamp(10px, 3vw, 16px);
+    padding-inline-start: clamp(10px, 3vw, 16px);
+    padding-inline-end: clamp(10px, 3vw, 16px);
     margin-left: auto;
     margin-right: auto;
   }
@@ -1662,11 +1666,10 @@ html[data-device="tablet"] .app-main-row {
   align-items: flex-start !important;
   gap: 10px !important;
   max-width: 1100px !important;
-  margin-left: 0 !important;
-  margin-right: auto !important;
+  margin-inline: auto !important;
   padding-bottom: 24px !important;
-  padding-inline-start: clamp(6px, 1.2vw, 12px) !important;
-  padding-inline-end: 64px; /* room for side dock — tighter so cards stretch further */
+  padding-inline-start: clamp(12px, 1.5vw, 20px) !important;
+  padding-inline-end: 64px; /* room for side dock */
 }
 html[data-device="tablet"] .letter-rail {
   flex: 0 0 52px !important;

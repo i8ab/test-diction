@@ -318,17 +318,19 @@ export default function SmartCardsModal({
 
   return (
     <div
+      className="modal-backdrop"
       role="dialog"
       aria-modal="true"
       aria-label={tr(isAr, "Smart cards", "بطاقات ذكية")}
       style={{
-        position: "fixed", inset: 0, zIndex: 80, display: "flex", alignItems: "flex-end", justifyContent: "center",
+        position: "fixed", inset: 0, zIndex: 6000, display: "flex", alignItems: "center", justifyContent: "center",
         background: "rgba(0,0,0,0.45)", padding: "max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom))",
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <BodyScrollLock />
       <div
+        className="modal-card responsive-modal"
         style={{
           width: "100%", maxWidth: 480, maxHeight: "92dvh", overflow: "auto",
           background: CARD, borderRadius: 18, padding: "18px 18px 22px",

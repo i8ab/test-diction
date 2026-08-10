@@ -176,6 +176,105 @@ function buildMultiOptions(corrects, distractorPool, sameEntrySet) {
   return { corrects: two, options: shuffle([...two, ...distractors]).slice(0, 5) };
 }
 
+/** Build 4 options with 1 correct answer (single-choice MCQ). */
+function buildSingleOptions(correct, distractorPool, excludeSet) {
+  const distractors = shuffle(
+    distractorPool.filter((m) => m && m !== correct && !excludeSet.has(m))
+  ).slice(0, 3);
+  while (distractors.length < 3 && distractorPool.length > distractors.length) {
+    const extra = distractorPool[Math.floor(Math.random() * distractorPool.length)];
+    if (extra && extra !== correct && !distractors.includes(extra) && !excludeSet.has(extra)) {
+      distractors.push(extra);
+    } else break;
+  }
+  return shuffle([correct, ...distractors]).slice(0, 4);
+}
+
+/**
+ * Emit synonym / antonym questions for one entry.
+ * - 1 pair word  → single-choice (pick the correct one of 4)
+ * - 2 pair words → multi-select (pick both of 5)
+ * - 3+ pair words → multi-select for 2 of them + separate single-choice for each leftover
+ *   so the learner is tested on every related word without one crowded question.
+ */
+function pushPairQuestions(questions, {
+  entry, list, allPool, type, wordDir, wordFont, mode,
+}) {
+  if (mode !== "mcq" || !list.length) return;
+  const sameSet = new Set(list);
+  const base = {
+    entryId: entry.id,
+    word: entry.word,
+    promptText: entry.word,
+    promptDir: wordDir,
+    promptFont: wordFont,
+    optionDir: wordDir,
+    optionFont: wordFont,
+    wordDir,
+    wordFont,
+    pos: "",
+    mode: "mcq",
+    type,
+  };
+
+  if (list.length === 1) {
+    const correct = list[0];
+    const options = buildSingleOptions(correct, allPool, sameSet);
+    if (options.length < 2) return;
+    questions.push({
+      ...base,
+      id: `${entry.id}:single-${type}`,
+      meaning: correct,
+      correct,
+      correctAnswers: [correct],
+      correctAnswer: correct,
+      acceptedAnswers: list,
+      options,
+      selectCount: 1,
+      multi: false,
+    });
+    return;
+  }
+
+  // 2+ → multi-select with exactly 2 correct out of 5
+  const { corrects, options } = buildMultiOptions(list, allPool, sameSet);
+  if (corrects.length === 2 && options.length >= 4) {
+    questions.push({
+      ...base,
+      id: `${entry.id}:multi-${type}`,
+      meaning: corrects.join(" / "),
+      correct: corrects[0],
+      correctAnswers: corrects,
+      correctAnswer: corrects.join(" | "),
+      acceptedAnswers: list,
+      options,
+      selectCount: 2,
+      multi: true,
+    });
+  }
+
+  // Leftover pair-words (3rd, 4th, …) each get their own single-choice question
+  // so nothing is left untested and the multi question stays focused on two answers.
+  const used = new Set(corrects || []);
+  const leftovers = list.filter((w) => !used.has(w));
+  leftovers.forEach((correct, i) => {
+    const opts = buildSingleOptions(correct, allPool, sameSet);
+    if (opts.length < 2) return;
+    questions.push({
+      ...base,
+      id: `${entry.id}:single-${type}-${i}`,
+      meaning: correct,
+      correct,
+      correctAnswers: [correct],
+      correctAnswer: correct,
+      acceptedAnswers: list,
+      options: opts,
+      selectCount: 1,
+      multi: false,
+    });
+  });
+}
+
 export function buildQuiz(matchingEntries, allEntries, mode) {
   if (!matchingEntries || matchingEntries.length < 1) return [];
   if (mode === "cloze") return buildClozeQuiz(matchingEntries, allEntries, 25);
@@ -194,8 +293,9 @@ export function buildQuiz(matchingEntries, allEntries, mode) {
     for (const w of pairWords(e.antonyms)) allAntonyms.push(w);
   }
 
-  const questions = [];
-  const seenEntryMeaning = new Set(); // avoid duplicate multi-meaning Qs per entry
+  // Build per-entry question groups so related Qs (meaning + syn + ant) stay together
+  // and the learner is not bounced between unrelated words.
+  const entryGroups = [];
 
   for (const entry of shuffle(matchingEntries.slice(0, 40))) {
     const isArWord = entry.section === "ar-ar";
@@ -212,18 +312,19 @@ export function buildQuiz(matchingEntries, allEntries, mode) {
     const sameEntryMeanings = new Set(senseMeanings);
     const syns = uniqueStrings(pairWords(entry.synonyms));
     const ants = uniqueStrings(pairWords(entry.antonyms));
+    const group = [];
 
     // ——— Multi-meaning: 5 options, 2 correct (pick both) ———
-    if (mode === "mcq" && senseMeanings.length >= 2 && !seenEntryMeaning.has(entry.id)) {
-      seenEntryMeaning.add(entry.id);
+    let didMultiMeaning = false;
+    if (mode === "mcq" && senseMeanings.length >= 2) {
       const { corrects, options } = buildMultiOptions(senseMeanings, allMeanings, sameEntryMeanings);
       if (corrects.length === 2 && options.length >= 4) {
-        questions.push({
+        group.push({
           id: `${entry.id}:multi-meaning`,
           entryId: entry.id,
           word: entry.word,
           meaning: corrects.join(" / "),
-          correct: corrects[0], // primary for backward compat
+          correct: corrects[0],
           correctAnswers: corrects,
           correctAnswer: corrects.join(" | "),
           acceptedAnswers: senseMeanings,
@@ -241,28 +342,20 @@ export function buildQuiz(matchingEntries, allEntries, mode) {
           wordDir,
           wordFont,
         });
-        continue; // don't also emit single-sense meaning Qs for this entry
+        didMultiMeaning = true;
       }
     }
 
-    // ——— Single-sense meaning questions (word has only 1 meaning) ———
-    if (senseMeanings.length < 2) {
+    // ——— Single-sense meaning (only when not covered by multi-meaning) ———
+    if (!didMultiMeaning && senseMeanings.length >= 1) {
       for (const sense of senses) {
         const correct = (sense.meaning || "").trim();
         if (!correct) continue;
         let options = [correct];
         if (mode === "mcq") {
-          const distractors = shuffle(
-            allMeanings.filter((m) => m && m !== correct && !sameEntryMeanings.has(m))
-          ).slice(0, 3);
-          while (distractors.length < 3 && allMeanings.length > distractors.length + 1) {
-            const extra = allMeanings[Math.floor(Math.random() * allMeanings.length)];
-            if (extra && extra !== correct && !distractors.includes(extra)) distractors.push(extra);
-            else break;
-          }
-          options = shuffle([correct, ...distractors]).slice(0, 4);
+          options = buildSingleOptions(correct, allMeanings, sameEntryMeanings);
         }
-        questions.push({
+        group.push({
           id: `${entry.id}:${sense.id || correct}`,
           entryId: entry.id,
           word: entry.word,
@@ -288,70 +381,28 @@ export function buildQuiz(matchingEntries, allEntries, mode) {
       }
     }
 
-    // ——— Multi-synonym: 5 options, 2 correct ———
-    if (mode === "mcq" && syns.length >= 2) {
-      const sameSyn = new Set(syns);
-      const { corrects, options } = buildMultiOptions(syns, allSynonyms, sameSyn);
-      if (corrects.length === 2 && options.length >= 4) {
-        questions.push({
-          id: `${entry.id}:multi-syn`,
-          entryId: entry.id,
-          word: entry.word,
-          meaning: corrects.join(" / "),
-          correct: corrects[0],
-          correctAnswers: corrects,
-          correctAnswer: corrects.join(" | "),
-          acceptedAnswers: syns,
-          options,
-          selectCount: 2,
-          multi: true,
-          type: "synonym",
-          mode: "mcq",
-          pos: "",
-          promptText: entry.word,
-          promptDir: wordDir,
-          promptFont: wordFont,
-          optionDir: wordDir,
-          optionFont: wordFont,
-          wordDir,
-          wordFont,
-        });
-      }
-    }
+    // ——— Synonyms (1 → single, 2 → multi, 3+ → multi + singles for leftovers) ———
+    pushPairQuestions(group, {
+      entry, list: syns, allPool: allSynonyms, type: "synonym",
+      wordDir, wordFont, mode,
+    });
 
-    // ——— Multi-antonym: 5 options, 2 correct ———
-    if (mode === "mcq" && ants.length >= 2) {
-      const sameAnt = new Set(ants);
-      const { corrects, options } = buildMultiOptions(ants, allAntonyms, sameAnt);
-      if (corrects.length === 2 && options.length >= 4) {
-        questions.push({
-          id: `${entry.id}:multi-ant`,
-          entryId: entry.id,
-          word: entry.word,
-          meaning: corrects.join(" / "),
-          correct: corrects[0],
-          correctAnswers: corrects,
-          correctAnswer: corrects.join(" | "),
-          acceptedAnswers: ants,
-          options,
-          selectCount: 2,
-          multi: true,
-          type: "antonym",
-          mode: "mcq",
-          pos: "",
-          promptText: entry.word,
-          promptDir: wordDir,
-          promptFont: wordFont,
-          optionDir: wordDir,
-          optionFont: wordFont,
-          wordDir,
-          wordFont,
-        });
-      }
-    }
+    // ——— Antonyms (same rules — prioritized so every antonym is tested) ———
+    pushPairQuestions(group, {
+      entry, list: ants, allPool: allAntonyms, type: "antonym",
+      wordDir, wordFont, mode,
+    });
+
+    if (group.length) entryGroups.push(group);
   }
 
-  return shuffle(questions).slice(0, 30);
+  // Shuffle entry order, but keep each entry's questions consecutive
+  // so meaning → synonym → antonym for the same word stay in one block.
+  const ordered = [];
+  for (const g of shuffle(entryGroups)) {
+    for (const q of g) ordered.push(q);
+  }
+  return ordered.slice(0, 40);
 }
 
 /**

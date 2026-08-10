@@ -140,88 +140,218 @@ function shuffle(arr) {
   return a;
 }
 
+function pairWords(pairs) {
+  if (!Array.isArray(pairs)) return [];
+  return pairs
+    .map((p) => (typeof p === "string" ? p : (p && p.word) || ""))
+    .map((w) => String(w || "").trim())
+    .filter(Boolean);
+}
+
+function uniqueStrings(list) {
+  const seen = new Set();
+  const out = [];
+  for (const s of list) {
+    const t = String(s || "").trim();
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
+
+/** Build 5 options with exactly 2 correct answers (for multi-select). */
+function buildMultiOptions(corrects, distractorPool, sameEntrySet) {
+  const two = shuffle(corrects).slice(0, 2);
+  const distractors = shuffle(
+    distractorPool.filter((m) => m && !two.includes(m) && !sameEntrySet.has(m))
+  ).slice(0, 3);
+  // pad if pool is thin
+  while (distractors.length < 3 && distractorPool.length > distractors.length) {
+    const extra = distractorPool[Math.floor(Math.random() * distractorPool.length)];
+    if (extra && !two.includes(extra) && !distractors.includes(extra) && !sameEntrySet.has(extra)) {
+      distractors.push(extra);
+    } else break;
+  }
+  return { corrects: two, options: shuffle([...two, ...distractors]).slice(0, 5) };
+}
+
 export function buildQuiz(matchingEntries, allEntries, mode) {
   if (!matchingEntries || matchingEntries.length < 1) return [];
   if (mode === "cloze") return buildClozeQuiz(matchingEntries, allEntries, 25);
   const pool = matchingEntries.length >= 4 ? matchingEntries : allEntries || matchingEntries;
 
-  // Expand multi-sense entries into one question per sense so the quiz can
-  // say "this is the NOUN meaning" and not mix verb/noun answers.
-  const items = [];
-  for (const entry of matchingEntries.slice(0, 40)) {
-    const senses = getEntrySenses(entry);
-    if (!senses.length) continue;
-    for (const sense of senses) {
-      items.push({ entry, sense });
-    }
-  }
-  const picked = shuffle(items).slice(0, 30);
-
-  // Collect all meanings from the pool for distractors
+  // Collect global pools for distractors
   const allMeanings = [];
+  const allSynonyms = [];
+  const allAntonyms = [];
   for (const e of pool) {
     for (const s of getEntrySenses(e)) {
       if (s.meaning) allMeanings.push(s.meaning);
     }
     if (e.meaning && !allMeanings.includes(e.meaning)) allMeanings.push(e.meaning);
+    for (const w of pairWords(e.synonyms)) allSynonyms.push(w);
+    for (const w of pairWords(e.antonyms)) allAntonyms.push(w);
   }
 
-  const questions = picked.map(({ entry, sense }) => {
-    const correct = sense.meaning;
+  const questions = [];
+  const seenEntryMeaning = new Set(); // avoid duplicate multi-meaning Qs per entry
+
+  for (const entry of shuffle(matchingEntries.slice(0, 40))) {
     const isArWord = entry.section === "ar-ar";
     const wordDir = isArWord ? "rtl" : "ltr";
     const wordFont = isArWord ? "'Amiri', serif" : "'Fraunces', serif";
     const meaningDir = "rtl";
     const meaningFont = "'Amiri', serif";
+    const senses = getEntrySenses(entry);
+    const senseMeanings = uniqueStrings(senses.map((s) => s.meaning));
+    if (entry.meaning) {
+      const m = String(entry.meaning).trim();
+      if (m && !senseMeanings.includes(m)) senseMeanings.push(m);
+    }
+    const sameEntryMeanings = new Set(senseMeanings);
+    const syns = uniqueStrings(pairWords(entry.synonyms));
+    const ants = uniqueStrings(pairWords(entry.antonyms));
 
-    // All meanings belonging to this same entry (never use as distractors)
-    const sameEntryMeanings = new Set(
-      getEntrySenses(entry).map((s) => (s.meaning || "").trim()).filter(Boolean)
-    );
-    if (entry.meaning) sameEntryMeanings.add(String(entry.meaning).trim());
-
-    let options = [correct];
-    if (mode === "mcq") {
-      const distractors = shuffle(
-        allMeanings.filter((m) => m && m !== correct && !sameEntryMeanings.has(m))
-      ).slice(0, 3);
-      while (distractors.length < 3 && allMeanings.length > distractors.length + 1) {
-        const extra = allMeanings[Math.floor(Math.random() * allMeanings.length)];
-        if (extra && extra !== correct && !distractors.includes(extra)) distractors.push(extra);
-        else break;
+    // ——— Multi-meaning: 5 options, 2 correct (pick both) ———
+    if (mode === "mcq" && senseMeanings.length >= 2 && !seenEntryMeaning.has(entry.id)) {
+      seenEntryMeaning.add(entry.id);
+      const { corrects, options } = buildMultiOptions(senseMeanings, allMeanings, sameEntryMeanings);
+      if (corrects.length === 2 && options.length >= 4) {
+        questions.push({
+          id: `${entry.id}:multi-meaning`,
+          entryId: entry.id,
+          word: entry.word,
+          meaning: corrects.join(" / "),
+          correct: corrects[0], // primary for backward compat
+          correctAnswers: corrects,
+          correctAnswer: corrects.join(" | "),
+          acceptedAnswers: senseMeanings,
+          options,
+          selectCount: 2,
+          multi: true,
+          type: "meaning",
+          mode: "mcq",
+          pos: (senses[0] && senses[0].pos) || "",
+          promptText: entry.word,
+          promptDir: wordDir,
+          promptFont: wordFont,
+          optionDir: meaningDir,
+          optionFont: meaningFont,
+          wordDir,
+          wordFont,
+        });
+        continue; // don't also emit single-sense meaning Qs for this entry
       }
-      options = shuffle([correct, ...distractors]).slice(0, 4);
     }
 
-    // Accept ANY sense meaning for this word as a correct typed answer
-    // (e.g. earthquake → زلزال or هزة أرضية).
-    const allSenseMeanings = getEntrySenses(entry)
-      .map((s) => (s.meaning || "").trim())
-      .filter(Boolean);
-    const accepted = Array.from(new Set([correct, ...allSenseMeanings].filter(Boolean)));
+    // ——— Single-sense meaning questions (word has only 1 meaning) ———
+    if (senseMeanings.length < 2) {
+      for (const sense of senses) {
+        const correct = (sense.meaning || "").trim();
+        if (!correct) continue;
+        let options = [correct];
+        if (mode === "mcq") {
+          const distractors = shuffle(
+            allMeanings.filter((m) => m && m !== correct && !sameEntryMeanings.has(m))
+          ).slice(0, 3);
+          while (distractors.length < 3 && allMeanings.length > distractors.length + 1) {
+            const extra = allMeanings[Math.floor(Math.random() * allMeanings.length)];
+            if (extra && extra !== correct && !distractors.includes(extra)) distractors.push(extra);
+            else break;
+          }
+          options = shuffle([correct, ...distractors]).slice(0, 4);
+        }
+        questions.push({
+          id: `${entry.id}:${sense.id || correct}`,
+          entryId: entry.id,
+          word: entry.word,
+          meaning: correct,
+          correct,
+          correctAnswers: [correct],
+          correctAnswer: correct,
+          acceptedAnswers: senseMeanings.length ? senseMeanings : [correct],
+          options,
+          selectCount: 1,
+          multi: false,
+          type: "meaning",
+          mode,
+          pos: sense.pos || "",
+          promptText: entry.word,
+          promptDir: wordDir,
+          promptFont: wordFont,
+          optionDir: meaningDir,
+          optionFont: meaningFont,
+          wordDir,
+          wordFont,
+        });
+      }
+    }
 
-    return {
-      id: `${entry.id}:${sense.id}`,
-      entryId: entry.id,
-      word: entry.word,
-      meaning: correct,
-      correct,
-      correctAnswer: correct,
-      acceptedAnswers: accepted,
-      options,
-      type: mode,
-      mode,
-      pos: sense.pos || "",
-      promptText: entry.word,
-      promptDir: wordDir,
-      promptFont: wordFont,
-      optionDir: meaningDir,
-      optionFont: meaningFont,
-      wordDir,
-      wordFont,
-    };
-  });
-  return shuffle(questions);
+    // ——— Multi-synonym: 5 options, 2 correct ———
+    if (mode === "mcq" && syns.length >= 2) {
+      const sameSyn = new Set(syns);
+      const { corrects, options } = buildMultiOptions(syns, allSynonyms, sameSyn);
+      if (corrects.length === 2 && options.length >= 4) {
+        questions.push({
+          id: `${entry.id}:multi-syn`,
+          entryId: entry.id,
+          word: entry.word,
+          meaning: corrects.join(" / "),
+          correct: corrects[0],
+          correctAnswers: corrects,
+          correctAnswer: corrects.join(" | "),
+          acceptedAnswers: syns,
+          options,
+          selectCount: 2,
+          multi: true,
+          type: "synonym",
+          mode: "mcq",
+          pos: "",
+          promptText: entry.word,
+          promptDir: wordDir,
+          promptFont: wordFont,
+          optionDir: wordDir,
+          optionFont: wordFont,
+          wordDir,
+          wordFont,
+        });
+      }
+    }
+
+    // ——— Multi-antonym: 5 options, 2 correct ———
+    if (mode === "mcq" && ants.length >= 2) {
+      const sameAnt = new Set(ants);
+      const { corrects, options } = buildMultiOptions(ants, allAntonyms, sameAnt);
+      if (corrects.length === 2 && options.length >= 4) {
+        questions.push({
+          id: `${entry.id}:multi-ant`,
+          entryId: entry.id,
+          word: entry.word,
+          meaning: corrects.join(" / "),
+          correct: corrects[0],
+          correctAnswers: corrects,
+          correctAnswer: corrects.join(" | "),
+          acceptedAnswers: ants,
+          options,
+          selectCount: 2,
+          multi: true,
+          type: "antonym",
+          mode: "mcq",
+          pos: "",
+          promptText: entry.word,
+          promptDir: wordDir,
+          promptFont: wordFont,
+          optionDir: wordDir,
+          optionFont: wordFont,
+          wordDir,
+          wordFont,
+        });
+      }
+    }
+  }
+
+  return shuffle(questions).slice(0, 30);
 }
 
 /**
@@ -295,14 +425,27 @@ export function isTypingCorrect(typed, correct) {
   });
 }
 
-export function quizQuestionLabel(mode, isAr, pos) {
+export function quizQuestionLabel(modeOrType, isAr, pos, multi = false) {
   let base;
-  if (mode === "cloze") {
+  const t = modeOrType || "mcq";
+  if (t === "cloze") {
     base = isAr ? "أكمل الفراغ بالكلمة الصحيحة" : "Fill in the blank with the correct word";
-  } else if (mode === "typing") {
+  } else if (t === "typing") {
     base = isAr ? "اكتب المعنى" : "Type the meaning";
+  } else if (t === "synonym") {
+    base = multi
+      ? (isAr ? "اختر مرادفين صحيحين" : "Pick two correct synonyms")
+      : (isAr ? "اختر المرادف الصحيح" : "Pick the correct synonym");
+  } else if (t === "antonym") {
+    base = multi
+      ? (isAr ? "اختر مضادين صحيحين" : "Pick two correct antonyms")
+      : (isAr ? "اختر المضاد الصحيح" : "Pick the correct antonym");
+  } else if (t === "meaning" || t === "mcq") {
+    base = multi
+      ? (isAr ? "اختر معنيين صحيحين" : "Pick two correct meanings")
+      : (isAr ? "اختر المعنى الصحيح" : "Pick the correct meaning");
   } else {
-    base = isAr ? "اختر المعنى الصحيح" : "Pick the correct meaning";
+    base = isAr ? "اختر الإجابة الصحيحة" : "Pick the correct answer";
   }
   if (!pos) return base;
   const tag = posLabel(pos, isAr);

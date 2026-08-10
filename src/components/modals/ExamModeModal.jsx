@@ -192,10 +192,14 @@ export default function ExamModeModal({
   function recordQuizAnswer(q, opt, correct) {
     setSelected(opt);
     setAnswered(true);
+    const correctLabel = (q.correctAnswers && q.correctAnswers.length)
+      ? q.correctAnswers.join(" | ")
+      : q.correct;
     setResults((r) => [...r, {
       id: q.id, correct, type: q.type,
       word: q.word, wordDir: q.wordDir, wordFont: q.wordFont, pos: q.pos || "",
-      selectedAnswer: opt, correctAnswer: q.correct,
+      selectedAnswer: Array.isArray(opt) ? opt.join(" | ") : opt,
+      correctAnswer: correctLabel,
     }]);
     if (onRecordSrsAnswer) onRecordSrsAnswer(q.entryId, correct);
   }
@@ -203,7 +207,23 @@ export default function ExamModeModal({
   function pickOption(opt) {
     if (answered) return;
     const q = questions[index];
-    recordQuizAnswer(q, opt, opt === q.correct);
+    const need = q.selectCount || 1;
+    const corrects = q.correctAnswers || [q.correct];
+    if (need <= 1) {
+      recordQuizAnswer(q, opt, corrects.includes(opt) || opt === q.correct);
+      return;
+    }
+    // Multi-select draft stored in selected as array
+    const prev = Array.isArray(selected) ? selected : (selected ? [selected] : []);
+    let nextList;
+    if (prev.includes(opt)) nextList = prev.filter((x) => x !== opt);
+    else if (prev.length < need) nextList = [...prev, opt];
+    else return;
+    setSelected(nextList);
+    if (nextList.length === need) {
+      const ok = nextList.every((x) => corrects.includes(x));
+      recordQuizAnswer(q, nextList, ok);
+    }
   }
 
   function submitTyped() {
@@ -406,7 +426,9 @@ export default function ExamModeModal({
                   : tr(isAr, `Question ${index + 1} of ${questions.length}`, `السؤال ${index + 1} من ${questions.length}`)}
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                {questions.length > 0 && <span>{tr(isAr, `Score: ${score}`, `النتيجة: ${score}`)}</span>}
+                {questions.length > 0 && (
+                  <span>{index + 1}/{questions.length}</span>
+                )}
                 {remainingMs != null && (
                   <span style={{
                     display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 700,
@@ -514,25 +536,40 @@ export default function ExamModeModal({
                   </div>
 
                   {(q.mode === "mcq" || q.type === "mcq") ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {q.options.map((opt, i) => {
-                        const isCorrectOpt = opt === q.correct;
-                        const isSelectedOpt = opt === selected;
-                        let bg = "var(--card)", border = "rgba(var(--border-rgb),0.2)", color = INK;
-                        if (answered && isCorrectOpt) { bg = "var(--success-bg)"; border = "var(--success)"; color = "var(--success)"; }
-                        else if (answered && isSelectedOpt && !isCorrectOpt) { bg = "var(--danger-bg)"; border = "var(--danger-border)"; color = "var(--danger)"; }
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {(q.options || []).map((opt, i) => {
+                        const isSelectedOpt = Array.isArray(selected) ? selected.includes(opt) : opt === selected;
+                        const letters = isAr
+                          ? ["أ", "ب", "ج", "د", "هـ"]
+                          : ["A", "B", "C", "D", "E"];
+                        // Exam mode: never reveal correct/wrong while answering — only mark selected
+                        let bg = "var(--card)", border = "rgba(var(--border-rgb),0.18)", color = INK;
+                        let letterBg = "rgba(var(--border-rgb),0.12)", letterColor = "var(--muted-strong)";
+                        if (isSelectedOpt) {
+                          bg = "var(--accent-1-soft)";
+                          border = "var(--accent-1)";
+                          letterBg = "var(--accent-1)";
+                          letterColor = "#fff";
+                        }
                         return (
                           <button key={i} type="button" onClick={() => pickOption(opt)} disabled={answered}
                             dir={q.optionDir}
                             style={{
                               textAlign: "start", fontFamily: q.optionFont, fontSize: 15.5,
-                              padding: "11px 13px", background: bg, border: `1.5px solid ${border}`,
-                              color, borderRadius: 6, cursor: answered ? "default" : "pointer",
-                              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+                              padding: "14px 14px", background: bg, border: `1.5px solid ${border}`,
+                              color, borderRadius: 14, cursor: answered ? "default" : "pointer",
+                              display: "flex", alignItems: "center", gap: 12, minHeight: 52,
+                              boxShadow: answered ? "none" : "0 2px 8px -4px rgba(0,0,0,0.12)",
                             }}>
-                            <span>{opt}</span>
-                            {answered && isCorrectOpt && <CheckIcon size={15} />}
-                            {answered && isSelectedOpt && !isCorrectOpt && <XIcon size={15} />}
+                            <span style={{
+                              flexShrink: 0, width: 32, height: 32, borderRadius: 10,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: 14, fontWeight: 800, background: letterBg, color: letterColor,
+                              fontFamily: "'Source Sans 3', sans-serif",
+                            }}>
+                              {letters[i] || (i + 1)}
+                            </span>
+                            <span style={{ flex: 1, lineHeight: 1.35 }}>{opt}</span>
                           </button>
                         );
                       })}
@@ -556,13 +593,11 @@ export default function ExamModeModal({
                           ? tr(isAr, "Type the missing word…", "اكتب الكلمة الناقصة…")
                           : tr(isAr, "Type your answer…", "اكتب إجابتك…")}
                         style={{
-                          width: "100%", boxSizing: "border-box", padding: "11px 13px",
+                          width: "100%", boxSizing: "border-box", padding: "12px 14px",
                           fontFamily: q.optionFont, fontSize: 16, color: INK,
                           background: "var(--input-bg)",
-                          border: `1px solid ${answered
-                            ? (results[results.length - 1]?.correct ? "var(--success)" : "var(--danger-border)")
-                            : "rgba(var(--border-rgb),0.2)"}`,
-                          borderRadius: 6,
+                          border: "1px solid rgba(var(--border-rgb),0.2)",
+                          borderRadius: 12,
                         }}
                       />
                       {!answered && (
@@ -572,7 +607,7 @@ export default function ExamModeModal({
                             opacity: typedAnswer.trim() ? 1 : 0.5,
                             cursor: typedAnswer.trim() ? "pointer" : "default",
                           }}>
-                          {tr(isAr, "Check answer", "تحقق من الإجابة")}
+                          {tr(isAr, "Submit", "تأكيد")}
                         </button>
                       )}
                       {answered && (q.mode === "cloze" || q.type === "cloze") && q.fullExample && (

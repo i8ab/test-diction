@@ -39,13 +39,14 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
   const [customMinutes, setCustomMinutes] = useState("120");
   const mode = "mcq"; // quiz is multiple-choice only
   const [dueOnly, setDueOnly] = useState(!!initialDueOnly);
+  // "practice" = show correct/wrong immediately | "exam" = hide until finished
+  const [quizMode, setQuizMode] = useState("practice");
   const [stage, setStage] = useState("setup"); // setup | running | done
   const [startError, setStartError] = useState("");
   const [questions, setQuestions] = useState([]);
   const [index, setIndex] = useState(0);
-  const [selected, setSelected] = useState(null);
-  const [answered, setAnswered] = useState(false);
-  const [results, setResults] = useState([]);
+  // answers[i] = { selected, correct, ... } | null if not yet answered
+  const [answers, setAnswers] = useState([]);
   const [startedAt, setStartedAt] = useState(null);
   const [finishedAt, setFinishedAt] = useState(null);
   const [typedAnswer, setTypedAnswer] = useState("");
@@ -96,42 +97,192 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
     setStartError("");
     setQuestions(built);
     setIndex(0);
-    setSelected(null);
-    setAnswered(false);
-    setResults([]);
+    setAnswers(new Array(built.length).fill(null));
     setStartedAt(Date.now());
     setFinishedAt(null);
     setTypedAnswer("");
     setStage("running");
   }
 
-  function recordAnswer(q, opt, correct) {
-    setSelected(opt);
-    setAnswered(true);
-    setResults((r) => [...r, {
-      id: q.id, correct, type: q.type,
-      word: q.word, wordDir: q.wordDir, wordFont: q.wordFont, pos: q.pos || "",
-      selectedAnswer: opt, correctAnswer: q.correct,
-    }]);
-    // Feed this word's result into its spaced-repetition schedule. Fire
-    // and forget — the quiz UI doesn't need to wait on the save.
-    if (onRecordSrsAnswer) onRecordSrsAnswer(q.entryId, correct);
+  const currentAnswer = answers[index] || null;
+  const isAnswered = !!(currentAnswer && !currentAnswer.partial);
+  const answeredCount = answers.filter((a) => a && !a.partial).length;
+  const allAnswered = questions.length > 0 && answeredCount === questions.length;
+  const score = answers.filter((a) => a && a.correct && !a.partial).length;
+  const isPractice = quizMode === "practice";
+  // In practice mode, lock after a full answer so feedback stays. In exam mode, allow changing until finish.
+  const isLocked = isPractice && isAnswered;
+  // Show correct/wrong colors only in practice (while running)
+  const showFeedback = isPractice;
+
+  function saveAnswerAt(idx, selectedOpt, correct) {
+    const q = questions[idx];
+    if (!q) return;
+    const wasEmpty = !answers[idx];
+    setAnswers((prev) => {
+      const next = [...prev];
+      next[idx] = {
+        selected: selectedOpt,
+        correct,
+        id: q.id,
+        type: q.type,
+        word: q.word,
+        wordDir: q.wordDir,
+        wordFont: q.wordFont,
+        pos: q.pos || "",
+        selectedAnswer: selectedOpt,
+        correctAnswer: q.correct,
+      };
+      return next;
+    });
+    // Feed SRS only the first time this question is answered
+    if (wasEmpty && onRecordSrsAnswer) {
+      onRecordSrsAnswer(q.entryId, correct);
+    }
   }
 
   function pickOption(opt) {
-    if (answered) return;
+    if (isLocked) return;
     const q = questions[index];
-    recordAnswer(q, opt, opt === q.correct);
+    if (!q) return;
+    const need = q.selectCount || 1;
+    const corrects = q.correctAnswers || [q.correct];
+
+    if (need <= 1) {
+      saveAnswerAt(index, opt, corrects.includes(opt) || opt === q.correct);
+      return;
+    }
+
+    // Multi-select: toggle option until required count reached, then commit
+    const prev = (answers[index] && Array.isArray(answers[index].selectedList))
+      ? answers[index].selectedList
+      : [];
+    let nextList;
+    if (prev.includes(opt)) {
+      nextList = prev.filter((x) => x !== opt);
+    } else if (prev.length < need) {
+      nextList = [...prev, opt];
+    } else {
+      return; // already at max, must deselect first
+    }
+
+    if (nextList.length < need) {
+      // partial selection — store draft without finalizing score yet
+      setAnswers((old) => {
+        const copy = [...old];
+        copy[index] = {
+          selected: nextList.join(" | "),
+          selectedList: nextList,
+          correct: false,
+          partial: true,
+          id: q.id,
+          type: q.type,
+          word: q.word,
+          wordDir: q.wordDir,
+          wordFont: q.wordFont,
+          pos: q.pos || "",
+          selectedAnswer: nextList.join(" | "),
+          correctAnswer: (q.correctAnswers || [q.correct]).join(" | "),
+        };
+        return copy;
+      });
+      return;
+    }
+
+    // Full selection: check both answers
+    const ok = nextList.length === need && nextList.every((x) => corrects.includes(x));
+    setAnswers((old) => {
+      const copy = [...old];
+      const wasEmpty = !old[index] || old[index].partial;
+      copy[index] = {
+        selected: nextList.join(" | "),
+        selectedList: nextList,
+        correct: ok,
+        partial: false,
+        id: q.id,
+        type: q.type,
+        word: q.word,
+        wordDir: q.wordDir,
+        wordFont: q.wordFont,
+        pos: q.pos || "",
+        selectedAnswer: nextList.join(" | "),
+        correctAnswer: corrects.join(" | "),
+      };
+      return copy;
+    });
+    if ((!answers[index] || answers[index].partial) && onRecordSrsAnswer) {
+      onRecordSrsAnswer(q.entryId, nextList.length === need && nextList.every((x) => corrects.includes(x)));
+    }
   }
 
+  /** Skip = leave unanswered and jump to next unanswered question (does NOT mark wrong). */
   function skipQuestion() {
-    if (answered) return;
-    const q = questions[index];
-    // Skip counts as incorrect so SRS still gets a signal
-    recordAnswer(q, tr(isAr, "(skipped)", "(تخطي)"), false);
+    // Clear any partial multi-select draft so the question stays unanswered
+    if (answers[index] && answers[index].partial) {
+      setAnswers((prev) => {
+        const copy = [...prev];
+        copy[index] = null;
+        return copy;
+      });
+    }
+    goToNextUnanswered();
   }
 
-  const optionLetters = isAr ? ["أ", "ب", "ج", "د", "هـ", "و"] : ["A", "B", "C", "D", "E", "F"];
+  function goToNextUnanswered() {
+    let nextIdx = -1;
+    for (let i = index + 1; i < questions.length; i++) {
+      if (!answers[i] || answers[i].partial) { nextIdx = i; break; }
+    }
+    if (nextIdx === -1) {
+      for (let i = 0; i < index; i++) {
+        if (!answers[i] || answers[i].partial) { nextIdx = i; break; }
+      }
+    }
+    if (nextIdx === -1) {
+      // no other unanswered — stay (user can finish if all done, or answer current)
+      return;
+    }
+    setIndex(nextIdx);
+    setTypedAnswer("");
+  }
+
+  function goToNext() {
+    if (index + 1 < questions.length) {
+      setIndex(index + 1);
+      setTypedAnswer("");
+    }
+  }
+
+  function goToQuestion(n) {
+    const i = n - 1;
+    if (i >= 0 && i < questions.length) {
+      setIndex(i);
+      setTypedAnswer("");
+    }
+  }
+
+  function finishQuiz() {
+    if (!allAnswered) return;
+    const finishedTime = Date.now();
+    setFinishedAt(finishedTime);
+    setStage("done");
+    if (onSaveQuizResult) {
+      onSaveQuizResult({
+        id: uid(),
+        at: finishedTime,
+        section: sectionLabel || "",
+        mode: `${mode}:${quizMode}`,
+        score,
+        total: questions.length,
+        durationMs: startedAt ? finishedTime - startedAt : 0,
+      });
+    }
+  }
+
+  // Arabic أ ب ج د (هـ if 5 options) / English A B C D (E if 5)
+  const optionLetters = isAr
+    ? ["أ", "ب", "ج", "د", "هـ"]
+    : ["A", "B", "C", "D", "E"];
 
   function formatElapsed(sec) {
     const m = Math.floor(sec / 60);
@@ -139,60 +290,23 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }
 
-  // Typing mode: compares the typed text to every accepted answer for
-  // this question (see isTypingCorrect) — ignoring case, whitespace, and
-  // Arabic tashkeel, and tolerating small typos. For synonym/antonym
-  // questions this means ANY valid synonym/antonym from the word's list
-  // counts, not just the one specific string the quiz happened to pick.
-  function submitTyped() {
-    if (answered) return;
-    const q = questions[index];
-    const accepted = q.acceptedAnswers && q.acceptedAnswers.length ? q.acceptedAnswers : [q.correct];
-    const isCorrect = isTypingCorrect(typedAnswer, accepted);
-    recordAnswer(q, typedAnswer, isCorrect);
-  }
-
-  function nextQuestion() {
-    if (index + 1 >= questions.length) {
-      const finishedTime = Date.now();
-      setFinishedAt(finishedTime);
-      setStage("done");
-      if (onSaveQuizResult) {
-        const finalScore = results.filter((r) => r.correct).length;
-        onSaveQuizResult({
-          id: uid(), at: finishedTime, section: sectionLabel || "", mode,
-          score: finalScore, total: results.length,
-          durationMs: startedAt ? finishedTime - startedAt : 0,
-        });
-      }
-    } else {
-      setIndex((i) => i + 1);
-      setSelected(null);
-      setAnswered(false);
-      setTypedAnswer("");
-    }
-  }
-
   function retake() {
     setStage("setup");
     setStartError("");
   }
 
-  const score = results.filter((r) => r.correct).length;
   const quizDurationMs = startedAt && finishedAt ? finishedAt - startedAt : 0;
 
-  // Every wrong question, grouped into the three review sections. Unlike a
-  // simple word list, a word can appear more than once here (e.g. wrong on
-  // two different synonyms of the same word) since each mistake has its
-  // own correct answer to compare against.
+  // Every wrong question, grouped by type (meaning / synonym / antonym).
   const mistakesByCategory = useMemo(() => {
     const map = { meaning: [], synonym: [], antonym: [] };
-    for (const r of results) {
-      if (r.correct) continue;
-      map[quizResultCategory(r.type)].push(r);
+    for (const r of answers) {
+      if (!r || r.correct) continue;
+      const cat = (r.type === "synonym" || r.type === "antonym") ? r.type : "meaning";
+      map[cat].push(r);
     }
     return map;
-  }, [results]);
+  }, [answers]);
 
   // Flat list of every mistake — meaning first, then synonyms, then
   // antonyms — all shown at once in the review.
@@ -259,6 +373,42 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
               <input type="checkbox" checked={dueOnly} onChange={(e) => setDueOnly(e.target.checked)} />
               {tr(isAr, "Only words due for review (spaced repetition)", "الكلمات المستحقة للمراجعة فقط (التكرار المتباعد)")}
             </label>
+
+            {/* Mode: Practice vs Exam */}
+            <label style={labelStyle}>{tr(isAr, "Mode", "الوضع")}</label>
+            <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+              <button
+                type="button"
+                onClick={() => setQuizMode("practice")}
+                style={{
+                  flex: 1, padding: "12px 14px", fontSize: 14, fontWeight: 700, borderRadius: 12, cursor: "pointer",
+                  border: quizMode === "practice" ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.2)",
+                  background: quizMode === "practice" ? "var(--accent-1-soft)" : "var(--card)",
+                  color: quizMode === "practice" ? "var(--accent-1)" : "var(--muted-strong)",
+                }}
+              >
+                {tr(isAr, "Practice", "تدريب")}
+                <div style={{ fontSize: 11, fontWeight: 500, marginTop: 4, opacity: 0.85 }}>
+                  {tr(isAr, "See correct/wrong right away", "يشوف الصح والغلط فوراً")}
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuizMode("exam")}
+                style={{
+                  flex: 1, padding: "12px 14px", fontSize: 14, fontWeight: 700, borderRadius: 12, cursor: "pointer",
+                  border: quizMode === "exam" ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.2)",
+                  background: quizMode === "exam" ? "var(--accent-1-soft)" : "var(--card)",
+                  color: quizMode === "exam" ? "var(--accent-1)" : "var(--muted-strong)",
+                }}
+              >
+                {tr(isAr, "Exam", "امتحان")}
+                <div style={{ fontSize: 11, fontWeight: 500, marginTop: 4, opacity: 0.85 }}>
+                  {tr(isAr, "No feedback until the end", "مفيش نتيجة إلا في الآخر")}
+                </div>
+              </button>
+            </div>
+
             {startError && <div style={errorStyle} role="alert" aria-live="assertive">{startError}</div>}
             <button type="button" onClick={startQuiz} disabled={matchingEntries.length === 0} style={{ ...primaryBtnStyle, opacity: matchingEntries.length === 0 ? 0.5 : 1, cursor: matchingEntries.length === 0 ? "default" : "pointer" }}>
               <QuizIcon size={16} /> {tr(isAr, "Start quiz", "ابدأ الاختبار")}
@@ -266,10 +416,16 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
           </div>
         )}
 
-        {stage === "running" && questions[index] && (() => {
+        {stage === "running" && questions.length > 0 && questions[index] && (() => {
           const q = questions[index];
-          // Number strip around current question (like the screenshot)
+          const ans = answers[index]; // current answer state (or null)
+          const selected = ans ? ans.selected : null;
+          const selectedList = (ans && Array.isArray(ans.selectedList)) ? ans.selectedList : (selected ? [selected] : []);
+          const isMulti = !!q.multi || (q.selectCount || 1) > 1;
+          const isPartial = !!(ans && ans.partial);
           const total = questions.length;
+
+          // Number strip around current question
           const windowSize = 9;
           let startNum = Math.max(1, (index + 1) - Math.floor(windowSize / 2));
           let endNum = Math.min(total, startNum + windowSize - 1);
@@ -279,7 +435,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
 
           return (
             <div style={{ marginTop: 8, display: "flex", flexDirection: "column", minHeight: 0 }}>
-              {/* Top bar: timer + progress text + score */}
+              {/* Top bar: timer + progress + answered count */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 8 }}>
                 <div style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
@@ -293,18 +449,23 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                 </div>
                 <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>
                   {index + 1}/{total}
+                  <span style={{ marginInlineStart: 6, fontSize: 11, opacity: 0.8 }}>
+                    · {isPractice ? tr(isAr, "Practice", "تدريب") : tr(isAr, "Exam", "امتحان")}
+                  </span>
                 </span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: BRASS }}>
-                  {tr(isAr, `Score ${score}`, `النتيجة ${score}`)}
+                  {showFeedback
+                    ? tr(isAr, `Score ${score}`, `النتيجة ${score}`)
+                    : `${answeredCount}/${total}`}
                 </span>
               </div>
 
-              {/* Thin progress bar */}
+              {/* Thin progress bar — based on answered count */}
               <div style={{ width: "100%", height: 5, background: "rgba(var(--border-rgb),0.15)", borderRadius: 3, marginBottom: 16, overflow: "hidden" }}>
                 <div style={{
-                  width: `${((index) / Math.max(total, 1)) * 100}%`,
+                  width: `${(answeredCount / Math.max(total, 1)) * 100}%`,
                   height: "100%",
-                  background: `linear-gradient(90deg, var(--accent-1), var(--accent-2))`,
+                  background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))",
                   borderRadius: 3,
                   transition: "width 0.25s ease",
                 }} />
@@ -313,10 +474,16 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
               {/* Question type label */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                 <p style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-strong)", margin: 0, letterSpacing: "0.02em", textTransform: "uppercase" }}>
-                  {quizQuestionLabel(q.type, isAr, q.pos)}
+                  {quizQuestionLabel(q.type || q.mode, isAr, q.pos, isMulti)}
                 </p>
-                <SpeakButton text={quizQuestionLabel(q.type, isAr, q.pos)} dir={isAr ? "rtl" : "ltr"} isAr={isAr} size={14} style={{ flexShrink: 0 }} />
+                <SpeakButton text={quizQuestionLabel(q.type || q.mode, isAr, q.pos, isMulti)} dir={isAr ? "rtl" : "ltr"} isAr={isAr} size={14} style={{ flexShrink: 0 }} />
               </div>
+              {isMulti && (
+                <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px" }}>
+                  {tr(isAr, `Select ${q.selectCount || 2} answers`, `اختار ${(q.selectCount || 2)} إجابات`)}
+                  {selectedList.length > 0 ? ` · ${selectedList.length}/${q.selectCount || 2}` : ""}
+                </p>
+              )}
 
               {/* Prompt card */}
               <div style={{
@@ -358,27 +525,37 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                 )}
               </div>
 
-              {/* Options — modern pills with letter badges (inspired by the screenshot) */}
+              {/* Options */}
               <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
                 {q.options.map((opt, i) => {
-                  const isCorrectOpt = opt === q.correct;
-                  const isSelectedOpt = opt === selected;
+                  const corrects = q.correctAnswers || [q.correct];
+                  const isCorrectOpt = corrects.includes(opt);
+                  const isSelectedOpt = selectedList.includes(opt);
                   let bg = "var(--card)";
                   let border = "rgba(var(--border-rgb),0.18)";
                   let color = INK;
                   let letterBg = "rgba(var(--border-rgb),0.12)";
                   let letterColor = "var(--muted-strong)";
-                  if (answered && isCorrectOpt) {
+                  // In exam mode: only highlight the selected option (no correct/wrong reveal)
+                  // In practice mode: show green/red after answering
+                  if (showFeedback && isAnswered && isCorrectOpt) {
                     bg = "var(--success-bg)";
                     border = "var(--success)";
                     color = "var(--success)";
                     letterBg = "var(--success)";
                     letterColor = "#fff";
-                  } else if (answered && isSelectedOpt && !isCorrectOpt) {
+                  } else if (showFeedback && isAnswered && isSelectedOpt && !isCorrectOpt) {
                     bg = "var(--danger-bg)";
                     border = "var(--danger-border)";
                     color = "var(--danger)";
                     letterBg = "var(--danger)";
+                    letterColor = "#fff";
+                  } else if (!showFeedback && isSelectedOpt) {
+                    // exam mode: subtle selected state only
+                    bg = "var(--accent-1-soft)";
+                    border = "var(--accent-1)";
+                    color = INK;
+                    letterBg = "var(--accent-1)";
                     letterColor = "#fff";
                   }
                   return (
@@ -386,7 +563,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                       key={i}
                       type="button"
                       onClick={() => pickOption(opt)}
-                      disabled={answered}
+                      disabled={isLocked}
                       dir={q.optionDir}
                       style={{
                         textAlign: "start",
@@ -397,12 +574,12 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                         border: `1.5px solid ${border}`,
                         color,
                         borderRadius: 14,
-                        cursor: answered ? "default" : "pointer",
+                        cursor: isLocked ? "default" : "pointer",
                         display: "flex",
                         alignItems: "center",
                         gap: 12,
                         transition: "transform 0.12s ease, box-shadow 0.12s ease",
-                        boxShadow: answered ? "none" : "0 2px 8px -4px rgba(0,0,0,0.12)",
+                        boxShadow: isLocked ? "none" : "0 2px 8px -4px rgba(0,0,0,0.12)",
                         minHeight: 52,
                       }}
                     >
@@ -419,26 +596,32 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                         {optionLetters[i] || (i + 1)}
                       </span>
                       <span style={{ flex: 1, lineHeight: 1.35 }}>{opt}</span>
-                      {answered && isCorrectOpt && <CheckIcon size={18} />}
-                      {answered && isSelectedOpt && !isCorrectOpt && <XIcon size={18} />}
+                      {showFeedback && isAnswered && isCorrectOpt && <CheckIcon size={18} />}
+                      {showFeedback && isAnswered && isSelectedOpt && !isCorrectOpt && <XIcon size={18} />}
                     </button>
                   );
                 })}
               </div>
 
-              {/* Bottom: number strip + Skip / Next */}
+              {/* Bottom: number strip + actions */}
               <div style={{ marginTop: "auto", paddingTop: 8 }}>
-                {/* Number strip */}
                 <div style={{
                   display: "flex", justifyContent: "center", alignItems: "center",
                   gap: 6, marginBottom: 14, flexWrap: "wrap",
                 }}>
                   {numberStrip.map((n) => {
                     const isCurrent = n === index + 1;
-                    const isPast = n < index + 1;
+                    const qAns = answers[n - 1];
+                    const isDone = !!qAns;
+                    // In practice: green/red. In exam: just a neutral "answered" mark (no reveal).
+                    const isCorrect = showFeedback && qAns && qAns.correct;
+                    const isWrong = showFeedback && qAns && !qAns.correct;
+                    const examAnswered = !showFeedback && isDone;
                     return (
-                      <div
+                      <button
                         key={n}
+                        type="button"
+                        onClick={() => goToQuestion(n)}
                         style={{
                           width: isCurrent ? 36 : 28,
                           height: isCurrent ? 36 : 28,
@@ -448,52 +631,128 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                           fontWeight: isCurrent ? 800 : 600,
                           background: isCurrent
                             ? "linear-gradient(135deg, var(--accent-1), var(--accent-2))"
-                            : isPast
-                              ? "rgba(var(--border-rgb),0.18)"
-                              : "transparent",
-                          color: isCurrent ? "#fff" : "var(--muted-strong)",
-                          border: isCurrent ? "none" : "1px solid rgba(var(--border-rgb),0.15)",
-                          transition: "all 0.2s ease",
+                            : isCorrect
+                              ? "var(--success-bg)"
+                              : isWrong
+                                ? "var(--danger-bg)"
+                                : examAnswered
+                                  ? "var(--accent-1-soft)"
+                                  : "transparent",
+                          color: isCurrent
+                            ? "#fff"
+                            : isCorrect
+                              ? "var(--success)"
+                              : isWrong
+                                ? "var(--danger)"
+                                : examAnswered
+                                  ? "var(--accent-1)"
+                                  : "var(--muted-strong)",
+                          border: isCurrent
+                            ? "none"
+                            : isCorrect
+                              ? "1.5px solid var(--success)"
+                              : isWrong
+                                ? "1.5px solid var(--danger-border)"
+                                : examAnswered
+                                  ? "1.5px solid var(--accent-1)"
+                                  : "1px solid rgba(var(--border-rgb),0.15)",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                          padding: 0,
                         }}
                       >
                         {n}
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
 
                 {/* Actions */}
-                {!answered ? (
-                  <button
-                    type="button"
-                    onClick={skipQuestion}
-                    style={{
-                      width: "100%",
-                      padding: "13px 16px",
-                      fontSize: 15,
-                      fontWeight: 700,
-                      color: "#fff",
-                      background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-                      border: "none",
-                      borderRadius: 14,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 8,
-                      minHeight: 50,
-                      boxShadow: "0 8px 20px -10px rgba(var(--focus-rgb),0.55)",
-                    }}
-                  >
-                    {tr(isAr, "Skip", "تخطي")} ▶
-                  </button>
-                ) : (
-                  <button type="button" onClick={nextQuestion} style={{ ...primaryBtnStyle, marginTop: 0, borderRadius: 14, minHeight: 50 }}>
-                    {index + 1 >= questions.length
-                      ? tr(isAr, "See results", "عرض النتيجة")
-                      : tr(isAr, "Next question", "السؤال التالي")}
-                  </button>
-                )}
+                <div style={{ display: "flex", gap: 10 }}>
+                  {!isAnswered ? (
+                    <button
+                      type="button"
+                      onClick={skipQuestion}
+                      style={{
+                        flex: 1,
+                        padding: "13px 16px",
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: "#fff",
+                        background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+                        border: "none",
+                        borderRadius: 14,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        minHeight: 50,
+                        boxShadow: "0 8px 20px -10px rgba(var(--focus-rgb),0.55)",
+                      }}
+                    >
+                      {tr(isAr, "Skip", "تخطي")} ▶
+                    </button>
+                  ) : (
+                    <>
+                      {index + 1 < total && (
+                        <button
+                          type="button"
+                          onClick={goToNext}
+                          style={{
+                            flex: 1,
+                            padding: "13px 16px",
+                            fontSize: 15,
+                            fontWeight: 700,
+                            color: "#fff",
+                            background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+                            border: "none",
+                            borderRadius: 14,
+                            cursor: "pointer",
+                            minHeight: 50,
+                          }}
+                        >
+                          {tr(isAr, "Next", "التالي")} ▶
+                        </button>
+                      )}
+                      {allAnswered && (
+                        <button
+                          type="button"
+                          onClick={finishQuiz}
+                          style={{
+                            flex: 1,
+                            ...primaryBtnStyle,
+                            marginTop: 0,
+                            borderRadius: 14,
+                            minHeight: 50,
+                          }}
+                        >
+                          <CheckIcon size={16} /> {tr(isAr, "Finish & see results", "إنهاء وعرض النتيجة")}
+                        </button>
+                      )}
+                      {!allAnswered && index + 1 >= total && (
+                        <button
+                          type="button"
+                          disabled
+                          style={{
+                            flex: 1,
+                            padding: "13px 16px",
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: "var(--muted)",
+                            background: "rgba(var(--border-rgb),0.1)",
+                            border: "1px solid rgba(var(--border-rgb),0.15)",
+                            borderRadius: 14,
+                            cursor: "default",
+                            minHeight: 50,
+                          }}
+                        >
+                          {tr(isAr, `Answer all questions first (${answeredCount}/${total})`, `جاوب على كل الأسئلة أولاً (${answeredCount}/${total})`)}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           );

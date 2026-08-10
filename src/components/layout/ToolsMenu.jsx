@@ -58,6 +58,13 @@ export default function ToolsMenu({
   onExamMode,
   focusMode = false,
   onToggleFocus = null,
+  onSmartCards = null,
+  onConversation = null,
+  onLevels = null,
+  onProgressCompare = null,
+  onTextExtract = null,
+  nightStudy = false,
+  onToggleNightStudy = null,
 }) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState(null);
@@ -136,6 +143,12 @@ export default function ToolsMenu({
         { key: "achievements", icon: <StarIcon size={18} />, tint: "#f4a261", label: tr(isAr, "Achievements", "الإنجازات"), onClick: onAchievements },
         { key: "leaderboard", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Leaderboard", "الترتيب"), onClick: onLeaderboard },
         { key: "goals", icon: <FlameIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Goals", "الأهداف"), onClick: onGoals },
+        ...(typeof onLevels === "function"
+          ? [{ key: "levels", icon: <TrophyIcon size={18} />, tint: "#f5c542", label: tr(isAr, "Levels & XP", "المستويات والنقاط"), onClick: onLevels }]
+          : []),
+        ...(typeof onProgressCompare === "function"
+          ? [{ key: "compare", icon: <StatsIcon size={18} />, tint: "#5b8def", label: tr(isAr, "You vs past you", "أنت ونفسك القديمة"), onClick: onProgressCompare }]
+          : []),
       ],
     },
     {
@@ -147,6 +160,15 @@ export default function ToolsMenu({
         { key: "todo", icon: <CheckIcon size={18} />, tint: "#30d158", label: tr(isAr, "To-do list", "قائمة المهام"), onClick: onTodo },
         { key: "lists", icon: <LayersIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Word lists", "قوائم الكلمات"), onClick: onWordLists },
         { key: "challenges", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Challenges", "تحديات"), onClick: onChallenges },
+        ...(typeof onSmartCards === "function"
+          ? [{ key: "smartCards", icon: <LayersIcon size={18} />, tint: "#af52de", label: tr(isAr, "Smart cards", "بطاقات ذكية"), onClick: onSmartCards }]
+          : []),
+        ...(typeof onConversation === "function"
+          ? [{ key: "conversation", icon: <MicIcon size={18} />, tint: "#5e5ce6", label: tr(isAr, "Conversation", "محادثة"), onClick: onConversation }]
+          : []),
+        ...(typeof onTextExtract === "function"
+          ? [{ key: "extract", icon: <WandIcon size={18} />, tint: "#ff2d55", label: tr(isAr, "Extract from text", "استخراج من نص"), onClick: onTextExtract }]
+          : []),
         ...(typeof onToggleFocus === "function"
           ? [{
               key: "focus",
@@ -156,6 +178,17 @@ export default function ToolsMenu({
                 ? tr(isAr, "Exit focus mode", "إغلاق وضع التركيز")
                 : tr(isAr, "Focus mode", "وضع التركيز"),
               onClick: onToggleFocus,
+            }]
+          : []),
+        ...(typeof onToggleNightStudy === "function"
+          ? [{
+              key: "night",
+              icon: <StarIcon size={18} />,
+              tint: "#8e8e93",
+              label: nightStudy
+                ? tr(isAr, "Exit night study", "إغلاق وضع الليل")
+                : tr(isAr, "Night study mode", "وضع المذاكرة الليلي"),
+              onClick: onToggleNightStudy,
             }]
           : []),
       ],

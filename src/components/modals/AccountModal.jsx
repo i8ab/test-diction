@@ -4,6 +4,7 @@ import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle }
 import { XIcon, CheckIcon, LoaderIcon, KeyIcon, UserIcon, EyeIcon, EyeOffIcon, EditIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { GenderBadge, GenderPicker } from "../common/GenderUI";
+import { loadXp, levelFromXp } from "../../lib/state/xp";
 
 const MAX_AVATAR_BYTES = 180000; // ~180KB after compress
 
@@ -128,6 +129,16 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
     return n.slice(0, 2).toUpperCase();
   })();
 
+  const xpInfo = (() => {
+    try {
+      const code = account && account.code ? account.code : "anon";
+      const data = loadXp(code);
+      return levelFromXp(data.total);
+    } catch (_) {
+      return levelFromXp(0);
+    }
+  })();
+
   return (
     <div
       onClick={onClose}
@@ -195,6 +206,40 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
           <div style={{ fontSize: 16, fontWeight: 800, color: INK, textAlign: "center" }}>{nameInput || account.name}</div>
           <div style={{ fontSize: 13, color: "var(--muted-strong)", fontFamily: "ui-monospace, monospace" }} dir="ltr">
             @{account.username || "—"}
+          </div>
+          <div
+            style={{
+              marginTop: 6,
+              width: "100%",
+              maxWidth: 280,
+              padding: "10px 12px",
+              borderRadius: 12,
+              background: "linear-gradient(135deg, rgba(var(--focus-rgb),0.14), rgba(var(--focus-rgb),0.05))",
+              border: "1px solid rgba(var(--focus-rgb),0.22)",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase", color: "var(--accent-1)" }}>
+              {T(`Level ${xpInfo.level}`, `المستوى ${xpInfo.level}`)}
+              {" · "}
+              {isAr ? xpInfo.titleAr : xpInfo.titleEn}
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: INK, marginTop: 2 }}>
+              {xpInfo.total} <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-strong)" }}>XP</span>
+            </div>
+            <div style={{ marginTop: 8, height: 7, borderRadius: 4, background: "rgba(var(--border-rgb),0.15)", overflow: "hidden" }}>
+              <div style={{
+                height: "100%",
+                width: `${xpInfo.pct}%`,
+                background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))",
+                borderRadius: 4,
+              }} />
+            </div>
+            <div style={{ marginTop: 5, fontSize: 11, color: "var(--muted-strong)" }}>
+              {xpInfo.next
+                ? T(`${xpInfo.next.xp - xpInfo.total} XP to next level`, `${xpInfo.next.xp - xpInfo.total} نقطة للمستوى التالي`)
+                : T("Max level", "أعلى مستوى")}
+            </div>
           </div>
           {gender ? (
             <div style={{ marginTop: 2 }}>

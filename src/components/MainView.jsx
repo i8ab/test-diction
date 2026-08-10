@@ -26,6 +26,7 @@ import ExamBanner from "./layout/ExamBanner";
 import SiteBanner from "./layout/SiteBanner";
 import EmptyState from "./layout/EmptyState";
 import { loadFocusMode, saveFocusMode, loadProgress } from "../lib/state/goals";
+import { grantSmartCard, grantConversation, grantExtract, loadXp, snapshotProgress } from "../lib/state/xp";
 import { loadWordNotes, setWordNote } from "../lib/state/wordNotes";
 
 // These are only ever rendered behind a boolean flag (showQuiz, showAdd,
@@ -55,6 +56,11 @@ const RandomWordModal = lazy(() => import("./modals/RandomWordModal"));
 const DashboardPage = lazy(() => import("./dashboard/DashboardPage"));
 const WordListsModal = lazy(() => import("./modals/WordListsModal"));
 const ChallengeModal = lazy(() => import("./modals/ChallengeModal"));
+const SmartCardsModal = lazy(() => import("./modals/SmartCardsModal"));
+const ConversationModal = lazy(() => import("./modals/ConversationModal"));
+const LevelsModal = lazy(() => import("./modals/LevelsModal"));
+const ProgressCompareModal = lazy(() => import("./modals/ProgressCompareModal"));
+const TextExtractModal = lazy(() => import("./modals/TextExtractModal"));
 
 
 const TIMER_VIEW_KEY = "twoTongues.timerView";
@@ -246,6 +252,14 @@ export default function MainView({
   const [showTodo, setShowTodo] = useState(() => loadTodoView().open);
   const [todoBubble, setTodoBubble] = useState(() => loadTodoView().bubble);
   const [focusMode, setFocusMode] = useState(() => loadFocusMode());
+  const [nightStudy, setNightStudy] = useState(() => {
+    try { return localStorage.getItem("twoTongues.nightStudy") === "1"; } catch (_) { return false; }
+  });
+  const [showSmartCards, setShowSmartCards] = useState(false);
+  const [showConversation, setShowConversation] = useState(false);
+  const [showLevels, setShowLevels] = useState(false);
+  const [showProgressCompare, setShowProgressCompare] = useState(false);
+  const [showTextExtract, setShowTextExtract] = useState(false);
   const [showQuickReview, setShowQuickReview] = useState(false);
   const [showExamMode, setShowExamMode] = useState(false);
   const [showExamSettings, setShowExamSettings] = useState(false);
@@ -275,6 +289,13 @@ export default function MainView({
   useEffect(() => {
     try { document.documentElement.setAttribute("data-focus-mode", focusMode ? "1" : "0"); } catch (_) {}
   }, [focusMode]);
+  useEffect(() => {
+    try {
+      localStorage.setItem("twoTongues.nightStudy", nightStudy ? "1" : "0");
+      document.documentElement.setAttribute("data-night-study", nightStudy ? "1" : "0");
+    } catch (_) {}
+  }, [nightStudy]);
+
 
 
   // Persist timer page across refresh until the user closes it themselves.
@@ -960,6 +981,13 @@ export default function MainView({
               onChallenges={() => setShowChallenges(true)}
               focusMode={focusMode}
               onToggleFocus={() => setFocusMode((v) => !v)}
+              onSmartCards={() => setShowSmartCards(true)}
+              onConversation={() => setShowConversation(true)}
+              onLevels={() => setShowLevels(true)}
+              onProgressCompare={() => setShowProgressCompare(true)}
+              onTextExtract={() => setShowTextExtract(true)}
+              nightStudy={nightStudy}
+              onToggleNightStudy={() => setNightStudy((v) => !v)}
               exportDisabled={sectionEntries.length === 0}
               onImport={() => importInputRef.current && importInputRef.current.click()}
               importing={importing}
@@ -1535,6 +1563,109 @@ export default function MainView({
             onClose={() => setShowChallenges(false)}
             showToast={showToast}
           />
+        )}
+
+        {showSmartCards && (
+          <Suspense fallback={null}>
+            <SmartCardsModal
+              entries={sectionEntries}
+              studiedIds={studiedIds}
+              favoriteIds={favoriteIds}
+              isAr={appIsAr}
+              onClose={() => setShowSmartCards(false)}
+              onRecordSrsAnswer={onRecordSrsAnswer}
+              onXp={(entryId) => {
+                try {
+                  const r = grantSmartCard(accountCode, entryId);
+                  if (r && r.leveledUp) showToast?.(appIsAr ? `مستوى جديد: ${r.levelInfo.level}` : `Level up: ${r.levelInfo.level}`);
+                } catch (_) {}
+              }}
+            />
+          </Suspense>
+        )}
+        {showConversation && (
+          <Suspense fallback={null}>
+            <ConversationModal
+              entries={sectionEntries}
+              studiedIds={studiedIds}
+              isAr={appIsAr}
+              onClose={() => setShowConversation(false)}
+              onXp={(scenarioId) => {
+                try {
+                  const r = grantConversation(accountCode, scenarioId);
+                  if (r && r.leveledUp) showToast?.(appIsAr ? `مستوى جديد: ${r.levelInfo.level}` : `Level up: ${r.levelInfo.level}`);
+                } catch (_) {}
+              }}
+            />
+          </Suspense>
+        )}
+        {showLevels && (
+          <Suspense fallback={null}>
+            <LevelsModal accountCode={accountCode} isAr={appIsAr} onClose={() => setShowLevels(false)} />
+          </Suspense>
+        )}
+        {showProgressCompare && (
+          <Suspense fallback={null}>
+            <ProgressCompareModal
+              accountCode={accountCode}
+              isAr={appIsAr}
+              onClose={() => setShowProgressCompare(false)}
+              currentStats={{
+                studied: studiedIds ? studiedIds.size : 0,
+                quizzes: (quizHistory && quizHistory.length) || 0,
+                streak: computeStreak(studiedAt),
+                mastered: srsBox ? Object.values(srsBox).filter((b) => b >= 5).length : 0,
+              }}
+            />
+          </Suspense>
+        )}
+        {showTextExtract && (
+          <Suspense fallback={null}>
+            <TextExtractModal
+              section={section}
+              entries={entries}
+              isAr={appIsAr}
+              onClose={() => setShowTextExtract(false)}
+              showToast={showToast}
+              onAddWords={async (words) => {
+                if (!words || !words.length) return;
+                const existing = new Set(
+                  (entries || [])
+                    .filter((e) => e.section === section)
+                    .map((e) => (e.word || "").trim().toLowerCase())
+                );
+                const newEntries = [];
+                for (const w of words) {
+                  const key = (w.word || "").trim().toLowerCase();
+                  if (!key || existing.has(key)) continue;
+                  existing.add(key);
+                  newEntries.push({
+                    id: uid(),
+                    section: w.section || section,
+                    word: w.word,
+                    meaning: w.meaning || "",
+                    definition: "",
+                    example: "",
+                    examples: [],
+                    pos: "",
+                    synonyms: [],
+                    antonyms: [],
+                    addedBy: accountCode,
+                    addedAt: Date.now(),
+                  });
+                }
+                if (!newEntries.length) {
+                  showToast?.(tr(appIsAr, "No new words to add", "مفيش كلمات جديدة للإضافة"));
+                  return;
+                }
+                await persistEntries(
+                  (cur) => [...cur, ...newEntries],
+                  () => makeLogEntry("word_add", `${name} extracted ${newEntries.length} word(s) from text`, name, accountCode)
+                );
+                try { grantExtract(accountCode, newEntries.length); } catch (_) {}
+              }}
+            />
+          </Suspense>
         )}
         {showAccount && (
           <AccountModal

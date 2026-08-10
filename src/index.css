@@ -1966,3 +1966,22 @@ html[data-device="tablet"] .entry-card--tablet .entry-longform {
 .entry-card--mobile .entry-longform {
   display: none !important;
 }
+
+/* ── Night study mode: ultra-dim for late-night sessions ── */
+html[data-night-study="1"] {
+  --ink: #c8cdd6 !important;
+  --paper: #050608 !important;
+  --card: #0c0e12 !important;
+  --input-bg: #10131a !important;
+  --muted-strong: #7a8494 !important;
+  --meaning: #9aa8bc !important;
+  --icon-muted: #6b7380 !important;
+  --border-rgb: 40, 48, 60 !important;
+  color-scheme: dark;
+}
+html[data-night-study="1"] body {
+  background: #050608 !important;
+}
+html[data-night-study="1"] ::selection {
+  background: rgba(80, 120, 180, 0.35);
+}

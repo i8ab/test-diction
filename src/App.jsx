@@ -16,6 +16,7 @@ import {
 } from "./lib/utils/authUtils";
 import { SRS_LEVEL_INTERVALS_MS, srsLevelFromStats, computeStreak, applySm2, correctToQuality, getCardState, loadSrsPrefs } from "./lib/utils/quizHelpers";
 import { evaluateAchievements } from "./lib/state/achievements";
+import { grantStudyWord, grantQuizCorrect, grantQuizSession, grantSrsPromote, grantFavorite, grantDailyOpen, grantStreakBonus, loadXp, hydrateXpFromCloud, attachXpToAccounts } from "./lib/state/xp";
 import { loadExamConfigCache, saveExamConfigCache, normalizeExamConfig, defaultExamConfig } from "./lib/state/exam";
 import { getTodayTimerMinutes } from "./lib/state/goals";
 import {
@@ -301,6 +302,29 @@ export default function DictionaryApp() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountCode]);
+
+  // Once-per-day XP for opening the app while signed in
+  useEffect(() => {
+    if (!accountCode || accountCode === "guest") return;
+    try { grantDailyOpen(accountCode); } catch (_) {}
+  }, [accountCode]);
+
+  // Restore XP from cloud account blob (survives clearing site data after re-login)
+  useEffect(() => {
+    if (!accountCode || accountCode === "guest" || !accountsLoaded) return;
+    const acct = accounts.find((a) => a.code === accountCode);
+    if (acct && acct.xp) {
+      try { hydrateXpFromCloud(accountCode, acct.xp); } catch (_) {}
+    }
+    // If local XP is ahead of cloud (e.g. grants before first save), push once
+    try {
+      const local = loadXp(accountCode);
+      const cloudTotal = acct && acct.xp ? Number(acct.xp.total) || 0 : 0;
+      if (local.total > cloudTotal) {
+        persistAccounts((cur) => attachXpToAccounts(cur, accountCode));
+      }
+    } catch (_) {}
+  }, [accountCode, accountsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Optimistic UI: flip the toggle immediately so the menu feels instant.
   // Network / permission work runs in the background; if enable fails
@@ -805,6 +829,10 @@ export default function DictionaryApp() {
           }
 
           try {
+            // Keep XP durable on the account record (cloud) before write
+            nextAccounts = attachXpToAccounts(nextAccounts, accountCode);
+            accountsRef.current = nextAccounts;
+            setAccounts(nextAccounts);
             const newVersion = await saveRecord(
               { entries: curEntries, accounts: nextAccounts, logs: nextLogs, siteBanner: curBanner},
               curVersion
@@ -1133,8 +1161,10 @@ export default function DictionaryApp() {
         const nowStudying = !current.includes(entryId);
         const nextStudied = nowStudying ? [...current, entryId] : current.filter((id) => id !== entryId);
         const nextStudiedAt = { ...currentAt };
-        if (nowStudying) nextStudiedAt[entryId] = Date.now();
-        else delete nextStudiedAt[entryId];
+        if (nowStudying) {
+          nextStudiedAt[entryId] = Date.now();
+          try { grantStudyWord("guest", entryId); } catch (_) {}
+        } else delete nextStudiedAt[entryId];
         localStorage.setItem("twoTongues.guestStudied", JSON.stringify({ studied: nextStudied, studiedAt: nextStudiedAt }));
         // force re-render via dummy account merge
         setAccounts((prev) => {
@@ -1151,6 +1181,13 @@ export default function DictionaryApp() {
     const current = (acct && acct.studied) || [];
     const wantStudied = !current.includes(entryId);
     const stampedAt = Date.now();
+    if (wantStudied) {
+      try {
+        const r = grantStudyWord(accountCode, entryId);
+        if (r && r.leveledUp) { /* toast optional at App level */ }
+        try { grantStreakBonus(accountCode, computeStreak({ ...((acct && acct.studiedAt) || {}), [entryId]: stampedAt })); } catch (_) {}
+      } catch (_) {}
+    }
     await persistAccounts((curAccounts) => curAccounts.map((a) => {
       if (a.code !== accountCode) return a;
       const studied = a.studied || [];
@@ -1176,6 +1213,9 @@ export default function DictionaryApp() {
     const acct = accounts.find((a) => a.code === accountCode);
     const current = (acct && acct.favorites) || [];
     const wantFavorite = !current.includes(entryId);
+    if (wantFavorite) {
+      try { grantFavorite(accountCode, entryId); } catch (_) {}
+    }
     await persistAccounts((curAccounts) => curAccounts.map((a) => {
       if (a.code !== accountCode) return a;
       const favorites = a.favorites || [];
@@ -1195,6 +1235,8 @@ export default function DictionaryApp() {
     // SM-2 style scheduling with backward-compatible srsStats / srsDueAt / srsBox.
     // qualityOverride: 0 again, 1 hard, 2 good, 3 easy — optional.
     try {
+      let prevBox = 0;
+      let nextBox = 0;
       await persistAccounts((curAccounts) => curAccounts.map((a) => {
         if (a.code !== accountCode) return a;
         const prevStats = (a.srsStats && a.srsStats[entryId]) || { correct: 0, total: 0 };
@@ -1203,6 +1245,8 @@ export default function DictionaryApp() {
         const quality = qualityOverride != null ? qualityOverride : correctToQuality(!!correct);
         const prevCard = getCardState(entryId, a.srsCards, a.srsStats, a.srsDueAt);
         const { card, dueAt } = applySm2(prevCard, quality, loadSrsPrefs());
+        prevBox = srsLevelFromStats(prevStats);
+        nextBox = srsLevelFromStats(nextStats);
         return {
           ...a,
           srsStats: { ...(a.srsStats || {}), [entryId]: nextStats },
@@ -1210,6 +1254,12 @@ export default function DictionaryApp() {
           srsCards: { ...(a.srsCards || {}), [entryId]: card },
         };
       }));
+      // XP: first correct for this word; SRS promote only when box actually rises
+      try {
+        const isCorrect = qualityOverride != null ? qualityOverride > 0 : !!correct;
+        if (isCorrect) grantQuizCorrect(accountCode, entryId);
+        if (nextBox > prevBox) grantSrsPromote(accountCode, entryId, nextBox);
+      } catch (_) {}
     } catch (e) { /* best-effort, quiz keeps going */ }
   }
 
@@ -1217,6 +1267,11 @@ export default function DictionaryApp() {
   // Stats panel), capped to the most recent 50 so the shared bin stays small.
   async function handleSaveQuizResult(result) {
     try {
+      try {
+        const sid = (result && (result.id || result.sessionId || result.at)) || Date.now();
+        const perfect = result && result.total >= 5 && result.correct === result.total;
+        grantQuizSession(accountCode, String(sid), { perfect, questionCount: result && result.total });
+      } catch (_) {}
       await persistAccounts((curAccounts) => curAccounts.map((a) => {
         if (a.code !== accountCode) return a;
         const nextHistory = [...((a.quizHistory) || []), result].slice(-50);
@@ -1658,6 +1713,9 @@ export default function DictionaryApp() {
         if (rec.siteBanner !== undefined) setSiteBanner(rec.siteBanner || null);
         if (typeof rec.version === "number") commitRecordVersion(rec.version);
         const account = (rec.accounts || []).find((a) => a.code === accountCode);
+        if (account && account.xp) {
+          try { hydrateXpFromCloud(accountCode, account.xp); } catch (_) {}
+        }
         if (!account || account.status === "pending" || account.status === "rejected" || account.status === "blocked") {
           handleLogout();
           return;

@@ -143,6 +143,8 @@ function emptyData() {
     unlockedRewards: [],
     claimed: {},
     dailyEarned: {},
+    equippedBadge: null, // id string or null = none
+    equippedFrame: null,
   };
 }
 
@@ -157,6 +159,8 @@ export function loadXp(accountCode) {
       unlockedRewards: Array.isArray(data.unlockedRewards) ? data.unlockedRewards : [],
       claimed: data.claimed && typeof data.claimed === "object" ? data.claimed : {},
       dailyEarned: data.dailyEarned && typeof data.dailyEarned === "object" ? data.dailyEarned : {},
+      equippedBadge: data.equippedBadge || null,
+      equippedFrame: data.equippedFrame || null,
     };
   } catch (_) {
     return emptyData();
@@ -183,10 +187,12 @@ export function saveXp(accountCode, data) {
         unlockedRewards: data.unlockedRewards || [],
         claimed,
         dailyEarned,
+        equippedBadge: data.equippedBadge || null,
+        equippedFrame: data.equippedFrame || null,
       })
     );
   } catch (_) {}
-}
+}}
 
 export function levelFromXp(total) {
   let current = LEVELS[0];
@@ -202,34 +208,110 @@ export function levelFromXp(total) {
   return { ...current, next, pct, total };
 }
 
-/** Highest badge unlocked by current total XP (or null). */
-export function getUnlockedBadge(totalOrLevel) {
-  const total = typeof totalOrLevel === "number" ? totalOrLevel : (totalOrLevel?.total ?? 0);
-  const info = levelFromXp(total);
-  let best = null;
+/** All badge ids unlocked by this XP total (in unlock order). */
+export function listUnlockedBadges(totalXp) {
+  const info = levelFromXp(Number(totalXp) || 0);
+  const out = [];
+  const seen = new Set();
   for (const lv of LEVELS) {
     if (lv.level > info.level) break;
     if (lv.rewardKey && lv.rewardKey.startsWith("badge:")) {
       const id = lv.rewardKey.slice(6);
-      if (COSMETICS.badges[id]) best = COSMETICS.badges[id];
+      if (COSMETICS.badges[id] && !seen.has(id)) {
+        seen.add(id);
+        out.push(COSMETICS.badges[id]);
+      }
     }
   }
-  return best;
+  return out;
 }
 
-/** Highest frame unlocked by current total XP (or null). */
-export function getUnlockedFrame(totalOrLevel) {
-  const total = typeof totalOrLevel === "number" ? totalOrLevel : (totalOrLevel?.total ?? 0);
-  const info = levelFromXp(total);
-  let best = null;
+/** All frame ids unlocked by this XP total (in unlock order). */
+export function listUnlockedFrames(totalXp) {
+  const info = levelFromXp(Number(totalXp) || 0);
+  const out = [];
+  const seen = new Set();
   for (const lv of LEVELS) {
     if (lv.level > info.level) break;
     if (lv.rewardKey && lv.rewardKey.startsWith("frame:")) {
       const id = lv.rewardKey.slice(6);
-      if (COSMETICS.frames[id]) best = COSMETICS.frames[id];
+      if (COSMETICS.frames[id] && !seen.has(id)) {
+        seen.add(id);
+        out.push(COSMETICS.frames[id]);
+      }
     }
   }
-  return best;
+  return out;
+}
+
+/** Highest badge unlocked by current total XP (or null). */
+export function getUnlockedBadge(totalOrLevel) {
+  const list = listUnlockedBadges(typeof totalOrLevel === "number" ? totalOrLevel : (totalOrLevel?.total ?? 0));
+  return list.length ? list[list.length - 1] : null;
+}
+
+/** Highest frame unlocked by current total XP (or null). */
+export function getUnlockedFrame(totalOrLevel) {
+  const list = listUnlockedFrames(typeof totalOrLevel === "number" ? totalOrLevel : (totalOrLevel?.total ?? 0));
+  return list.length ? list[list.length - 1] : null;
+}
+
+/**
+ * Badge currently shown on avatar.
+ * Prefer user's equipped choice if still unlocked; else highest; else null.
+ */
+export function getEquippedBadge(accountCode) {
+  const data = loadXp(accountCode);
+  const unlocked = listUnlockedBadges(data.total);
+  if (!unlocked.length) return null;
+  if (data.equippedBadge === "") return null; // explicit none
+  if (data.equippedBadge) {
+    const found = unlocked.find((b) => b.id === data.equippedBadge);
+    if (found) return found;
+  }
+  return unlocked[unlocked.length - 1];
+}
+
+/**
+ * Frame currently shown on avatar.
+ * Prefer user's equipped choice if still unlocked; else highest; else null.
+ */
+export function getEquippedFrame(accountCode) {
+  const data = loadXp(accountCode);
+  const unlocked = listUnlockedFrames(data.total);
+  if (!unlocked.length) return null;
+  if (data.equippedFrame === "") return null;
+  if (data.equippedFrame) {
+    const found = unlocked.find((f) => f.id === data.equippedFrame);
+    if (found) return found;
+  }
+  return unlocked[unlocked.length - 1];
+}
+
+function notifyCosmeticsChanged() {
+  try {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("twotongues:cosmetics"));
+    }
+  } catch (_) {}
+}
+
+/** Set equipped badge id (or null/"" for none). Tiny payload. */
+export function setEquippedBadge(accountCode, badgeId) {
+  const data = loadXp(accountCode);
+  data.equippedBadge = badgeId == null || badgeId === "" ? "" : String(badgeId);
+  saveXp(accountCode, data);
+  notifyCosmeticsChanged();
+  return data;
+}
+
+/** Set equipped frame id (or null/"" for none). */
+export function setEquippedFrame(accountCode, frameId) {
+  const data = loadXp(accountCode);
+  data.equippedFrame = frameId == null || frameId === "" ? "" : String(frameId);
+  saveXp(accountCode, data);
+  notifyCosmeticsChanged();
+  return data;
 }
 
 /** Whether a timer theme id is unlocked for this XP total. Free themes (not in COSMETICS.themes) are always unlocked. */
@@ -534,6 +616,8 @@ export function exportXpForCloud(accountCode) {
     history: (data.history || []).slice(0, 80),
     unlockedRewards: data.unlockedRewards || [],
     dailyEarned: data.dailyEarned || {},
+    equippedBadge: data.equippedBadge || null,
+    equippedFrame: data.equippedFrame || null,
     updatedAt: Date.now(),
   };
 }
@@ -558,7 +642,10 @@ export function mergeXpData(local, remote) {
       Number(a.dailyEarned && a.dailyEarned[day]) || 0
     );
   }
-  return { total, claimed, history, unlockedRewards: unlocked, dailyEarned };
+  // Prefer local equipped choice (user just picked it); fall back to remote.
+  const equippedBadge = a.equippedBadge != null ? a.equippedBadge : (b.equippedBadge != null ? b.equippedBadge : null);
+  const equippedFrame = a.equippedFrame != null ? a.equippedFrame : (b.equippedFrame != null ? b.equippedFrame : null);
+  return { total, claimed, history, unlockedRewards: unlocked, dailyEarned, equippedBadge, equippedFrame };
 }
 
 export function hydrateXpFromCloud(accountCode, remoteXp) {
@@ -585,6 +672,8 @@ export function attachXpToAccounts(accounts, accountCode) {
         history: (merged.history || []).slice(0, 80),
         unlockedRewards: merged.unlockedRewards || [],
         dailyEarned: merged.dailyEarned || {},
+        equippedBadge: merged.equippedBadge || null,
+        equippedFrame: merged.equippedFrame || null,
         updatedAt: Date.now(),
       },
     };

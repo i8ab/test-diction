@@ -4,7 +4,16 @@ import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle }
 import { XIcon, CheckIcon, LoaderIcon, KeyIcon, UserIcon, EyeIcon, EyeOffIcon, EditIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { GenderBadge, GenderPicker } from "../common/GenderUI";
-import { loadXp, levelFromXp } from "../../lib/state/xp";
+import {
+  loadXp,
+  levelFromXp,
+  listUnlockedBadges,
+  listUnlockedFrames,
+  getEquippedBadge,
+  getEquippedFrame,
+  setEquippedBadge,
+  setEquippedFrame,
+} from "../../lib/state/xp";
 
 const MAX_AVATAR_BYTES = 180000; // ~180KB after compress
 
@@ -58,7 +67,9 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
   const [showPw2, setShowPw2] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [equipTick, setEquipTick] = useState(0); // force re-read after equip change
   const fileRef = useRef(null);
+  const accountCode = account && account.code ? account.code : "anon";
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -131,13 +142,19 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
 
   const xpInfo = (() => {
     try {
-      const code = account && account.code ? account.code : "anon";
-      const data = loadXp(code);
+      const data = loadXp(accountCode);
       return levelFromXp(data.total);
     } catch (_) {
       return levelFromXp(0);
     }
   })();
+
+  const unlockedBadges = listUnlockedBadges(xpInfo.total);
+  const unlockedFrames = listUnlockedFrames(xpInfo.total);
+  // re-read when equipTick changes
+  void equipTick;
+  const currentBadge = getEquippedBadge(accountCode);
+  const currentFrame = getEquippedFrame(accountCode);
 
   return (
     <div
@@ -190,7 +207,8 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
                 height: 88,
                 borderRadius: "50%",
                 overflow: "hidden",
-                border: "3px solid color-mix(in srgb, var(--accent-1) 40%, transparent)",
+                border: currentFrame?.border || "3px solid color-mix(in srgb, var(--accent-1) 40%, transparent)",
+                boxShadow: currentFrame?.glow,
                 background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
                 color: "#fff",
                 fontWeight: 800,
@@ -202,6 +220,27 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
             >
               {avatar ? <img src={avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
             </div>
+            {currentBadge && (
+              <span
+                style={{
+                  position: "absolute",
+                  bottom: -2,
+                  insetInlineEnd: -2,
+                  width: 28,
+                  height: 28,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  border: `1.5px solid ${currentBadge.color}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 14,
+                  boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+                }}
+              >
+                {currentBadge.emoji}
+              </span>
+            )}
           </div>
           <div style={{ fontSize: 16, fontWeight: 800, color: INK, textAlign: "center" }}>{nameInput || account.name}</div>
           <div style={{ fontSize: 13, color: "var(--muted-strong)", fontFamily: "ui-monospace, monospace" }} dir="ltr">
@@ -241,6 +280,141 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
                 : T("Max level", "أعلى مستوى")}
             </div>
           </div>
+
+          {/* Cosmetic picker — only unlocked items; tiny storage (id strings) */}
+          {(unlockedBadges.length > 0 || unlockedFrames.length > 0) && (
+            <div
+              style={{
+                width: "100%",
+                marginTop: 10,
+                padding: "12px 12px 10px",
+                borderRadius: 12,
+                background: "var(--input-bg)",
+                border: "1px solid rgba(var(--border-rgb),0.14)",
+                textAlign: "start",
+              }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-strong)", marginBottom: 8, letterSpacing: 0.3 }}>
+                {T("Display on avatar", "المعروض على الأفاتار")}
+              </div>
+
+              {unlockedBadges.length > 0 && (
+                <div style={{ marginBottom: unlockedFrames.length ? 12 : 0 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: INK, marginBottom: 6 }}>
+                    {T("Badge", "الشارة")}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEquippedBadge(accountCode, "");
+                        setEquipTick((n) => n + 1);
+                      }}
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 8,
+                        border: !currentBadge ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.2)",
+                        background: !currentBadge ? "rgba(var(--focus-rgb),0.12)" : "var(--card, #fff)",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        color: INK,
+                      }}
+                    >
+                      {T("None", "بدون")}
+                    </button>
+                    {unlockedBadges.map((b) => {
+                      const active = currentBadge && currentBadge.id === b.id;
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => {
+                            setEquippedBadge(accountCode, b.id);
+                            setEquipTick((n) => n + 1);
+                          }}
+                          title={isAr ? b.ar : b.en}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.2)",
+                            background: active ? "rgba(var(--focus-rgb),0.12)" : "var(--card, #fff)",
+                            fontSize: 13,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            color: INK,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <span>{b.emoji}</span>
+                          <span>{isAr ? b.ar : b.en}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {unlockedFrames.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: INK, marginBottom: 6 }}>
+                    {T("Frame", "الإطار")}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEquippedFrame(accountCode, "");
+                        setEquipTick((n) => n + 1);
+                      }}
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 8,
+                        border: !currentFrame ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.2)",
+                        background: !currentFrame ? "rgba(var(--focus-rgb),0.12)" : "var(--card, #fff)",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        color: INK,
+                      }}
+                    >
+                      {T("None", "بدون")}
+                    </button>
+                    {unlockedFrames.map((f) => {
+                      const active = currentFrame && currentFrame.id === f.id;
+                      return (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => {
+                            setEquippedFrame(accountCode, f.id);
+                            setEquipTick((n) => n + 1);
+                          }}
+                          title={isAr ? f.ar : f.en}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: active ? `2px solid var(--accent-1)` : f.border || "1px solid rgba(var(--border-rgb),0.2)",
+                            boxShadow: active ? f.glow : undefined,
+                            background: active ? "rgba(var(--focus-rgb),0.12)" : "var(--card, #fff)",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            color: INK,
+                          }}
+                        >
+                          {isAr ? f.ar : f.en}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {gender ? (
             <div style={{ marginTop: 2 }}>
               <GenderBadge gender={gender} isAr={isAr} />

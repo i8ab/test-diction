@@ -1,8 +1,9 @@
-import { useMemo } from "react";
-import { loadXp, getUnlockedBadge, getUnlockedFrame } from "../../lib/state/xp";
+import { useState, useEffect } from "react";
+import { getEquippedBadge, getEquippedFrame } from "../../lib/state/xp";
 
 /**
  * Avatar circle with optional level-unlocked frame + badge corner.
+ * Uses the user's equipped choice from Account settings when set.
  * size: pixel diameter (default 40)
  */
 export default function AvatarWithFrame({
@@ -15,13 +16,19 @@ export default function AvatarWithFrame({
   style = {},
   className,
 }) {
-  const { frame, badge } = useMemo(() => {
-    const total = loadXp(accountCode).total;
-    return {
-      frame: getUnlockedFrame(total),
-      badge: getUnlockedBadge(total),
-    };
-  }, [accountCode]);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    function onCosmetics() {
+      setTick((n) => n + 1);
+    }
+    window.addEventListener("twotongues:cosmetics", onCosmetics);
+    return () => window.removeEventListener("twotongues:cosmetics", onCosmetics);
+  }, []);
+
+  void tick;
+  const frame = getEquippedFrame(accountCode);
+  const badge = getEquippedBadge(accountCode);
 
   const letter = String(name || "?").trim().slice(0, 2).toUpperCase() || "?";
   const border = frame?.border || "2px solid color-mix(in srgb, var(--accent-1) 45%, transparent)";

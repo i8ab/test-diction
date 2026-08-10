@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { dateKey, computeStreak } from "../../lib/utils/quizHelpers";
@@ -230,7 +231,7 @@ export default function CalendarPage({
     const todayCount = dayMap[todayKey]?.count || 0;
     const style = {
       position: "fixed",
-      zIndex: 55,
+      zIndex: 5500,
       width: 168,
       borderRadius: 14,
       background: CARD,
@@ -245,7 +246,7 @@ export default function CalendarPage({
         : { bottom: 20, insetInlineEnd: 16 }),
     };
 
-    return (
+    const bubble = (
       <div
         role="dialog"
         aria-label={tr(isAr, "Study calendar", "تقويم المذاكرة")}
@@ -335,6 +336,8 @@ export default function CalendarPage({
         </div>
       </div>
     );
+
+    return typeof document !== "undefined" ? createPortal(bubble, document.body) : bubble;
   }
 
   // ── Full view ────────────────────────────────────────────────────────────

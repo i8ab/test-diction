@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import {
@@ -95,13 +96,13 @@ export default function GoalsPage({
 
   if (viewMode === "bubble") {
     const style = {
-      position: "fixed", zIndex: 55, width: 168, borderRadius: 14, background: CARD,
+      position: "fixed", zIndex: 5500, width: 168, borderRadius: 14, background: CARD,
       border: "1px solid rgba(var(--border-rgb),0.18)",
       boxShadow: "0 12px 32px -10px rgba(0,0,0,0.28)",
       padding: "10px 10px 12px", cursor: "grab", userSelect: "none", touchAction: "none",
       ...(bubblePos.x != null ? { left: bubblePos.x, top: bubblePos.y } : { bottom: 88, insetInlineEnd: 16 }),
     };
-    return (
+    const bubble = (
       <div role="dialog" aria-label={tr(isAr, "Goals", "الأهداف")} style={style}
         onPointerDown={onBubblePointerDown} onPointerMove={onBubblePointerMove}
         onPointerUp={onBubblePointerUp} onPointerCancel={onBubblePointerUp}>
@@ -122,6 +123,7 @@ export default function GoalsPage({
         </div>
       </div>
     );
+    return typeof document !== "undefined" ? createPortal(bubble, document.body) : bubble;
   }
 
   return (

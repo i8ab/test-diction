@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { XIcon, CheckIcon, PlusIcon, TrashIcon } from "../common/Icons";
@@ -230,7 +231,7 @@ export default function TodoPage({
   if (viewMode === "bubble") {
     const style = {
       position: "fixed",
-      zIndex: 55,
+      zIndex: 5500,
       width: 176,
       borderRadius: 14,
       background: CARD,
@@ -247,7 +248,7 @@ export default function TodoPage({
 
     const preview = todos.filter((t) => !t.done).slice(0, 3);
 
-    return (
+    const bubble = (
       <div
         role="dialog"
         aria-label={tr(isAr, "To-do list", "قائمة المهام")}
@@ -340,6 +341,8 @@ export default function TodoPage({
         )}
       </div>
     );
+
+    return typeof document !== "undefined" ? createPortal(bubble, document.body) : bubble;
   }
 
   // ── Full view ────────────────────────────────────────────────────────────

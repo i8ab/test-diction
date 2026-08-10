@@ -19,6 +19,7 @@ import { loadSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSe
 import EntryCard from "./common/EntryCard";
 import HeaderMenu from "./layout/HeaderMenu";
 import BrandMark from "./common/BrandMark";
+import AvatarWithFrame from "./common/AvatarWithFrame";
 import ToolsMenu from "./layout/ToolsMenu";
 import ReminderBanner from "./layout/ReminderBanner";
 import BackupReminderBanner from "./layout/BackupReminderBanner";
@@ -59,6 +60,7 @@ const ChallengeModal = lazy(() => import("./modals/ChallengeModal"));
 const SmartCardsModal = lazy(() => import("./modals/SmartCardsModal"));
 const ConversationModal = lazy(() => import("./modals/ConversationModal"));
 const LevelsModal = lazy(() => import("./modals/LevelsModal"));
+const LevelUpModal = lazy(() => import("./modals/LevelUpModal"));
 const ProgressCompareModal = lazy(() => import("./modals/ProgressCompareModal"));
 const TextExtractModal = lazy(() => import("./modals/TextExtractModal"));
 
@@ -281,11 +283,36 @@ export default function MainView({
   const [showDictation, setShowDictation] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [showRandomWord, setShowRandomWord] = useState(false);
+  /** Pending level-up celebration; deferred while quiz/exam/dictation/etc. is open. */
+  const [pendingLevelUp, setPendingLevelUp] = useState(null);
   const [wordNotes, setWordNotes] = useState(() => loadWordNotes(accountCode));
   const searchInputRef = useRef(null);
 
   useEffect(() => { setWordNotes(loadWordNotes(accountCode)); }, [accountCode]);
   useEffect(() => { saveFocusMode(focusMode); }, [focusMode]);
+
+  // Level-up celebration: queue while a focus activity is open, show after it closes.
+  useEffect(() => {
+    function onLevelUp(e) {
+      const detail = e?.detail;
+      if (!detail || !detail.toLevel) return;
+      setPendingLevelUp(detail);
+    }
+    window.addEventListener("twotongues:levelup", onLevelUp);
+    return () => window.removeEventListener("twotongues:levelup", onLevelUp);
+  }, []);
+
+  const blockingActivity =
+    showQuiz ||
+    showExamMode ||
+    showDictation ||
+    showFlashcards ||
+    showSmartCards ||
+    showConversation ||
+    showTextExtract ||
+    showQuickReview;
+
+  const showLevelUpNow = pendingLevelUp && !blockingActivity;
   useEffect(() => {
     try { document.documentElement.setAttribute("data-focus-mode", focusMode ? "1" : "0"); } catch (_) {}
   }, [focusMode]);
@@ -762,40 +789,14 @@ export default function MainView({
               <BrandMark size="sm" isAr={appIsAr} editable />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <button
-                type="button"
+              <AvatarWithFrame
+                accountCode={accountCode}
+                avatarUrl={((accounts || []).find((a) => a.code === accountCode) || {}).avatar}
+                name={name}
+                size={40}
                 onClick={onOpenAccount}
                 title={tr(appIsAr, "My account", "حسابي")}
-                aria-label={tr(appIsAr, "My account", "حسابي")}
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: "50%",
-                  border: "2px solid color-mix(in srgb, var(--accent-1) 45%, transparent)",
-                  padding: 0,
-                  overflow: "hidden",
-                  cursor: "pointer",
-                  background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-                  color: "#fff",
-                  fontWeight: 800,
-                  fontSize: 13,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                {(() => {
-                  const me = (accounts || []).find((a) => a.code === accountCode);
-                  if (me && me.avatar) {
-                    return <img src={me.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />;
-                  }
-                  const n = String(name || "?").trim();
-                  const parts = n.split(/\s+/).filter(Boolean);
-                  const ini = parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]) : n.slice(0, 2);
-                  return ini.toUpperCase();
-                })()}
-              </button>
+              />
               {isAdmin && (() => {
                 const pending = (accounts || []).filter((a) => a.status === "pending");
                 const pendingCount = pending.length;
@@ -1604,6 +1605,21 @@ export default function MainView({
             <LevelsModal accountCode={accountCode} isAr={appIsAr} onClose={() => setShowLevels(false)} />
           </Suspense>
         )}
+        {showLevelUpNow && pendingLevelUp && (
+          <Suspense fallback={null}>
+            <LevelUpModal
+              isAr={appIsAr}
+              fromLevel={pendingLevelUp.fromLevel}
+              toLevel={pendingLevelUp.toLevel}
+              titleEn={pendingLevelUp.titleEn}
+              titleAr={pendingLevelUp.titleAr}
+              rewardKey={pendingLevelUp.rewardKey}
+              rewardEn={pendingLevelUp.rewardEn}
+              rewardAr={pendingLevelUp.rewardAr}
+              onClose={() => setPendingLevelUp(null)}
+            />
+          </Suspense>
+        )}
         {showProgressCompare && (
           <Suspense fallback={null}>
             <ProgressCompareModal
@@ -1779,6 +1795,7 @@ export default function MainView({
       <Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 6000, background: "var(--paper)" }} aria-hidden />}>
         <TimerPage
           isAr={appIsAr}
+          accountCode={accountCode}
           initialBubble={timerBubble}
           onClose={() => { setShowTimer(false); setTimerBubble(false); }}
           onBubbleChange={setTimerBubble}

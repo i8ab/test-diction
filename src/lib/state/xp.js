@@ -1,19 +1,100 @@
 // Visual XP + level system (local cache + optional cloud via account.xp).
 // Design: reward real learning once per unique claim — not grinding repeats.
+// Expanded to ~55 levels to support 20–50 days of steady study.
 
 const XP_KEY = "twoTongues.xp.";
 
+/** Cosmetics that actually appear in the UI (avatar frame/badge + timer themes). */
+export const COSMETICS = {
+  badges: {
+    bronze:   { id: "bronze",   en: "Bronze badge",   ar: "شارة برونزية",   color: "#cd7f32", emoji: "🥉" },
+    silver:   { id: "silver",   en: "Silver badge",   ar: "شارة فضية",     color: "#c0c0c0", emoji: "🥈" },
+    gold:     { id: "gold",     en: "Gold badge",     ar: "شارة ذهبية",    color: "#f5c542", emoji: "🥇" },
+    diamond:  { id: "diamond",  en: "Diamond badge",  ar: "شارة ماسية",    color: "#7dd3fc", emoji: "💎" },
+    legendary:{ id: "legendary",en: "Legendary badge",ar: "شارة أسطورية",  color: "#c084fc", emoji: "👑" },
+  },
+  frames: {
+    bronze:   { id: "bronze",   en: "Bronze frame",   ar: "إطار برونزي",   border: "2px solid #cd7f32", glow: "0 0 0 3px rgba(205,127,50,0.35)" },
+    silver:   { id: "silver",   en: "Silver frame",   ar: "إطار فضي",     border: "2px solid #c0c0c0", glow: "0 0 0 3px rgba(192,192,192,0.35)" },
+    gold:     { id: "gold",     en: "Gold frame",     ar: "إطار ذهبي",    border: "2.5px solid #f5c542", glow: "0 0 0 3px rgba(245,197,66,0.4)" },
+    diamond:  { id: "diamond",  en: "Diamond frame",  ar: "إطار ماسي",    border: "2.5px solid #7dd3fc", glow: "0 0 8px 2px rgba(125,211,252,0.5)" },
+    legendary:{ id: "legendary",en: "Legendary frame",ar: "إطار أسطوري",  border: "3px solid #c084fc", glow: "0 0 10px 3px rgba(192,132,252,0.55)" },
+  },
+  /** Timer background ids that require a level (others stay free). */
+  themes: {
+    meadow:   { unlockLevel: 5,  en: "Meadow",        ar: "مروج" },
+    mountain: { unlockLevel: 8,  en: "Mountains",     ar: "جبال" },
+    desert:   { unlockLevel: 12, en: "Desert",        ar: "صحراء" },
+    aurora:   { unlockLevel: 16, en: "Aurora",        ar: "شفق" },
+    lake:     { unlockLevel: 20, en: "Lake",          ar: "بحيرة" },
+    sky:      { unlockLevel: 24, en: "Open sky",      ar: "سماء" },
+    night:    { unlockLevel: 28, en: "Starry night",  ar: "ليلة نجوم" },
+    mist:     { unlockLevel: 32, en: "Morning mist",  ar: "ضباب الصباح" },
+    plum:     { unlockLevel: 36, en: "Plum",          ar: "برقوق" },
+    rose:     { unlockLevel: 40, en: "Rose",          ar: "وردي" },
+  },
+};
+
+/**
+ * ~55 levels. XP curve starts gentle then rises.
+ * rewardKey drives real unlocks (badge / frame / theme).
+ */
 export const LEVELS = [
-  { level: 1, xp: 0, titleEn: "Beginner", titleAr: "مبتدئ", rewardEn: null, rewardAr: null },
-  { level: 2, xp: 50, titleEn: "Learner", titleAr: "متعلّم", rewardEn: "Bronze badge", rewardAr: "شارة برونزية" },
-  { level: 3, xp: 120, titleEn: "Student", titleAr: "طالب", rewardEn: "Silver badge", rewardAr: "شارة فضية" },
-  { level: 4, xp: 220, titleEn: "Scholar", titleAr: "دارس", rewardEn: "Gold badge", rewardAr: "شارة ذهبية" },
-  { level: 5, xp: 350, titleEn: "Adept", titleAr: "ماهر", rewardEn: "Timer theme: Ember", rewardAr: "ثيم المؤقّت: جمر" },
-  { level: 6, xp: 520, titleEn: "Expert", titleAr: "خبير", rewardEn: "Night study unlock", rewardAr: "فتح وضع الليل" },
-  { level: 7, xp: 750, titleEn: "Master", titleAr: "أستاذ", rewardEn: "Custom accent slot", rewardAr: "لون مخصص إضافي" },
-  { level: 8, xp: 1050, titleEn: "Grandmaster", titleAr: "أستاذ كبير", rewardEn: "Diamond badge", rewardAr: "شارة ماسية" },
-  { level: 9, xp: 1400, titleEn: "Legend", titleAr: "أسطورة", rewardEn: "Legendary frame", rewardAr: "إطار أسطوري" },
-  { level: 10, xp: 1850, titleEn: "Polyglot", titleAr: "متعدد اللغات", rewardEn: "All cosmetics", rewardAr: "كل الزخارف" },
+  { level: 1,  xp: 0,     titleEn: "Beginner",       titleAr: "مبتدئ",         rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 2,  xp: 40,    titleEn: "Starter",        titleAr: "بداية",         rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 3,  xp: 90,    titleEn: "Learner",        titleAr: "متعلّم",        rewardKey: "badge:bronze", rewardEn: "Bronze badge",           rewardAr: "شارة برونزية" },
+  { level: 4,  xp: 150,   titleEn: "Student",        titleAr: "طالب",          rewardKey: "frame:bronze", rewardEn: "Bronze frame",           rewardAr: "إطار برونزي" },
+  { level: 5,  xp: 230,   titleEn: "Apprentice",     titleAr: "مبتدئ متقدم",   rewardKey: "theme:meadow", rewardEn: "Timer: Meadow",          rewardAr: "ثيم: مروج" },
+  { level: 6,  xp: 330,   titleEn: "Explorer",       titleAr: "مستكشف",        rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 7,  xp: 450,   titleEn: "Scholar",        titleAr: "دارس",          rewardKey: "badge:silver", rewardEn: "Silver badge",           rewardAr: "شارة فضية" },
+  { level: 8,  xp: 590,   titleEn: "Adept",          titleAr: "ماهر",          rewardKey: "theme:mountain",rewardEn: "Timer: Mountains",      rewardAr: "ثيم: جبال" },
+  { level: 9,  xp: 750,   titleEn: "Practitioner",   titleAr: "ممارس",         rewardKey: "frame:silver", rewardEn: "Silver frame",           rewardAr: "إطار فضي" },
+  { level: 10, xp: 930,   titleEn: "Skilled",        titleAr: "بارع",          rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 11, xp: 1140,  titleEn: "Advanced",       titleAr: "متقدم",         rewardKey: "badge:gold",   rewardEn: "Gold badge",             rewardAr: "شارة ذهبية" },
+  { level: 12, xp: 1380,  titleEn: "Proficient",     titleAr: "متمكن",         rewardKey: "theme:desert", rewardEn: "Timer: Desert",          rewardAr: "ثيم: صحراء" },
+  { level: 13, xp: 1650,  titleEn: "Expert",         titleAr: "خبير",          rewardKey: "frame:gold",   rewardEn: "Gold frame",             rewardAr: "إطار ذهبي" },
+  { level: 14, xp: 1960,  titleEn: "Veteran",        titleAr: "محنّك",         rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 15, xp: 2310,  titleEn: "Specialist",     titleAr: "متخصص",         rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 16, xp: 2700,  titleEn: "Master",         titleAr: "أستاذ",         rewardKey: "theme:aurora", rewardEn: "Timer: Aurora",          rewardAr: "ثيم: شفق" },
+  { level: 17, xp: 3140,  titleEn: "Elite",          titleAr: "نخبة",          rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 18, xp: 3630,  titleEn: "Champion",       titleAr: "بطل",           rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 19, xp: 4170,  titleEn: "Virtuoso",       titleAr: "عبقري",         rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 20, xp: 4770,  titleEn: "Grandmaster",    titleAr: "أستاذ كبير",    rewardKey: "theme:lake",   rewardEn: "Timer: Lake",            rewardAr: "ثيم: بحيرة" },
+  { level: 21, xp: 5430,  titleEn: "Sage",           titleAr: "حكيم",          rewardKey: "badge:diamond",rewardEn: "Diamond badge",          rewardAr: "شارة ماسية" },
+  { level: 22, xp: 6160,  titleEn: "Oracle",         titleAr: "عارف",          rewardKey: "frame:diamond",rewardEn: "Diamond frame",          rewardAr: "إطار ماسي" },
+  { level: 23, xp: 6960,  titleEn: "Luminary",       titleAr: "منير",          rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 24, xp: 7840,  titleEn: "Apex",           titleAr: "قمة",           rewardKey: "theme:sky",    rewardEn: "Timer: Open sky",        rewardAr: "ثيم: سماء" },
+  { level: 25, xp: 8800,  titleEn: "Paragon",        titleAr: "نموذج",         rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 26, xp: 9850,  titleEn: "Titan",          titleAr: "عملاق",         rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 27, xp: 11000, titleEn: "Mythic",         titleAr: "أسطوري",        rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 28, xp: 12250, titleEn: "Legend",         titleAr: "أسطورة",        rewardKey: "theme:night",  rewardEn: "Timer: Starry night",    rewardAr: "ثيم: ليلة نجوم" },
+  { level: 29, xp: 13600, titleEn: "Epic",           titleAr: "ملحمي",         rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 30, xp: 15050, titleEn: "Immortal",       titleAr: "خالد",          rewardKey: "badge:legendary", rewardEn: "Legendary badge",     rewardAr: "شارة أسطورية" },
+  { level: 31, xp: 16600, titleEn: "Transcendent",   titleAr: "متعالٍ",        rewardKey: "frame:legendary", rewardEn: "Legendary frame",    rewardAr: "إطار أسطوري" },
+  { level: 32, xp: 18250, titleEn: "Celestial",      titleAr: "سماوي",         rewardKey: "theme:mist",   rewardEn: "Timer: Morning mist",   rewardAr: "ثيم: ضباب الصباح" },
+  { level: 33, xp: 20000, titleEn: "Divine",         titleAr: "إلهي",          rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 34, xp: 21850, titleEn: "Eternal",        titleAr: "أبدي",          rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 35, xp: 23800, titleEn: "Infinite",       titleAr: "لا نهائي",      rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 36, xp: 25850, titleEn: "Omniscient",     titleAr: "عالم بكل شيء",  rewardKey: "theme:plum",   rewardEn: "Timer: Plum",            rewardAr: "ثيم: برقوق" },
+  { level: 37, xp: 28000, titleEn: "Polyglot I",     titleAr: "متعدد اللغات ١", rewardKey: null,         rewardEn: null,                    rewardAr: null },
+  { level: 38, xp: 30250, titleEn: "Polyglot II",    titleAr: "متعدد اللغات ٢", rewardKey: null,         rewardEn: null,                    rewardAr: null },
+  { level: 39, xp: 32600, titleEn: "Polyglot III",   titleAr: "متعدد اللغات ٣", rewardKey: null,         rewardEn: null,                    rewardAr: null },
+  { level: 40, xp: 35050, titleEn: "Language Lord",  titleAr: "سيد اللغة",     rewardKey: "theme:rose",   rewardEn: "Timer: Rose",            rewardAr: "ثيم: وردي" },
+  { level: 41, xp: 37600, titleEn: "Word Weaver",    titleAr: "نسّاج الكلمات", rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 42, xp: 40250, titleEn: "Fluent Force",   titleAr: "قوة الطلاقة",   rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 43, xp: 43000, titleEn: "Master Tongue",  titleAr: "لسان ماهر",     rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 44, xp: 45850, titleEn: "Lexicon King",   titleAr: "ملك المعجم",    rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 45, xp: 48800, titleEn: "Babel Breaker",  titleAr: "كاسر بابل",     rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 46, xp: 51850, titleEn: "Ultimate I",     titleAr: "نهائي ١",       rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 47, xp: 55000, titleEn: "Ultimate II",    titleAr: "نهائي ٢",       rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 48, xp: 58250, titleEn: "Ultimate III",   titleAr: "نهائي ٣",       rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 49, xp: 61600, titleEn: "Ascended",       titleAr: "صاعد",          rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 50, xp: 65050, titleEn: "Supreme",        titleAr: "أعلى",          rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 51, xp: 68600, titleEn: "Absolute",       titleAr: "مطلق",          rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 52, xp: 72250, titleEn: "Zenith",         titleAr: "ذروة",          rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 53, xp: 76000, titleEn: "Apex Legend",    titleAr: "أسطورة القمة",  rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 54, xp: 79850, titleEn: "Final Form",     titleAr: "الشكل النهائي", rewardKey: null,          rewardEn: null,                    rewardAr: null },
+  { level: 55, xp: 83800, titleEn: "Beyond",         titleAr: "ما وراء",       rewardKey: null,          rewardEn: "Max level cosmetics",    rewardAr: "كل الزخارف" },
 ];
 
 export const XP_REWARDS = {
@@ -121,6 +202,60 @@ export function levelFromXp(total) {
   return { ...current, next, pct, total };
 }
 
+/** Highest badge unlocked by current total XP (or null). */
+export function getUnlockedBadge(totalOrLevel) {
+  const total = typeof totalOrLevel === "number" ? totalOrLevel : (totalOrLevel?.total ?? 0);
+  const info = levelFromXp(total);
+  let best = null;
+  for (const lv of LEVELS) {
+    if (lv.level > info.level) break;
+    if (lv.rewardKey && lv.rewardKey.startsWith("badge:")) {
+      const id = lv.rewardKey.slice(6);
+      if (COSMETICS.badges[id]) best = COSMETICS.badges[id];
+    }
+  }
+  return best;
+}
+
+/** Highest frame unlocked by current total XP (or null). */
+export function getUnlockedFrame(totalOrLevel) {
+  const total = typeof totalOrLevel === "number" ? totalOrLevel : (totalOrLevel?.total ?? 0);
+  const info = levelFromXp(total);
+  let best = null;
+  for (const lv of LEVELS) {
+    if (lv.level > info.level) break;
+    if (lv.rewardKey && lv.rewardKey.startsWith("frame:")) {
+      const id = lv.rewardKey.slice(6);
+      if (COSMETICS.frames[id]) best = COSMETICS.frames[id];
+    }
+  }
+  return best;
+}
+
+/** Whether a timer theme id is unlocked for this XP total. Free themes (not in COSMETICS.themes) are always unlocked. */
+export function isThemeUnlocked(themeId, totalXp) {
+  const req = COSMETICS.themes[themeId];
+  if (!req) return true;
+  const info = levelFromXp(Number(totalXp) || 0);
+  return info.level >= req.unlockLevel;
+}
+
+/** Level required to unlock a theme (or null if free). */
+export function themeUnlockLevel(themeId) {
+  return COSMETICS.themes[themeId]?.unlockLevel ?? null;
+}
+
+/** All reward keys unlocked up to this level (for display). */
+export function getUnlockedRewardKeys(totalXp) {
+  const info = levelFromXp(Number(totalXp) || 0);
+  const keys = [];
+  for (const lv of LEVELS) {
+    if (lv.level > info.level) break;
+    if (lv.rewardKey) keys.push(lv.rewardKey);
+  }
+  return keys;
+}
+
 export function claimKey(kind, id) {
   if (id == null || id === "") return kind;
   return `${kind}:${id}`;
@@ -176,17 +311,37 @@ export function tryGrantXp(accountCode, amount, reason, options = {}) {
 
   const after = levelFromXp(data.total);
   for (const lv of LEVELS) {
-    if (data.total >= lv.xp && lv.rewardEn && !data.unlockedRewards.includes(lv.level)) {
+    if (data.total >= lv.xp && lv.rewardKey && !data.unlockedRewards.includes(lv.level)) {
       data.unlockedRewards.push(lv.level);
     }
   }
   saveXp(accountCode, data);
+  const leveledUp = after.level > before.level;
+  if (leveledUp && typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(
+        new CustomEvent("twotongues:levelup", {
+          detail: {
+            fromLevel: before.level,
+            toLevel: after.level,
+            titleEn: after.titleEn,
+            titleAr: after.titleAr,
+            rewardKey: after.rewardKey || null,
+            rewardEn: after.rewardEn || null,
+            rewardAr: after.rewardAr || null,
+            total: after.total,
+          },
+        })
+      );
+    } catch (_) {}
+  }
   return {
     granted: true,
     amount: finalAmt,
     data,
-    leveledUp: after.level > before.level,
+    leveledUp,
     levelInfo: after,
+    previousLevel: before.level,
     reason,
   };
 }

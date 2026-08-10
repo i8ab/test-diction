@@ -164,7 +164,7 @@ export default function LevelsModal({ accountCode, isAr, onClose }) {
                   <div style={{ fontWeight: 700, fontSize: 14, color: INK }}>{isAr ? lv.titleAr : lv.titleEn}</div>
                   <div style={{ fontSize: 12, color: "var(--muted-strong)" }}>
                     {lv.xp} XP
-                    {lv.rewardEn ? ` · ${isAr ? lv.rewardAr : lv.rewardEn}` : ""}
+                    {(lv.rewardEn || lv.rewardKey) ? ` · ${isAr ? (lv.rewardAr || lv.rewardKey) : (lv.rewardEn || lv.rewardKey)}` : ""}
                   </div>
                 </div>
                 {unlocked && <StarIcon size={16} style={{ color: "#f5c542" }} />}

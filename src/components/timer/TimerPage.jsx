@@ -11,6 +11,7 @@ import {
   getTodayTimerMinutes,
   pickPomoHealthTip,
 } from "../../lib/state/goals";
+import { loadXp, isThemeUnlocked, themeUnlockLevel } from "../../lib/state/xp";
 
 const TIMER_PREFS_KEY = "twoTongues.timerPrefs";
 const TIMER_STATE_KEY = "twoTongues.timerState";
@@ -355,8 +356,9 @@ function createAmbientNode(ctx, ambientId, volume) {
  * backgrounds, free duration (no hard limits), and a mini floating window
  * when the user leaves the tab (Document PiP or popup fallback).
  */
-export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble = false }) {
+export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, initialBubble = false }) {
   const [prefs, setPrefs] = useState(loadPrefs);
+  const xpTotal = useMemo(() => loadXp(accountCode).total, [accountCode]);
   const [hours, setHours] = useState(0);
   const [mins, setMins] = useState(25);
   const [secs, setSecs] = useState(0);
@@ -1741,22 +1743,60 @@ export default function TimerPage({ onClose, isAr, onBubbleChange, initialBubble
             <section>
               <Label muted={muted}>{tr(isAr, "Background", "الخلفية")}</Label>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(88px, 1fr))", gap: 8 }}>
-                {BG_PRESETS.map((b) => (
-                  <button
-                    key={b.id}
-                    type="button"
-                    onClick={() => updatePref({ bgId: b.id, customBg: null })}
-                    title={tr(isAr, b.label.en, b.label.ar)}
-                    style={{
-                      height: 56,
-                      borderRadius: 12,
-                      border: prefs.bgId === b.id && !prefs.customBg ? `2px solid ${prefs.textColor}` : `1px solid ${panelBorder}`,
-                      background: b.value,
-                      cursor: "pointer",
-                      boxShadow: "0 4px 12px -6px rgba(0,0,0,0.35)",
-                    }}
-                  />
-                ))}
+                {BG_PRESETS.map((b) => {
+                  const unlocked = isThemeUnlocked(b.id, xpTotal);
+                  const needLevel = themeUnlockLevel(b.id);
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      disabled={!unlocked}
+                      onClick={() => {
+                        if (!unlocked) return;
+                        updatePref({ bgId: b.id, customBg: null });
+                      }}
+                      title={
+                        unlocked
+                          ? tr(isAr, b.label.en, b.label.ar)
+                          : tr(isAr, `Unlocks at level ${needLevel}`, `ينفتح عند المستوى ${needLevel}`)
+                      }
+                      style={{
+                        height: 56,
+                        borderRadius: 12,
+                        border: prefs.bgId === b.id && !prefs.customBg ? `2px solid ${prefs.textColor}` : `1px solid ${panelBorder}`,
+                        background: b.value,
+                        cursor: unlocked ? "pointer" : "not-allowed",
+                        boxShadow: "0 4px 12px -6px rgba(0,0,0,0.35)",
+                        position: "relative",
+                        opacity: unlocked ? 1 : 0.55,
+                        overflow: "hidden",
+                      }}
+                    >
+                      {!unlocked && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            background: "rgba(0,0,0,0.45)",
+                            color: "#fff",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            gap: 2,
+                            padding: 4,
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          <span style={{ fontSize: 14 }}>🔒</span>
+                          <span>{tr(isAr, `Lv ${needLevel}`, `م ${needLevel}`)}</span>
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12, alignItems: "center" }}>
                 <button type="button" onClick={() => fileInputRef.current?.click()} style={btnGhost}>

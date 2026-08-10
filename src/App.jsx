@@ -1791,14 +1791,57 @@ export default function DictionaryApp() {
   async function handleRejectRequest(targetCode) {
     const target = accounts.find((a) => a.code === targetCode);
     if (!target || target.status !== "pending") return { error: "Request not found." };
-    const nextAccounts = accounts.filter((a) => a.code !== targetCode);
+    // Must tell the server to drop this code; accounts are always merged by
+    // code now, so a plain filtered list alone would keep the pending account.
     const logEntry = makeLogEntry(
       "account_delete",
       `${name} rejected request from @${target.username || target.name}`,
       name,
       accountCode
     );
-    await persistAccounts(nextAccounts, logEntry);
+    try {
+      let curVersion = recordVersionRef.current;
+      let curEntries = entriesRef.current;
+      let curAccounts = accountsRef.current;
+      let curLogs = logsRef.current;
+      let curBanner = siteBannerRef.current;
+      for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+        const nextAccounts = curAccounts.filter((a) => a.code !== targetCode);
+        const nextLogs = capLogs([...curLogs, logEntry]);
+        try {
+          const newVersion = await saveRecord(
+            {
+              entries: curEntries,
+              accounts: nextAccounts,
+              logs: nextLogs,
+              siteBanner: curBanner,
+              removeAccountCodes: [targetCode],
+            },
+            curVersion
+          );
+          commitRecordVersion(newVersion);
+          setAccounts(nextAccounts);
+          accountsRef.current = nextAccounts;
+          setLogs(nextLogs);
+          logsRef.current = nextLogs;
+          break;
+        } catch (e) {
+          if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
+            curEntries = e.fresh.entries || [];
+            curAccounts = e.fresh.accounts || [];
+            curLogs = e.fresh.logs || [];
+            if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
+            curVersion = e.fresh.version || 0;
+            commitRecordVersion(curVersion);
+            await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+            continue;
+          }
+          throw e;
+        }
+      }
+    } catch (_) {
+      return { error: appIsAr ? "تعذّر رفض الطلب — حاول مرة أخرى." : "Couldn't reject the request — try again." };
+    }
     showToast(appIsAr ? "تم رفض الطلب." : "Request rejected.");
     return { ok: true };
   }
@@ -1886,13 +1929,62 @@ export default function DictionaryApp() {
     return { ok: true };
   }
 
-    // Admin panel: remove an account. If an admin removes their own account,
+  // Admin panel: remove an account. If an admin removes their own account,
   // sign them out immediately rather than leaving them in a stale session.
   async function handleAdminDeleteAccount(targetCode) {
     const target = accounts.find((a) => a.code === targetCode);
-    const nextAccounts = accounts.filter((a) => a.code !== targetCode);
-    const logEntry = makeLogEntry("account_delete", `${name} deleted account "${(target && target.name) || targetCode}"`, name, accountCode);
-    await persistAccounts(nextAccounts, logEntry);
+    const logEntry = makeLogEntry(
+      "account_delete",
+      `${name} deleted account "${(target && target.name) || targetCode}"`,
+      name,
+      accountCode
+    );
+    // Server always merges accounts by code; explicit removeAccountCodes is
+    // required for intentional deletes (same as reject).
+    try {
+      let curVersion = recordVersionRef.current;
+      let curEntries = entriesRef.current;
+      let curAccounts = accountsRef.current;
+      let curLogs = logsRef.current;
+      let curBanner = siteBannerRef.current;
+      for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+        const nextAccounts = curAccounts.filter((a) => a.code !== targetCode);
+        const nextLogs = capLogs([...curLogs, logEntry]);
+        try {
+          const newVersion = await saveRecord(
+            {
+              entries: curEntries,
+              accounts: nextAccounts,
+              logs: nextLogs,
+              siteBanner: curBanner,
+              removeAccountCodes: [targetCode],
+            },
+            curVersion
+          );
+          commitRecordVersion(newVersion);
+          setAccounts(nextAccounts);
+          accountsRef.current = nextAccounts;
+          setLogs(nextLogs);
+          logsRef.current = nextLogs;
+          break;
+        } catch (e) {
+          if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
+            curEntries = e.fresh.entries || [];
+            curAccounts = e.fresh.accounts || [];
+            curLogs = e.fresh.logs || [];
+            if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
+            curVersion = e.fresh.version || 0;
+            commitRecordVersion(curVersion);
+            await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+            continue;
+          }
+          throw e;
+        }
+      }
+    } catch (_) {
+      showToast(appIsAr ? "تعذّر حذف الحساب — حاول مرة أخرى." : "Couldn't delete the account — try again.");
+      return;
+    }
     if (targetCode === accountCode) {
       handleLogout();
     }

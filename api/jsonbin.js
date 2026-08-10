@@ -381,19 +381,31 @@ export default async function handler(req, res) {
           nextExam = current.examConfig || null;
         }
 
-        // Accounts: if two signups race, prefer merging by code so neither
-        // pending request is dropped when the client retries with a full list.
+        // Accounts are ALWAYS merged by `code` so concurrent signups and
+        // stale clients never silently drop a pending (or any other) account.
+        // Intentional deletes must send `removeAccountCodes: ["code1", ...]`.
+        // The old `mergeAccounts` / full-replace behaviour was the root cause
+        // of "one of two signups disappears".
         let nextAccounts = Array.isArray(body.accounts) ? body.accounts : [];
-        if (body.mergeAccounts === true && Array.isArray(current.accounts)) {
+        if (Array.isArray(current.accounts) && current.accounts.length) {
           const byCode = new Map();
           for (const a of current.accounts) {
-            if (a && a.code) byCode.set(a.code, a);
+            if (a && a.code) byCode.set(String(a.code), a);
           }
           for (const a of nextAccounts) {
-            if (a && a.code) byCode.set(a.code, a);
+            if (a && a.code) byCode.set(String(a.code), a);
           }
-          // Also keep any current account whose code wasn't in the body
           nextAccounts = Array.from(byCode.values());
+        }
+
+        // Explicit removals (reject / admin-delete). Applied after the merge
+        // so a concurrent signup cannot be erased by accident.
+        const removeCodes = Array.isArray(body.removeAccountCodes)
+          ? body.removeAccountCodes.map((c) => String(c)).filter(Boolean)
+          : [];
+        if (removeCodes.length) {
+          const drop = new Set(removeCodes);
+          nextAccounts = nextAccounts.filter((a) => a && a.code && !drop.has(String(a.code)));
         }
 
         const payload = {

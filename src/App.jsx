@@ -2065,11 +2065,23 @@ export default function DictionaryApp() {
       name,
       accountCode
     );
+
+    // Optimistic update: remove from UI immediately so the admin doesn't see
+    // a laggy list and click reject again.
+    const previousAccounts = accountsRef.current;
+    const previousLogs = logsRef.current;
+    const optimisticAccounts = previousAccounts.filter((a) => a.code !== targetCode);
+    const optimisticLogs = capLogs([...previousLogs, logEntry]);
+    setAccounts(optimisticAccounts);
+    accountsRef.current = optimisticAccounts;
+    setLogs(optimisticLogs);
+    logsRef.current = optimisticLogs;
+
     try {
       let curVersion = recordVersionRef.current;
       let curEntries = entriesRef.current;
-      let curAccounts = accountsRef.current;
-      let curLogs = logsRef.current;
+      let curAccounts = previousAccounts;
+      let curLogs = previousLogs;
       let curBanner = siteBannerRef.current;
       for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
         const nextAccounts = curAccounts.filter((a) => a.code !== targetCode);
@@ -2099,6 +2111,10 @@ export default function DictionaryApp() {
             if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
             curVersion = e.fresh.version || 0;
             commitRecordVersion(curVersion);
+            // Keep UI optimistic (without the rejected account) even on conflict retry.
+            const stillWithout = curAccounts.filter((a) => a.code !== targetCode);
+            setAccounts(stillWithout);
+            accountsRef.current = stillWithout;
             await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
             continue;
           }
@@ -2106,6 +2122,11 @@ export default function DictionaryApp() {
         }
       }
     } catch (_) {
+      // Rollback on failure so the admin sees the account again.
+      setAccounts(previousAccounts);
+      accountsRef.current = previousAccounts;
+      setLogs(previousLogs);
+      logsRef.current = previousLogs;
       return { error: appIsAr ? "تعذّر رفض الطلب — حاول مرة أخرى." : "Couldn't reject the request — try again." };
     }
     showToast(appIsAr ? "تم رفض الطلب." : "Request rejected.");
@@ -2207,11 +2228,69 @@ export default function DictionaryApp() {
     );
     // Server always merges accounts by code; explicit removeAccountCodes is
     // required for intentional deletes (same as reject).
+
+    // Optimistic update: remove from UI immediately so the list doesn't lag
+    // and the admin doesn't click delete multiple times.
+    const previousAccounts = accountsRef.current;
+    const previousLogs = logsRef.current;
+    const optimisticAccounts = previousAccounts.filter((a) => a.code !== targetCode);
+    const optimisticLogs = capLogs([...previousLogs, logEntry]);
+    setAccounts(optimisticAccounts);
+    accountsRef.current = optimisticAccounts;
+    setLogs(optimisticLogs);
+    logsRef.current = optimisticLogs;
+
+    // If deleting own account, sign out right away for a clean UX.
+    if (targetCode === accountCode) {
+      // Fire-and-forget the server save; user is already logged out.
+      (async () => {
+        try {
+          let curVersion = recordVersionRef.current;
+          let curEntries = entriesRef.current;
+          let curAccounts = previousAccounts;
+          let curLogs = previousLogs;
+          let curBanner = siteBannerRef.current;
+          for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+            const nextAccounts = curAccounts.filter((a) => a.code !== targetCode);
+            const nextLogs = capLogs([...curLogs, logEntry]);
+            try {
+              const newVersion = await saveRecord(
+                {
+                  entries: curEntries,
+                  accounts: nextAccounts,
+                  logs: nextLogs,
+                  siteBanner: curBanner,
+                  removeAccountCodes: [targetCode],
+                },
+                curVersion
+              );
+              commitRecordVersion(newVersion);
+              break;
+            } catch (e) {
+              if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
+                curEntries = e.fresh.entries || [];
+                curAccounts = e.fresh.accounts || [];
+                curLogs = e.fresh.logs || [];
+                if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
+                curVersion = e.fresh.version || 0;
+                commitRecordVersion(curVersion);
+                await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+                continue;
+              }
+              break;
+            }
+          }
+        } catch (_) { /* best-effort after logout */ }
+      })();
+      handleLogout();
+      return;
+    }
+
     try {
       let curVersion = recordVersionRef.current;
       let curEntries = entriesRef.current;
-      let curAccounts = accountsRef.current;
-      let curLogs = logsRef.current;
+      let curAccounts = previousAccounts;
+      let curLogs = previousLogs;
       let curBanner = siteBannerRef.current;
       for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
         const nextAccounts = curAccounts.filter((a) => a.code !== targetCode);
@@ -2241,6 +2320,10 @@ export default function DictionaryApp() {
             if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
             curVersion = e.fresh.version || 0;
             commitRecordVersion(curVersion);
+            // Keep UI optimistic even on conflict retry.
+            const stillWithout = curAccounts.filter((a) => a.code !== targetCode);
+            setAccounts(stillWithout);
+            accountsRef.current = stillWithout;
             await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
             continue;
           }
@@ -2248,11 +2331,13 @@ export default function DictionaryApp() {
         }
       }
     } catch (_) {
+      // Rollback on failure so the admin sees the account again.
+      setAccounts(previousAccounts);
+      accountsRef.current = previousAccounts;
+      setLogs(previousLogs);
+      logsRef.current = previousLogs;
       showToast(appIsAr ? "تعذّر حذف الحساب — حاول مرة أخرى." : "Couldn't delete the account — try again.");
       return;
-    }
-    if (targetCode === accountCode) {
-      handleLogout();
     }
   }
 

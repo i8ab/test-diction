@@ -49,7 +49,6 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
   const [saving, setSaving] = useState(false);
   const [newAccountName, setNewAccountName] = useState("");
   const [newAccountCode, setNewAccountCode] = useState("");
-  const [confirmDeleteCode, setConfirmDeleteCode] = useState(null);
   const [deletingCode, setDeletingCode] = useState(null);
   const [codeCopied, setCodeCopied] = useState(false);
   const [logFilter, setLogFilter] = useState("all");
@@ -92,7 +91,6 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
   function goBack() {
     setError("");
     setConfirmClearLogs(false);
-    setConfirmDeleteCode(null);
     if (mode === "list") onClose();
     else setMode("list");
   }
@@ -466,14 +464,18 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                           <EditIcon size={14} />
                         </button>
                         <button
-                          disabled={!!deletingCode}
-                          onClick={async () => {
-                            if (deletingCode) return;
-                            setConfirmDeleteCode(null);
+                          disabled={deletingCode === a.code}
+                          onClick={() => {
+                            // No confirm dialog — delete immediately.
+                            // Parent applies optimistic UI + background save,
+                            // so the row vanishes without waiting on the server.
+                            if (deletingCode === a.code) return;
                             setDeletingCode(a.code);
                             try {
-                              await onDelete(a.code);
+                              onDelete(a.code);
                             } finally {
+                              // Clear local spinner quickly; account is already
+                              // removed from the list via optimistic update.
                               setDeletingCode(null);
                             }
                           }}
@@ -490,7 +492,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                             borderRadius: 10,
                             width: 36,
                             height: 36,
-                            cursor: deletingCode ? "wait" : "pointer",
+                            cursor: deletingCode === a.code ? "wait" : "pointer",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",

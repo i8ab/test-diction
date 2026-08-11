@@ -140,6 +140,10 @@ export default function DictionaryApp() {
   // Codes intentionally deleted/rejected this session. Attached to every
   // subsequent save so a concurrent write cannot resurrect them via merge.
   const pendingRemoveCodesRef = useRef(new Set());
+  // Codes approved this session (status forced to "active"). Prevents a
+  // concurrent/stale save from flipping them back to "pending" in the UI
+  // before the server merge protection is observed.
+  const pendingApprovedCodesRef = useRef(new Set());
   const [loadError, setLoadError] = useState("");
   const [isOffline, setIsOffline] = useState(false);
   const [offlineCachedAt, setOfflineCachedAt] = useState(null);
@@ -937,6 +941,15 @@ export default function DictionaryApp() {
               const drop = pendingRemoveCodesRef.current;
               nextAccounts = nextAccounts.filter((a) => a && a.code && !drop.has(String(a.code)));
             }
+            // Keep approvals sticky for this session (stale pending must not win).
+            if (pendingApprovedCodesRef.current.size) {
+              const approved = pendingApprovedCodesRef.current;
+              nextAccounts = nextAccounts.map((a) =>
+                a && a.code && approved.has(String(a.code)) && a.status === "pending"
+                  ? { ...a, status: "active" }
+                  : a
+              );
+            }
             accountsRef.current = nextAccounts;
             setAccounts(nextAccounts);
             const removeCodes = [...pendingRemoveCodesRef.current];
@@ -973,11 +986,24 @@ export default function DictionaryApp() {
             }
             if (e instanceof SaveConflictError && e.fresh) {
               setEntries(e.fresh.entries || []);
-              setAccounts(e.fresh.accounts || []);
+              let freshAccounts = e.fresh.accounts || [];
+              if (pendingRemoveCodesRef.current.size) {
+                const drop = pendingRemoveCodesRef.current;
+                freshAccounts = freshAccounts.filter((a) => a && a.code && !drop.has(String(a.code)));
+              }
+              if (pendingApprovedCodesRef.current.size) {
+                const approved = pendingApprovedCodesRef.current;
+                freshAccounts = freshAccounts.map((a) =>
+                  a && a.code && approved.has(String(a.code)) && a.status === "pending"
+                    ? { ...a, status: "active" }
+                    : a
+                );
+              }
+              setAccounts(freshAccounts);
               setLogs(e.fresh.logs || []);
               if (e.fresh.siteBanner !== undefined) setSiteBanner(e.fresh.siteBanner || null);
               entriesRef.current = e.fresh.entries || [];
-              accountsRef.current = e.fresh.accounts || [];
+              accountsRef.current = freshAccounts;
               logsRef.current = e.fresh.logs || [];
               commitRecordVersion(e.fresh.version || 0);
               setSaveError("");
@@ -1053,11 +1079,24 @@ export default function DictionaryApp() {
             }
             if (e instanceof SaveConflictError && e.fresh) {
               setEntries(e.fresh.entries || []);
-              setAccounts(e.fresh.accounts || []);
+              let freshAccounts = e.fresh.accounts || [];
+              if (pendingRemoveCodesRef.current.size) {
+                const drop = pendingRemoveCodesRef.current;
+                freshAccounts = freshAccounts.filter((a) => a && a.code && !drop.has(String(a.code)));
+              }
+              if (pendingApprovedCodesRef.current.size) {
+                const approved = pendingApprovedCodesRef.current;
+                freshAccounts = freshAccounts.map((a) =>
+                  a && a.code && approved.has(String(a.code)) && a.status === "pending"
+                    ? { ...a, status: "active" }
+                    : a
+                );
+              }
+              setAccounts(freshAccounts);
               setLogs(e.fresh.logs || []);
               if (e.fresh.siteBanner !== undefined) setSiteBanner(e.fresh.siteBanner || null);
               entriesRef.current = e.fresh.entries || [];
-              accountsRef.current = e.fresh.accounts || [];
+              accountsRef.current = freshAccounts;
               logsRef.current = e.fresh.logs || [];
               commitRecordVersion(e.fresh.version || 0);
               setSaveError("");
@@ -1997,6 +2036,21 @@ export default function DictionaryApp() {
           if (pendingRemoveCodesRef.current.size) {
             list = list.filter((a) => a && a.code && !pendingRemoveCodesRef.current.has(String(a.code)));
           }
+          // Keep this-session approvals sticky until server has active status.
+          if (pendingApprovedCodesRef.current.size) {
+            const approved = pendingApprovedCodesRef.current;
+            list = list.map((a) =>
+              a && a.code && approved.has(String(a.code)) && a.status === "pending"
+                ? { ...a, status: "active" }
+                : a
+            );
+            // Drop codes that the server already shows as active/blocked.
+            for (const a of list) {
+              if (a && a.code && approved.has(String(a.code)) && a.status !== "pending") {
+                approved.delete(String(a.code));
+              }
+            }
+          }
           setAccounts(list);
           accountsRef.current = list;
         }
@@ -2070,6 +2124,9 @@ export default function DictionaryApp() {
       name,
       accountCode
     );
+    // Remember approval for this session so concurrent/stale saves cannot
+    // flip the row back to "pending" in the UI.
+    pendingApprovedCodesRef.current.add(String(targetCode));
     try {
       // Functional update so conflict retries re-apply status: "active".
       await persistAccounts(
@@ -2079,6 +2136,7 @@ export default function DictionaryApp() {
       showToast(appIsAr ? "تمت الموافقة على الطلب." : "Request approved.");
       return { ok: true };
     } catch (_) {
+      pendingApprovedCodesRef.current.delete(String(targetCode));
       return { error: appIsAr ? "تعذّر قبول الطلب — حاول مرة أخرى." : "Couldn't approve the request — try again." };
     }
   }
@@ -2302,115 +2360,90 @@ export default function DictionaryApp() {
       });
     } catch (_) {}
 
-    // If deleting own account, sign out right away for a clean UX.
-    if (targetCode === accountCode) {
-      // Fire-and-forget the server save; user is already logged out.
-      (async () => {
-        try {
-          let curVersion = recordVersionRef.current;
-          let curEntries = entriesRef.current;
-          let curAccounts = previousAccounts;
-          let curLogs = previousLogs;
-          let curBanner = siteBannerRef.current;
-          for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
-            const nextAccounts = curAccounts.filter((a) => a.code !== targetCode);
-            const nextLogs = capLogs([...curLogs, logEntry]);
-            try {
-              const newVersion = await saveRecord(
-                {
+    // Persist to server in the background so the admin panel never waits on
+    // network latency. UI already reflects the delete via the optimistic
+    // update above. On failure we roll back and toast.
+    const persistDelete = async () => {
+      try {
+        let curVersion = recordVersionRef.current;
+        let curEntries = entriesRef.current;
+        let curAccounts = previousAccounts;
+        let curLogs = previousLogs;
+        let curBanner = siteBannerRef.current;
+        for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+          const nextAccounts = curAccounts.filter((a) => a.code !== targetCode);
+          const nextLogs = capLogs([...curLogs, logEntry]);
+          try {
+            const newVersion = await saveRecord(
+              {
+                entries: curEntries,
+                accounts: nextAccounts,
+                logs: nextLogs,
+                siteBanner: curBanner,
+                removeAccountCodes: [targetCode, ...pendingRemoveCodesRef.current],
+              },
+              curVersion
+            );
+            commitRecordVersion(newVersion);
+            // Only refresh UI from server result if we are still signed in
+            // (own-account delete logs out first).
+            if (targetCode !== accountCode) {
+              setAccounts(nextAccounts);
+              accountsRef.current = nextAccounts;
+              setLogs(nextLogs);
+              logsRef.current = nextLogs;
+              try {
+                saveOfflineCache({
                   entries: curEntries,
                   accounts: nextAccounts,
                   logs: nextLogs,
                   siteBanner: curBanner,
-                  removeAccountCodes: [targetCode, ...pendingRemoveCodesRef.current],
-                },
-                curVersion
-              );
-              commitRecordVersion(newVersion);
-              break;
-            } catch (e) {
-              if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
-                curEntries = e.fresh.entries || [];
-                curAccounts = e.fresh.accounts || [];
-                curLogs = e.fresh.logs || [];
-                if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
-                curVersion = e.fresh.version || 0;
-                commitRecordVersion(curVersion);
-                await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
-                continue;
-              }
-              break;
+                  examConfig: examConfigRef.current,
+                });
+              } catch (_) {}
             }
+            return;
+          } catch (e) {
+            if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
+              curEntries = e.fresh.entries || [];
+              curAccounts = e.fresh.accounts || [];
+              curLogs = e.fresh.logs || [];
+              if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
+              curVersion = e.fresh.version || 0;
+              commitRecordVersion(curVersion);
+              if (targetCode !== accountCode) {
+                const stillWithout = curAccounts.filter((a) => a.code !== targetCode);
+                setAccounts(stillWithout);
+                accountsRef.current = stillWithout;
+              }
+              await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+              continue;
+            }
+            throw e;
           }
-        } catch (_) { /* best-effort after logout */ }
-      })();
+        }
+      } catch (_) {
+        // Own-account path: best-effort only (user already logged out).
+        if (targetCode === accountCode) return;
+        // Rollback on failure so the admin sees the account again.
+        pendingRemoveCodesRef.current.delete(String(targetCode));
+        setAccounts(previousAccounts);
+        accountsRef.current = previousAccounts;
+        setLogs(previousLogs);
+        logsRef.current = previousLogs;
+        showToast(appIsAr ? "تعذّر حذف الحساب — حاول مرة أخرى." : "Couldn't delete the account — try again.");
+      }
+    };
+
+    // If deleting own account, sign out right away for a clean UX.
+    if (targetCode === accountCode) {
+      persistDelete(); // fire-and-forget
       handleLogout();
       return;
     }
 
-    try {
-      let curVersion = recordVersionRef.current;
-      let curEntries = entriesRef.current;
-      let curAccounts = previousAccounts;
-      let curLogs = previousLogs;
-      let curBanner = siteBannerRef.current;
-      for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
-        const nextAccounts = curAccounts.filter((a) => a.code !== targetCode);
-        const nextLogs = capLogs([...curLogs, logEntry]);
-        try {
-          const newVersion = await saveRecord(
-            {
-              entries: curEntries,
-              accounts: nextAccounts,
-              logs: nextLogs,
-              siteBanner: curBanner,
-              removeAccountCodes: [targetCode, ...pendingRemoveCodesRef.current],
-            },
-            curVersion
-          );
-          commitRecordVersion(newVersion);
-          setAccounts(nextAccounts);
-          accountsRef.current = nextAccounts;
-          setLogs(nextLogs);
-          logsRef.current = nextLogs;
-          try {
-            saveOfflineCache({
-              entries: curEntries,
-              accounts: nextAccounts,
-              logs: nextLogs,
-              siteBanner: curBanner,
-              examConfig: examConfigRef.current,
-            });
-          } catch (_) {}
-          break;
-        } catch (e) {
-          if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
-            curEntries = e.fresh.entries || [];
-            curAccounts = e.fresh.accounts || [];
-            curLogs = e.fresh.logs || [];
-            if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
-            curVersion = e.fresh.version || 0;
-            commitRecordVersion(curVersion);
-            // Keep UI optimistic even on conflict retry.
-            const stillWithout = curAccounts.filter((a) => a.code !== targetCode);
-            setAccounts(stillWithout);
-            accountsRef.current = stillWithout;
-            await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
-            continue;
-          }
-          throw e;
-        }
-      }
-    } catch (_) {
-      // Rollback on failure so the admin sees the account again.
-      pendingRemoveCodesRef.current.delete(String(targetCode));
-      setAccounts(previousAccounts);
-      accountsRef.current = previousAccounts;
-      setLogs(previousLogs);
-      logsRef.current = previousLogs;
-      showToast(appIsAr ? "تعذّر حذف الحساب — حاول مرة أخرى." : "Couldn't delete the account — try again.");
-      return;
-    }
+    // Return immediately — list already updated. Server save runs in background.
+    persistDelete();
   }
 
 

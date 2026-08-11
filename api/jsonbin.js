@@ -396,6 +396,24 @@ export default async function handler(req, res) {
         // Intentional deletes must send `removeAccountCodes: ["code1", ...]`.
         // The old `mergeAccounts` / full-replace behaviour was the root cause
         // of "one of two signups disappears".
+        //
+        // Status is never downgraded by a stale client: once an admin has
+        // approved (active) or blocked an account, a concurrent save that
+        // still carries status:"pending" must NOT resurrect the pending UI.
+        const statusRank = (s) => {
+          if (s === "active" || s === "blocked") return 2;
+          if (s === "pending") return 1;
+          return 0;
+        };
+        const mergeAccountRow = (prev, incoming) => {
+          if (!prev) return incoming;
+          if (!incoming) return prev;
+          const merged = { ...prev, ...incoming };
+          if (statusRank(prev.status) > statusRank(incoming.status)) {
+            merged.status = prev.status;
+          }
+          return merged;
+        };
         let nextAccounts = Array.isArray(body.accounts) ? body.accounts : [];
         if (Array.isArray(current.accounts) && current.accounts.length) {
           const byCode = new Map();
@@ -403,7 +421,10 @@ export default async function handler(req, res) {
             if (a && a.code) byCode.set(String(a.code), a);
           }
           for (const a of nextAccounts) {
-            if (a && a.code) byCode.set(String(a.code), a);
+            if (a && a.code) {
+              const key = String(a.code);
+              byCode.set(key, mergeAccountRow(byCode.get(key), a));
+            }
           }
           nextAccounts = Array.from(byCode.values());
         }

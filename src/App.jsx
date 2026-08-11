@@ -137,6 +137,9 @@ export default function DictionaryApp() {
   // Batch rapid studied/favorite/quiz ops into a single network write.
   const pendingAccountOpsRef = useRef([]);
   const pendingEntryOpsRef = useRef([]);
+  // Codes intentionally deleted/rejected this session. Attached to every
+  // subsequent save so a concurrent write cannot resurrect them via merge.
+  const pendingRemoveCodesRef = useRef(new Set());
   const [loadError, setLoadError] = useState("");
   const [isOffline, setIsOffline] = useState(false);
   const [offlineCachedAt, setOfflineCachedAt] = useState(null);
@@ -929,10 +932,22 @@ export default function DictionaryApp() {
           try {
             // Keep XP durable on the account record (cloud) before write
             nextAccounts = attachXpToAccounts(nextAccounts, accountCode);
+            // Never let a concurrent progress save resurrect deleted accounts.
+            if (pendingRemoveCodesRef.current.size) {
+              const drop = pendingRemoveCodesRef.current;
+              nextAccounts = nextAccounts.filter((a) => a && a.code && !drop.has(String(a.code)));
+            }
             accountsRef.current = nextAccounts;
             setAccounts(nextAccounts);
+            const removeCodes = [...pendingRemoveCodesRef.current];
             const newVersion = await saveRecord(
-              { entries: curEntries, accounts: nextAccounts, logs: nextLogs, siteBanner: curBanner},
+              {
+                entries: curEntries,
+                accounts: nextAccounts,
+                logs: nextLogs,
+                siteBanner: curBanner,
+                ...(removeCodes.length ? { removeAccountCodes: removeCodes } : {}),
+              },
               curVersion
             );
             commitRecordVersion(newVersion);
@@ -1975,7 +1990,16 @@ export default function DictionaryApp() {
       try {
         const rec = await fetchRecord({ fresh: true });
         if (cancelled) return;
-        if (rec.accounts) setAccounts(rec.accounts);
+        if (rec.accounts) {
+          let list = rec.accounts;
+          // Hide accounts we intentionally deleted this session even if a
+          // brief race still returns them from the server.
+          if (pendingRemoveCodesRef.current.size) {
+            list = list.filter((a) => a && a.code && !pendingRemoveCodesRef.current.has(String(a.code)));
+          }
+          setAccounts(list);
+          accountsRef.current = list;
+        }
         if (rec.siteBanner !== undefined) setSiteBanner(rec.siteBanner || null);
         if (typeof rec.version === "number") commitRecordVersion(rec.version);
         const account = (rec.accounts || []).find((a) => a.code === accountCode);
@@ -2040,18 +2064,23 @@ export default function DictionaryApp() {
   async function handleApproveRequest(targetCode) {
     const target = accounts.find((a) => a.code === targetCode);
     if (!target || target.status !== "pending") return { error: "Request not found." };
-    const nextAccounts = accounts.map((a) =>
-      a.code === targetCode ? { ...a, status: "active" } : a
-    );
     const logEntry = makeLogEntry(
       "account_edit",
       `${name} approved @${target.username || target.name}`,
       name,
       accountCode
     );
-    await persistAccounts(nextAccounts, logEntry);
-    showToast(appIsAr ? "تمت الموافقة على الطلب." : "Request approved.");
-    return { ok: true };
+    try {
+      // Functional update so conflict retries re-apply status: "active".
+      await persistAccounts(
+        (cur) => cur.map((a) => (a.code === targetCode ? { ...a, status: "active" } : a)),
+        logEntry
+      );
+      showToast(appIsAr ? "تمت الموافقة على الطلب." : "Request approved.");
+      return { ok: true };
+    } catch (_) {
+      return { error: appIsAr ? "تعذّر قبول الطلب — حاول مرة أخرى." : "Couldn't approve the request — try again." };
+    }
   }
 
   async function handleRejectRequest(targetCode) {
@@ -2076,6 +2105,16 @@ export default function DictionaryApp() {
     accountsRef.current = optimisticAccounts;
     setLogs(optimisticLogs);
     logsRef.current = optimisticLogs;
+    pendingRemoveCodesRef.current.add(String(targetCode));
+    try {
+      saveOfflineCache({
+        entries: entriesRef.current,
+        accounts: optimisticAccounts,
+        logs: optimisticLogs,
+        siteBanner: siteBannerRef.current,
+        examConfig: examConfigRef.current,
+      });
+    } catch (_) {}
 
     try {
       let curVersion = recordVersionRef.current;
@@ -2093,7 +2132,7 @@ export default function DictionaryApp() {
               accounts: nextAccounts,
               logs: nextLogs,
               siteBanner: curBanner,
-              removeAccountCodes: [targetCode],
+              removeAccountCodes: [targetCode, ...pendingRemoveCodesRef.current],
             },
             curVersion
           );
@@ -2102,6 +2141,15 @@ export default function DictionaryApp() {
           accountsRef.current = nextAccounts;
           setLogs(nextLogs);
           logsRef.current = nextLogs;
+          try {
+            saveOfflineCache({
+              entries: curEntries,
+              accounts: nextAccounts,
+              logs: nextLogs,
+              siteBanner: curBanner,
+              examConfig: examConfigRef.current,
+            });
+          } catch (_) {}
           break;
         } catch (e) {
           if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
@@ -2123,6 +2171,7 @@ export default function DictionaryApp() {
       }
     } catch (_) {
       // Rollback on failure so the admin sees the account again.
+      pendingRemoveCodesRef.current.delete(String(targetCode));
       setAccounts(previousAccounts);
       accountsRef.current = previousAccounts;
       setLogs(previousLogs);
@@ -2239,6 +2288,19 @@ export default function DictionaryApp() {
     accountsRef.current = optimisticAccounts;
     setLogs(optimisticLogs);
     logsRef.current = optimisticLogs;
+    // Remember this removal for the rest of the session so concurrent saves
+    // cannot resurrect the account via server-side merge-by-code.
+    pendingRemoveCodesRef.current.add(String(targetCode));
+    // Update offline cache immediately so a fast reload cannot bring it back.
+    try {
+      saveOfflineCache({
+        entries: entriesRef.current,
+        accounts: optimisticAccounts,
+        logs: optimisticLogs,
+        siteBanner: siteBannerRef.current,
+        examConfig: examConfigRef.current,
+      });
+    } catch (_) {}
 
     // If deleting own account, sign out right away for a clean UX.
     if (targetCode === accountCode) {
@@ -2260,7 +2322,7 @@ export default function DictionaryApp() {
                   accounts: nextAccounts,
                   logs: nextLogs,
                   siteBanner: curBanner,
-                  removeAccountCodes: [targetCode],
+                  removeAccountCodes: [targetCode, ...pendingRemoveCodesRef.current],
                 },
                 curVersion
               );
@@ -2302,7 +2364,7 @@ export default function DictionaryApp() {
               accounts: nextAccounts,
               logs: nextLogs,
               siteBanner: curBanner,
-              removeAccountCodes: [targetCode],
+              removeAccountCodes: [targetCode, ...pendingRemoveCodesRef.current],
             },
             curVersion
           );
@@ -2311,6 +2373,15 @@ export default function DictionaryApp() {
           accountsRef.current = nextAccounts;
           setLogs(nextLogs);
           logsRef.current = nextLogs;
+          try {
+            saveOfflineCache({
+              entries: curEntries,
+              accounts: nextAccounts,
+              logs: nextLogs,
+              siteBanner: curBanner,
+              examConfig: examConfigRef.current,
+            });
+          } catch (_) {}
           break;
         } catch (e) {
           if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
@@ -2332,6 +2403,7 @@ export default function DictionaryApp() {
       }
     } catch (_) {
       // Rollback on failure so the admin sees the account again.
+      pendingRemoveCodesRef.current.delete(String(targetCode));
       setAccounts(previousAccounts);
       accountsRef.current = previousAccounts;
       setLogs(previousLogs);

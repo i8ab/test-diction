@@ -466,13 +466,9 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                           <EditIcon size={14} />
                         </button>
                         <button
-                          disabled={deletingCode === a.code}
+                          disabled={!!deletingCode}
                           onClick={async () => {
                             if (deletingCode) return;
-                            if (confirmDeleteCode !== a.code) {
-                              setConfirmDeleteCode(a.code);
-                              return;
-                            }
                             setConfirmDeleteCode(null);
                             setDeletingCode(a.code);
                             try {
@@ -481,23 +477,20 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                               setDeletingCode(null);
                             }
                           }}
-                          onBlur={() => setConfirmDeleteCode(null)}
                           title={
                             deletingCode === a.code
                               ? tr(isAr, "Deleting…", "جاري الحذف…")
-                              : confirmDeleteCode === a.code
-                                ? tr(isAr, "Click again to confirm", "اضغط مرة أخرى للتأكيد")
-                                : tr(isAr, "Remove", "إزالة")
+                              : tr(isAr, "Remove", "إزالة")
                           }
                           aria-label={tr(isAr, `Remove ${a.name}`, `إزالة ${a.name}`)}
                           style={{
                             border: "none",
-                            background: confirmDeleteCode === a.code || deletingCode === a.code ? "var(--danger-bg)" : CARD,
-                            color: confirmDeleteCode === a.code || deletingCode === a.code ? "var(--danger)" : "var(--icon-muted)",
+                            background: deletingCode === a.code ? "var(--danger-bg)" : CARD,
+                            color: deletingCode === a.code ? "var(--danger)" : "var(--icon-muted)",
                             borderRadius: 10,
                             width: 36,
                             height: 36,
-                            cursor: deletingCode === a.code ? "wait" : "pointer",
+                            cursor: deletingCode ? "wait" : "pointer",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",

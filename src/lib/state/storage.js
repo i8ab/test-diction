@@ -274,13 +274,11 @@ export function mergeOfflineProgress(serverAccounts, offlineRec) {
     }
     return patch;
   });
-  // Also keep offline-only accounts (shouldn't normally happen)
-  for (const off of offlineRec.accounts) {
-    if (off && off.code && !serverAccounts.some((s) => s.code === off.code)) {
-      next.push(off);
-      merged = true;
-    }
-  }
+  // IMPORTANT: never re-add accounts that exist only in offline cache.
+  // Admin deletes / rejects remove accounts from the server; bringing them
+  // back from localStorage was the root cause of "I deleted it, reloaded,
+  // and it came back". Progress merge above only patches accounts that
+  // still exist on the server.
   return { accounts: next, merged };
 }
 

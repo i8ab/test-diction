@@ -361,6 +361,35 @@ export default function DictionaryApp() {
     } catch (_) {}
   }, [accountCode, accountsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Silent backfill: persist any achievement levels already earned by live
+  // stats but missing from account.achievements[] (e.g. progress from before
+  // unlock hooks existed). No Minecraft toast — user already did the work.
+  useEffect(() => {
+    if (!accountCode || accountCode === "guest" || !accountsLoaded) return;
+    const acct = accounts.find((a) => a.code === accountCode);
+    if (!acct) return;
+    try {
+      let dictationRounds = 0;
+      try { dictationRounds = Number(localStorage.getItem("twoTongues.dictationRounds." + accountCode) || 0); } catch (_) {}
+      const box = {};
+      for (const id of Object.keys(acct.srsStats || {})) box[id] = srsLevelFromStats(acct.srsStats[id]);
+      const before = (acct.achievements || []).length;
+      const updated = unlockAchievements(
+        acct,
+        {
+          streak: computeStreak(acct.studiedAt || {}),
+          srsBox: box,
+          timerMinutesTotal: getTodayTimerMinutes(),
+          dictationRounds,
+        },
+        { notify: false }
+      );
+      if ((updated.achievements || []).length > before) {
+        persistAccounts((cur) => cur.map((a) => (a.code === accountCode ? { ...a, achievements: updated.achievements } : a)));
+      }
+    } catch (_) {}
+  }, [accountCode, accountsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Optimistic UI: flip the toggle immediately so the menu feels instant.
   // Network / permission work runs in the background; if enable fails
   // (permission denied, unsupported, server error) we roll the flag back.

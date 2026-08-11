@@ -5,6 +5,7 @@ import {
   ACHIEVEMENT_SECTIONS,
   buildAchievementStats,
   sectionProgress,
+  isAchievementEarned,
 } from "../../lib/state/achievements";
 import { XIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
@@ -45,15 +46,16 @@ export default function AchievementsModal({
   }, [onClose, openSection]);
 
   const totalLevels = ACHIEVEMENT_SECTIONS.reduce((n, s) => n + s.levels.length, 0);
+  // Count levels earned by stored unlocks OR by live stats (so old progress isn't invisible)
   const unlockedCount = ACHIEVEMENT_SECTIONS.reduce(
-    (n, s) => n + s.levels.filter((lv) => unlocked.has(lv.id)).length,
+    (n, s) => n + s.levels.filter((lv) => isAchievementEarned(lv.id, unlocked, stats)).length,
     0
   );
 
   const detail = openSection
     ? ACHIEVEMENT_SECTIONS.find((s) => s.id === openSection)
     : null;
-  const detailProg = detail ? sectionProgress(detail, stats) : null;
+  const detailProg = detail ? sectionProgress(detail, stats, unlocked) : null;
 
   return (
     <div
@@ -120,8 +122,8 @@ export default function AchievementsModal({
 
             <div style={{ display: "grid", gap: 10 }}>
               {ACHIEVEMENT_SECTIONS.map((sec) => {
-                const prog = sectionProgress(sec, stats);
-                const unlockedInSec = sec.levels.filter((lv) => unlocked.has(lv.id)).length;
+                const prog = sectionProgress(sec, stats, unlocked);
+                const unlockedInSec = sec.levels.filter((lv) => isAchievementEarned(lv.id, unlocked, stats)).length;
                 return (
                   <button
                     key={sec.id}
@@ -230,14 +232,28 @@ export default function AchievementsModal({
 
             <div style={{ display: "grid", gap: 12 }}>
               {detail.levels.map((lv) => {
-                const on = unlocked.has(lv.id) || stats[detail.metric] >= lv.threshold;
-                const reached = (Number(stats[detail.metric]) || 0) >= lv.threshold;
+                const permanentlyUnlocked = unlocked.has(lv.id);
+                const raw = Number(stats[detail.metric]) || 0;
+                const reachedNow = raw >= lv.threshold;
+                const on = permanentlyUnlocked || reachedNow;
                 const prev = lv.n === 1 ? 0 : detail.levels[lv.n - 2]?.threshold ?? 0;
                 const span = Math.max(1, lv.threshold - prev);
-                const raw = Number(stats[detail.metric]) || 0;
-                const levelPct = reached
+                const levelPct = on
                   ? 100
                   : Math.max(0, Math.min(100, Math.round(((raw - prev) / span) * 100)));
+                let statusLabel;
+                if (reachedNow) {
+                  statusLabel = tr(isAr, "Completed", "مكتمل");
+                } else if (permanentlyUnlocked) {
+                  // Badge kept after metric dropped (e.g. un-favorited)
+                  statusLabel = tr(
+                    isAr,
+                    `Unlocked · now ${raw}/${lv.threshold}`,
+                    `مفتوح · حالياً ${raw}/${lv.threshold}`
+                  );
+                } else {
+                  statusLabel = tr(isAr, `${raw} / ${lv.threshold} (${levelPct}%)`, `${raw} / ${lv.threshold} (${levelPct}%)`);
+                }
                 return (
                   <div
                     key={lv.id}
@@ -288,9 +304,7 @@ export default function AchievementsModal({
                         />
                       </div>
                       <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3, fontWeight: 600 }}>
-                        {reached
-                          ? tr(isAr, "Completed", "مكتمل")
-                          : tr(isAr, `${raw} / ${lv.threshold} (${levelPct}%)`, `${raw} / ${lv.threshold} (${levelPct}%)`)}
+                        {statusLabel}
                       </div>
                     </div>
                     {on && (

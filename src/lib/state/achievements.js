@@ -217,20 +217,33 @@ export function buildAchievementStats(account, extra = {}) {
 
 /**
  * Progress for one section: level 0–10, percent toward next level, etc.
+ * Optional unlockedIds (Set or array): permanent unlocks still count toward
+ * displayed level even if the live metric dropped (e.g. un-favorited words).
  */
-export function sectionProgress(section, stats) {
+export function sectionProgress(section, stats, unlockedIds) {
   const value = Number(stats[section.metric]) || 0;
   const levels = section.levels;
-  let currentLevel = 0;
+  let metricLevel = 0;
   for (let i = 0; i < levels.length; i++) {
-    if (value >= levels[i].threshold) currentLevel = i + 1;
+    if (value >= levels[i].threshold) metricLevel = i + 1;
   }
+  let unlockedLevel = 0;
+  if (unlockedIds) {
+    const have = unlockedIds instanceof Set ? unlockedIds : new Set(unlockedIds);
+    for (let i = 0; i < levels.length; i++) {
+      if (have.has(levels[i].id)) unlockedLevel = i + 1;
+    }
+  }
+  // Displayed level = best of live stats and permanent badges
+  const currentLevel = Math.max(metricLevel, unlockedLevel);
   const maxLevel = levels.length;
   if (currentLevel >= maxLevel) {
     return {
       currentLevel: maxLevel,
       maxLevel,
       value,
+      metricLevel,
+      unlockedLevel,
       nextThreshold: levels[maxLevel - 1].threshold,
       prevThreshold: levels[maxLevel - 1].threshold,
       pctToNext: 100,
@@ -241,12 +254,21 @@ export function sectionProgress(section, stats) {
   const next = levels[currentLevel];
   const prevThreshold = currentLevel === 0 ? 0 : levels[currentLevel - 1].threshold;
   const span = Math.max(1, next.threshold - prevThreshold);
-  const pctToNext = Math.max(0, Math.min(100, Math.round(((value - prevThreshold) / span) * 100)));
-  const overallPct = Math.max(0, Math.min(100, Math.round((currentLevel / maxLevel) * 100 + pctToNext / maxLevel)));
+  // Progress bar uses live metric only (honest current state)
+  const pctToNext =
+    metricLevel > currentLevel
+      ? 100
+      : Math.max(0, Math.min(100, Math.round(((value - prevThreshold) / span) * 100)));
+  const overallPct = Math.max(
+    0,
+    Math.min(100, Math.round((currentLevel / maxLevel) * 100 + (metricLevel >= currentLevel ? pctToNext / maxLevel : 0)))
+  );
   return {
     currentLevel,
     maxLevel,
     value,
+    metricLevel,
+    unlockedLevel,
     nextThreshold: next.threshold,
     prevThreshold,
     pctToNext,
@@ -289,16 +311,31 @@ export function notifyAchievementUnlocks(ids) {
 }
 
 /**
- * Evaluate unlocks, merge into account.achievements, and notify the UI.
+ * Evaluate unlocks, merge into account.achievements, and optionally notify UI.
+ * Pass { notify: false } for silent backfill of historical progress (no toast).
  * Returns the (possibly updated) account object.
  */
-export function unlockAchievements(account, extra = {}) {
+export function unlockAchievements(account, extra = {}, opts = {}) {
   if (!account) return account;
   const newly = evaluateAchievements(account, extra);
   if (!newly.length) return account;
-  notifyAchievementUnlocks(newly);
+  if (opts.notify !== false) notifyAchievementUnlocks(newly);
   return {
     ...account,
     achievements: [...new Set([...(account.achievements || []), ...newly])],
   };
+}
+
+/** Whether a level is earned by live stats or already stored on the account. */
+export function isAchievementEarned(levelId, unlockedSet, stats) {
+  if (unlockedSet && unlockedSet.has(levelId)) return true;
+  if (!stats) return false;
+  for (const sec of ACHIEVEMENT_SECTIONS) {
+    for (const lv of sec.levels) {
+      if (lv.id === levelId) {
+        return (Number(stats[sec.metric]) || 0) >= lv.threshold;
+      }
+    }
+  }
+  return false;
 }

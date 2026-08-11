@@ -102,14 +102,16 @@ function StatsModal({ entries, sectionLabel, studiedIds, studiedAt, srsBox, srsD
   const studiedCount = studiedEntries.length;
   const pct = total ? Math.round((studiedCount / total) * 100) : 0;
 
+  // SRS boxes are 0..5 (see SRS_BOX_LABELS / srsLevelFromStats). Index 5 = Mastered.
   const boxCounts = useMemo(() => {
-    const counts = [0, 0, 0, 0];
+    const counts = [0, 0, 0, 0, 0, 0];
     for (const e of studiedEntries) {
-      const box = (srsBox && srsBox[e.id]) || 0;
+      const box = Math.min(5, Math.max(0, (srsBox && srsBox[e.id]) || 0));
       counts[box] += 1;
     }
     return counts;
   }, [studiedEntries, srsBox]);
+  const masteredCount = boxCounts[5];
 
   const dueCount = useMemo(() => studiedEntries.filter((e) => isSrsDue(e.id, srsDueAt)).length, [studiedEntries, srsDueAt]);
 
@@ -158,7 +160,7 @@ function StatsModal({ entries, sectionLabel, studiedIds, studiedAt, srsBox, srsD
             <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{tr(isAr, `${studiedCount} of ${total} words`, `${studiedCount} من ${total} كلمة`)}</div>
           </div>
           <div style={statCardStyle}>
-            <div style={{ fontSize: 24, fontWeight: 700, color: "var(--success)" }}>{boxCounts[3]}</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "var(--success)" }}>{masteredCount}</div>
             <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{tr(isAr, "Mastered", "متقنة")}</div>
           </div>
           <div style={statCardStyle}>

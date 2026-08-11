@@ -3,12 +3,43 @@ import { createPortal } from "react-dom";
 import { achievementById } from "../../lib/state/achievements";
 
 /**
- * Minecraft-style achievement / advancement toast.
- * Listens for `twotongues:achievement` CustomEvents and queues toasts.
- * Renders via portal at z-index 12000 so it sits above every modal/toast.
+ * Minecraft-style achievement toast.
+ * - Slides in from the right edge of the screen
+ * - Click opens the Achievements modal (via twotongues:open-achievements)
+ * - Icon has a short bounce/pulse animation
+ * - Portal at z-index 12000 (above modals/toasts)
  */
-const DISPLAY_MS = 4200;
-const ANIM_MS = 320;
+const DISPLAY_MS = 5200;
+const ANIM_MS = 380;
+const STYLE_ID = "mc-ach-toast-keyframes";
+
+function ensureKeyframes() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById(STYLE_ID)) return;
+  const style = document.createElement("style");
+  style.id = STYLE_ID;
+  style.textContent = `
+@keyframes mcAchIconPop {
+  0%   { transform: scale(0.2) rotate(-12deg); opacity: 0.3; }
+  45%  { transform: scale(1.22) rotate(6deg); opacity: 1; }
+  70%  { transform: scale(0.92) rotate(-3deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes mcAchIconGlow {
+  0%, 100% { filter: drop-shadow(0 0 0 transparent); }
+  50% { filter: drop-shadow(0 0 6px rgba(252, 252, 0, 0.65)); }
+}
+@keyframes mcAchSlideIn {
+  from { transform: translateX(110%); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+@keyframes mcAchSlideOut {
+  from { transform: translateX(0); opacity: 1; }
+  to   { transform: translateX(110%); opacity: 0; }
+}
+`;
+  document.head.appendChild(style);
+}
 
 function playUnlockChime() {
   try {
@@ -16,7 +47,6 @@ function playUnlockChime() {
     if (!AC) return;
     const ctx = new AC();
     const now = ctx.currentTime;
-    // Soft two-note "plop" similar to classic MC achievement jingle
     const notes = [
       { f: 523.25, t: 0, d: 0.12 },
       { f: 659.25, t: 0.1, d: 0.18 },
@@ -41,50 +71,88 @@ function playUnlockChime() {
   } catch (_) {}
 }
 
+function openAchievementsFromToast(achievementId) {
+  try {
+    window.dispatchEvent(
+      new CustomEvent("twotongues:open-achievements", {
+        detail: { id: achievementId || null },
+      })
+    );
+  } catch (_) {}
+}
+
 function ToastItem({ item, isAr, onDone }) {
   const [phase, setPhase] = useState("enter"); // enter | show | exit
   const doneRef = useRef(false);
 
+  const finish = useCallback(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    onDone(item.key);
+  }, [item.key, onDone]);
+
   useEffect(() => {
+    ensureKeyframes();
     const t1 = setTimeout(() => setPhase("show"), 20);
     const t2 = setTimeout(() => setPhase("exit"), DISPLAY_MS);
-    const t3 = setTimeout(() => {
-      if (!doneRef.current) {
-        doneRef.current = true;
-        onDone(item.key);
-      }
-    }, DISPLAY_MS + ANIM_MS);
+    const t3 = setTimeout(finish, DISPLAY_MS + ANIM_MS);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
     };
-  }, [item.key, onDone]);
+  }, [item.key, finish]);
 
   const a = item.achievement;
   const title = isAr ? "تم إنجاز!" : "Achievement get!";
   const name = isAr ? (a?.ar || a?.en || item.id) : (a?.en || item.id);
   const icon = a?.icon || "🏆";
 
-  // Slide in from top-right (classic Minecraft achievement toast direction)
-  const slide =
-    phase === "enter" || phase === "exit"
-      ? "translate(28px, -120%)"
-      : "translate(0, 0)";
-  const opacity = phase === "show" ? 1 : 0;
+  const animName =
+    phase === "enter" || phase === "show"
+      ? "mcAchSlideIn"
+      : "mcAchSlideOut";
+  // enter runs once; show holds; exit slides out
+  const animStyle =
+    phase === "show"
+      ? {
+          transform: "translateX(0)",
+          opacity: 1,
+          animation: "none",
+        }
+      : {
+          animation: `${animName} ${ANIM_MS}ms cubic-bezier(0.2, 0.9, 0.2, 1) forwards`,
+        };
+
+  function handleClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    openAchievementsFromToast(item.id);
+    setPhase("exit");
+    setTimeout(finish, ANIM_MS);
+  }
+
+  function handleKey(e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleClick(e);
+    }
+  }
 
   return (
     <div
-      role="status"
-      aria-live="polite"
-      aria-atomic="true"
+      role="button"
+      tabIndex={0}
+      aria-label={isAr ? `إنجاز: ${name} — اضغط للفتح` : `Achievement: ${name} — click to open`}
+      onClick={handleClick}
+      onKeyDown={handleKey}
       style={{
-        pointerEvents: "none",
-        transform: slide,
-        opacity,
-        transition: `transform ${ANIM_MS}ms cubic-bezier(0.2, 0.9, 0.2, 1), opacity ${ANIM_MS}ms ease`,
+        pointerEvents: "auto",
+        cursor: "pointer",
         marginBottom: 10,
         alignSelf: "flex-end",
+        ...animStyle,
+        transition: phase === "show" ? "none" : undefined,
       }}
     >
       {/* Outer frame — classic MC double-border look */}
@@ -103,7 +171,7 @@ function ToastItem({ item, isAr, onDone }) {
           imageRendering: "pixelated",
         }}
       >
-        {/* Icon slot */}
+        {/* Icon slot with pop + glow */}
         <div
           style={{
             width: 52,
@@ -117,10 +185,19 @@ function ToastItem({ item, isAr, onDone }) {
             fontSize: 26,
             lineHeight: 1,
             textShadow: "2px 2px 0 #000",
+            overflow: "hidden",
           }}
           aria-hidden
         >
-          {icon}
+          <span
+            style={{
+              display: "inline-block",
+              animation:
+                "mcAchIconPop 0.55s cubic-bezier(0.34, 1.4, 0.64, 1) both, mcAchIconGlow 1.4s ease-in-out 0.4s 2",
+            }}
+          >
+            {icon}
+          </span>
         </div>
         {/* Text */}
         <div
@@ -160,6 +237,16 @@ function ToastItem({ item, isAr, onDone }) {
           >
             {name}
           </div>
+          <div
+            style={{
+              color: "rgba(255,255,255,0.45)",
+              fontSize: 10,
+              fontWeight: 600,
+              marginTop: 1,
+            }}
+          >
+            {isAr ? "اضغط للعرض" : "Click to view"}
+          </div>
         </div>
       </div>
     </div>
@@ -167,10 +254,11 @@ function ToastItem({ item, isAr, onDone }) {
 }
 
 export default function MinecraftAchievementToast({ isAr = false }) {
-  const [queue, setQueue] = useState([]); // { key, id, achievement }
+  const [queue, setQueue] = useState([]);
   const keySeq = useRef(0);
 
   useEffect(() => {
+    ensureKeyframes();
     function onAchievement(e) {
       const detail = e?.detail;
       if (!detail) return;
@@ -199,11 +287,7 @@ export default function MinecraftAchievementToast({ isAr = false }) {
       if (!additions.length) return;
 
       playUnlockChime();
-      setQueue((prev) => {
-        // Cap queue so a bulk unlock doesn't spam forever
-        const next = [...prev, ...additions];
-        return next.slice(-8);
-      });
+      setQueue((prev) => [...prev, ...additions].slice(-8));
     }
 
     window.addEventListener("twotongues:achievement", onAchievement);
@@ -214,17 +298,16 @@ export default function MinecraftAchievementToast({ isAr = false }) {
     setQueue((prev) => prev.filter((t) => t.key !== key));
   }, []);
 
-  // Show at most 3 stacked at once (top ones visible)
   const visible = queue.slice(0, 3);
   if (!visible.length || typeof document === "undefined") return null;
 
-  // Top-right stack (mirrors classic MC Java achievement toast corner)
+  // Right edge of the screen — slides in horizontally from the side
   return createPortal(
     <div
       style={{
         position: "fixed",
-        top: 16,
-        right: 16,
+        top: "max(16px, env(safe-area-inset-top))",
+        right: "max(12px, env(safe-area-inset-right))",
         left: "auto",
         display: "flex",
         flexDirection: "column",

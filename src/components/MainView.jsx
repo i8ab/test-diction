@@ -303,6 +303,15 @@ export default function MainView({
     return () => window.removeEventListener("twotongues:levelup", onLevelUp);
   }, []);
 
+  // Minecraft achievement toast click → open Achievements modal
+  useEffect(() => {
+    function onOpenAchievements() {
+      setShowAchievements(true);
+    }
+    window.addEventListener("twotongues:open-achievements", onOpenAchievements);
+    return () => window.removeEventListener("twotongues:open-achievements", onOpenAchievements);
+  }, []);
+
   const blockingActivity =
     showQuiz ||
     showExamMode ||

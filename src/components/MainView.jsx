@@ -17,6 +17,7 @@ import { makeLogEntry } from "../lib/state/logs";
 import { SECTIONS } from "../lib/config/sections";
 import { loadSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory } from "../lib/state/storage";
 import EntryCard from "./common/EntryCard";
+import MinecraftAchievementToast from "./common/MinecraftAchievementToast";
 import HeaderMenu from "./layout/HeaderMenu";
 import BrandMark from "./common/BrandMark";
 import AvatarWithFrame from "./common/AvatarWithFrame";
@@ -146,7 +147,7 @@ export default function MainView({
   name, isAdmin, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
   showAdd, onOpenAdd, onCloseAdd, persistEntries, saveError, onLogout,
   accounts, accountCode, logs, onClearLogs, studiedIds, studiedAt, onToggleStudied, favoriteIds, onToggleFavorite, showAccount, onOpenAccount, onCloseAccount, onUpdateOwnAccount,
-  srsBox, srsDueAt, quizHistory, onRecordSrsAnswer, onSaveQuizResult,
+  srsBox, srsDueAt, quizHistory, onRecordSrsAnswer, onSaveQuizResult, onDictationRoundFinished,
   siteBanner, onPersistSiteBanner,
   examConfig, onPersistExamConfig,
   showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount, onApproveRequest, onRejectRequest,
@@ -1789,6 +1790,8 @@ export default function MainView({
           <CheckIcon size={14} /> {tr(isAr, toast, toast === "Account info updated." ? "تم تحديث بيانات الحساب." : toast)}
         </div>
       )}
+      {/* Minecraft-style achievement toasts — portal + z-index 12000 (above all modals/toasts) */}
+      <MinecraftAchievementToast isAr={appIsAr} />
     </div>
 
     {showTimer && (
@@ -1872,9 +1875,12 @@ export default function MainView({
           onRecordSrsAnswer={onRecordSrsAnswer}
           onFinishRound={() => {
             try {
-              const k = "twoTongues.dictationRounds." + accountCode;
-              const n = Number(localStorage.getItem(k) || 0) + 1;
-              localStorage.setItem(k, String(n));
+              if (typeof onDictationRoundFinished === "function") onDictationRoundFinished();
+              else {
+                const k = "twoTongues.dictationRounds." + accountCode;
+                const n = Number(localStorage.getItem(k) || 0) + 1;
+                localStorage.setItem(k, String(n));
+              }
             } catch (_) {}
           }}
         />

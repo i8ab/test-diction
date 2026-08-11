@@ -272,3 +272,33 @@ export function evaluateAchievements(account, extra = {}) {
   }
   return newly;
 }
+
+/**
+ * Fire UI toast(s) for newly unlocked achievement ids.
+ * Uses the same CustomEvent pattern as level-up (twotongues:levelup).
+ */
+export function notifyAchievementUnlocks(ids) {
+  if (!ids || !ids.length || typeof window === "undefined") return;
+  try {
+    window.dispatchEvent(
+      new CustomEvent("twotongues:achievement", {
+        detail: { ids: ids.map(String) },
+      })
+    );
+  } catch (_) {}
+}
+
+/**
+ * Evaluate unlocks, merge into account.achievements, and notify the UI.
+ * Returns the (possibly updated) account object.
+ */
+export function unlockAchievements(account, extra = {}) {
+  if (!account) return account;
+  const newly = evaluateAchievements(account, extra);
+  if (!newly.length) return account;
+  notifyAchievementUnlocks(newly);
+  return {
+    ...account,
+    achievements: [...new Set([...(account.achievements || []), ...newly])],
+  };
+}

@@ -16,7 +16,7 @@ import {
   validateUsername, validatePassword, hashPassword, verifyPassword, verifyPasswordDetailed, migrateAccounts, normalizeUsername,
 } from "./lib/utils/authUtils";
 import { SRS_LEVEL_INTERVALS_MS, srsLevelFromStats, computeStreak, applySm2, correctToQuality, getCardState, loadSrsPrefs } from "./lib/utils/quizHelpers";
-import { evaluateAchievements } from "./lib/state/achievements";
+import { unlockAchievements } from "./lib/state/achievements";
 import { grantStudyWord, grantQuizCorrect, grantQuizSession, grantSrsPromote, grantFavorite, grantDailyOpen, grantStreakBonus, loadXp, hydrateXpFromCloud, attachXpToAccounts } from "./lib/state/xp";
 import { loadExamConfigCache, saveExamConfigCache, normalizeExamConfig, defaultExamConfig } from "./lib/state/exam";
 import { getTodayTimerMinutes } from "./lib/state/goals";
@@ -1284,15 +1284,30 @@ export default function DictionaryApp() {
       const studied = a.studied || [];
       const studiedAt = { ...(a.studiedAt || {}) };
       const has = studied.includes(entryId);
+      let next = a;
       if (wantStudied && !has) {
-        return { ...a, studied: [...studied, entryId], studiedAt: { ...studiedAt, [entryId]: stampedAt } };
-      }
-      if (!wantStudied && has) {
+        next = { ...a, studied: [...studied, entryId], studiedAt: { ...studiedAt, [entryId]: stampedAt } };
+      } else if (!wantStudied && has) {
         const nextAt = { ...studiedAt };
         delete nextAt[entryId];
-        return { ...a, studied: studied.filter((id) => id !== entryId), studiedAt: nextAt };
+        next = { ...a, studied: studied.filter((id) => id !== entryId), studiedAt: nextAt };
+      } else {
+        return a;
       }
-      return a;
+      // Unlock study / streak achievements when progress changes.
+      try {
+        let dictationRounds = 0;
+        try { dictationRounds = Number(localStorage.getItem("twoTongues.dictationRounds." + accountCode) || 0); } catch (_) {}
+        const box = {};
+        for (const id of Object.keys(next.srsStats || {})) box[id] = srsLevelFromStats(next.srsStats[id]);
+        next = unlockAchievements(next, {
+          streak: computeStreak(next.studiedAt || {}),
+          srsBox: box,
+          timerMinutesTotal: getTodayTimerMinutes(),
+          dictationRounds,
+        });
+      } catch (_) {}
+      return next;
     }));
   }
 
@@ -1311,9 +1326,23 @@ export default function DictionaryApp() {
       if (a.code !== accountCode) return a;
       const favorites = a.favorites || [];
       const has = favorites.includes(entryId);
-      if (wantFavorite && !has) return { ...a, favorites: [...favorites, entryId] };
-      if (!wantFavorite && has) return { ...a, favorites: favorites.filter((id) => id !== entryId) };
-      return a;
+      let next = a;
+      if (wantFavorite && !has) next = { ...a, favorites: [...favorites, entryId] };
+      else if (!wantFavorite && has) next = { ...a, favorites: favorites.filter((id) => id !== entryId) };
+      else return a;
+      try {
+        let dictationRounds = 0;
+        try { dictationRounds = Number(localStorage.getItem("twoTongues.dictationRounds." + accountCode) || 0); } catch (_) {}
+        const box = {};
+        for (const id of Object.keys(next.srsStats || {})) box[id] = srsLevelFromStats(next.srsStats[id]);
+        next = unlockAchievements(next, {
+          streak: computeStreak(next.studiedAt || {}),
+          srsBox: box,
+          timerMinutesTotal: getTodayTimerMinutes(),
+          dictationRounds,
+        });
+      } catch (_) {}
+      return next;
     }));
   }
 
@@ -1338,12 +1367,26 @@ export default function DictionaryApp() {
         const { card, dueAt } = applySm2(prevCard, quality, loadSrsPrefs());
         prevBox = srsLevelFromStats(prevStats);
         nextBox = srsLevelFromStats(nextStats);
-        return {
+        let next = {
           ...a,
           srsStats: { ...(a.srsStats || {}), [entryId]: nextStats },
           srsDueAt: { ...(a.srsDueAt || {}), [entryId]: dueAt },
           srsCards: { ...(a.srsCards || {}), [entryId]: card },
         };
+        // SRS mastery can unlock achievement levels.
+        try {
+          let dictationRounds = 0;
+          try { dictationRounds = Number(localStorage.getItem("twoTongues.dictationRounds." + accountCode) || 0); } catch (_) {}
+          const box = {};
+          for (const id of Object.keys(next.srsStats || {})) box[id] = srsLevelFromStats(next.srsStats[id]);
+          next = unlockAchievements(next, {
+            streak: computeStreak(next.studiedAt || {}),
+            srsBox: box,
+            timerMinutesTotal: getTodayTimerMinutes(),
+            dictationRounds,
+          });
+        } catch (_) {}
+        return next;
       }));
       // XP: first correct for this word; SRS promote only when box actually rises
       try {
@@ -1352,6 +1395,42 @@ export default function DictionaryApp() {
         if (nextBox > prevBox) grantSrsPromote(accountCode, entryId, nextBox);
       } catch (_) {}
     } catch (e) { /* best-effort, quiz keeps going */ }
+  }
+
+  // Called when a dictation round finishes — bumps local counter and unlocks
+  // dictation achievements if thresholds are hit.
+  async function handleDictationRoundFinished() {
+    if (!accountCode || accountCode === "guest") {
+      try {
+        const k = "twoTongues.dictationRounds." + (accountCode || "guest");
+        const n = Number(localStorage.getItem(k) || 0) + 1;
+        localStorage.setItem(k, String(n));
+      } catch (_) {}
+      return;
+    }
+    let rounds = 0;
+    try {
+      const k = "twoTongues.dictationRounds." + accountCode;
+      rounds = Number(localStorage.getItem(k) || 0) + 1;
+      localStorage.setItem(k, String(rounds));
+    } catch (_) {}
+    try {
+      await persistAccounts((curAccounts) => curAccounts.map((a) => {
+        if (a.code !== accountCode) return a;
+        try {
+          const box = {};
+          for (const id of Object.keys(a.srsStats || {})) box[id] = srsLevelFromStats(a.srsStats[id]);
+          return unlockAchievements(a, {
+            streak: computeStreak(a.studiedAt || {}),
+            srsBox: box,
+            timerMinutesTotal: getTodayTimerMinutes(),
+            dictationRounds: rounds,
+          });
+        } catch (_) {
+          return a;
+        }
+      }));
+    } catch (_) {}
   }
 
   // Appends one finished quiz's summary to the account's history (for the
@@ -1372,15 +1451,12 @@ export default function DictionaryApp() {
           try { dictationRounds = Number(localStorage.getItem("twoTongues.dictationRounds." + accountCode) || 0); } catch (_) {}
           const box = {};
           for (const id of Object.keys(next.srsStats || {})) box[id] = srsLevelFromStats(next.srsStats[id]);
-          const newly = evaluateAchievements(next, {
+          next = unlockAchievements(next, {
             streak: computeStreak(next.studiedAt || {}),
             srsBox: box,
             timerMinutesTotal: getTodayTimerMinutes(),
             dictationRounds,
           });
-          if (newly.length) {
-            next = { ...next, achievements: [...new Set([...(next.achievements || []), ...newly])] };
-          }
         } catch (_) {}
         return next;
       }));
@@ -2197,6 +2273,7 @@ export default function DictionaryApp() {
       favoriteIds={favoriteIds} onToggleFavorite={handleToggleFavorite}
       srsBox={srsBox} srsDueAt={srsDueAt} quizHistory={quizHistory}
       onRecordSrsAnswer={handleRecordSrsAnswer} onSaveQuizResult={handleSaveQuizResult}
+      onDictationRoundFinished={handleDictationRoundFinished}
       showAccount={showAccount} onOpenAccount={openAccountModal} onCloseAccount={closeAccountModal} onUpdateOwnAccount={handleUpdateOwnAccount}
       vaultAccounts={vaultAccounts}
       mainAccountCode={mainAccountCode}

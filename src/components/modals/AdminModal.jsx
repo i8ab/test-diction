@@ -50,6 +50,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
   const [newAccountName, setNewAccountName] = useState("");
   const [newAccountCode, setNewAccountCode] = useState("");
   const [confirmDeleteCode, setConfirmDeleteCode] = useState(null);
+  const [deletingCode, setDeletingCode] = useState(null);
   const [codeCopied, setCodeCopied] = useState(false);
   const [logFilter, setLogFilter] = useState("all");
   const [confirmClearLogs, setConfirmClearLogs] = useState(false);
@@ -465,22 +466,43 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                           <EditIcon size={14} />
                         </button>
                         <button
-                          onClick={() => (confirmDeleteCode === a.code ? onDelete(a.code) : setConfirmDeleteCode(a.code))}
+                          disabled={deletingCode === a.code}
+                          onClick={async () => {
+                            if (deletingCode) return;
+                            if (confirmDeleteCode !== a.code) {
+                              setConfirmDeleteCode(a.code);
+                              return;
+                            }
+                            setConfirmDeleteCode(null);
+                            setDeletingCode(a.code);
+                            try {
+                              await onDelete(a.code);
+                            } finally {
+                              setDeletingCode(null);
+                            }
+                          }}
                           onBlur={() => setConfirmDeleteCode(null)}
-                          title={confirmDeleteCode === a.code ? tr(isAr, "Click again to confirm", "اضغط مرة أخرى للتأكيد") : tr(isAr, "Remove", "إزالة")}
+                          title={
+                            deletingCode === a.code
+                              ? tr(isAr, "Deleting…", "جاري الحذف…")
+                              : confirmDeleteCode === a.code
+                                ? tr(isAr, "Click again to confirm", "اضغط مرة أخرى للتأكيد")
+                                : tr(isAr, "Remove", "إزالة")
+                          }
                           aria-label={tr(isAr, `Remove ${a.name}`, `إزالة ${a.name}`)}
                           style={{
                             border: "none",
-                            background: confirmDeleteCode === a.code ? "var(--danger-bg)" : CARD,
-                            color: confirmDeleteCode === a.code ? "var(--danger)" : "var(--icon-muted)",
+                            background: confirmDeleteCode === a.code || deletingCode === a.code ? "var(--danger-bg)" : CARD,
+                            color: confirmDeleteCode === a.code || deletingCode === a.code ? "var(--danger)" : "var(--icon-muted)",
                             borderRadius: 10,
                             width: 36,
                             height: 36,
-                            cursor: "pointer",
+                            cursor: deletingCode === a.code ? "wait" : "pointer",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
                             boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                            opacity: deletingCode === a.code ? 0.6 : 1,
                           }}
                         >
                           <TrashIcon size={14} />

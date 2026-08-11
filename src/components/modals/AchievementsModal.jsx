@@ -241,19 +241,11 @@ export default function AchievementsModal({
                 const levelPct = on
                   ? 100
                   : Math.max(0, Math.min(100, Math.round(((raw - prev) / span) * 100)));
-                let statusLabel;
-                if (reachedNow) {
-                  statusLabel = tr(isAr, "Completed", "مكتمل");
-                } else if (permanentlyUnlocked) {
-                  // Badge kept after metric dropped (e.g. un-favorited)
-                  statusLabel = tr(
-                    isAr,
-                    `Unlocked · now ${raw}/${lv.threshold}`,
-                    `مفتوح · حالياً ${raw}/${lv.threshold}`
-                  );
-                } else {
-                  statusLabel = tr(isAr, `${raw} / ${lv.threshold} (${levelPct}%)`, `${raw} / ${lv.threshold} (${levelPct}%)`);
-                }
+                // Once unlocked (or currently at threshold): always "Completed".
+                // Live metric drops (e.g. un-favorite) do not change the label.
+                const statusLabel = on
+                  ? tr(isAr, "Completed", "مكتمل")
+                  : tr(isAr, `${raw} / ${lv.threshold} (${levelPct}%)`, `${raw} / ${lv.threshold} (${levelPct}%)`);
                 return (
                   <div
                     key={lv.id}

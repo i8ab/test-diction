@@ -101,6 +101,16 @@ function EntryCard({
   const actionRadius = touchy ? 12 : 10;
   const iconSize = touchy ? 18 : 16;
 
+  // Cambridge / speak / chevron — scale with the word row & screen size
+  // (desktop compact, tablet balanced, mobile larger hit targets)
+  const ctrlIcon = mobileLayout ? 20 : tabletLayout ? 18 : 16;
+  const chevronIcon = mobileLayout ? 16 : tabletLayout ? 15 : 13;
+  const camHit = mobileLayout ? 36 : tabletLayout ? 32 : 28;
+  const speakHit = mobileLayout ? 40 : tabletLayout ? 36 : 32;
+  const chevronHit = mobileLayout ? 32 : tabletLayout ? 28 : 26;
+  const wordFontSize = mobileLayout ? 17 : tabletLayout ? 18 : 16;
+  const ctrlGap = mobileLayout ? 4 : tabletLayout ? 3 : 2;
+
   const actionBtnBase = {
     border: "none",
     background: "var(--input-bg)",
@@ -202,12 +212,13 @@ function EntryCard({
         }}
       >
         {/* Word row: word + POS on the start side; Cambridge / speak / chevron on the far end */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+        <div className="entry-card-word-row" style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
           <span
+            className="entry-card-word"
             dir={cfg.wordDir}
             style={{
               fontFamily: cfg.wordFont,
-              fontSize: touchy ? 18 : 16,
+              fontSize: wordFontSize,
               fontWeight: 700,
               color: INK,
               lineHeight: 1.25,
@@ -243,12 +254,13 @@ function EntryCard({
           )}
           {/* Spacer pushes controls to the far edge (right in LTR, left in RTL) */}
           <span style={{ flex: "1 1 0", minWidth: 8 }} aria-hidden="true" />
-          {/* Cambridge + speak + chevron — far from the word, same row */}
+          {/* Cambridge + speak + chevron — sized for the current screen */}
           <span
+            className="entry-card-controls"
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: 2,
+              gap: ctrlGap,
               flexShrink: 0,
             }}
             onClick={(e) => e.stopPropagation()}
@@ -261,32 +273,47 @@ function EntryCard({
                 rel="noopener noreferrer"
                 title={tr(isAr, "Cambridge Dictionary", "قاموس كامبريدج")}
                 aria-label={tr(isAr, "Open in Cambridge Dictionary", "افتح في قاموس كامبريدج")}
-                className="lift-hover"
+                className="lift-hover entry-cam-link"
                 style={{
                   flexShrink: 0,
-                  width: 28,
-                  height: 28,
+                  width: camHit,
+                  height: camHit,
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  borderRadius: 6,
+                  borderRadius: mobileLayout ? 10 : 8,
                   textDecoration: "none",
                 }}
               >
-                <CambridgeShieldIcon size={18} />
+                <CambridgeShieldIcon size={ctrlIcon} />
               </a>
             )}
             {isEnglishWord && (
               <span
                 className="entry-speak-slot"
-                style={{ width: 36, height: 36, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                style={{
+                  width: speakHit,
+                  height: speakHit,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
               >
-                <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={isAr} size={18} />
+                <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={isAr} size={ctrlIcon} />
               </span>
             )}
-            <span style={{ width: 26, height: 26, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            <span
+              className="entry-chevron-slot"
+              style={{
+                width: chevronHit,
+                height: chevronHit,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <ChevronIcon
-                size={14}
+                size={chevronIcon}
                 color={cfg.accent}
                 style={{
                   transition: "transform 0.15s",

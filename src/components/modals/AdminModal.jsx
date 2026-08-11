@@ -223,7 +223,9 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
           width: "100%",
           maxWidth: "min(560px, 100%)",
           maxHeight: "min(92dvh, 920px)",
-          overflowY: "auto",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
           background: CARD,
           borderRadius: "var(--modal-radius, 20px)",
           padding: 0,
@@ -237,10 +239,8 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
             padding: "18px 18px 14px",
             background: "linear-gradient(135deg, color-mix(in srgb, var(--accent-1) 18%, transparent), color-mix(in srgb, var(--accent-2) 10%, transparent))",
             borderBottom: "1px solid rgba(var(--border-rgb),0.1)",
-            position: "sticky",
-            top: 0,
+            flexShrink: 0,
             zIndex: 2,
-            backdropFilter: "blur(8px)",
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
@@ -327,6 +327,8 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
             </>
           )}
         </div>
+
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
 
         <div style={{ padding: "14px 18px 20px" }}>
           {mode === "list" && tab === "accounts" && (
@@ -853,6 +855,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
               </button>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>

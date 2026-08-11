@@ -186,10 +186,12 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
           padding: "clamp(16px, 3vw, 24px)",
           boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)",
           maxHeight: "90dvh",
-          overflowY: "auto",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, gap: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, gap: 8, flexShrink: 0 }}>
           <h2 id="account-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(17px, 3vw, 19px)", fontWeight: 600, color: INK, margin: 0 }}>
             {T("My account", "حسابي")}
           </h2>
@@ -198,6 +200,7 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
           </button>
         </div>
 
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
         {/* Profile block: photo + name (name lives here, not in the header) */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, marginTop: 12, marginBottom: 8 }}>
           <div style={{ position: "relative" }}>
@@ -559,6 +562,7 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
             {saving ? <LoaderIcon size={16} /> : <CheckIcon size={16} />} {T("Save changes", "حفظ التغييرات")}
           </button>
         </form>
+        </div>
       </div>
     </div>
   );

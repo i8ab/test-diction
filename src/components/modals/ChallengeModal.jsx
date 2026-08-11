@@ -102,13 +102,15 @@ export default function ChallengeModal({
           width: "100%",
           maxWidth: 520,
           maxHeight: "92dvh",
-          overflowY: "auto",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
           background: CARD,
           borderRadius: "18px 18px 0 0",
           padding: "18px 16px 28px",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <TrophyIcon size={20} />
             <span style={{ fontSize: 18, fontWeight: 800, color: INK }}>
@@ -119,6 +121,8 @@ export default function ChallengeModal({
             <XIcon size={20} />
           </button>
         </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+
 
         {others.length === 0 ? (
           <div style={{ fontSize: 14, color: "var(--muted-strong)", marginBottom: 16 }}>
@@ -220,6 +224,7 @@ export default function ChallengeModal({
               </div>
             );
           })}
+        </div>
         </div>
       </div>
     </div>

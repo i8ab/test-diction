@@ -47,14 +47,16 @@ function LeaderboardModal({ accounts, sectionEntries, accountCode, sectionLabel,
     <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 6000 }}>
       <BodyScrollLock />
       <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={isAr ? "rtl" : "ltr"} role="dialog" aria-modal="true" aria-labelledby="leaderboard-modal-title"
-        style={{ width: "100%", maxWidth: 480, maxHeight: "88vh", overflowY: "auto", background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        style={{ width: "100%", maxWidth: 480, maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column", background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, flexShrink: 0 }}>
           <h2 id="leaderboard-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: INK, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
             <TrophyIcon size={19} color={BRASS} /> {tr(isAr, "Leaderboard", "الترتيب")}
             {sectionLabel && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>· {sectionLabel}</span>}
           </h2>
           <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}><XIcon size={20} /></button>
         </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+
         <p style={{ fontSize: 13, color: "var(--muted)", margin: "10px 0 16px" }}>
           {tr(isAr, "Ranked by words verified through the Quiz (not just marked \"studied\"); average quiz score and mastered words break ties.", "الترتيب حسب الكلمات اللي اتأكدت فعليًا عن طريق الاختبار (مش بس اللي اتعلّمت عليها \"درستها\")؛ متوسط نتيجة الاختبارات وعدد الكلمات المتقنة بيفصلوا التعادل.")}
         </p>
@@ -90,6 +92,7 @@ function LeaderboardModal({ accounts, sectionEntries, accountCode, sectionLabel,
             })}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

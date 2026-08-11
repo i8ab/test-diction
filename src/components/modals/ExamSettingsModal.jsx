@@ -84,12 +84,12 @@ export default function ExamSettingsModal({ examConfig, onPersist, isAr, onClose
         role="dialog"
         aria-modal="true"
         style={{
-          width: "100%", maxWidth: 420, maxHeight: "90dvh", overflowY: "auto",
+          width: "100%", maxWidth: 420, maxHeight: "90dvh", overflow: "hidden", display: "flex", flexDirection: "column",
           background: CARD, borderRadius: 14, padding: "22px 20px",
           boxShadow: "0 24px 60px -12px rgba(0,0,0,0.4)",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
           <h2 style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 600, color: INK, display: "flex", alignItems: "center", gap: 8 }}>
             <FlameIcon size={18} color={color} />
             {tr(isAr, "Exam countdown", "عدّاد الامتحان")}
@@ -99,6 +99,8 @@ export default function ExamSettingsModal({ examConfig, onPersist, isAr, onClose
             <XIcon size={20} />
           </button>
         </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+
 
         <p style={{ fontSize: 13, color: "var(--muted-strong)", margin: "0 0 14px", lineHeight: 1.45 }}>
           {tr(isAr,
@@ -164,6 +166,7 @@ export default function ExamSettingsModal({ examConfig, onPersist, isAr, onClose
             {tr(isAr, "Turn off countdown", "إيقاف العدّاد")}
           </button>
         )}
+        </div>
       </div>
     </div>
   );

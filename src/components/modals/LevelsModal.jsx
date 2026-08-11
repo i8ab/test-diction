@@ -38,13 +38,13 @@ export default function LevelsModal({ accountCode, isAr, onClose }) {
       <div
         className="modal-card responsive-modal"
         style={{
-          width: "100%", maxWidth: 480, maxHeight: "92dvh", overflow: "auto",
+          width: "100%", maxWidth: 480, maxHeight: "92dvh", overflow: "hidden", display: "flex", flexDirection: "column",
           background: CARD, borderRadius: 18, padding: "18px 18px 22px",
           boxShadow: "0 24px 60px -20px rgba(0,0,0,0.45)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #f5c542, #d4a017)",
@@ -60,6 +60,8 @@ export default function LevelsModal({ accountCode, isAr, onClose }) {
             <XIcon size={20} />
           </button>
         </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+
 
         {/* Current level card */}
         <div style={{
@@ -176,6 +178,7 @@ export default function LevelsModal({ accountCode, isAr, onClose }) {
         <button type="button" onClick={onClose} style={{ ...primaryBtnStyle, marginTop: 18 }}>
           {tr(isAr, "Close", "إغلاق")}
         </button>
+        </div>
       </div>
     </div>
   );

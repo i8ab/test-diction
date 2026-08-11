@@ -143,14 +143,16 @@ export default function DictationModal({
           width: "100%",
           maxWidth: 480,
           maxHeight: "92dvh",
-          overflow: "auto",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
           background: CARD,
           borderRadius: 16,
           padding: "20px 18px 24px",
           boxShadow: "0 20px 50px -12px rgba(0,0,0,0.35)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexShrink: 0 }}>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: INK }}>
             {tr(isAr, "Listening & Dictation", "استماع وإملاء")}
           </h2>
@@ -163,6 +165,8 @@ export default function DictationModal({
             <XIcon size={20} />
           </button>
         </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+
 
         {stage === "setup" && (
           <>
@@ -369,6 +373,7 @@ export default function DictationModal({
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

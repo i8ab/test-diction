@@ -410,12 +410,13 @@ export default function ExamModeModal({
         aria-labelledby="exam-mode-title"
         style={{
           width: "100%", maxWidth: 540, maxHeight: "min(92dvh, 92vh)",
-          overflowY: "auto", background: CARD, borderRadius: 12,
+          overflow: "hidden", display: "flex", flexDirection: "column",
+          background: CARD, borderRadius: 12,
           padding: "22px 22px 20px",
           boxShadow: "0 24px 60px -12px rgba(0,0,0,0.45)",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, flexShrink: 0 }}>
           <h2 id="exam-mode-title" style={{
             fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: INK, margin: 0,
             display: "flex", alignItems: "center", gap: 8,
@@ -435,6 +436,8 @@ export default function ExamModeModal({
             <XIcon size={20} />
           </button>
         </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+
 
         {countdownLabel && stage === "setup" && (
           <div style={{
@@ -1005,6 +1008,7 @@ export default function ExamModeModal({
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

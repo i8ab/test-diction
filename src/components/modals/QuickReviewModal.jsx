@@ -95,11 +95,13 @@ export default function QuickReviewModal({
           border: "1px solid rgba(var(--border-rgb),0.14)",
           boxShadow: "0 24px 56px -16px rgba(0,0,0,0.45)",
           maxHeight: "min(90dvh, 640px)",
-          overflowY: "auto",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 10, flexShrink: 0 }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: INK }}>
               {tr(isAr, "Quick review", "مراجعة سريعة")}
@@ -114,6 +116,8 @@ export default function QuickReviewModal({
             <XIcon size={18} />
           </button>
         </div>
+
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
 
         {total === 0 ? (
           <div style={{ textAlign: "center", padding: "28px 12px" }}>
@@ -224,6 +228,7 @@ export default function QuickReviewModal({
             </p>
           </>
         )}
+        </div>
       </div>
     </div>
   );

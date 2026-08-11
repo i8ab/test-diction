@@ -250,7 +250,9 @@ export default function LevelUpModal({
           width: "100%",
           maxWidth: 440,
           maxHeight: "90dvh",
-          overflow: "auto",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
           background: CARD,
           borderRadius: 22,
           padding: "32px 26px 26px",
@@ -260,6 +262,8 @@ export default function LevelUpModal({
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+
         <div
           style={{
             width: 76,
@@ -339,6 +343,7 @@ export default function LevelUpModal({
         >
           {tr(isAr, "Awesome!", "رائع!")}
         </button>
+        </div>
       </div>
 
       <style>{`

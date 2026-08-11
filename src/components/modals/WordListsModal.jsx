@@ -115,9 +115,10 @@ export default function WordListsModal({
           width: "100%",
           maxWidth: 520,
           maxHeight: "min(90dvh, calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)))",
-          overflowY: "auto",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
           overscrollBehavior: "contain",
-          WebkitOverflowScrolling: "touch",
           background: CARD,
           borderRadius: 18,
           padding: "18px 16px max(28px, env(safe-area-inset-bottom, 0px))",
@@ -125,7 +126,7 @@ export default function WordListsModal({
           boxSizing: "border-box",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
           <div style={{ fontSize: 18, fontWeight: 800, color: INK }}>
             {tr(isAr, "Word lists", "قوائم الكلمات")}
           </div>
@@ -133,6 +134,8 @@ export default function WordListsModal({
             <XIcon size={20} />
           </button>
         </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+
 
         {/* Import by code */}
         <div style={{ marginBottom: 16, padding: 12, borderRadius: 12, background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.14)" }}>
@@ -247,6 +250,7 @@ export default function WordListsModal({
               )}
             </div>
           ))}
+        </div>
         </div>
       </div>
     </div>

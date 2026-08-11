@@ -181,14 +181,16 @@ export default function RandomWordModal({
           width: "100%",
           maxWidth: 420,
           maxHeight: "92dvh",
-          overflow: "auto",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
           background: CARD,
           borderRadius: 16,
           padding: "20px 18px 24px",
           boxShadow: "0 20px 50px -12px rgba(0,0,0,0.35)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexShrink: 0 }}>
           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: INK }}>
             {tr(isAr, "Random word", "كلمة عشوائية")}
           </h2>
@@ -201,6 +203,8 @@ export default function RandomWordModal({
             <XIcon size={20} />
           </button>
         </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+
         <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted)" }}>
           {sessionTotal > 0
             ? `${sessionCorrect}/${sessionTotal} ${tr(isAr, "this session", "في الجلسة")}`
@@ -327,6 +331,7 @@ export default function RandomWordModal({
             )}
           </>
         )}
+        </div>
       </div>
     </div>
   );

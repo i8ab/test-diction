@@ -312,6 +312,45 @@ export default function MainView({
     return () => window.removeEventListener("twotongues:open-achievements", onOpenAchievements);
   }, []);
 
+  // Prefetch lazy modal chunks in idle time so the *first* open feels instant
+  // (second open was already fast because the chunk was cached).
+  useEffect(() => {
+    let cancelled = false;
+    const run = () => {
+      if (cancelled) return;
+      // Warm the most-used practice modals; browser will cache the modules.
+      const warm = [
+        () => import("./modals/DictationModal"),
+        () => import("./modals/QuizModal"),
+        () => import("./modals/ExamModeModal"),
+        () => import("./modals/FlashcardsModal"),
+        () => import("./modals/QuickReviewModal"),
+        () => import("./modals/RandomWordModal"),
+        () => import("./modals/SmartCardsModal"),
+        () => import("./modals/StatsModal"),
+      ];
+      warm.forEach((fn, i) => {
+        setTimeout(() => {
+          if (!cancelled) fn().catch(() => {});
+        }, 400 + i * 180);
+      });
+    };
+    let idleId;
+    if (typeof window !== "undefined" && window.requestIdleCallback) {
+      idleId = window.requestIdleCallback(run, { timeout: 3500 });
+    } else {
+      idleId = setTimeout(run, 1800);
+    }
+    return () => {
+      cancelled = true;
+      if (typeof window !== "undefined" && window.cancelIdleCallback && typeof idleId === "number") {
+        try { window.cancelIdleCallback(idleId); } catch (_) {}
+      } else {
+        clearTimeout(idleId);
+      }
+    };
+  }, []);
+
   const blockingActivity =
     showQuiz ||
     showExamMode ||
@@ -1875,7 +1914,40 @@ export default function MainView({
     )}
 
     {showDictation && (
-      <Suspense fallback={null}>
+      <Suspense
+        fallback={
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 9000,
+              background: "rgba(0,0,0,0.45)",
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "center",
+              padding: "12px 12px max(12px, env(safe-area-inset-bottom))",
+            }}
+          >
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 480,
+                background: "var(--card)",
+                borderRadius: "16px 16px 12px 12px",
+                padding: "28px 20px",
+                textAlign: "center",
+                color: "var(--muted-strong)",
+                fontWeight: 600,
+                fontSize: 14,
+              }}
+            >
+              {tr(appIsAr, "Loading dictation…", "جاري فتح الإملاء…")}
+            </div>
+          </div>
+        }
+      >
         <DictationModal
           entries={sectionEntries}
           studiedIds={studiedIds}

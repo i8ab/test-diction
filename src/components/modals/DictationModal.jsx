@@ -89,6 +89,18 @@ export default function DictationModal({
 
   function check() {
     if (!current || answered) return;
+    // Empty answer must NOT count as wrong — ask the user to type first.
+    if (!String(typed || "").trim()) {
+      setError(
+        tr(
+          isAr,
+          "Type your answer first.",
+          "اكتب الإجابة أولاً."
+        )
+      );
+      return;
+    }
+    setError("");
     const expected = mode === "listen-meaning" ? current.meaning : current.word;
     const ok = isTypingCorrect(typed, expected);
     setCorrect(ok);
@@ -109,6 +121,7 @@ export default function DictationModal({
     setRevealed(false);
     setAnswered(false);
     setCorrect(false);
+    setError("");
     if (mode === "listen-meaning" && queue[nextIdx]) {
       setTimeout(
         () => speakWord(queue[nextIdx].word, queue[nextIdx].section === "ar-ar" ? "rtl" : "ltr"),
@@ -258,7 +271,10 @@ export default function DictationModal({
 
             <input
               value={typed}
-              onChange={(e) => setTyped(e.target.value)}
+              onChange={(e) => {
+                setTyped(e.target.value);
+                if (error) setError("");
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -276,6 +292,12 @@ export default function DictationModal({
               style={{ ...inputStyle, marginTop: 8, fontSize: 16 }}
               autoFocus
             />
+
+            {error && stage === "running" && !answered && (
+              <div style={{ ...errorStyle, marginTop: 10 }} role="alert" aria-live="assertive">
+                {error}
+              </div>
+            )}
 
             {answered && (
               <div

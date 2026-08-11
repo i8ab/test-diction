@@ -273,6 +273,8 @@ export default function ExamModeModal({
   function submitTyped() {
     const q = questions[index];
     if (!q) return;
+    // Empty must not count as wrong — UI already disables the button; guard for safety.
+    if (!String(typedAnswer || "").trim()) return;
     const accepted = q.acceptedAnswers?.length ? q.acceptedAnswers : [q.correct];
     const isCorrect = isTypingCorrect(typedAnswer, accepted);
     saveAnswerAt(index, typedAnswer, isCorrect);

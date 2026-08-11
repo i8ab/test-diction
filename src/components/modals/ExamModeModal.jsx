@@ -138,9 +138,15 @@ export default function ExamModeModal({
     }
 
     // Build a mixed quiz: for each mode, build questions, then interleave.
+    // Drop broken MCQ items (fewer than 2 options) so the UI never shows a one-choice screen.
     const perMode = [];
     for (const m of quizModes) {
-      const built = buildQuiz(selectedPool, entries, m);
+      const built = buildQuiz(selectedPool, entries, m).filter((q) => {
+        if (q.mode === "mcq" || q.type === "mcq") {
+          return Array.isArray(q.options) && q.options.length >= 2;
+        }
+        return true;
+      });
       perMode.push(built);
     }
     // Round-robin merge so types alternate
@@ -681,7 +687,12 @@ export default function ExamModeModal({
                       fontSize: 13, fontWeight: 700, color: "var(--muted-strong)", margin: 0,
                       letterSpacing: "0.02em", textTransform: "uppercase",
                     }}>
-                      {quizQuestionLabel(q.type || q.mode, isAr, q.pos, isMulti)}
+                      {quizQuestionLabel(
+                        (q.mode === "typing" || q.mode === "cloze") ? q.mode : (q.type || q.mode),
+                        isAr,
+                        q.pos,
+                        isMulti
+                      )}
                     </p>
                   </div>
                   {isMulti && (
@@ -729,8 +740,11 @@ export default function ExamModeModal({
                     )}
                   </div>
 
-                  {/* Options / typing */}
-                  {(q.mode === "mcq" || q.type === "mcq" || q.type === "meaning" || q.type === "synonym" || q.type === "antonym") ? (
+                  {/* Options / typing
+                      Important: use mode, not type. Typing questions also have type "meaning"
+                      but only one "option" (the answer) — showing them as MCQ looked like a
+                      broken one-choice question. */}
+                  {(q.mode === "mcq" || q.type === "mcq") ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
                       {(q.options || []).map((opt, i) => {
                         const isSelectedOpt = selectedList.includes(opt);

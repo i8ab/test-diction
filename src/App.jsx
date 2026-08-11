@@ -7,6 +7,7 @@ import {
   loadSearchHistory, saveSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory,
   saveOfflineCache, loadOfflineCache, loadSavedTheme, resolveTheme, loadUiScale, saveUiScale, savePersonalCode, loadPersonalCode, clearPersonalCode,
   markPendingCloudSync, clearPendingCloudSync, mergeOfflineProgress,
+  loadPendingRemoveCodes, savePendingRemoveCodes, addPendingRemoveCode, removePendingRemoveCode,
   saveSessionId, loadSessionId, generateSessionId,
   generatePersonalCode, detectDeviceIsAr, hasInviteParam,
   loadAppLang, saveAppLang,
@@ -137,9 +138,10 @@ export default function DictionaryApp() {
   // Batch rapid studied/favorite/quiz ops into a single network write.
   const pendingAccountOpsRef = useRef([]);
   const pendingEntryOpsRef = useRef([]);
-  // Codes intentionally deleted/rejected this session. Attached to every
-  // subsequent save so a concurrent write cannot resurrect them via merge.
-  const pendingRemoveCodesRef = useRef(new Set());
+  // Codes intentionally deleted/rejected. Survives reload via localStorage so
+  // a delete→reload race cannot resurrect accounts from a still-stale server.
+  // Attached to every subsequent save so concurrent writes cannot undo them.
+  const pendingRemoveCodesRef = useRef(new Set(loadPendingRemoveCodes()));
   // Codes approved this session (status forced to "active"). Prevents a
   // concurrent/stale save from flipping them back to "pending" in the UI
   // before the server merge protection is observed.
@@ -596,32 +598,88 @@ export default function DictionaryApp() {
           rec = { ...rec, accounts: mergedAccounts };
         }
 
+        // Re-apply intentional deletes that may not have landed on the server yet
+        // (delete → reload race). Also prune localStorage once the server
+        // no longer returns those codes.
+        let accountsForUi = rec.accounts || [];
+        if (pendingRemoveCodesRef.current.size) {
+          const drop = pendingRemoveCodesRef.current;
+          const stillOnServer = [];
+          accountsForUi = accountsForUi.filter((a) => {
+            if (!a || !a.code) return false;
+            if (drop.has(String(a.code))) {
+              stillOnServer.push(String(a.code));
+              return false;
+            }
+            return true;
+          });
+          // Codes the server already dropped can leave localStorage.
+          for (const code of [...drop]) {
+            if (!stillOnServer.includes(code)) {
+              drop.delete(code);
+              removePendingRemoveCode(code);
+            }
+          }
+          // If any deleted codes are still on the server, push remove again.
+          if (stillOnServer.length) {
+            try {
+              const cleaned = (rec.accounts || []).filter(
+                (a) => a && a.code && !drop.has(String(a.code))
+              );
+              const newVersion = await saveRecord(
+                {
+                  entries: rec.entries || [],
+                  accounts: cleaned,
+                  logs: rec.logs || [],
+                  siteBanner: rec.siteBanner || null,
+                  examConfig: rec.examConfig || examConfigRef.current,
+                  removeAccountCodes: stillOnServer,
+                },
+                rec.version || 0
+              );
+              commitRecordVersion(newVersion);
+              rec = { ...rec, accounts: cleaned, version: newVersion };
+              accountsForUi = cleaned;
+            } catch (_) {
+              // Keep pendingRemoveCodes so the next load retries.
+            }
+          }
+        }
+
         setEntries(rec.entries);
-        setAccounts(rec.accounts);
+        setAccounts(accountsForUi);
+        accountsRef.current = accountsForUi;
         setLogs(rec.logs);
         setSiteBanner(rec.siteBanner || null);
         setExamConfig(normalizeExamConfig(rec.examConfig));
         setLogsLoaded(true);
         commitRecordVersion(rec.version);
-        saveOfflineCache(rec);
+        saveOfflineCache({ ...rec, accounts: accountsForUi });
         setIsOffline(false);
 
         if (merged) {
           // Push merged progress to cloud in the background (version may race;
           // flushPendingAccounts-style retries handle conflicts).
           try {
+            let accountsToSave = mergedAccounts;
+            if (pendingRemoveCodesRef.current.size) {
+              const drop = pendingRemoveCodesRef.current;
+              accountsToSave = accountsToSave.filter((a) => a && a.code && !drop.has(String(a.code)));
+            }
+            const removeCodes = [...pendingRemoveCodesRef.current];
             const newVersion = await saveRecord(
               {
                 entries: rec.entries || [],
-                accounts: mergedAccounts,
+                accounts: accountsToSave,
                 logs: rec.logs || [],
                 siteBanner: rec.siteBanner || null,
                 examConfig: rec.examConfig || examConfigRef.current,
+                ...(removeCodes.length ? { removeAccountCodes: removeCodes } : {}),
               },
               rec.version || 0
             );
             commitRecordVersion(newVersion);
-            saveOfflineCache({ ...rec, accounts: mergedAccounts, version: newVersion });
+            saveOfflineCache({ ...rec, accounts: accountsToSave, version: newVersion });
             clearPendingCloudSync();
           } catch (_) {
             // Keep pending flag so next load retries the merge.
@@ -1746,34 +1804,50 @@ export default function DictionaryApp() {
 
     setLoggingIn(true);
 
+    // Always fetch a fresh server snapshot on login. In-memory accounts can
+    // still show status:"pending" after an admin approved the request, which
+    // blocked sign-in until a full page reload happened to pick up the change.
     let curAccounts = accounts;
-    let account = curAccounts.find((a) => normalizeUsername(a.username) === uCheck.username);
-    // Only hit the network if the account isn't already in memory
-    if (!account) {
-      try {
-        const rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
-        curAccounts = rec.accounts;
-        setAccounts(rec.accounts);
-        setEntries(rec.entries);
-        setLogs(rec.logs);
-        setSiteBanner(rec.siteBanner || null);
-        commitRecordVersion(rec.version);
-        account = curAccounts.find((a) => normalizeUsername(a.username) === uCheck.username);
-      } catch (_) { /* fall through */ }
+    let account = null;
+    try {
+      const rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
+      curAccounts = rec.accounts || [];
+      // Apply session-local removals so a just-deleted account cannot log in
+      // from a brief race before the server write settles.
+      if (pendingRemoveCodesRef.current.size) {
+        const drop = pendingRemoveCodesRef.current;
+        curAccounts = curAccounts.filter((a) => a && a.code && !drop.has(String(a.code)));
+      }
+      setAccounts(curAccounts);
+      accountsRef.current = curAccounts;
+      setEntries(rec.entries || []);
+      setLogs(rec.logs || []);
+      setSiteBanner(rec.siteBanner || null);
+      if (rec.examConfig !== undefined) setExamConfig(normalizeExamConfig(rec.examConfig));
+      commitRecordVersion(rec.version);
+      account = curAccounts.find((a) => normalizeUsername(a.username) === uCheck.username);
+    } catch (_) {
+      // Offline / network error: fall back to in-memory list so login still works.
+      curAccounts = accountsRef.current.length ? accountsRef.current : accounts;
+      account = curAccounts.find((a) => normalizeUsername(a.username) === uCheck.username);
     }
     if (!account) {
       setLoggingIn(false);
-      setAuthError("That username doesn't match any account.");
+      setAuthError(appIsAr ? "اسم المستخدم ده مش موجود." : "That username doesn't match any account.");
       return;
     }
     if (account.status === "pending") {
       setLoggingIn(false);
-      setAuthError("Your account is still waiting for admin approval.");
+      setAuthError(appIsAr
+        ? "حسابك لسه مستني موافقة المسؤول. لو اتقبلت حاول تاني بعد لحظات."
+        : "Your account is still waiting for admin approval. If you were just approved, try again in a moment.");
       return;
     }
     if (account.status === "rejected") {
       setLoggingIn(false);
-      setAuthError("Your account request was declined. Contact an admin.");
+      setAuthError(appIsAr
+        ? "تم رفض طلب حسابك. تواصل مع المسؤول."
+        : "Your account request was declined. Contact an admin.");
       return;
     }
     if (account.status === "blocked") {
@@ -2031,10 +2105,25 @@ export default function DictionaryApp() {
         if (cancelled) return;
         if (rec.accounts) {
           let list = rec.accounts;
-          // Hide accounts we intentionally deleted this session even if a
-          // brief race still returns them from the server.
+          // Hide accounts we intentionally deleted even if a brief race still
+          // returns them; prune localStorage once the server dropped them.
           if (pendingRemoveCodesRef.current.size) {
-            list = list.filter((a) => a && a.code && !pendingRemoveCodesRef.current.has(String(a.code)));
+            const drop = pendingRemoveCodesRef.current;
+            const stillOnServer = [];
+            list = list.filter((a) => {
+              if (!a || !a.code) return false;
+              if (drop.has(String(a.code))) {
+                stillOnServer.push(String(a.code));
+                return false;
+              }
+              return true;
+            });
+            for (const code of [...drop]) {
+              if (!stillOnServer.includes(code)) {
+                drop.delete(code);
+                removePendingRemoveCode(code);
+              }
+            }
           }
           // Keep this-session approvals sticky until server has active status.
           if (pendingApprovedCodesRef.current.size) {
@@ -2044,7 +2133,6 @@ export default function DictionaryApp() {
                 ? { ...a, status: "active" }
                 : a
             );
-            // Drop codes that the server already shows as active/blocked.
             for (const a of list) {
               if (a && a.code && approved.has(String(a.code)) && a.status !== "pending") {
                 approved.delete(String(a.code));
@@ -2164,6 +2252,7 @@ export default function DictionaryApp() {
     setLogs(optimisticLogs);
     logsRef.current = optimisticLogs;
     pendingRemoveCodesRef.current.add(String(targetCode));
+    addPendingRemoveCode(targetCode);
     try {
       saveOfflineCache({
         entries: entriesRef.current,
@@ -2230,6 +2319,7 @@ export default function DictionaryApp() {
     } catch (_) {
       // Rollback on failure so the admin sees the account again.
       pendingRemoveCodesRef.current.delete(String(targetCode));
+      removePendingRemoveCode(targetCode);
       setAccounts(previousAccounts);
       accountsRef.current = previousAccounts;
       setLogs(previousLogs);
@@ -2336,8 +2426,7 @@ export default function DictionaryApp() {
     // Server always merges accounts by code; explicit removeAccountCodes is
     // required for intentional deletes (same as reject).
 
-    // Optimistic update: remove from UI immediately so the list doesn't lag
-    // and the admin doesn't click delete multiple times.
+    // Optimistic update: remove from UI immediately.
     const previousAccounts = accountsRef.current;
     const previousLogs = logsRef.current;
     const optimisticAccounts = previousAccounts.filter((a) => a.code !== targetCode);
@@ -2346,10 +2435,9 @@ export default function DictionaryApp() {
     accountsRef.current = optimisticAccounts;
     setLogs(optimisticLogs);
     logsRef.current = optimisticLogs;
-    // Remember this removal for the rest of the session so concurrent saves
-    // cannot resurrect the account via server-side merge-by-code.
+    // Session + localStorage: survives reload before the cloud write finishes.
     pendingRemoveCodesRef.current.add(String(targetCode));
-    // Update offline cache immediately so a fast reload cannot bring it back.
+    addPendingRemoveCode(targetCode);
     try {
       saveOfflineCache({
         entries: entriesRef.current,
@@ -2360,9 +2448,6 @@ export default function DictionaryApp() {
       });
     } catch (_) {}
 
-    // Persist to server in the background so the admin panel never waits on
-    // network latency. UI already reflects the delete via the optimistic
-    // update above. On failure we roll back and toast.
     const persistDelete = async () => {
       try {
         let curVersion = recordVersionRef.current;
@@ -2385,8 +2470,6 @@ export default function DictionaryApp() {
               curVersion
             );
             commitRecordVersion(newVersion);
-            // Only refresh UI from server result if we are still signed in
-            // (own-account delete logs out first).
             if (targetCode !== accountCode) {
               setAccounts(nextAccounts);
               accountsRef.current = nextAccounts;
@@ -2402,7 +2485,9 @@ export default function DictionaryApp() {
                 });
               } catch (_) {}
             }
-            return;
+            // Keep code in pendingRemove until a later load confirms the
+            // server no longer returns it (covers brief edge cache races).
+            return true;
           } catch (e) {
             if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
               curEntries = e.fresh.entries || [];
@@ -2422,28 +2507,30 @@ export default function DictionaryApp() {
             throw e;
           }
         }
+        return false;
       } catch (_) {
-        // Own-account path: best-effort only (user already logged out).
-        if (targetCode === accountCode) return;
-        // Rollback on failure so the admin sees the account again.
+        if (targetCode === accountCode) return false;
         pendingRemoveCodesRef.current.delete(String(targetCode));
+        removePendingRemoveCode(targetCode);
         setAccounts(previousAccounts);
         accountsRef.current = previousAccounts;
         setLogs(previousLogs);
         logsRef.current = previousLogs;
         showToast(appIsAr ? "تعذّر حذف الحساب — حاول مرة أخرى." : "Couldn't delete the account — try again.");
+        return false;
       }
     };
 
-    // If deleting own account, sign out right away for a clean UX.
+    // Own account: log out immediately; server write best-effort in background.
     if (targetCode === accountCode) {
-      persistDelete(); // fire-and-forget
+      persistDelete();
       handleLogout();
       return;
     }
 
-    // Return immediately — list already updated. Server save runs in background.
-    persistDelete();
+    // Await the server write so a quick reload cannot resurrect the account
+    // from a still-stale cloud snapshot. UI is already optimistic above.
+    await persistDelete();
   }
 
 

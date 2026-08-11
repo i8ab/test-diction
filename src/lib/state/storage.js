@@ -223,6 +223,55 @@ export function getPendingCloudSyncAt() {
 }
 
 /**
+ * Account codes intentionally deleted/rejected. Survives reload so a race
+ * (delete clicked → reload before cloud write finishes) cannot resurrect them.
+ * Cleared when server no longer returns those codes.
+ */
+const PENDING_REMOVE_KEY = "twoTongues.pendingRemoveCodes";
+
+export function loadPendingRemoveCodes() {
+  try {
+    const raw = localStorage.getItem(PENDING_REMOVE_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr.map((c) => String(c)).filter(Boolean);
+  } catch (_) {
+    return [];
+  }
+}
+
+export function savePendingRemoveCodes(codes) {
+  try {
+    const list = [...new Set([...(codes || [])].map((c) => String(c)).filter(Boolean))];
+    if (!list.length) {
+      localStorage.removeItem(PENDING_REMOVE_KEY);
+      return;
+    }
+    localStorage.setItem(PENDING_REMOVE_KEY, JSON.stringify(list));
+  } catch (_) {}
+}
+
+export function addPendingRemoveCode(code) {
+  const c = String(code || "");
+  if (!c) return;
+  const next = new Set(loadPendingRemoveCodes());
+  next.add(c);
+  savePendingRemoveCodes([...next]);
+}
+
+export function removePendingRemoveCode(code) {
+  const c = String(code || "");
+  if (!c) return;
+  const next = loadPendingRemoveCodes().filter((x) => x !== c);
+  savePendingRemoveCodes(next);
+}
+
+export function clearPendingRemoveCodes() {
+  try { localStorage.removeItem(PENDING_REMOVE_KEY); } catch (_) {}
+}
+
+/**
  * Progress fields that live per-account and must survive a reload that
  * races a still-in-flight cloud write.
  */

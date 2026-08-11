@@ -37,9 +37,8 @@ export default function ExamModeModal({
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState("prompt"); // flash: prompt | revealed
   const [selected, setSelected] = useState(null);
+  const [answered, setAnswered] = useState(false);
   const [typedAnswer, setTypedAnswer] = useState("");
-  // Per-question answers — exam style: changeable until finish (no lock on first click)
-  const [answers, setAnswers] = useState([]); // parallel to questions; null = unanswered
   const [results, setResults] = useState([]);
   const [knew, setKnew] = useState(0);
   const [learning, setLearning] = useState(0);
@@ -167,10 +166,6 @@ export default function ExamModeModal({
       return;
     }
     setQuestions(capped);
-    setAnswers(new Array(capped.length).fill(null));
-    setIndex(0);
-    setSelected(null);
-    setTypedAnswer("");
     setStage("running");
   }
 
@@ -180,131 +175,73 @@ export default function ExamModeModal({
     setFinishedAt(finishedTime);
     setStage("done");
     endAtRef.current = null;
-    // Build final results from answers (exam: grade only at the end)
-    const finalResults = questions.map((q, i) => {
-      const a = answers[i];
-      if (!a) {
-        return {
-          id: q.id, correct: false, type: q.type,
-          word: q.word, wordDir: q.wordDir, wordFont: q.wordFont, pos: q.pos || "",
-          selectedAnswer: "—",
-          correctAnswer: (q.correctAnswers && q.correctAnswers.length)
-            ? q.correctAnswers.join(" | ") : (q.correct || ""),
-        };
-      }
-      return a;
-    });
-    setResults(finalResults);
     if (onSaveQuizResult && questions.length > 0) {
-      const finalScore = finalResults.filter((r) => r.correct).length;
+      const finalScore = results.filter((r) => r.correct).length;
       onSaveQuizResult({
         id: uid(),
         at: finishedTime,
         section: sectionLabel || "exam",
         mode: `exam-mixed`,
         score: finalScore,
-        total: finalResults.length,
+        total: results.length,
         durationMs: startedAt ? finishedTime - startedAt : 0,
-      });
-    }
-    // Feed SRS once at the end for each answered question
-    if (onRecordSrsAnswer) {
-      questions.forEach((q, i) => {
-        const a = answers[i];
-        if (a) onRecordSrsAnswer(q.entryId, !!a.correct);
       });
     }
   }
 
-  function saveAnswerAt(idx, opt, correct) {
-    const q = questions[idx];
-    if (!q) return;
+  function recordQuizAnswer(q, opt, correct) {
+    setSelected(opt);
+    setAnswered(true);
     const correctLabel = (q.correctAnswers && q.correctAnswers.length)
       ? q.correctAnswers.join(" | ")
       : q.correct;
-    const row = {
+    setResults((r) => [...r, {
       id: q.id, correct, type: q.type,
       word: q.word, wordDir: q.wordDir, wordFont: q.wordFont, pos: q.pos || "",
       selectedAnswer: Array.isArray(opt) ? opt.join(" | ") : opt,
       correctAnswer: correctLabel,
-      selected: opt,
-      selectedList: Array.isArray(opt) ? opt : [opt],
-    };
-    setAnswers((prev) => {
-      const next = [...prev];
-      next[idx] = row;
-      return next;
-    });
-    setSelected(opt);
+    }]);
+    if (onRecordSrsAnswer) onRecordSrsAnswer(q.entryId, correct);
   }
 
   function pickOption(opt) {
-    // Exam style: never lock — learner can change until they finish
+    if (answered) return;
     const q = questions[index];
-    if (!q) return;
     const need = q.selectCount || 1;
     const corrects = q.correctAnswers || [q.correct];
     if (need <= 1) {
-      saveAnswerAt(index, opt, corrects.includes(opt) || opt === q.correct);
+      recordQuizAnswer(q, opt, corrects.includes(opt) || opt === q.correct);
       return;
     }
+    // Multi-select draft stored in selected as array
     const prev = Array.isArray(selected) ? selected : (selected ? [selected] : []);
     let nextList;
     if (prev.includes(opt)) nextList = prev.filter((x) => x !== opt);
     else if (prev.length < need) nextList = [...prev, opt];
-    else {
-      // at max — replace by deselecting first item then adding (or just ignore)
-      nextList = [...prev.slice(1), opt];
-    }
+    else return;
     setSelected(nextList);
     if (nextList.length === need) {
-      const ok = nextList.length === need && nextList.every((x) => corrects.includes(x))
-        && corrects.every((c) => nextList.includes(c));
-      saveAnswerAt(index, nextList, ok);
-    } else {
-      // partial — clear committed answer so number strip shows unanswered
-      setAnswers((old) => {
-        const copy = [...old];
-        copy[index] = null;
-        return copy;
-      });
+      const ok = nextList.every((x) => corrects.includes(x));
+      recordQuizAnswer(q, nextList, ok);
     }
   }
 
   function submitTyped() {
+    if (answered) return;
     const q = questions[index];
-    if (!q) return;
     const accepted = q.acceptedAnswers?.length ? q.acceptedAnswers : [q.correct];
     const isCorrect = isTypingCorrect(typedAnswer, accepted);
-    saveAnswerAt(index, typedAnswer, isCorrect);
-  }
-
-  function goToQuestion(i) {
-    if (i < 0 || i >= questions.length) return;
-    setIndex(i);
-    const a = answers[i];
-    if (a) {
-      setSelected(a.selected != null ? a.selected : (a.selectedList || null));
-      setTypedAnswer(typeof a.selectedAnswer === "string" && !Array.isArray(a.selected)
-        ? String(a.selectedAnswer) : "");
-    } else {
-      setSelected(null);
-      setTypedAnswer("");
-    }
-    setPhase("prompt");
+    recordQuizAnswer(q, typedAnswer, isCorrect);
   }
 
   function nextQuestion() {
     if (index + 1 >= questions.length) {
-      // only finish if at least one answered — otherwise jump to first unanswered
-      const unanswered = answers.findIndex((a) => !a);
-      if (unanswered >= 0 && unanswered !== index) {
-        goToQuestion(unanswered);
-        return;
-      }
       finishSession();
     } else {
-      goToQuestion(index + 1);
+      setIndex((i) => i + 1);
+      setSelected(null);
+      setAnswered(false);
+      setTypedAnswer("");
     }
   }
 
@@ -324,7 +261,6 @@ export default function ExamModeModal({
   }
 
   const score = results.filter((r) => r.correct).length;
-  const answeredCount = answers.filter((a) => a).length;
   const chipStyle = (active) => ({
     padding: "7px 13px", fontSize: 12.5, fontWeight: 600,
     color: active ? "#fff" : "var(--icon-muted)",
@@ -577,62 +513,10 @@ export default function ExamModeModal({
 
             {questions.length > 0 && questions[index] && (() => {
               const q = questions[index];
-              const isMulti = !!q.multi || (q.selectCount || 1) > 1;
-              const total = questions.length;
-              const hasAnswer = !!answers[index];
-              const selectedList = Array.isArray(selected)
-                ? selected
-                : (selected ? [selected] : []);
-              // Number strip (same idea as main quiz)
-              const windowSize = 9;
-              let startNum = Math.max(1, (index + 1) - Math.floor(windowSize / 2));
-              let endNum = Math.min(total, startNum + windowSize - 1);
-              if (endNum - startNum + 1 < windowSize) startNum = Math.max(1, endNum - windowSize + 1);
-              const numberStrip = [];
-              for (let n = startNum; n <= endNum; n++) numberStrip.push(n);
-
               return (
                 <div>
-                  {/* Progress + question numbers */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>
-                      {index + 1}/{total}
-                    </span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: BRASS }}>
-                      {answeredCount}/{total}
-                    </span>
-                  </div>
-                  <div style={{
-                    display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center",
-                    marginBottom: 14,
-                  }}>
-                    {numberStrip.map((n) => {
-                      const i = n - 1;
-                      const isCurrent = i === index;
-                      const isDone = !!answers[i];
-                      return (
-                        <button
-                          key={n}
-                          type="button"
-                          onClick={() => goToQuestion(i)}
-                          style={{
-                            width: 32, height: 32, borderRadius: 8, fontSize: 13, fontWeight: 700,
-                            border: isCurrent ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.2)",
-                            background: isCurrent
-                              ? "var(--accent-1-soft)"
-                              : isDone ? "rgba(var(--border-rgb),0.18)" : "var(--card)",
-                            color: isCurrent ? "var(--accent-1)" : "var(--muted-strong)",
-                            cursor: "pointer",
-                          }}
-                        >
-                          {n}
-                        </button>
-                      );
-                    })}
-                  </div>
-
                   <p style={{ fontSize: 14, fontWeight: 600, color: "var(--muted-strong)", margin: "0 0 10px" }}>
-                    {quizQuestionLabel(q.type || q.mode, isAr, q.pos, isMulti)}
+                    {quizQuestionLabel(q.type, isAr, q.pos)}
                   </p>
                   <div style={{
                     display: "flex", alignItems: "center", gap: 10,
@@ -651,14 +535,14 @@ export default function ExamModeModal({
                     )}
                   </div>
 
-                  {(q.mode === "mcq" || q.type === "mcq" || q.type === "meaning" || q.type === "synonym" || q.type === "antonym") ? (
+                  {(q.mode === "mcq" || q.type === "mcq") ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {(q.options || []).map((opt, i) => {
-                        const isSelectedOpt = selectedList.includes(opt);
+                        const isSelectedOpt = Array.isArray(selected) ? selected.includes(opt) : opt === selected;
                         const letters = isAr
                           ? ["أ", "ب", "ج", "د", "هـ"]
                           : ["A", "B", "C", "D", "E"];
-                        // Exam: never reveal correct/wrong while running — only mark selected
+                        // Exam mode: never reveal correct/wrong while answering — only mark selected
                         let bg = "var(--card)", border = "rgba(var(--border-rgb),0.18)", color = INK;
                         let letterBg = "rgba(var(--border-rgb),0.12)", letterColor = "var(--muted-strong)";
                         if (isSelectedOpt) {
@@ -668,14 +552,14 @@ export default function ExamModeModal({
                           letterColor = "#fff";
                         }
                         return (
-                          <button key={i} type="button" onClick={() => pickOption(opt)}
+                          <button key={i} type="button" onClick={() => pickOption(opt)} disabled={answered}
                             dir={q.optionDir}
                             style={{
                               textAlign: "start", fontFamily: q.optionFont, fontSize: 15.5,
                               padding: "14px 14px", background: bg, border: `1.5px solid ${border}`,
-                              color, borderRadius: 14, cursor: "pointer",
+                              color, borderRadius: 14, cursor: answered ? "default" : "pointer",
                               display: "flex", alignItems: "center", gap: 12, minHeight: 52,
-                              boxShadow: "0 2px 8px -4px rgba(0,0,0,0.12)",
+                              boxShadow: answered ? "none" : "0 2px 8px -4px rgba(0,0,0,0.12)",
                             }}>
                             <span style={{
                               flexShrink: 0, width: 32, height: 32, borderRadius: 10,
@@ -696,12 +580,13 @@ export default function ExamModeModal({
                         type="text"
                         dir={q.optionDir}
                         autoFocus
+                        disabled={answered}
                         value={typedAnswer}
                         onChange={(e) => setTypedAnswer(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
-                            if (typedAnswer.trim()) submitTyped();
+                            answered ? nextQuestion() : submitTyped();
                           }
                         }}
                         placeholder={(q.mode === "cloze" || q.type === "cloze")
@@ -715,35 +600,32 @@ export default function ExamModeModal({
                           borderRadius: 12,
                         }}
                       />
-                      <button type="button" onClick={submitTyped} disabled={!typedAnswer.trim()}
-                        style={{
-                          ...primaryBtnStyle,
-                          opacity: typedAnswer.trim() ? 1 : 0.5,
-                          cursor: typedAnswer.trim() ? "pointer" : "default",
-                        }}>
-                        {tr(isAr, hasAnswer ? "Update answer" : "Save answer", hasAnswer ? "تعديل الإجابة" : "حفظ الإجابة")}
-                      </button>
+                      {!answered && (
+                        <button type="button" onClick={submitTyped} disabled={!typedAnswer.trim()}
+                          style={{
+                            ...primaryBtnStyle,
+                            opacity: typedAnswer.trim() ? 1 : 0.5,
+                            cursor: typedAnswer.trim() ? "pointer" : "default",
+                          }}>
+                          {tr(isAr, "Submit", "تأكيد")}
+                        </button>
+                      )}
+                      {answered && (q.mode === "cloze" || q.type === "cloze") && q.fullExample && (
+                        <p dir={q.promptDir} style={{ marginTop: 12, fontSize: 14, color: "var(--muted-strong)", fontFamily: q.promptFont }}>
+                          {tr(isAr, "Full sentence: ", "الجملة كاملة: ")}
+                          <span style={{ color: INK }}>{q.fullExample}</span>
+                        </p>
+                      )}
                     </div>
                   )}
 
-                  <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-                    <button type="button" onClick={nextQuestion} style={primaryBtnStyle}>
+                  {answered && (
+                    <button type="button" onClick={nextQuestion} style={{ ...primaryBtnStyle, marginTop: 14 }}>
                       {index + 1 >= questions.length
                         ? tr(isAr, "Finish", "إنهاء")
                         : tr(isAr, "Next", "التالي")}
                     </button>
-                    {answeredCount === total && total > 0 && (
-                      <button type="button" onClick={finishSession}
-                        style={{ ...primaryBtnStyle, background: "var(--success)", borderColor: "var(--success)" }}>
-                        {tr(isAr, "Submit exam", "تسليم الامتحان")}
-                      </button>
-                    )}
-                  </div>
-                  <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 10 }}>
-                    {tr(isAr,
-                      "Exam mode: change any answer anytime. Results are revealed only when you finish.",
-                      "وضع الامتحان: غيّر أي إجابة في أي وقت. النتيجة تظهر بعد ما تخلّص بس.")}
-                  </p>
+                  )}
                 </div>
               );
             })()}

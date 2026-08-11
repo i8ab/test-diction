@@ -201,8 +201,8 @@ function EntryCard({
           }
         }}
       >
-        {/* Word row: word + POS on the start side; Cambridge / speak / chevron on the far end */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+        {/* Word row: keep word + controls grouped (no huge empty middle on wide desktop RTL) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
           <span
             dir={cfg.wordDir}
             style={{
@@ -218,7 +218,7 @@ function EntryCard({
           >
             {entry.word}
           </span>
-          {/* POS chips sit beside the word */}
+          {/* POS chips sit beside the word (not under it) to save vertical space */}
           {entryPosList(entry).length > 0 && (
             <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4, flex: "0 1 auto", minWidth: 0 }}>
               {entryPosList(entry).map((p) => (
@@ -241,9 +241,7 @@ function EntryCard({
               ))}
             </span>
           )}
-          {/* Spacer pushes controls to the far edge (right in LTR, left in RTL) */}
-          <span style={{ flex: "1 1 0", minWidth: 8 }} aria-hidden="true" />
-          {/* Cambridge + speak + chevron — far from the word, same row */}
+          {/* Controls stay next to the word — packed, no huge empty middle on desktop RTL */}
           <span
             style={{
               display: "inline-flex",
@@ -254,6 +252,7 @@ function EntryCard({
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
           >
+            {/* Cambridge + speak only for English words */}
             {isEnglishWord && (
               <a
                 href={cambridgeUrl(entry.word)}

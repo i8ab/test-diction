@@ -93,27 +93,31 @@ function EntryCard({
   const hasSynAnt = !!((entry.synonyms && entry.synonyms.length) || (entry.antonyms && entry.antonyms.length));
   const isEnglishWord = cfg.wordDir === "ltr";
   const senses = getEntrySenses(entry);
-  // Compact actions on desktop; slightly roomier on touch layouts
+  // Same layout language as tablet on every device: equal-width icon+label strip.
+  // Dimensions only change by device (desktop tighter, phone/tablet roomier).
   const touchy = mobileLayout || tabletLayout;
+  const actionMinH = mobileLayout ? 48 : tabletLayout ? 48 : 44;
+  const actionPad = touchy ? "8px 4px" : "6px 2px";
+  const actionRadius = touchy ? 12 : 10;
+  const iconSize = touchy ? 18 : 16;
 
-  // Stretch across the full action bar so the strip looks even (phone / tablet / desktop)
   const actionBtnBase = {
     border: "none",
     background: "var(--input-bg)",
     color: "var(--icon-muted)",
-    padding: touchy ? "8px 4px" : "6px 4px",
+    padding: actionPad,
     margin: 0,
     cursor: "pointer",
     display: "inline-flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: 2,
+    gap: touchy ? 3 : 2,
     flex: "1 1 0",
     minWidth: 0,
-    minHeight: touchy ? 48 : 44,
+    minHeight: actionMinH,
     height: "auto",
-    borderRadius: 12,
+    borderRadius: actionRadius,
     fontSize: 10,
     fontWeight: 700,
     fontFamily: "inherit",
@@ -388,7 +392,7 @@ function EntryCard({
           aria-label={tr(isAr, "Favorite", "مفضلة")}
           title={tr(isAr, "Favorite", "مفضلة")}
         >
-          <StarIcon size={18} fill={isFavorite ? BRASS : "none"} />
+          <StarIcon size={iconSize} fill={isFavorite ? BRASS : "none"} />
           <span>{tr(isAr, "Fav", "مفضلة")}</span>
         </button>
         <button
@@ -399,7 +403,7 @@ function EntryCard({
           aria-label={tr(isAr, "Zoom", "تكبير")}
           title={tr(isAr, "Zoom", "تكبير")}
         >
-          <ZoomIcon size={18} />
+          <ZoomIcon size={iconSize} />
           <span>{tr(isAr, "Zoom", "تكبير")}</span>
         </button>
         <button
@@ -411,7 +415,7 @@ function EntryCard({
           aria-label={tr(isAr, "Studied", "دراسة")}
           title={tr(isAr, "Studied", "دراسة")}
         >
-          {isStudied ? <EyeIcon size={18} /> : <EyeOffIcon size={18} />}
+          {isStudied ? <EyeIcon size={iconSize} /> : <EyeOffIcon size={iconSize} />}
           <span>{tr(isAr, "Study", "دراسة")}</span>
         </button>
         {canEdit && (
@@ -423,7 +427,7 @@ function EntryCard({
             aria-label={tr(isAr, "Edit", "تعديل")}
             title={tr(isAr, "Edit", "تعديل")}
           >
-            <EditIcon size={16} />
+            <EditIcon size={Math.max(14, iconSize - 2)} />
             <span>{tr(isAr, "Edit", "تعديل")}</span>
           </button>
         )}
@@ -445,7 +449,7 @@ function EntryCard({
             aria-label={tr(isAr, "Delete", "حذف")}
             title={tr(isAr, "Delete", "حذف")}
           >
-            <TrashIcon size={14} />
+            <TrashIcon size={Math.max(14, iconSize - 2)} />
             <span>{confirmDel ? tr(isAr, "Sure?", "تأكيد؟") : tr(isAr, "Del", "حذف")}</span>
           </button>
         )}

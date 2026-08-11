@@ -1414,13 +1414,7 @@ html[data-device="mobile"] .app-main-row {
 .entry-card--mobile .entry-card-meaning {
   margin-top: 6px !important;
 }
-.entry-card--mobile .entry-card-actions {
-  gap: 0 !important;
-}
-.entry-card--mobile .entry-card-actions > button {
-  min-width: 40px !important;
-  min-height: 40px !important;
-}
+/* Mobile action strip handled via .entry-action-bar / .entry-action-btn (see below) */
 
 
 /* ===== Mobile app polish ===== */
@@ -1926,11 +1920,19 @@ html[data-device="tablet"] .entry-card--tablet .entry-longform {
   touch-action: manipulation;
 }
 
+/* Action bar: equal-width buttons on all devices (tablet look), sized per device */
 .entry-action-bar {
-  gap: 8px;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: stretch !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  gap: 6px;
 }
 .entry-action-btn {
-  flex: 0 0 auto !important;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  min-height: var(--entry-action, 46px) !important;
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
@@ -1939,6 +1941,37 @@ html[data-device="tablet"] .entry-card--tablet .entry-longform {
 .entry-action-btn:active {
   transform: scale(0.96);
   opacity: 0.92;
+}
+
+/* Desktop: slightly tighter than tablet, still full-width equal buttons */
+html[data-device="desktop"] .entry-action-bar {
+  gap: 4px !important;
+}
+html[data-device="desktop"] .entry-action-btn {
+  min-height: var(--entry-action, 44px) !important;
+  border-radius: 10px !important;
+}
+
+/* Mobile: roomier tap targets, same even strip as tablet */
+html[data-device="mobile"] .entry-action-bar,
+.entry-card--mobile .entry-action-bar {
+  gap: 5px !important;
+}
+html[data-device="mobile"] .entry-action-btn,
+.entry-card--mobile .entry-action-btn {
+  min-height: 48px !important;
+  border-radius: 12px !important;
+  font-size: 10px !important;
+}
+
+/* Tablet: keep explicit equal flex (already the reference look) */
+html[data-device="tablet"] .entry-card--tablet .entry-action-bar {
+  gap: 6px !important;
+}
+html[data-device="tablet"] .entry-card--tablet .entry-action-btn {
+  min-height: 48px !important;
+  flex: 1 1 0 !important;
+  border-radius: 12px !important;
 }
 /* Speak button isolated slot on mobile */
 .entry-card--mobile .entry-speak-slot button {

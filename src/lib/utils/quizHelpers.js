@@ -192,10 +192,9 @@ function buildSingleOptions(correct, distractorPool, excludeSet) {
 
 /**
  * Emit synonym / antonym questions for one entry.
- * - 1 pair word  → single-choice (pick the correct one of 4)
- * - 2 pair words → multi-select (pick both of 5)
- * - 3+ pair words → multi-select for 2 of them + separate single-choice for each leftover
- *   so the learner is tested on every related word without one crowded question.
+ * - 1 pair word  → single-choice (only if ≥2 options; never one-option MCQ)
+ * - 2+ pair words → multi-select pairs (pick both). Odd leftover is paired
+ *   with the first word so every related word is tested without orphan singles.
  */
 function pushPairQuestions(questions, {
   entry, list, allPool, type, wordDir, wordFont, mode,
@@ -236,43 +235,54 @@ function pushPairQuestions(questions, {
     return;
   }
 
-  // 2+ → multi-select with exactly 2 correct out of 5
-  const { corrects, options } = buildMultiOptions(list, allPool, sameSet);
-  if (corrects.length === 2 && options.length >= 4) {
-    questions.push({
-      ...base,
-      id: `${entry.id}:multi-${type}`,
-      meaning: corrects.join(" / "),
-      correct: corrects[0],
-      correctAnswers: corrects,
-      correctAnswer: corrects.join(" | "),
-      acceptedAnswers: list,
-      options,
-      selectCount: 2,
-      multi: true,
-    });
+  // 2+ → chunk into multi-select pairs (pick both of ~5).
+  // Odd leftover is paired with the first word so it still gets tested —
+  // never emit a one-option MCQ.
+  const shuffledList = shuffle([...list]);
+  let multiIdx = 0;
+  for (let i = 0; i < shuffledList.length; i += 2) {
+    let pair;
+    if (i + 1 < shuffledList.length) {
+      pair = [shuffledList[i], shuffledList[i + 1]];
+    } else {
+      pair = [shuffledList[i], shuffledList[0]];
+    }
+    const { corrects, options } = buildMultiOptions(pair, allPool, sameSet);
+    if (corrects.length === 2 && options.length >= 4) {
+      questions.push({
+        ...base,
+        id: `${entry.id}:multi-${type}-${multiIdx}`,
+        meaning: corrects.join(" / "),
+        correct: corrects[0],
+        correctAnswers: corrects,
+        correctAnswer: corrects.join(" | "),
+        acceptedAnswers: list,
+        options,
+        selectCount: 2,
+        multi: true,
+      });
+      multiIdx += 1;
+    } else {
+      // Multi failed → single per item only when ≥2 real options exist.
+      for (const c of pair) {
+        if (i + 1 >= shuffledList.length && c === shuffledList[0] && multiIdx > 0) continue;
+        const opts = buildSingleOptions(c, allPool, sameSet);
+        if (opts.length < 2) continue;
+        questions.push({
+          ...base,
+          id: `${entry.id}:single-${type}-${c}`,
+          meaning: c,
+          correct: c,
+          correctAnswers: [c],
+          correctAnswer: c,
+          acceptedAnswers: list,
+          options: opts,
+          selectCount: 1,
+          multi: false,
+        });
+      }
+    }
   }
-
-  // Leftover pair-words (3rd, 4th, …) each get their own single-choice question
-  // so nothing is left untested and the multi question stays focused on two answers.
-  const used = new Set(corrects || []);
-  const leftovers = list.filter((w) => !used.has(w));
-  leftovers.forEach((correct, i) => {
-    const opts = buildSingleOptions(correct, allPool, sameSet);
-    if (opts.length < 2) return;
-    questions.push({
-      ...base,
-      id: `${entry.id}:single-${type}-${i}`,
-      meaning: correct,
-      correct,
-      correctAnswers: [correct],
-      correctAnswer: correct,
-      acceptedAnswers: list,
-      options: opts,
-      selectCount: 1,
-      multi: false,
-    });
-  });
 }
 
 export function buildQuiz(matchingEntries, allEntries, mode) {
@@ -314,47 +324,101 @@ export function buildQuiz(matchingEntries, allEntries, mode) {
     const ants = uniqueStrings(pairWords(entry.antonyms));
     const group = [];
 
-    // ——— Multi-meaning: 5 options, 2 correct (pick both) ———
-    let didMultiMeaning = false;
-    if (mode === "mcq" && senseMeanings.length >= 2) {
-      const { corrects, options } = buildMultiOptions(senseMeanings, allMeanings, sameEntryMeanings);
-      if (corrects.length === 2 && options.length >= 4) {
-        group.push({
-          id: `${entry.id}:multi-meaning`,
-          entryId: entry.id,
-          word: entry.word,
-          meaning: corrects.join(" / "),
-          correct: corrects[0],
-          correctAnswers: corrects,
-          correctAnswer: corrects.join(" | "),
-          acceptedAnswers: senseMeanings,
-          options,
-          selectCount: 2,
-          multi: true,
-          type: "meaning",
-          mode: "mcq",
-          pos: (senses[0] && senses[0].pos) || "",
-          promptText: entry.word,
-          promptDir: wordDir,
-          promptFont: wordFont,
-          optionDir: meaningDir,
-          optionFont: meaningFont,
-          wordDir,
-          wordFont,
-        });
-        didMultiMeaning = true;
-      }
-    }
+    // ——— Meanings (MCQ) ———
+    // Rules for the learner:
+    // - Never show a one-option "MCQ" (useless / confusing).
+    // - Every meaning should be tested when possible.
+    // - 2+ meanings → multi-select pairs (pick both). An odd leftover is
+    //   paired with another meaning of the same word so it still appears,
+    //   instead of a lonely single-choice that may have no distractors.
+    if (mode === "mcq" && senseMeanings.length >= 1) {
+      const meaningBase = {
+        entryId: entry.id,
+        word: entry.word,
+        acceptedAnswers: senseMeanings,
+        type: "meaning",
+        mode: "mcq",
+        pos: (senses[0] && senses[0].pos) || "",
+        promptText: entry.word,
+        promptDir: wordDir,
+        promptFont: wordFont,
+        optionDir: meaningDir,
+        optionFont: meaningFont,
+        wordDir,
+        wordFont,
+      };
 
-    // ——— Single-sense meaning (only when not covered by multi-meaning) ———
-    if (!didMultiMeaning && senseMeanings.length >= 1) {
+      if (senseMeanings.length >= 2) {
+        const shuffledMeanings = shuffle([...senseMeanings]);
+        let pairIdx = 0;
+        for (let i = 0; i < shuffledMeanings.length; i += 2) {
+          let pair;
+          if (i + 1 < shuffledMeanings.length) {
+            pair = [shuffledMeanings[i], shuffledMeanings[i + 1]];
+          } else {
+            // Odd leftover: attach it next to the first meaning so it is still tested.
+            pair = [shuffledMeanings[i], shuffledMeanings[0]];
+          }
+          const { corrects, options } = buildMultiOptions(pair, allMeanings, sameEntryMeanings);
+          if (corrects.length === 2 && options.length >= 4) {
+            group.push({
+              ...meaningBase,
+              id: `${entry.id}:multi-meaning-${pairIdx}`,
+              meaning: corrects.join(" / "),
+              correct: corrects[0],
+              correctAnswers: corrects,
+              correctAnswer: corrects.join(" | "),
+              options,
+              selectCount: 2,
+              multi: true,
+            });
+            pairIdx += 1;
+          } else {
+            // Multi failed (thin distractor pool) → try single per meaning, only if ≥2 options.
+            for (const c of pair) {
+              // Avoid duplicating the recycled first meaning as its own single.
+              if (i + 1 >= shuffledMeanings.length && c === shuffledMeanings[0] && pairIdx > 0) continue;
+              const opts = buildSingleOptions(c, allMeanings, sameEntryMeanings);
+              if (opts.length < 2) continue;
+              group.push({
+                ...meaningBase,
+                id: `${entry.id}:single-meaning-${c}`,
+                meaning: c,
+                correct: c,
+                correctAnswers: [c],
+                correctAnswer: c,
+                options: opts,
+                selectCount: 1,
+                multi: false,
+                pos: (senses.find((s) => (s.meaning || "").trim() === c) || {}).pos || meaningBase.pos,
+              });
+            }
+          }
+        }
+      } else {
+        // Exactly one meaning → single-choice only when we have real distractors.
+        const correct = senseMeanings[0];
+        const options = buildSingleOptions(correct, allMeanings, sameEntryMeanings);
+        if (options.length >= 2) {
+          group.push({
+            ...meaningBase,
+            id: `${entry.id}:single-meaning`,
+            meaning: correct,
+            correct,
+            correctAnswers: [correct],
+            correctAnswer: correct,
+            options,
+            selectCount: 1,
+            multi: false,
+          });
+        }
+        // If options.length < 2: skip — better no question than a one-option MCQ.
+      }
+    } else if (mode !== "mcq" && senseMeanings.length >= 1) {
+      // Typing / other modes: one prompt per sense (user types the answer).
       for (const sense of senses) {
         const correct = (sense.meaning || "").trim();
         if (!correct) continue;
-        let options = [correct];
-        if (mode === "mcq") {
-          options = buildSingleOptions(correct, allMeanings, sameEntryMeanings);
-        }
         group.push({
           id: `${entry.id}:${sense.id || correct}`,
           entryId: entry.id,
@@ -364,7 +428,7 @@ export function buildQuiz(matchingEntries, allEntries, mode) {
           correctAnswers: [correct],
           correctAnswer: correct,
           acceptedAnswers: senseMeanings.length ? senseMeanings : [correct],
-          options,
+          options: [correct],
           selectCount: 1,
           multi: false,
           type: "meaning",

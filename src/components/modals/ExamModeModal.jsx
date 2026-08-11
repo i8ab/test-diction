@@ -976,40 +976,109 @@ export default function ExamModeModal({
         )}
 
         {/* ——— DONE ——— */}
-        {stage === "done" && (
-          <div style={{ marginTop: 18, textAlign: "center" }}>
-            <div style={{ fontSize: 40, marginBottom: 8 }}>🎯</div>
-            <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: 20, margin: "0 0 8px", color: INK }}>
-              {tr(isAr, "Session complete", "انتهت الجلسة")}
-            </h3>
-            {questions.length === 0 ? (
-              <p style={{ fontSize: 15, color: "var(--muted-strong)", margin: "0 0 16px" }}>
-                {tr(isAr,
-                  `Knew ${knew} · Still learning ${learning}`,
-                  `عرفت ${knew} · لسه بتعلّم ${learning}`)}
-              </p>
-            ) : (
-              <p style={{ fontSize: 15, color: "var(--muted-strong)", margin: "0 0 16px" }}>
-                {tr(isAr,
-                  `Score: ${score} / ${results.length}`,
-                  `النتيجة: ${score} من ${results.length}`)}
-              </p>
-            )}
-            <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-              <button type="button" onClick={() => { setStage("setup"); setStartError(""); }}
-                style={{ ...primaryBtnStyle, marginTop: 0, width: "auto", padding: "11px 20px" }}>
-                {tr(isAr, "Practice again", "تدريب تاني")}
-              </button>
-              <button type="button" onClick={onClose}
-                style={{
-                  marginTop: 0, padding: "11px 20px", borderRadius: 12, border: "1px solid rgba(var(--border-rgb),0.25)",
-                  background: "none", color: "var(--muted-strong)", fontWeight: 600, fontSize: 14, cursor: "pointer",
-                }}>
-                {tr(isAr, "Close", "إغلاق")}
-              </button>
+        {stage === "done" && (() => {
+          const mistakes = results.filter((r) => !r.correct);
+          const pct = results.length ? Math.round((score / results.length) * 100) : 0;
+          return (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 40, marginBottom: 6 }}>🎯</div>
+                <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: 20, margin: "0 0 6px", color: INK }}>
+                  {tr(isAr, "Session complete", "انتهت الجلسة")}
+                </h3>
+                {questions.length === 0 ? (
+                  <p style={{ fontSize: 15, color: "var(--muted-strong)", margin: "0 0 16px" }}>
+                    {tr(isAr,
+                      `Knew ${knew} · Still learning ${learning}`,
+                      `عرفت ${knew} · لسه بتعلّم ${learning}`)}
+                  </p>
+                ) : (
+                  <>
+                    <p style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 600, color: INK, margin: "4px 0" }}>
+                      {score} / {results.length}
+                    </p>
+                    <p style={{ fontSize: 14, color: "var(--muted-strong)", margin: "0 0 14px" }}>
+                      {tr(isAr,
+                        `You got ${score} out of ${results.length} right (${pct}%).`,
+                        `أجبت صح على ${score} من ${results.length} (${pct}%).`)}
+                    </p>
+                  </>
+                )}
+              </div>
+
+              {questions.length > 0 && (
+                mistakes.length > 0 ? (
+                  <div style={{ textAlign: "start", marginBottom: 12, maxHeight: "42vh", overflowY: "auto" }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: INK, margin: "0 0 10px" }}>
+                      {tr(isAr, "Mistakes — review these", "الأخطاء — راجع دول")}
+                    </p>
+                    {mistakes.map((item, mi) => (
+                      <div
+                        key={item.id || mi}
+                        style={{
+                          padding: "12px 14px",
+                          border: "1px solid rgba(var(--border-rgb),0.15)",
+                          borderRadius: 12,
+                          marginBottom: 8,
+                          background: "var(--input-bg)",
+                        }}
+                      >
+                        <div
+                          dir={item.wordDir || "ltr"}
+                          style={{
+                            fontFamily: item.wordFont || "inherit",
+                            fontSize: 16,
+                            fontWeight: 700,
+                            color: INK,
+                            marginBottom: 6,
+                          }}
+                        >
+                          {item.word || "—"}
+                          {item.pos ? (
+                            <span style={{
+                              marginInlineStart: 8, fontSize: 11, fontWeight: 700,
+                              color: "var(--muted-strong)", fontFamily: "'Source Sans 3', sans-serif",
+                            }}>
+                              ({item.pos})
+                            </span>
+                          ) : null}
+                        </div>
+                        <p style={{ fontSize: 13, color: "var(--danger)", margin: "0 0 4px", fontWeight: 600 }}>
+                          {tr(isAr,
+                            `Your answer: ${item.selectedAnswer || "—"}`,
+                            `إجابتك: ${item.selectedAnswer || "—"}`)}
+                        </p>
+                        <p style={{ fontSize: 13, color: "#1a7f37", margin: 0, fontWeight: 600 }}>
+                          {tr(isAr,
+                            `Correct: ${item.correctAnswer || "—"}`,
+                            `الصح: ${item.correctAnswer || "—"}`)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ textAlign: "center", fontSize: 14, color: "var(--success, #1a7f37)", margin: "0 0 16px", fontWeight: 600 }}>
+                    {tr(isAr, "Perfect score — nothing to review!", "علامة كاملة — مفيش حاجة للمراجعة!")}
+                  </p>
+                )
+              )}
+
+              <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+                <button type="button" onClick={() => { setStage("setup"); setStartError(""); }}
+                  style={{ ...primaryBtnStyle, marginTop: 0, width: "auto", padding: "11px 20px" }}>
+                  {tr(isAr, "Practice again", "تدريب تاني")}
+                </button>
+                <button type="button" onClick={onClose}
+                  style={{
+                    marginTop: 0, padding: "11px 20px", borderRadius: 12, border: "1px solid rgba(var(--border-rgb),0.25)",
+                    background: "none", color: "var(--muted-strong)", fontWeight: 600, fontSize: 14, cursor: "pointer",
+                  }}>
+                  {tr(isAr, "Close", "إغلاق")}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
         </div>
       </div>
     </div>

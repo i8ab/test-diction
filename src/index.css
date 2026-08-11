@@ -1878,16 +1878,7 @@ html[data-device="tablet"] .entry-card--tablet .entry-longform {
   transform: scale(0.97);
   opacity: 0.9;
 }
-.entry-card--mobile .entry-card-speak-inline button,
-.entry-card--mobile button[aria-label*="Pronounce"],
-.entry-card--mobile button[aria-label*="نطق"] {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: var(--input-bg);
-  border: 1px solid rgba(var(--border-rgb), 0.12) !important;
-  justify-content: center;
-}
+/* Pronounce sizing is driven by .entry-speak-slot chip (scales with device) */
 
 
 /* Stacked word cards — all devices */
@@ -1974,44 +1965,35 @@ html[data-device="tablet"] .entry-card--tablet .entry-action-btn {
   flex: 1 1 0 !important;
   border-radius: 12px !important;
 }
-/* Speak / Cambridge / chevron — keep hit targets clear without fighting inline device sizes */
-.entry-card--mobile .entry-speak-slot button,
-html[data-device="mobile"] .entry-speak-slot button {
-  width: 100% !important;
-  height: 100% !important;
-  min-width: 0 !important;
-  min-height: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  border-radius: 12px !important;
-  background: var(--input-bg) !important;
-  border: 1px solid rgba(var(--border-rgb), 0.12) !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
+/* Cambridge + speak: chip background is on the slot; button fills it on all devices */
 .entry-card-controls {
   flex-shrink: 0;
+  align-items: center;
 }
 .entry-cam-link:hover,
-.entry-cam-link:focus-visible {
-  background: rgba(var(--border-rgb), 0.1);
+.entry-cam-link:focus-visible,
+.entry-speak-slot:hover {
+  filter: brightness(1.1);
 }
+.entry-card .entry-speak-slot button,
+.entry-card--mobile .entry-speak-slot button,
+.entry-card--mobile button[aria-label*="Pronounce"],
+.entry-card--mobile button[aria-label*="نطق"],
+html[data-device="mobile"] .entry-speak-slot button,
+html[data-device="tablet"] .entry-speak-slot button,
 html[data-device="desktop"] .entry-speak-slot button {
   width: 100% !important;
   height: 100% !important;
   min-width: 0 !important;
   min-height: 0 !important;
   padding: 0 !important;
-  border-radius: 10px !important;
-}
-html[data-device="tablet"] .entry-speak-slot button {
-  width: 100% !important;
-  height: 100% !important;
-  min-width: 0 !important;
-  min-height: 0 !important;
-  padding: 0 !important;
-  border-radius: 11px !important;
+  margin: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 .entry-card--mobile .entry-longform {
   display: none !important;

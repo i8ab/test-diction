@@ -101,15 +101,34 @@ function EntryCard({
   const actionRadius = touchy ? 12 : 10;
   const iconSize = touchy ? 18 : 16;
 
-  // Cambridge / speak / chevron — scale with the word row & screen size
-  // (desktop compact, tablet balanced, mobile larger hit targets)
-  const ctrlIcon = mobileLayout ? 20 : tabletLayout ? 18 : 16;
-  const chevronIcon = mobileLayout ? 16 : tabletLayout ? 15 : 13;
-  const camHit = mobileLayout ? 36 : tabletLayout ? 32 : 28;
-  const speakHit = mobileLayout ? 40 : tabletLayout ? 36 : 32;
-  const chevronHit = mobileLayout ? 32 : tabletLayout ? 28 : 26;
-  const wordFontSize = mobileLayout ? 17 : tabletLayout ? 18 : 16;
-  const ctrlGap = mobileLayout ? 4 : tabletLayout ? 3 : 2;
+  // Cambridge + speak + chevron: same control *type* as mobile on every device
+  // (rounded chip with background, clustered at the far end of the word row).
+  // Absolute size grows with the screen: phone → tablet → desktop.
+  const ctrlIcon = mobileLayout ? 16 : tabletLayout ? 18 : 20;
+  const chevronIcon = mobileLayout ? 14 : tabletLayout ? 15 : 17;
+  const ctrlHit = mobileLayout ? 36 : tabletLayout ? 40 : 44;
+  const chevronHit = mobileLayout ? 28 : tabletLayout ? 32 : 36;
+  const wordFontSize = mobileLayout ? 16 : tabletLayout ? 18 : 19;
+  const ctrlGap = mobileLayout ? 4 : tabletLayout ? 5 : 6;
+  const ctrlRadius = mobileLayout ? 11 : tabletLayout ? 12 : 13;
+  // Shared chip look (matches mobile pronounce buttons)
+  const ctrlChipStyle = {
+    flexShrink: 0,
+    width: ctrlHit,
+    height: ctrlHit,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: ctrlRadius,
+    background: "var(--input-bg)",
+    border: "1px solid rgba(var(--border-rgb), 0.12)",
+    boxSizing: "border-box",
+    padding: 0,
+    margin: 0,
+    color: "var(--icon-muted)",
+    textDecoration: "none",
+    cursor: "pointer",
+  };
 
   const actionBtnBase = {
     border: "none",
@@ -254,7 +273,7 @@ function EntryCard({
           )}
           {/* Spacer pushes controls to the far edge (right in LTR, left in RTL) */}
           <span style={{ flex: "1 1 0", minWidth: 8 }} aria-hidden="true" />
-          {/* Cambridge + speak + chevron — sized for the current screen */}
+          {/* Cambridge + speak + chevron — same chip cluster as mobile, scales with screen */}
           <span
             className="entry-card-controls"
             style={{
@@ -274,42 +293,43 @@ function EntryCard({
                 title={tr(isAr, "Cambridge Dictionary", "قاموس كامبريدج")}
                 aria-label={tr(isAr, "Open in Cambridge Dictionary", "افتح في قاموس كامبريدج")}
                 className="lift-hover entry-cam-link"
-                style={{
-                  flexShrink: 0,
-                  width: camHit,
-                  height: camHit,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: mobileLayout ? 10 : 8,
-                  textDecoration: "none",
-                }}
+                style={ctrlChipStyle}
               >
                 <CambridgeShieldIcon size={ctrlIcon} />
               </a>
             )}
             {isEnglishWord && (
-              <span
-                className="entry-speak-slot"
-                style={{
-                  width: speakHit,
-                  height: speakHit,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={isAr} size={ctrlIcon} />
+              <span className="entry-speak-slot" style={ctrlChipStyle}>
+                <SpeakButton
+                  text={entry.word}
+                  dir={cfg.wordDir}
+                  isAr={isAr}
+                  size={ctrlIcon}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    padding: 0,
+                    margin: 0,
+                    border: "none",
+                    background: "transparent",
+                    color: "var(--icon-muted)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: ctrlRadius,
+                    cursor: "pointer",
+                  }}
+                />
               </span>
             )}
             <span
               className="entry-chevron-slot"
               style={{
+                ...ctrlChipStyle,
                 width: chevronHit,
                 height: chevronHit,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
+                background: "transparent",
+                border: "none",
               }}
             >
               <ChevronIcon

@@ -114,7 +114,6 @@ export default function ExamModeModal({
     setKnew(0);
     setLearning(0);
     setIndex(0);
-    setAnswered(false);
     setSelected(null);
     setTypedAnswer("");
     setPhase("prompt");
@@ -284,9 +283,18 @@ export default function ExamModeModal({
     setIndex(i);
     const a = answers[i];
     if (a) {
-      setSelected(a.selected != null ? a.selected : (a.selectedList || null));
-      setTypedAnswer(typeof a.selectedAnswer === "string" && !Array.isArray(a.selected)
-        ? String(a.selectedAnswer) : "");
+      const sel = a.selectedList != null ? a.selectedList
+        : (a.selected != null ? a.selected : null);
+      setSelected(sel);
+      // Restore typed answer only for typing/cloze (not MCQ joined strings)
+      const isTypingQ = a.type === "typing" || a.type === "cloze"
+        || (questions[i] && (questions[i].mode === "typing" || questions[i].mode === "cloze"
+          || questions[i].type === "typing" || questions[i].type === "cloze"));
+      if (isTypingQ && typeof a.selectedAnswer === "string") {
+        setTypedAnswer(String(a.selectedAnswer));
+      } else {
+        setTypedAnswer("");
+      }
     } else {
       setSelected(null);
       setTypedAnswer("");
@@ -294,15 +302,55 @@ export default function ExamModeModal({
     setPhase("prompt");
   }
 
+  /** Skip = leave current unanswered and jump to next unanswered (does NOT mark wrong). */
+  function skipQuestion() {
+    // Clear partial multi-select draft so the question stays unanswered
+    if (answers[index] && Array.isArray(selected) && (questions[index]?.selectCount || 1) > 1) {
+      const need = questions[index].selectCount || 1;
+      if (selected.length < need) {
+        setAnswers((prev) => {
+          const copy = [...prev];
+          copy[index] = null;
+          return copy;
+        });
+        setSelected(null);
+      }
+    }
+    goToNextUnanswered();
+  }
+
+  function goToNextUnanswered() {
+    let nextIdx = -1;
+    for (let i = index + 1; i < questions.length; i++) {
+      if (!answers[i]) { nextIdx = i; break; }
+    }
+    if (nextIdx === -1) {
+      for (let i = 0; i < index; i++) {
+        if (!answers[i]) { nextIdx = i; break; }
+      }
+    }
+    if (nextIdx === -1) return; // no other unanswered
+    goToQuestion(nextIdx);
+  }
+
+  function goToNext() {
+    if (index + 1 < questions.length) {
+      goToQuestion(index + 1);
+    }
+  }
+
   function nextQuestion() {
     if (index + 1 >= questions.length) {
-      // only finish if at least one answered — otherwise jump to first unanswered
       const unanswered = answers.findIndex((a) => !a);
       if (unanswered >= 0 && unanswered !== index) {
         goToQuestion(unanswered);
         return;
       }
-      finishSession();
+      // On last question with no other unanswered: finish only if current is answered
+      // otherwise stay so user can answer or use Submit when ready
+      if (answers[index]) {
+        finishSession();
+      }
     } else {
       goToQuestion(index + 1);
     }
@@ -479,35 +527,59 @@ export default function ExamModeModal({
 
         {/* ——— RUNNING ——— */}
         {stage === "running" && (
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", minHeight: 0 }}>
+            {/* Top bar: timer + progress + answered count */}
             <div style={{
               display: "flex", justifyContent: "space-between", alignItems: "center",
-              fontSize: 12.5, color: "var(--muted)", marginBottom: 10, gap: 8, flexWrap: "wrap",
+              marginBottom: 12, gap: 8, flexWrap: "wrap",
             }}>
-              <span>
-                {questions.length === 0
-                  ? tr(isAr, `Word ${index + 1} of ${pool.length}`, `كلمة ${index + 1} من ${pool.length}`)
-                  : tr(isAr, `Question ${index + 1} of ${questions.length}`, `السؤال ${index + 1} من ${questions.length}`)}
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                {questions.length > 0 && (
-                  <span>{index + 1}/{questions.length}</span>
-                )}
-                {remainingMs != null && (
-                  <span style={{
-                    display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 700,
-                    color: remainingMs < 60_000 ? "var(--danger)" : "var(--muted-strong)",
-                  }}>
-                    <ClockIcon size={13} /> {formatTimer(remainingMs)}
+              <div style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "6px 12px", borderRadius: 20,
+                background: "rgba(var(--border-rgb),0.12)",
+                fontSize: 13, fontWeight: 700, color: "var(--muted-strong)",
+                fontVariantNumeric: "tabular-nums",
+              }}>
+                {remainingMs != null ? (
+                  <>
+                    <ClockIcon size={13} />
+                    <span style={{ color: remainingMs < 60_000 ? "var(--danger)" : undefined }}>
+                      {formatTimer(remainingMs)}
+                    </span>
+                  </>
+                ) : (
+                  <span style={{ opacity: 0.7 }}>
+                    {questions.length === 0
+                      ? tr(isAr, `Word ${index + 1} of ${pool.length}`, `كلمة ${index + 1} من ${pool.length}`)
+                      : tr(isAr, "Exam", "امتحان")}
                   </span>
                 )}
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>
+                {questions.length === 0
+                  ? `${index + 1}/${pool.length}`
+                  : `${index + 1}/${questions.length}`}
               </span>
+              {questions.length > 0 && (
+                <span style={{ fontSize: 13, fontWeight: 700, color: BRASS }}>
+                  {answeredCount}/{questions.length}
+                </span>
+              )}
             </div>
 
-            <div style={{ width: "100%", height: 4, background: "var(--input-bg)", borderRadius: 2, marginBottom: 16 }}>
+            {/* Progress bar — based on answered count (quiz-style) for MCQ/typing; index for flash */}
+            <div style={{
+              width: "100%", height: 5, background: "rgba(var(--border-rgb),0.15)",
+              borderRadius: 3, marginBottom: 16, overflow: "hidden",
+            }}>
               <div style={{
-                width: `${(index / Math.max(1, questions.length === 0 ? pool.length : questions.length)) * 100}%`,
-                height: "100%", background: "#e85d04", borderRadius: 2, transition: "width 0.2s",
+                width: questions.length > 0
+                  ? `${(answeredCount / Math.max(questions.length, 1)) * 100}%`
+                  : `${((index + (phase === "revealed" ? 1 : 0)) / Math.max(pool.length, 1)) * 100}%`,
+                height: "100%",
+                background: "linear-gradient(90deg, var(--accent-1), var(--accent-2))",
+                borderRadius: 3,
+                transition: "width 0.25s ease",
               }} />
             </div>
 
@@ -580,10 +652,11 @@ export default function ExamModeModal({
               const isMulti = !!q.multi || (q.selectCount || 1) > 1;
               const total = questions.length;
               const hasAnswer = !!answers[index];
+              const allAnswered = total > 0 && answeredCount === total;
               const selectedList = Array.isArray(selected)
                 ? selected
                 : (selected ? [selected] : []);
-              // Number strip (same idea as main quiz)
+              // Number strip window around current (same as quiz)
               const windowSize = 9;
               let startNum = Math.max(1, (index + 1) - Math.floor(windowSize / 2));
               let endNum = Math.min(total, startNum + windowSize - 1);
@@ -591,76 +664,77 @@ export default function ExamModeModal({
               const numberStrip = [];
               for (let n = startNum; n <= endNum; n++) numberStrip.push(n);
 
-              return (
-                <div>
-                  {/* Progress + question numbers */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>
-                      {index + 1}/{total}
-                    </span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: BRASS }}>
-                      {answeredCount}/{total}
-                    </span>
-                  </div>
-                  <div style={{
-                    display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center",
-                    marginBottom: 14,
-                  }}>
-                    {numberStrip.map((n) => {
-                      const i = n - 1;
-                      const isCurrent = i === index;
-                      const isDone = !!answers[i];
-                      return (
-                        <button
-                          key={n}
-                          type="button"
-                          onClick={() => goToQuestion(i)}
-                          style={{
-                            width: 32, height: 32, borderRadius: 8, fontSize: 13, fontWeight: 700,
-                            border: isCurrent ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.2)",
-                            background: isCurrent
-                              ? "var(--accent-1-soft)"
-                              : isDone ? "rgba(var(--border-rgb),0.18)" : "var(--card)",
-                            color: isCurrent ? "var(--accent-1)" : "var(--muted-strong)",
-                            cursor: "pointer",
-                          }}
-                        >
-                          {n}
-                        </button>
-                      );
-                    })}
-                  </div>
+              const letters = isAr
+                ? ["أ", "ب", "ج", "د", "هـ"]
+                : ["A", "B", "C", "D", "E"];
 
-                  <p style={{ fontSize: 14, fontWeight: 600, color: "var(--muted-strong)", margin: "0 0 10px" }}>
-                    {quizQuestionLabel(q.type || q.mode, isAr, q.pos, isMulti)}
-                  </p>
+              return (
+                <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+                  {/* Question type label */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                    <p style={{
+                      fontSize: 13, fontWeight: 700, color: "var(--muted-strong)", margin: 0,
+                      letterSpacing: "0.02em", textTransform: "uppercase",
+                    }}>
+                      {quizQuestionLabel(q.type || q.mode, isAr, q.pos, isMulti)}
+                    </p>
+                  </div>
+                  {isMulti && (
+                    <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px" }}>
+                      {tr(isAr, `Select ${q.selectCount || 2} answers`, `اختار ${(q.selectCount || 2)} إجابات`)}
+                      {selectedList.length > 0 ? ` · ${selectedList.length}/${q.selectCount || 2}` : ""}
+                    </p>
+                  )}
+
+                  {/* Prompt card */}
                   <div style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    background: "var(--input-bg)", borderRadius: 8, padding: "18px 14px", marginBottom: 14,
+                    display: "flex", alignItems: "center", gap: 12,
+                    background: "var(--input-bg)",
+                    borderRadius: 16,
+                    padding: "18px 16px",
+                    marginBottom: 18,
+                    border: "1px solid rgba(var(--border-rgb),0.12)",
+                    boxShadow: "0 4px 16px -8px rgba(0,0,0,0.15)",
                   }}>
                     <div dir={q.promptDir} style={{
-                      flex: 1, fontFamily: q.promptFont,
-                      fontSize: (q.mode === "cloze" || q.type === "cloze") ? "clamp(18px, 3.5vw, 24px)" : "clamp(24px, 4vw, 32px)",
+                      flex: 1, minWidth: 0, fontFamily: q.promptFont,
+                      fontSize: (q.mode === "cloze" || q.type === "cloze")
+                        ? "clamp(18px, 3.5vw, 24px)"
+                        : "clamp(22px, 4vw, 30px)",
                       fontWeight: 700, color: INK, wordBreak: "break-word", lineHeight: 1.35,
                     }}>
                       {q.promptText}
                     </div>
                     {q.promptText && q.mode !== "cloze" && q.type !== "cloze" && (
-                      <SpeakButton text={q.word} dir={q.wordDir} isAr={isAr} size={20}
-                        style={{ flexShrink: 0 }} />
+                      <SpeakButton
+                        text={q.word || q.promptText}
+                        dir={q.wordDir || q.promptDir}
+                        isAr={isAr}
+                        size={20}
+                        style={{
+                          flexShrink: 0,
+                          background: "var(--card)",
+                          border: "1px solid rgba(var(--border-rgb),0.2)",
+                          borderRadius: "50%",
+                          width: 40, height: 40,
+                          justifyContent: "center",
+                          color: BRASS,
+                        }}
+                      />
                     )}
                   </div>
 
+                  {/* Options / typing */}
                   {(q.mode === "mcq" || q.type === "mcq" || q.type === "meaning" || q.type === "synonym" || q.type === "antonym") ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
                       {(q.options || []).map((opt, i) => {
                         const isSelectedOpt = selectedList.includes(opt);
-                        const letters = isAr
-                          ? ["أ", "ب", "ج", "د", "هـ"]
-                          : ["A", "B", "C", "D", "E"];
                         // Exam: never reveal correct/wrong while running — only mark selected
-                        let bg = "var(--card)", border = "rgba(var(--border-rgb),0.18)", color = INK;
-                        let letterBg = "rgba(var(--border-rgb),0.12)", letterColor = "var(--muted-strong)";
+                        let bg = "var(--card)";
+                        let border = "rgba(var(--border-rgb),0.18)";
+                        let color = INK;
+                        let letterBg = "rgba(var(--border-rgb),0.12)";
+                        let letterColor = "var(--muted-strong)";
                         if (isSelectedOpt) {
                           bg = "var(--accent-1-soft)";
                           border = "var(--accent-1)";
@@ -668,15 +742,29 @@ export default function ExamModeModal({
                           letterColor = "#fff";
                         }
                         return (
-                          <button key={i} type="button" onClick={() => pickOption(opt)}
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => pickOption(opt)}
                             dir={q.optionDir}
                             style={{
-                              textAlign: "start", fontFamily: q.optionFont, fontSize: 15.5,
-                              padding: "14px 14px", background: bg, border: `1.5px solid ${border}`,
-                              color, borderRadius: 14, cursor: "pointer",
-                              display: "flex", alignItems: "center", gap: 12, minHeight: 52,
+                              textAlign: "start",
+                              fontFamily: q.optionFont,
+                              fontSize: 15.5,
+                              padding: "14px 14px",
+                              background: bg,
+                              border: `1.5px solid ${border}`,
+                              color,
+                              borderRadius: 14,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 12,
+                              minHeight: 52,
                               boxShadow: "0 2px 8px -4px rgba(0,0,0,0.12)",
-                            }}>
+                              transition: "transform 0.12s ease, box-shadow 0.12s ease",
+                            }}
+                          >
                             <span style={{
                               flexShrink: 0, width: 32, height: 32, borderRadius: 10,
                               display: "flex", alignItems: "center", justifyContent: "center",
@@ -691,7 +779,7 @@ export default function ExamModeModal({
                       })}
                     </div>
                   ) : (
-                    <div>
+                    <div style={{ marginBottom: 16 }}>
                       <input
                         type="text"
                         dir={q.optionDir}
@@ -713,37 +801,169 @@ export default function ExamModeModal({
                           background: "var(--input-bg)",
                           border: "1px solid rgba(var(--border-rgb),0.2)",
                           borderRadius: 12,
+                          marginBottom: 10,
                         }}
                       />
-                      <button type="button" onClick={submitTyped} disabled={!typedAnswer.trim()}
+                      <button
+                        type="button"
+                        onClick={submitTyped}
+                        disabled={!typedAnswer.trim()}
                         style={{
                           ...primaryBtnStyle,
+                          marginTop: 0,
                           opacity: typedAnswer.trim() ? 1 : 0.5,
                           cursor: typedAnswer.trim() ? "pointer" : "default",
-                        }}>
+                        }}
+                      >
                         {tr(isAr, hasAnswer ? "Update answer" : "Save answer", hasAnswer ? "تعديل الإجابة" : "حفظ الإجابة")}
                       </button>
                     </div>
                   )}
 
-                  <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-                    <button type="button" onClick={nextQuestion} style={primaryBtnStyle}>
-                      {index + 1 >= questions.length
-                        ? tr(isAr, "Finish", "إنهاء")
-                        : tr(isAr, "Next", "التالي")}
-                    </button>
-                    {answeredCount === total && total > 0 && (
-                      <button type="button" onClick={finishSession}
-                        style={{ ...primaryBtnStyle, background: "var(--success)", borderColor: "var(--success)" }}>
-                        {tr(isAr, "Submit exam", "تسليم الامتحان")}
-                      </button>
-                    )}
+                  {/* Bottom: number strip + actions (quiz-style) */}
+                  <div style={{ marginTop: "auto", paddingTop: 8 }}>
+                    <div style={{
+                      display: "flex", justifyContent: "center", alignItems: "center",
+                      gap: 6, marginBottom: 14, flexWrap: "wrap",
+                    }}>
+                      {numberStrip.map((n) => {
+                        const i = n - 1;
+                        const isCurrent = i === index;
+                        const isDone = !!answers[i];
+                        return (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => goToQuestion(i)}
+                            style={{
+                              width: isCurrent ? 36 : 28,
+                              height: isCurrent ? 36 : 28,
+                              borderRadius: 10,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: isCurrent ? 14 : 12,
+                              fontWeight: isCurrent ? 800 : 600,
+                              background: isCurrent
+                                ? "linear-gradient(135deg, var(--accent-1), var(--accent-2))"
+                                : isDone
+                                  ? "var(--accent-1-soft)"
+                                  : "transparent",
+                              color: isCurrent
+                                ? "#fff"
+                                : isDone
+                                  ? "var(--accent-1)"
+                                  : "var(--muted-strong)",
+                              border: isCurrent
+                                ? "none"
+                                : isDone
+                                  ? "1.5px solid var(--accent-1)"
+                                  : "1px solid rgba(var(--border-rgb),0.15)",
+                              cursor: "pointer",
+                              transition: "all 0.15s ease",
+                              padding: 0,
+                            }}
+                          >
+                            {n}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Actions — same logic as quiz */}
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      {!hasAnswer ? (
+                        <button
+                          type="button"
+                          onClick={skipQuestion}
+                          style={{
+                            flex: 1,
+                            padding: "13px 16px",
+                            fontSize: 15,
+                            fontWeight: 700,
+                            color: "#fff",
+                            background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+                            border: "none",
+                            borderRadius: 14,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 8,
+                            minHeight: 50,
+                            boxShadow: "0 8px 20px -10px rgba(var(--focus-rgb),0.55)",
+                          }}
+                        >
+                          {tr(isAr, "Skip", "تخطي")} ▶
+                        </button>
+                      ) : (
+                        <>
+                          {index + 1 < total && (
+                            <button
+                              type="button"
+                              onClick={goToNext}
+                              style={{
+                                flex: 1,
+                                padding: "13px 16px",
+                                fontSize: 15,
+                                fontWeight: 700,
+                                color: "#fff",
+                                background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+                                border: "none",
+                                borderRadius: 14,
+                                cursor: "pointer",
+                                minHeight: 50,
+                              }}
+                            >
+                              {tr(isAr, "Next", "التالي")} ▶
+                            </button>
+                          )}
+                          {allAnswered && (
+                            <button
+                              type="button"
+                              onClick={finishSession}
+                              style={{
+                                flex: 1,
+                                ...primaryBtnStyle,
+                                marginTop: 0,
+                                borderRadius: 14,
+                                minHeight: 50,
+                                background: "var(--success)",
+                                borderColor: "var(--success)",
+                              }}
+                            >
+                              <CheckIcon size={16} /> {tr(isAr, "Submit exam", "تسليم الامتحان")}
+                            </button>
+                          )}
+                          {!allAnswered && index + 1 >= total && (
+                            <button
+                              type="button"
+                              onClick={goToNextUnanswered}
+                              style={{
+                                flex: 1,
+                                padding: "13px 16px",
+                                fontSize: 14,
+                                fontWeight: 600,
+                                color: "var(--muted-strong)",
+                                background: "rgba(var(--border-rgb),0.1)",
+                                border: "1px solid rgba(var(--border-rgb),0.15)",
+                                borderRadius: 14,
+                                cursor: "pointer",
+                                minHeight: 50,
+                              }}
+                            >
+                              {tr(isAr,
+                                `Go to unanswered (${answeredCount}/${total})`,
+                                `روح للأسئلة الناقصة (${answeredCount}/${total})`)}
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 10, textAlign: "center" }}>
+                      {tr(isAr,
+                        "Exam mode: change any answer anytime. Results are revealed only when you finish.",
+                        "وضع الامتحان: غيّر أي إجابة في أي وقت. النتيجة تظهر بعد ما تخلّص بس.")}
+                    </p>
                   </div>
-                  <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 10 }}>
-                    {tr(isAr,
-                      "Exam mode: change any answer anytime. Results are revealed only when you finish.",
-                      "وضع الامتحان: غيّر أي إجابة في أي وقت. النتيجة تظهر بعد ما تخلّص بس.")}
-                  </p>
                 </div>
               );
             })()}

@@ -248,7 +248,9 @@ export default function BrandMark({ size = "md", showUnderline = false, isAr = f
             zIndex: 1500,
             width: "min(320px, 92vw)",
             maxHeight: "min(70vh, 420px)",
-            overflowY: "auto",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
             background: "var(--card)",
             color: "var(--ink)",
             borderRadius: "var(--modal-radius, 14px)",
@@ -258,7 +260,7 @@ export default function BrandMark({ size = "md", showUnderline = false, isAr = f
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexShrink: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 800 }}>{tr(isAr, "Choose a mark", "اختار شكل الشعار")}</div>
             <button
               type="button"
@@ -269,6 +271,7 @@ export default function BrandMark({ size = "md", showUnderline = false, isAr = f
             </button>
           </div>
 
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
           <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
             {tr(isAr, "All options use the same pulse & shine animation.", "كل الخيارات بنفس حركة النبض واللمعان.")}
           </p>
@@ -391,6 +394,7 @@ export default function BrandMark({ size = "md", showUnderline = false, isAr = f
                 {tr(isAr, `Current custom: ${customGlyph}`, `الحالي المخصص: ${customGlyph}`)}
               </div>
             )}
+          </div>
           </div>
         </div>
       )}

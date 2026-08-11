@@ -632,7 +632,7 @@ export default function HeaderMenu({
             className="modal-card"
             style={{
               width: "100%", maxWidth: "min(440px, 100%)",
-              maxHeight: "min(90dvh, 820px)", overflowY: "auto",
+              maxHeight: "min(90dvh, 820px)", overflow: "hidden", display: "flex", flexDirection: "column",
               background: "var(--card)", color: "var(--ink)",
               border: "1px solid rgba(var(--border-rgb),0.14)",
               borderRadius: 16,
@@ -640,7 +640,7 @@ export default function HeaderMenu({
               boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexShrink: 0 }}>
               <h2 id="settings-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: "var(--ink)" }}>
                 {T( "Settings", "الإعدادات")}
               </h2>
@@ -653,6 +653,8 @@ export default function HeaderMenu({
                 <XIcon size={20} />
               </button>
             </div>
+
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <Row
@@ -965,6 +967,7 @@ export default function HeaderMenu({
               </div>
 
             </div>
+            </div>
           </div>
         </div>,
         document.body
@@ -990,7 +993,7 @@ export default function HeaderMenu({
             className="modal-card"
             style={{
               width: "100%", maxWidth: "min(440px, 100%)",
-              maxHeight: "min(90dvh, 820px)", overflowY: "auto",
+              maxHeight: "min(90dvh, 820px)", overflow: "hidden", display: "flex", flexDirection: "column",
               background: "var(--card)", color: "var(--ink)",
               border: "1px solid rgba(var(--border-rgb),0.14)",
               borderRadius: 16,
@@ -998,7 +1001,7 @@ export default function HeaderMenu({
               boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
               <h2 id="info-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: "var(--ink)" }}>
                 {T("Information", "معلومات")}
               </h2>
@@ -1011,6 +1014,8 @@ export default function HeaderMenu({
                 <XIcon size={20} />
               </button>
             </div>
+
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {INFO_SECTIONS.map((s) => {
                 const Icon = s.icon;
@@ -1051,6 +1056,7 @@ export default function HeaderMenu({
                 );
               })}
             </div>
+            </div>
           </div>
         </div>,
         document.body
@@ -1076,7 +1082,7 @@ export default function HeaderMenu({
             className="modal-card"
             style={{
               width: "100%", maxWidth: "min(440px, 100%)",
-              maxHeight: "min(90dvh, 820px)", overflowY: "auto",
+              maxHeight: "min(90dvh, 820px)", overflow: "hidden", display: "flex", flexDirection: "column",
               background: "var(--card)", color: "var(--ink)",
               border: "1px solid rgba(var(--border-rgb),0.14)",
               borderRadius: 16,
@@ -1084,7 +1090,7 @@ export default function HeaderMenu({
               boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
               <h2 id="notif-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: "var(--ink)" }}>
                 {T( "Notifications", "الإشعارات")}
               </h2>
@@ -1097,6 +1103,8 @@ export default function HeaderMenu({
                 <XIcon size={20} />
               </button>
             </div>
+
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
             <div
                       onPointerDown={(e) => e.stopPropagation()}
                       style={{ padding: "6px 10px 12px", display: "flex", flexDirection: "column", gap: 10 }}
@@ -1269,6 +1277,7 @@ export default function HeaderMenu({
                         </div>
                       )}
                     </div>
+            </div>
           </div>
         </div>,
         document.body
@@ -1294,7 +1303,7 @@ export default function HeaderMenu({
             className="modal-card"
             style={{
               width: "100%", maxWidth: "min(440px, 100%)",
-              maxHeight: "min(90dvh, 820px)", overflowY: "auto",
+              maxHeight: "min(90dvh, 820px)", overflow: "hidden", display: "flex", flexDirection: "column",
               background: "var(--card)", color: "var(--ink)",
               border: "1px solid rgba(var(--border-rgb),0.14)",
               borderRadius: 16,
@@ -1302,7 +1311,7 @@ export default function HeaderMenu({
               boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
               <h2 id="banner-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: "var(--ink)" }}>
                 {T( "Site banner", "بانر الموقع")}
               </h2>
@@ -1315,6 +1324,8 @@ export default function HeaderMenu({
                 <XIcon size={20} />
               </button>
             </div>
+
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
             <div
                       onPointerDown={(e) => e.stopPropagation()}
                       style={{ padding: "6px 10px 12px", display: "flex", flexDirection: "column", gap: 10 }}
@@ -1708,6 +1719,7 @@ export default function HeaderMenu({
                         </button>
                       </div>
                     </div>
+            </div>
           </div>
         </div>,
         document.body
@@ -1716,17 +1728,20 @@ export default function HeaderMenu({
 
       {deviceModalOpen && typeof onChangeDeviceMode === "function" && typeof document !== "undefined" && createPortal(
         <div onClick={() => { /* Stay open unless X */ }} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div onClick={(e) => e.stopPropagation()} className="modal-card" role="dialog" aria-modal="true" aria-labelledby="device-modal-title" style={{ background: "var(--card)", borderRadius: 16, padding: 20, width: "100%", maxWidth: 440, boxShadow: "0 24px 60px -20px rgba(0,0,0,0.4)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div onClick={(e) => e.stopPropagation()} className="modal-card" role="dialog" aria-modal="true" aria-labelledby="device-modal-title" style={{ background: "var(--card)", borderRadius: 16, padding: 20, width: "100%", maxWidth: 440, maxHeight: "min(90dvh, 820px)", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 60px -20px rgba(0,0,0,0.4)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexShrink: 0 }}>
               <h2 id="device-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Device layout", "واجهة الجهاز")}</h2>
               <button type="button" onClick={() => setDeviceModalOpen(false)} aria-label={T("Close", "إغلاق")} style={{ border: "none", background: "var(--input-bg)", borderRadius: 10, width: 36, height: 36, cursor: "pointer", color: "var(--icon-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}><XIcon size={18} /></button>
             </div>
+
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
             <DevicePicker
               mode={deviceMode}
               onSelect={(id) => { onChangeDeviceMode(id); setDeviceModalOpen(false); }}
               isAr={isAr}
               compact
             />
+            </div>
           </div>
         </div>,
         document.body
@@ -1735,11 +1750,13 @@ export default function HeaderMenu({
       {/* Language settings — dedicated modal */}
       {langModalOpen && typeof document !== "undefined" && createPortal(
         <div onClick={() => { /* Stay open unless X */ }} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="lang-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, maxHeight: "min(90dvh, 820px)", overflowY: "auto", background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="lang-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, maxHeight: "min(90dvh, 820px)", overflow: "hidden", display: "flex", flexDirection: "column", background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexShrink: 0 }}>
               <h2 id="lang-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Language", "اللغة")}</h2>
               <button type="button" onClick={() => setLangModalOpen(false)} aria-label={T("Close", "إغلاق")} style={{ border: "none", background: "var(--input-bg)", borderRadius: 10, width: 36, height: 36, cursor: "pointer", color: "var(--icon-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}><XIcon size={18} /></button>
             </div>
+
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
             <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.45 }}>
               {T("Changes menus, settings, and account screens — not dictionary words.", "بتغيّر القوائم والإعدادات والحساب — مش كلمات القاموس.")}
             </p>
@@ -1761,6 +1778,7 @@ export default function HeaderMenu({
                 );
               })}
             </div>
+            </div>
           </div>
         </div>,
         document.body
@@ -1769,11 +1787,13 @@ export default function HeaderMenu({
       {/* Accent / dialect — dedicated modal */}
       {accentModalOpen && typeof document !== "undefined" && createPortal(
         <div onClick={() => { /* Stay open unless X */ }} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="accent-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, maxHeight: "min(90dvh, 820px)", overflowY: "auto", background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="accent-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, maxHeight: "min(90dvh, 820px)", overflow: "hidden", display: "flex", flexDirection: "column", background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexShrink: 0 }}>
               <h2 id="accent-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Accent / dialect", "اللهجة / النطق")}</h2>
               <button type="button" onClick={() => setAccentModalOpen(false)} aria-label={T("Close", "إغلاق")} style={{ border: "none", background: "var(--input-bg)", borderRadius: 10, width: 36, height: 36, cursor: "pointer", color: "var(--icon-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}><XIcon size={18} /></button>
             </div>
+
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
             <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.45 }}>
               {T("Default Cambridge Dictionary accent for all speaker buttons (including zoom view).", "اللهجة الافتراضية من كامبريدج لكل أزرار السماعة (بما فيها العرض الكبير).")}
             </p>
@@ -1795,6 +1815,7 @@ export default function HeaderMenu({
                 );
               })}
             </div>
+            </div>
           </div>
         </div>,
         document.body
@@ -1803,11 +1824,13 @@ export default function HeaderMenu({
       {/* Appearance — theme + color scheme */}
       {appearanceModalOpen && typeof document !== "undefined" && createPortal(
         <div onClick={() => { /* Stay open unless X */ }} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="appearance-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, maxHeight: "min(90dvh, 820px)", overflowY: "auto", background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="appearance-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, maxHeight: "min(90dvh, 820px)", overflow: "hidden", display: "flex", flexDirection: "column", background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexShrink: 0 }}>
               <h2 id="appearance-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Appearance", "المظهر")}</h2>
               <button type="button" onClick={() => setAppearanceModalOpen(false)} aria-label={T("Close", "إغلاق")} style={{ border: "none", background: "var(--input-bg)", borderRadius: 10, width: 36, height: 36, cursor: "pointer", color: "var(--icon-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}><XIcon size={18} /></button>
             </div>
+
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
             <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.45 }}>
               {T("Customize logo, light/dark mode, and the accent color of the interface.", "خصّص الشعار والوضع الفاتح/الداكن ولون الواجهة.")}
             </p>
@@ -2158,6 +2181,7 @@ export default function HeaderMenu({
                 </div>
               </>
             )}
+            </div>
           </div>
         </div>,
         document.body

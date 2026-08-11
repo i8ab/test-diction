@@ -146,7 +146,9 @@ export default function DashboardPage({
           width: "100%",
           maxWidth: 520,
           maxHeight: "90vh",
-          overflowY: "auto",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
           background: CARD,
           borderRadius: 16,
           padding: "20px 20px 24px",
@@ -155,7 +157,7 @@ export default function DashboardPage({
         }}
       >
         {/* هيدر ثابت واضح */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12, flexShrink: 0 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-strong)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
               {tr(isAr, "Dashboard", "لوحة القيادة")}
@@ -174,6 +176,7 @@ export default function DashboardPage({
           </button>
         </div>
 
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 18 }}>
           {cards.map((c) => (
             <button
@@ -337,6 +340,7 @@ export default function DashboardPage({
               {b.label}
             </button>
           ))}
+        </div>
         </div>
       </div>
     </div>

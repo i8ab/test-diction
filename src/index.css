@@ -1669,7 +1669,7 @@ html[data-device="tablet"] .app-main-row {
   margin-inline: auto !important;
   padding-bottom: 24px !important;
   padding-inline-start: clamp(12px, 1.5vw, 20px) !important;
-  padding-inline-end: 64px; /* room for side dock */
+  padding-inline-end: clamp(12px, 1.5vw, 20px) !important; /* no side dock on tablet */
 }
 html[data-device="tablet"] .letter-rail {
   flex: 0 0 52px !important;
@@ -1736,9 +1736,12 @@ html[data-device="tablet"] .entry-card--tablet {
   border-radius: 12px !important;
   gap: 14px !important;
 }
-html[data-device="tablet"] .entry-card--tablet .entry-card-actions > button {
-  min-width: 44px !important;
-  min-height: 44px !important;
+html[data-device="tablet"] .entry-card--tablet .entry-action-bar {
+  gap: 6px !important;
+}
+html[data-device="tablet"] .entry-card--tablet .entry-action-btn {
+  min-height: 48px !important;
+  flex: 1 1 0 !important;
 }
 html[data-device="tablet"] header .section-tab {
   min-height: 44px !important;
@@ -1754,26 +1757,10 @@ html[data-device="tablet"] .mobile-fab-add {
   display: none !important;
 }
 
-/* Tablet vertical dock */
-.tablet-side-dock {
-  display: none;
-}
+/* Tablet vertical dock — removed (tablet uses header/menu like desktop) */
+.tablet-side-dock,
 html[data-device="tablet"] .tablet-side-dock {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
-  inset-inline-end: max(12px, env(safe-area-inset-right, 0px));
-  z-index: 75;
-  padding: 10px 8px;
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--card) 92%, transparent);
-  border: 1px solid rgba(var(--border-rgb), 0.14);
-  box-shadow: 0 12px 32px -16px rgba(0,0,0,0.28);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  display: none !important;
 }
 .tablet-dock-btn {
   display: flex;
@@ -1806,9 +1793,10 @@ html[data-device="tablet"] .word-zoom-modal {
   overflow-y: auto !important;
 }
 
-/* Portrait tablet: dock at bottom-end cluster instead of center if short */
+/* Portrait tablet: dock disabled */
 @media (max-height: 700px) {
   html[data-device="tablet"] .tablet-side-dock {
+    display: none !important;
     top: auto;
     bottom: max(16px, env(safe-area-inset-bottom, 0px));
     transform: none;
@@ -1840,6 +1828,7 @@ html[data-device="tablet"] #search-suggestions {
 }
 /* Focus mode hides tablet dock */
 html[data-device="tablet"][data-focus-mode="1"] .tablet-side-dock {
+  display: none !important;
   display: none !important;
 }
 .tablet-dock-btn.is-active {

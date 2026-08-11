@@ -96,12 +96,12 @@ function EntryCard({
   // Compact actions on desktop; slightly roomier on touch layouts
   const touchy = mobileLayout || tabletLayout;
 
-  const actionSize = touchy ? 52 : "var(--entry-action, 48px)";
+  // Stretch across the full action bar so the strip looks even (phone / tablet / desktop)
   const actionBtnBase = {
     border: "none",
     background: "var(--input-bg)",
     color: "var(--icon-muted)",
-    padding: "6px 4px",
+    padding: touchy ? "8px 4px" : "6px 4px",
     margin: 0,
     cursor: "pointer",
     display: "inline-flex",
@@ -109,14 +109,10 @@ function EntryCard({
     alignItems: "center",
     justifyContent: "center",
     gap: 2,
-    // Fixed personal hit box — not stretching into neighbors
-    width: actionSize,
-    height: actionSize,
-    minWidth: actionSize,
-    maxWidth: actionSize,
-    minHeight: actionSize,
-    maxHeight: actionSize,
-    flex: "0 0 auto",
+    flex: "1 1 0",
+    minWidth: 0,
+    minHeight: touchy ? 48 : 44,
+    height: "auto",
     borderRadius: 12,
     fontSize: 10,
     fontWeight: 700,
@@ -201,8 +197,8 @@ function EntryCard({
           }
         }}
       >
-        {/* Word row: keep word + controls grouped (no huge empty middle on wide desktop RTL) */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
+        {/* Word row: word + POS on the start side; Cambridge / speak / chevron on the far end */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
           <span
             dir={cfg.wordDir}
             style={{
@@ -218,7 +214,7 @@ function EntryCard({
           >
             {entry.word}
           </span>
-          {/* POS chips sit beside the word (not under it) to save vertical space */}
+          {/* POS chips sit beside the word */}
           {entryPosList(entry).length > 0 && (
             <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4, flex: "0 1 auto", minWidth: 0 }}>
               {entryPosList(entry).map((p) => (
@@ -241,7 +237,9 @@ function EntryCard({
               ))}
             </span>
           )}
-          {/* Controls stay next to the word — packed, no huge empty middle on desktop RTL */}
+          {/* Spacer pushes controls to the far edge (right in LTR, left in RTL) */}
+          <span style={{ flex: "1 1 0", minWidth: 8 }} aria-hidden="true" />
+          {/* Cambridge + speak + chevron — far from the word, same row */}
           <span
             style={{
               display: "inline-flex",
@@ -252,7 +250,6 @@ function EntryCard({
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
           >
-            {/* Cambridge + speak only for English words */}
             {isEnglishWord && (
               <a
                 href={cambridgeUrl(entry.word)}
@@ -365,18 +362,19 @@ function EntryCard({
         )}
       </div>
 
-      {/* Action bar — each button owns a fixed hit box; inherits card dir for RTL */}
+      {/* Action bar — buttons share full width evenly (all device layouts) */}
       <div
         className="entry-action-bar"
         style={{
           display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "flex-start",
-          alignItems: "center",
-          gap: touchy ? 8 : 6,
+          flexWrap: "nowrap",
+          justifyContent: "space-between",
+          alignItems: "stretch",
+          gap: touchy ? 6 : 4,
           marginTop: 12,
           paddingTop: 10,
           borderTop: "1px solid rgba(var(--border-rgb),0.12)",
+          width: "100%",
         }}
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}

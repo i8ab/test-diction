@@ -200,6 +200,90 @@ export function loadOfflineCache() {
   }
 }
 
+/** Flag: local progress changed but cloud save may not have finished yet. */
+const PENDING_SYNC_KEY = "twoTongues.pendingCloudSync";
+
+export function markPendingCloudSync() {
+  try { localStorage.setItem(PENDING_SYNC_KEY, String(Date.now())); } catch (_) {}
+}
+
+export function clearPendingCloudSync() {
+  try { localStorage.removeItem(PENDING_SYNC_KEY); } catch (_) {}
+}
+
+export function getPendingCloudSyncAt() {
+  try {
+    const v = localStorage.getItem(PENDING_SYNC_KEY);
+    if (!v) return 0;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+/**
+ * Progress fields that live per-account and must survive a reload that
+ * races a still-in-flight cloud write.
+ */
+const PROGRESS_KEYS = [
+  "studied", "studiedAt", "favorites",
+  "srsStats", "srsDueAt", "srsBox", "srsCards",
+  "xp", "xpHistory", "achievements",
+];
+
+/**
+ * If the user toggled studied/favorite and reloaded before the cloud PUT
+ * finished, the offline cache is newer than the server for *their* account.
+ * Merge those progress fields from offline → server accounts, then the
+ * caller should save the merged record back to the cloud.
+ */
+export function mergeOfflineProgress(serverAccounts, offlineRec) {
+  if (!offlineRec || !Array.isArray(offlineRec.accounts) || !Array.isArray(serverAccounts)) {
+    return { accounts: serverAccounts, merged: false };
+  }
+  const pendingAt = getPendingCloudSyncAt();
+  const offlineAt = Number(offlineRec.cachedAt) || 0;
+  // Only trust offline progress if we know a sync was pending, or offline
+  // is very recent (last 2 minutes) — avoids stomping real multi-device edits
+  // with ancient cache.
+  const trustOffline = pendingAt > 0 || (Date.now() - offlineAt < 2 * 60 * 1000);
+  if (!trustOffline || !offlineAt) {
+    return { accounts: serverAccounts, merged: false };
+  }
+
+  const byCode = {};
+  for (const a of offlineRec.accounts) {
+    if (a && a.code) byCode[a.code] = a;
+  }
+  let merged = false;
+  const next = serverAccounts.map((srv) => {
+    const off = byCode[srv.code];
+    if (!off) return srv;
+    // Prefer offline progress when offline cache is at least as fresh as
+    // the pending marker (or always when pending flag is set).
+    const patch = { ...srv };
+    for (const k of PROGRESS_KEYS) {
+      if (off[k] !== undefined) {
+        const same = JSON.stringify(off[k]) === JSON.stringify(srv[k]);
+        if (!same) {
+          patch[k] = off[k];
+          merged = true;
+        }
+      }
+    }
+    return patch;
+  });
+  // Also keep offline-only accounts (shouldn't normally happen)
+  for (const off of offlineRec.accounts) {
+    if (off && off.code && !serverAccounts.some((s) => s.code === off.code)) {
+      next.push(off);
+      merged = true;
+    }
+  }
+  return { accounts: next, merged };
+}
+
 export function savePersonalCode(code) {
   try {
     if (code) localStorage.setItem(CODE_KEY, code);

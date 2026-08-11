@@ -6,6 +6,7 @@ import {
   loadCustomAccentHex, saveCustomAccentHex,
   loadSearchHistory, saveSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory,
   saveOfflineCache, loadOfflineCache, loadSavedTheme, resolveTheme, loadUiScale, saveUiScale, savePersonalCode, loadPersonalCode, clearPersonalCode,
+  markPendingCloudSync, clearPendingCloudSync, mergeOfflineProgress,
   saveSessionId, loadSessionId, generateSessionId,
   generatePersonalCode, detectDeviceIsAr, hasInviteParam,
   loadAppLang, saveAppLang,
@@ -209,6 +210,40 @@ export default function DictionaryApp() {
     examConfigRef.current = examConfig;
     saveExamConfigCache(examConfig);
   }, [examConfig]);
+
+  // Last-chance local snapshot when the tab is closing / backgrounded so a
+  // studied toggle right before reload is never lost.
+  useEffect(() => {
+    function snap() {
+      try {
+        saveOfflineCache({
+          entries: entriesRef.current,
+          accounts: accountsRef.current,
+          logs: logsRef.current,
+          siteBanner: siteBannerRef.current,
+          examConfig: examConfigRef.current,
+          version: recordVersionRef.current,
+        });
+        if (
+          pendingAccountOpsRef.current.length > 0 ||
+          pendingEntryOpsRef.current.length > 0
+        ) {
+          markPendingCloudSync();
+        }
+      } catch (_) {}
+    }
+    function onVis() {
+      if (document.visibilityState === "hidden") snap();
+    }
+    window.addEventListener("pagehide", snap);
+    window.addEventListener("beforeunload", snap);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", snap);
+      window.removeEventListener("beforeunload", snap);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
 
   // Re-applies the chosen accent color palette whenever the accent choice
   // or the light/dark mode changes (each accent has its own light+dark
@@ -516,6 +551,15 @@ export default function DictionaryApp() {
       try {
         let rec = await fetchRecord();
         rec = await ensureMigratedAccounts(rec);
+
+        // If user reloaded while a studied/favorite save was still in flight,
+        // offline cache holds the newer progress — merge it back and re-save.
+        const offline = loadOfflineCache();
+        const { accounts: mergedAccounts, merged } = mergeOfflineProgress(rec.accounts || [], offline);
+        if (merged) {
+          rec = { ...rec, accounts: mergedAccounts };
+        }
+
         setEntries(rec.entries);
         setAccounts(rec.accounts);
         setLogs(rec.logs);
@@ -525,6 +569,31 @@ export default function DictionaryApp() {
         commitRecordVersion(rec.version);
         saveOfflineCache(rec);
         setIsOffline(false);
+
+        if (merged) {
+          // Push merged progress to cloud in the background (version may race;
+          // flushPendingAccounts-style retries handle conflicts).
+          try {
+            const newVersion = await saveRecord(
+              {
+                entries: rec.entries || [],
+                accounts: mergedAccounts,
+                logs: rec.logs || [],
+                siteBanner: rec.siteBanner || null,
+                examConfig: rec.examConfig || examConfigRef.current,
+              },
+              rec.version || 0
+            );
+            commitRecordVersion(newVersion);
+            saveOfflineCache({ ...rec, accounts: mergedAccounts, version: newVersion });
+            clearPendingCloudSync();
+          } catch (_) {
+            // Keep pending flag so next load retries the merge.
+            markPendingCloudSync();
+          }
+        } else {
+          clearPendingCloudSync();
+        }
         if (savedPersonalCode) {
           let account = rec.accounts.find((a) => a.code === savedPersonalCode);
           if (!account) {
@@ -839,6 +908,7 @@ export default function DictionaryApp() {
             );
             commitRecordVersion(newVersion);
             saveOfflineCache({ entries: curEntries, accounts: nextAccounts, logs: nextLogs, siteBanner: curBanner});
+            clearPendingCloudSync();
             setSaveError("");
             break;
           } catch (e) {
@@ -918,6 +988,7 @@ export default function DictionaryApp() {
             );
             commitRecordVersion(newVersion);
             saveOfflineCache({ entries: nextEntries, accounts: curAccounts, logs: nextLogs, siteBanner: curBanner});
+            clearPendingCloudSync();
             setSaveError("");
             break;
           } catch (e) {
@@ -958,6 +1029,22 @@ export default function DictionaryApp() {
     });
   }
 
+  // Snapshot current in-memory record to localStorage RIGHT NOW so a reload
+  // mid-flight cannot lose studied/favorite toggles (cloud PUT is slower).
+  function snapshotLocalNow() {
+    try {
+      saveOfflineCache({
+        entries: entriesRef.current,
+        accounts: accountsRef.current,
+        logs: logsRef.current,
+        siteBanner: siteBannerRef.current,
+        examConfig: examConfigRef.current,
+        version: recordVersionRef.current,
+      });
+      markPendingCloudSync();
+    } catch (_) {}
+  }
+
   // Public API: queue the op (optimistic UI update) and schedule a coalesced flush.
   const persistEntries = useCallback(async (entriesFn, logEntryFn) => {
     // Optimistic local apply immediately for snappy UI.
@@ -973,6 +1060,8 @@ export default function DictionaryApp() {
         logsRef.current = nl;
       }
     }
+    // Survive reload before cloud write finishes
+    snapshotLocalNow();
     pendingEntryOpsRef.current.push({ fn: entriesFn, logFn: logEntryFn || null });
     return flushPendingEntries();
   }, []);
@@ -990,6 +1079,8 @@ export default function DictionaryApp() {
         logsRef.current = nl;
       }
     }
+    // Survive reload before cloud write finishes (studied / favorites / SRS)
+    snapshotLocalNow();
     pendingAccountOpsRef.current.push({ fn: accountsFn, logFn: logEntryFn || null });
     return flushPendingAccounts();
   }, []);

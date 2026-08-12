@@ -97,15 +97,24 @@ function AuthScreens({
         height: r.height,
       });
     }
+    function onKeyDown(e) {
+      // Escape closes the spotlight — expected phone/desktop behavior
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowLoginPw(false);
+      }
+    }
     measure();
     // إعادة القياس بعد فريم عشان الـ layout يستقر
     const id = requestAnimationFrame(measure);
     window.addEventListener("resize", measure);
     window.addEventListener("scroll", measure, true);
+    window.addEventListener("keydown", onKeyDown);
     return () => {
       cancelAnimationFrame(id);
       window.removeEventListener("resize", measure);
       window.removeEventListener("scroll", measure, true);
+      window.removeEventListener("keydown", onKeyDown);
     };
   }, [showLoginPw, passwordInput, appIsAr]);
 
@@ -435,21 +444,27 @@ function AuthScreens({
   if (authStage === "login") {
     return (
       <Shell>
-        {/* Password spotlight (when revealed) */}
+        {/* Password spotlight (when revealed): full black curtain, only the password field stays lit */}
         {showLoginPw && typeof document !== "undefined" && createPortal(
           <>
             <div
               aria-hidden="true"
+              role="presentation"
+              onClick={() => setShowLoginPw(false)}
               style={{
                 position: "fixed",
                 inset: 0,
                 zIndex: 20000,
-                background: "rgba(0,0,0,0.72)",
-                pointerEvents: "none",
+                // Nearly solid black so the rest of the site disappears;
+                // only the lit password box above remains visible.
+                background: "rgba(0, 0, 0, 0.94)",
+                pointerEvents: "auto",
+                cursor: "default",
               }}
             />
             {pwRect && (
               <div
+                onClick={(e) => e.stopPropagation()}
                 style={{
                   position: "fixed",
                   top: pwRect.top - 8,
@@ -461,7 +476,7 @@ function AuthScreens({
                   background: "linear-gradient(165deg, #3d3200 0%, #1f1800 100%)",
                   border: "1.5px solid rgba(255, 210, 60, 0.75)",
                   boxShadow:
-                    "0 0 0 1px rgba(255, 220, 80, 0.35), 0 0 28px rgba(255, 200, 0, 0.55), 0 0 60px rgba(255, 180, 0, 0.3)",
+                    "0 0 0 1px rgba(255, 220, 80, 0.35), 0 0 28px rgba(255, 200, 0, 0.55), 0 0 60px rgba(255, 180, 0, 0.3), 0 0 120px rgba(255, 180, 0, 0.18)",
                   pointerEvents: "auto",
                 }}
               >

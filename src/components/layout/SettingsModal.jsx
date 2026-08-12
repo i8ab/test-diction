@@ -3,8 +3,9 @@ import { tr, UI_LANGS } from "../../lib/config/i18n";
 import {
   XIcon, SunIcon, MoonIcon, GlobeIcon, PaletteIcon, BellIcon, BellOffIcon,
   UserIcon, LogoutIcon, UsersIcon, MenuIcon, LayersIcon, SettingsIcon, BookIcon,
-  CheckIcon, TrashIcon, LoaderIcon, FlameIcon, StarIcon,
+  CheckIcon, TrashIcon, LoaderIcon, FlameIcon, StarIcon, MicIcon,
 } from "../common/Icons";
+import { loadEnAccent } from "../../lib/utils/speech";
 import {
   BRAND_PRESETS,
   loadPresetId,
@@ -45,6 +46,7 @@ export default function SettingsModal({
   onOpenDevice,
   onOpenAccent,
   onOpenAppearance,
+  deviceMode = null,
   brandPresetId,
   setBrandPresetId,
   brandCustomGlyph,
@@ -65,6 +67,7 @@ export default function SettingsModal({
   if (!open || typeof document === "undefined") return null;
   const lang = appLang || (isAr ? "ar" : "en");
   const T = (en, ar, de, fr) => tr(lang, en, ar, de, fr);
+  const enAccentPref = loadEnAccent();
   const closeSettings = onClose;
 
   function itemClick(fn) {

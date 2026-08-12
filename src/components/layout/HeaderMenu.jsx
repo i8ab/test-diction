@@ -236,6 +236,7 @@ export default function HeaderMenu({
         onOpenDevice={() => setDeviceModalOpen(true)}
         onOpenAccent={() => setAccentModalOpen(true)}
         onOpenAppearance={() => setAppearanceModalOpen(true)}
+        deviceMode={deviceMode}
         brandPresetId={brandPresetId}
         setBrandPresetId={setBrandPresetId}
         brandCustomGlyph={brandCustomGlyph}

@@ -272,10 +272,9 @@ export function clearPendingRemoveCodes() {
 }
 
 /**
- * Account codes the admin approved this browser, but the cloud write may
- * still be in flight (or may have failed silently). Survives reload so we
- * can re-apply status:"active" and re-push until the server confirms.
- * Symmetric to pendingRemoveCodes for the approve path.
+ * Codes the admin approved but the cloud write may still be in flight.
+ * Survives reload (like pendingRemoveCodes) so approve→reload cannot
+ * bring the pending request back.
  */
 const PENDING_APPROVE_KEY = "twoTongues.pendingApproveCodes";
 
@@ -313,8 +312,7 @@ export function addPendingApproveCode(code) {
 export function removePendingApproveCode(code) {
   const c = String(code || "");
   if (!c) return;
-  const next = loadPendingApproveCodes().filter((x) => x !== c);
-  savePendingApproveCodes(next);
+  savePendingApproveCodes(loadPendingApproveCodes().filter((x) => x !== c));
 }
 
 export function clearPendingApproveCodes() {

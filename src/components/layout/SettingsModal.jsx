@@ -165,7 +165,7 @@ export default function SettingsModal({
                 }
               />
 
-                 {onChangeAppLang && (
+              {onOpenLang && (
                 <Row
                   tint="#5b8def"
                   icon={<GlobeIcon size={14} />}
@@ -180,7 +180,7 @@ export default function SettingsModal({
                 />
               )}
 
-              {typeof onChangeDeviceMode === "function" && (
+              {typeof onOpenDevice === "function" && (
                 <Row
                   tint="#19A7CE"
                   icon={<LayersIcon size={14} />}

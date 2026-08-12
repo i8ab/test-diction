@@ -8,6 +8,7 @@ import {
   saveOfflineCache, loadOfflineCache, loadSavedTheme, resolveTheme, loadUiScale, saveUiScale, savePersonalCode, loadPersonalCode, clearPersonalCode,
   markPendingCloudSync, clearPendingCloudSync, mergeOfflineProgress,
   loadPendingRemoveCodes, savePendingRemoveCodes, addPendingRemoveCode, removePendingRemoveCode,
+  loadPendingApproveCodes, savePendingApproveCodes, addPendingApproveCode, removePendingApproveCode,
   saveSessionId, loadSessionId, generateSessionId,
   generatePersonalCode, detectDeviceIsAr, hasInviteParam,
   loadAppLang, saveAppLang,
@@ -142,10 +143,11 @@ export default function DictionaryApp() {
   // a delete→reload race cannot resurrect accounts from a still-stale server.
   // Attached to every subsequent save so concurrent writes cannot undo them.
   const pendingRemoveCodesRef = useRef(new Set(loadPendingRemoveCodes()));
-  // Codes approved this session (status forced to "active"). Prevents a
-  // concurrent/stale save from flipping them back to "pending" in the UI
-  // before the server merge protection is observed.
-  const pendingApprovedCodesRef = useRef(new Set());
+  // Codes approved this browser (status forced to "active"). Survives reload
+  // via localStorage (like pendingRemoveCodes) so a approve→reload race cannot
+  // resurrect the "pending" request UI, and every subsequent save re-sends
+  // approveAccountCodes until the server confirms status:"active".
+  const pendingApprovedCodesRef = useRef(new Set(loadPendingApproveCodes()));
   const [loadError, setLoadError] = useState("");
   const [isOffline, setIsOffline] = useState(false);
   const [offlineCachedAt, setOfflineCachedAt] = useState(null);
@@ -646,6 +648,52 @@ export default function DictionaryApp() {
           }
         }
 
+        // Re-apply intentional approvals that may not have landed on the server
+        // yet (approve → reload race). Force status:"active" in the UI and
+        // re-push approveAccountCodes until the server confirms.
+        if (pendingApprovedCodesRef.current.size) {
+          const approved = pendingApprovedCodesRef.current;
+          const stillPendingOnServer = [];
+          accountsForUi = accountsForUi.map((a) => {
+            if (!a || !a.code) return a;
+            const key = String(a.code);
+            if (!approved.has(key)) return a;
+            if (a.status === "pending") {
+              stillPendingOnServer.push(key);
+              return { ...a, status: "active" };
+            }
+            // Server already has non-pending — drop sticky entry.
+            approved.delete(key);
+            removePendingApproveCode(key);
+            return a;
+          });
+          if (stillPendingOnServer.length) {
+            try {
+              const forced = accountsForUi;
+              const newVersion = await saveRecord(
+                {
+                  entries: rec.entries || [],
+                  accounts: forced,
+                  logs: rec.logs || [],
+                  siteBanner: rec.siteBanner || null,
+                  examConfig: rec.examConfig || examConfigRef.current,
+                  approveAccountCodes: stillPendingOnServer,
+                },
+                rec.version || 0
+              );
+              commitRecordVersion(newVersion);
+              rec = { ...rec, accounts: forced, version: newVersion };
+              accountsForUi = forced;
+              for (const code of stillPendingOnServer) {
+                approved.delete(code);
+                removePendingApproveCode(code);
+              }
+            } catch (_) {
+              // Keep pendingApproveCodes so the next load / softSync retries.
+            }
+          }
+        }
+
         setEntries(rec.entries);
         setAccounts(accountsForUi);
         accountsRef.current = accountsForUi;
@@ -666,7 +714,16 @@ export default function DictionaryApp() {
               const drop = pendingRemoveCodesRef.current;
               accountsToSave = accountsToSave.filter((a) => a && a.code && !drop.has(String(a.code)));
             }
+            if (pendingApprovedCodesRef.current.size) {
+              const approved = pendingApprovedCodesRef.current;
+              accountsToSave = accountsToSave.map((a) =>
+                a && a.code && approved.has(String(a.code)) && a.status === "pending"
+                  ? { ...a, status: "active" }
+                  : a
+              );
+            }
             const removeCodes = [...pendingRemoveCodesRef.current];
+            const approveCodes = [...pendingApprovedCodesRef.current];
             const newVersion = await saveRecord(
               {
                 entries: rec.entries || [],
@@ -675,6 +732,7 @@ export default function DictionaryApp() {
                 siteBanner: rec.siteBanner || null,
                 examConfig: rec.examConfig || examConfigRef.current,
                 ...(removeCodes.length ? { removeAccountCodes: removeCodes } : {}),
+                ...(approveCodes.length ? { approveAccountCodes: approveCodes } : {}),
               },
               rec.version || 0
             );
@@ -1011,6 +1069,7 @@ export default function DictionaryApp() {
             accountsRef.current = nextAccounts;
             setAccounts(nextAccounts);
             const removeCodes = [...pendingRemoveCodesRef.current];
+            const approveCodes = [...pendingApprovedCodesRef.current];
             const newVersion = await saveRecord(
               {
                 entries: curEntries,
@@ -1018,10 +1077,20 @@ export default function DictionaryApp() {
                 logs: nextLogs,
                 siteBanner: curBanner,
                 ...(removeCodes.length ? { removeAccountCodes: removeCodes } : {}),
+                ...(approveCodes.length ? { approveAccountCodes: approveCodes } : {}),
               },
               curVersion
             );
             commitRecordVersion(newVersion);
+            // Approvals that landed as active can leave the sticky set.
+            if (approveCodes.length) {
+              for (const a of nextAccounts) {
+                if (a && a.code && pendingApprovedCodesRef.current.has(String(a.code)) && a.status === "active") {
+                  pendingApprovedCodesRef.current.delete(String(a.code));
+                  removePendingApproveCode(a.code);
+                }
+              }
+            }
             saveOfflineCache({ entries: curEntries, accounts: nextAccounts, logs: nextLogs, siteBanner: curBanner});
             clearPendingCloudSync();
             setSaveError("");
@@ -1110,12 +1179,42 @@ export default function DictionaryApp() {
           }
 
           try {
+            let accountsToSave = curAccounts;
+            if (pendingRemoveCodesRef.current.size) {
+              const drop = pendingRemoveCodesRef.current;
+              accountsToSave = accountsToSave.filter((a) => a && a.code && !drop.has(String(a.code)));
+            }
+            if (pendingApprovedCodesRef.current.size) {
+              const approved = pendingApprovedCodesRef.current;
+              accountsToSave = accountsToSave.map((a) =>
+                a && a.code && approved.has(String(a.code)) && a.status === "pending"
+                  ? { ...a, status: "active" }
+                  : a
+              );
+            }
+            const removeCodes = [...pendingRemoveCodesRef.current];
+            const approveCodes = [...pendingApprovedCodesRef.current];
             const newVersion = await saveRecord(
-              { entries: nextEntries, accounts: curAccounts, logs: nextLogs, siteBanner: curBanner},
+              {
+                entries: nextEntries,
+                accounts: accountsToSave,
+                logs: nextLogs,
+                siteBanner: curBanner,
+                ...(removeCodes.length ? { removeAccountCodes: removeCodes } : {}),
+                ...(approveCodes.length ? { approveAccountCodes: approveCodes } : {}),
+              },
               curVersion
             );
             commitRecordVersion(newVersion);
-            saveOfflineCache({ entries: nextEntries, accounts: curAccounts, logs: nextLogs, siteBanner: curBanner});
+            if (approveCodes.length) {
+              for (const a of accountsToSave) {
+                if (a && a.code && pendingApprovedCodesRef.current.has(String(a.code)) && a.status === "active") {
+                  pendingApprovedCodesRef.current.delete(String(a.code));
+                  removePendingApproveCode(a.code);
+                }
+              }
+            }
+            saveOfflineCache({ entries: nextEntries, accounts: accountsToSave, logs: nextLogs, siteBanner: curBanner});
             clearPendingCloudSync();
             setSaveError("");
             break;
@@ -2125,17 +2224,53 @@ export default function DictionaryApp() {
               }
             }
           }
-          // Keep this-session approvals sticky until server has active status.
+          // Keep approvals sticky until the *server* confirms non-pending.
+          // Only then drop from the sticky set (localStorage + memory).
+          // Previously we dropped after applying the local sticky patch, which
+          // cleared the set while the server still had pending — next sync /
+          // reload brought the request back.
           if (pendingApprovedCodesRef.current.size) {
             const approved = pendingApprovedCodesRef.current;
+            const serverConfirmed = [];
+            for (const a of list) {
+              if (a && a.code && approved.has(String(a.code)) && a.status !== "pending") {
+                serverConfirmed.push(String(a.code));
+              }
+            }
             list = list.map((a) =>
               a && a.code && approved.has(String(a.code)) && a.status === "pending"
                 ? { ...a, status: "active" }
                 : a
             );
-            for (const a of list) {
-              if (a && a.code && approved.has(String(a.code)) && a.status !== "pending") {
-                approved.delete(String(a.code));
+            for (const code of serverConfirmed) {
+              approved.delete(code);
+              removePendingApproveCode(code);
+            }
+            // If server still has pending for any sticky codes, re-push approve.
+            const stillPending = [...approved].filter((code) =>
+              list.some((a) => a && String(a.code) === code)
+            );
+            if (stillPending.length) {
+              try {
+                const forced = list.map((a) =>
+                  a && a.code && approved.has(String(a.code))
+                    ? { ...a, status: "active" }
+                    : a
+                );
+                const newVersion = await saveRecord(
+                  {
+                    entries: rec.entries || entriesRef.current,
+                    accounts: forced,
+                    logs: rec.logs || logsRef.current,
+                    siteBanner: rec.siteBanner !== undefined ? rec.siteBanner : siteBannerRef.current,
+                    approveAccountCodes: stillPending,
+                  },
+                  typeof rec.version === "number" ? rec.version : recordVersionRef.current
+                );
+                commitRecordVersion(newVersion);
+                list = forced;
+              } catch (_) {
+                // Next softSync / mount will retry.
               }
             }
           }
@@ -2204,7 +2339,7 @@ export default function DictionaryApp() {
   }
 
   async function handleApproveRequest(targetCode) {
-    const target = accounts.find((a) => a.code === targetCode);
+    const target = (accountsRef.current || accounts).find((a) => a && String(a.code) === String(targetCode));
     if (!target || target.status !== "pending") return { error: "Request not found." };
     const logEntry = makeLogEntry(
       "account_edit",
@@ -2212,19 +2347,27 @@ export default function DictionaryApp() {
       name,
       accountCode
     );
-    // Remember approval for this session so concurrent/stale saves cannot
-    // flip the row back to "pending" in the UI.
-    pendingApprovedCodesRef.current.add(String(targetCode));
+    // Remember approval across reloads (localStorage) and this session so
+    // concurrent/stale saves cannot flip the row back to "pending", and so
+    // a reload before the cloud write settles still keeps the account active
+    // and re-pushes approveAccountCodes to the server.
+    const codeKey = String(targetCode);
+    pendingApprovedCodesRef.current.add(codeKey);
+    addPendingApproveCode(codeKey);
     try {
       // Functional update so conflict retries re-apply status: "active".
       await persistAccounts(
-        (cur) => cur.map((a) => (a.code === targetCode ? { ...a, status: "active" } : a)),
+        (cur) =>
+          cur.map((a) =>
+            a && String(a.code) === codeKey ? { ...a, status: "active" } : a
+          ),
         logEntry
       );
       showToast(appIsAr ? "تمت الموافقة على الطلب." : "Request approved.");
       return { ok: true };
     } catch (_) {
-      pendingApprovedCodesRef.current.delete(String(targetCode));
+      // Keep sticky codes — a later save / reload retry will re-push. Only
+      // drop them if the account truly is not pending anymore on a fresh fetch.
       return { error: appIsAr ? "تعذّر قبول الطلب — حاول مرة أخرى." : "Couldn't approve the request — try again." };
     }
   }

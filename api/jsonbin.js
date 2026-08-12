@@ -439,6 +439,22 @@ export default async function handler(req, res) {
           nextAccounts = nextAccounts.filter((a) => a && a.code && !drop.has(String(a.code)));
         }
 
+        // Explicit approvals (admin accepted a pending request). Applied after
+        // merge + removals so a stale client that still carries status:"pending"
+        // cannot undo an approve that already succeeded, and so a reload that
+        // re-sends the approve list always forces active on the server.
+        const approveCodes = Array.isArray(body.approveAccountCodes)
+          ? body.approveAccountCodes.map((c) => String(c)).filter(Boolean)
+          : [];
+        if (approveCodes.length) {
+          const forceActive = new Set(approveCodes);
+          nextAccounts = nextAccounts.map((a) =>
+            a && a.code && forceActive.has(String(a.code)) && a.status !== "blocked"
+              ? { ...a, status: "active" }
+              : a
+          );
+        }
+
         const payload = {
           entries: Array.isArray(body.entries) ? body.entries : current.entries || [],
           accounts: nextAccounts,

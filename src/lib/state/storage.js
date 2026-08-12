@@ -272,6 +272,56 @@ export function clearPendingRemoveCodes() {
 }
 
 /**
+ * Account codes the admin approved this browser, but the cloud write may
+ * still be in flight (or may have failed silently). Survives reload so we
+ * can re-apply status:"active" and re-push until the server confirms.
+ * Symmetric to pendingRemoveCodes for the approve path.
+ */
+const PENDING_APPROVE_KEY = "twoTongues.pendingApproveCodes";
+
+export function loadPendingApproveCodes() {
+  try {
+    const raw = localStorage.getItem(PENDING_APPROVE_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr.map((c) => String(c)).filter(Boolean);
+  } catch (_) {
+    return [];
+  }
+}
+
+export function savePendingApproveCodes(codes) {
+  try {
+    const list = [...new Set([...(codes || [])].map((c) => String(c)).filter(Boolean))];
+    if (!list.length) {
+      localStorage.removeItem(PENDING_APPROVE_KEY);
+      return;
+    }
+    localStorage.setItem(PENDING_APPROVE_KEY, JSON.stringify(list));
+  } catch (_) {}
+}
+
+export function addPendingApproveCode(code) {
+  const c = String(code || "");
+  if (!c) return;
+  const next = new Set(loadPendingApproveCodes());
+  next.add(c);
+  savePendingApproveCodes([...next]);
+}
+
+export function removePendingApproveCode(code) {
+  const c = String(code || "");
+  if (!c) return;
+  const next = loadPendingApproveCodes().filter((x) => x !== c);
+  savePendingApproveCodes(next);
+}
+
+export function clearPendingApproveCodes() {
+  try { localStorage.removeItem(PENDING_APPROVE_KEY); } catch (_) {}
+}
+
+/**
  * Progress fields that live per-account and must survive a reload that
  * races a still-in-flight cloud write.
  */

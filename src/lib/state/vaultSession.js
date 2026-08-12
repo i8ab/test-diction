@@ -8,6 +8,8 @@ import {
   clearAccountVault,
   getMainAccountCode,
   setMainAccountCode,
+} from "./accountVault";
+import {
   clearPersonalCode,
   savePersonalCode,
 } from "./storage";

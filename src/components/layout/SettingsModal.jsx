@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { tr } from "../../lib/config/i18n";
+import { tr, UI_LANGS } from "../../lib/config/i18n";
 import {
   XIcon, SunIcon, MoonIcon, GlobeIcon, PaletteIcon, BellIcon, BellOffIcon,
   UserIcon, LogoutIcon, UsersIcon, MenuIcon, LayersIcon, SettingsIcon, BookIcon,

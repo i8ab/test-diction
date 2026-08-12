@@ -179,7 +179,20 @@ async function loadRecord() {
   ]);
 
   const entries = (entriesRows || []).map((r) => r.data).filter(Boolean);
-  const accounts = (accountsRows || []).map((r) => r.data).filter(Boolean);
+  // Dedupe by code preferring higher status (active/blocked > pending).
+  // Duplicate rows can appear after a raced clear+insert; never show both.
+  const statusRankLoad = (s) =>
+    s === "active" || s === "blocked" ? 2 : s === "pending" ? 1 : 0;
+  const byCodeLoad = new Map();
+  for (const a of (accountsRows || []).map((r) => r.data).filter(Boolean)) {
+    if (!a || !a.code) continue;
+    const key = String(a.code);
+    const prev = byCodeLoad.get(key);
+    if (!prev || statusRankLoad(a.status) >= statusRankLoad(prev.status)) {
+      byCodeLoad.set(key, a);
+    }
+  }
+  const accounts = Array.from(byCodeLoad.values());
   // Activity log: last 24 hours only (older rows are dropped from the response
   // and cleaned from the DB on save / daily cron).
   let logs = pruneLogsLast24h((logsRows || []).map(logFromRow));
@@ -242,8 +255,40 @@ async function saveFullRecord(record, nextVersion) {
     }
   }
 
-  // 3) accounts
-  await clearTable("accounts");
+  // 3) accounts — per-code replace (no full-table clear).
+  // Full clear+reinsert raced when Redis lock was missing: two concurrent
+  // PUTs both passed the version check, both cleared the table, and the
+  // slower insert dropped accounts the faster one had just written (e.g. a
+  // just-approved user flipped back to missing/pending after refresh).
+  const keepCodes = new Set(
+    (record.accounts || []).map((a) => String(a && a.code || "")).filter(Boolean)
+  );
+  // Drop rows whose code is no longer in the merged set (rejects / deletes).
+  try {
+    const existing = await sbFetch("GET", "accounts?select=code");
+    const toDelete = (existing || [])
+      .map((r) => String(r && r.code || ""))
+      .filter((c) => c && !keepCodes.has(c));
+    for (const code of toDelete) {
+      await sbFetch("DELETE", `accounts?code=eq.${encodeURIComponent(code)}`, undefined, {
+        Prefer: "return=minimal",
+      });
+    }
+  } catch (_) {
+    // Fallback: if we cannot list codes, clear then reinsert (old path).
+    await clearTable("accounts");
+  }
+  // Replace each kept account by code (delete-then-insert avoids unique
+  // conflicts and duplicate rows with the same code).
+  for (const a of record.accounts || []) {
+    const code = String(a && a.code || "");
+    if (!code) continue;
+    try {
+      await sbFetch("DELETE", `accounts?code=eq.${encodeURIComponent(code)}`, undefined, {
+        Prefer: "return=minimal",
+      });
+    } catch (_) {}
+  }
   if (record.accounts?.length) {
     const rows = record.accounts.map((a) => ({
       code: a.code || "",
@@ -308,23 +353,12 @@ export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
       const record = await loadRecord();
-      // Signup / conflict recovery pass ?fresh=1 so we must not serve a CDN
-      // copy — otherwise a second signup 30–120s later keeps reading a stale
-      // version, retries 409 forever, and the account never gets created.
-      const wantFresh =
-        (req.query && (req.query.fresh === "1" || req.query.fresh === "true")) ||
-        (typeof req.url === "string" && /[?&]fresh=1(?:&|$)/.test(req.url));
-      if (wantFresh) {
-        res.setHeader(
-          "Cache-Control",
-          "private, no-store, no-cache, max-age=0, must-revalidate"
-        );
-      } else {
-        res.setHeader(
-          "Cache-Control",
-          "public, max-age=0, s-maxage=30, stale-while-revalidate=120"
-        );
-      }
+      // Always private no-store. Caching account status made admin refresh
+      // show a just-approved request as still pending for up to 2 minutes.
+      res.setHeader(
+        "Cache-Control",
+        "private, no-store, no-cache, max-age=0, must-revalidate"
+      );
       return res.status(200).json(record);
     }
 
@@ -439,8 +473,7 @@ export default async function handler(req, res) {
           nextAccounts = nextAccounts.filter((a) => a && a.code && !drop.has(String(a.code)));
         }
 
-        // Explicit approvals — force status active so a stale client cannot
-        // undo an admin approve, and so reload re-sends always win on server.
+        // Explicit approvals — force active so stale pending cannot win.
         const approveCodes = Array.isArray(body.approveAccountCodes)
           ? body.approveAccountCodes.map((c) => String(c)).filter(Boolean)
           : [];

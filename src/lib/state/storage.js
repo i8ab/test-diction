@@ -271,11 +271,7 @@ export function clearPendingRemoveCodes() {
   try { localStorage.removeItem(PENDING_REMOVE_KEY); } catch (_) {}
 }
 
-/**
- * Codes the admin approved but the cloud write may still be in flight.
- * Survives reload (like pendingRemoveCodes) so approve→reload cannot
- * bring the pending request back.
- */
+/** Codes approved in this browser; survives reload until server confirms active. */
 const PENDING_APPROVE_KEY = "twoTongues.pendingApproveCodes";
 
 export function loadPendingApproveCodes() {

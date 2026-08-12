@@ -143,8 +143,7 @@ export default function DictionaryApp() {
   // a delete→reload race cannot resurrect accounts from a still-stale server.
   // Attached to every subsequent save so concurrent writes cannot undo them.
   const pendingRemoveCodesRef = useRef(new Set(loadPendingRemoveCodes()));
-  // Codes approved this browser (status forced to "active"). Survives reload
-  // via localStorage so approve→reload cannot resurrect the pending request.
+  // Codes approved this browser. Survives reload via localStorage.
   const pendingApprovedCodesRef = useRef(new Set(loadPendingApproveCodes()));
   const [loadError, setLoadError] = useState("");
   const [isOffline, setIsOffline] = useState(false);
@@ -587,7 +586,9 @@ export default function DictionaryApp() {
   useEffect(() => {
     (async () => {
       try {
-        let rec = await fetchRecord();
+        // Always fresh — cached GETs were resurfacing just-approved accounts
+        // as status:"pending" after admin refresh (CDN / browser cache).
+        let rec = await fetchRecord({ fresh: true });
         rec = await ensureMigratedAccounts(rec);
 
         // If user reloaded while a studied/favorite save was still in flight,
@@ -2174,7 +2175,7 @@ export default function DictionaryApp() {
               }
             }
           }
-          // Keep approvals sticky until the *server* confirms non-pending.
+          // Sticky until *server* confirms non-pending (not after local patch).
           if (pendingApprovedCodesRef.current.size) {
             const approved = pendingApprovedCodesRef.current;
             const serverConfirmed = [];
@@ -2295,11 +2296,10 @@ export default function DictionaryApp() {
       accountCode
     );
 
-    // Sticky across reloads + every subsequent save until server confirms active.
     pendingApprovedCodesRef.current.add(codeKey);
     addPendingApproveCode(codeKey);
 
-    // Optimistic UI immediately.
+    // Optimistic UI.
     const previousAccounts = accountsRef.current;
     const previousLogs = logsRef.current;
     const optimisticAccounts = previousAccounts.map((a) =>
@@ -2366,7 +2366,6 @@ export default function DictionaryApp() {
               if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
               curVersion = e.fresh.version || 0;
               commitRecordVersion(curVersion);
-              // Keep UI active even while retrying.
               const stillActive = curAccounts.map((a) =>
                 a && String(a.code) === codeKey ? { ...a, status: "active" } : a
               );
@@ -2380,7 +2379,7 @@ export default function DictionaryApp() {
         }
       });
 
-      // Verify server actually has active (not just our optimistic UI).
+      // Confirm server state with a fresh read.
       try {
         const rec = await fetchRecord({ fresh: true });
         const serverAcc = (rec.accounts || []).find((a) => a && String(a.code) === codeKey);
@@ -2391,7 +2390,6 @@ export default function DictionaryApp() {
           accountsRef.current = rec.accounts || [];
           if (typeof rec.version === "number") commitRecordVersion(rec.version);
         } else if (serverAcc && serverAcc.status === "pending") {
-          // Server still pending — force one more dedicated write.
           const forced = (rec.accounts || []).map((a) =>
             a && String(a.code) === codeKey ? { ...a, status: "active" } : a
           );
@@ -2411,19 +2409,13 @@ export default function DictionaryApp() {
             accountsRef.current = forced;
             pendingApprovedCodesRef.current.delete(codeKey);
             removePendingApproveCode(codeKey);
-          } catch (_) {
-            // Sticky localStorage will retry on next load/softSync.
-          }
+          } catch (_) {}
         }
-      } catch (_) {
-        // Offline after save — sticky codes will retry later.
-      }
+      } catch (_) {}
 
       showToast(appIsAr ? "تمت الموافقة على الطلب." : "Request approved.");
       return { ok: true };
     } catch (_) {
-      // Keep sticky codes so reload / softSync re-pushes. Revert UI only if
-      // we know the write never left this device — sticky still protects.
       return { error: appIsAr ? "تعذّر قبول الطلب — حاول مرة أخرى." : "Couldn't approve the request — try again." };
     }
   }

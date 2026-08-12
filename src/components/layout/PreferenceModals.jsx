@@ -13,7 +13,7 @@ function useT(appLang, isAr) {
 
 /** Device layout picker modal */
 export function DeviceModeModal({ open, onClose, isAr, appLang, deviceMode, onChangeDeviceMode }) {
-  if (!open || typeof document === "undefined" || typeof onChangeDeviceMode !== "function") return null;
+  if (!open || typeof document === "undefined") return null;
   const T = useT(appLang, isAr);
   return createPortal(
         <div onClick={() => { /* Stay open unless X */ }} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>

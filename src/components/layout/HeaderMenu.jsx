@@ -121,7 +121,7 @@ export default function HeaderMenu({
     setNotifOpen(false);
     setBannerOpen(false);
     setInfoExpanded(null);
-    // Keep the menu open underneath — info guide stacks above it
+    setSettingsOpen(false);
     // Prefer the full detailed guide from the parent (InfoGuideModal).
     if (onOpenInfo) {
       onOpenInfo();
@@ -138,6 +138,7 @@ export default function HeaderMenu({
   function openNotifModal() {
     setInfoOpen(false);
     setBannerOpen(false);
+    setSettingsOpen(false);
     setNotifOpen(true);
   }
 
@@ -148,6 +149,7 @@ export default function HeaderMenu({
   function openBannerModal() {
     setInfoOpen(false);
     setNotifOpen(false);
+    setSettingsOpen(false);
     setBannerOpen(true);
   }
 
@@ -167,9 +169,14 @@ export default function HeaderMenu({
   }, [open]);
 
   useEffect(() => {
-    if (!settingsOpen && !notifOpen && !bannerOpen && !infoOpen) return;
+    if (!settingsOpen && !notifOpen && !bannerOpen && !infoOpen && !langModalOpen && !deviceModalOpen && !accentModalOpen && !appearanceModalOpen) return;
     function onKeyDown(e) {
       if (e.key !== "Escape") return;
+      // Close topmost modal first
+      if (appearanceModalOpen) { setAppearanceModalOpen(false); return; }
+      if (accentModalOpen) { setAccentModalOpen(false); return; }
+      if (deviceModalOpen) { setDeviceModalOpen(false); return; }
+      if (langModalOpen) { setLangModalOpen(false); return; }
       if (infoOpen) { closeInfoModal(); return; }
       if (notifOpen) { closeNotifModal(); return; }
       if (bannerOpen) { closeBannerModal(); return; }
@@ -177,7 +184,7 @@ export default function HeaderMenu({
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [settingsOpen, notifOpen, bannerOpen, infoOpen, langModalOpen, accentModalOpen, appearanceModalOpen]);
+  }, [settingsOpen, notifOpen, bannerOpen, infoOpen, langModalOpen, deviceModalOpen, accentModalOpen, appearanceModalOpen]);
 
   // Lock background scroll for any open settings-style modal (click-outside still closes).
   useBodyScrollLock(open || settingsOpen || notifOpen || bannerOpen || infoOpen || langModalOpen || accentModalOpen || appearanceModalOpen);
@@ -232,10 +239,10 @@ export default function HeaderMenu({
         pendingCount={pendingCount}
         focusMode={focusMode}
         onToggleFocus={onToggleFocus}
-        onOpenLang={() => setLangModalOpen(true)}
-        onOpenDevice={() => setDeviceModalOpen(true)}
-        onOpenAccent={() => setAccentModalOpen(true)}
-        onOpenAppearance={() => setAppearanceModalOpen(true)}
+        onOpenLang={() => { setSettingsOpen(false); setLangModalOpen(true); }}
+        onOpenDevice={() => { setSettingsOpen(false); setDeviceModalOpen(true); }}
+        onOpenAccent={() => { setSettingsOpen(false); setAccentModalOpen(true); }}
+        onOpenAppearance={() => { setSettingsOpen(false); setAppearanceModalOpen(true); }}
         deviceMode={deviceMode}
         brandPresetId={brandPresetId}
         setBrandPresetId={setBrandPresetId}

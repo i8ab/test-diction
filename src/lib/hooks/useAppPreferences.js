@@ -1,0 +1,164 @@
+import { useState, useEffect, useCallback } from "react";
+import { tr } from "../config/i18n";
+import {
+  loadSavedAccent,
+  saveAccent,
+  applyAccentTheme,
+  THEME_KEY,
+  loadCustomAccentHex,
+  loadSavedTheme,
+  resolveTheme,
+  loadUiScale,
+  saveUiScale,
+  loadAppLang,
+  saveAppLang,
+  loadDeviceMode,
+  saveDeviceMode,
+  applyDeviceModeToDom,
+  guessDeviceMode,
+} from "../state/storage";
+
+/**
+ * UI preferences that affect the whole app chrome:
+ * language, theme (light/dark/system), accent, UI scale, device layout mode.
+ * Keeps <html> attributes and CSS variables in sync.
+ */
+export function useAppPreferences() {
+  // --- Language ---
+  const [appLang, setAppLangState] = useState(() => loadAppLang());
+  const appIsAr = appLang === "ar";
+  const atr = useCallback(
+    (en, ar, de, fr) => tr(appLang, en, ar, de, fr),
+    [appLang]
+  );
+
+  const setAppLang = useCallback((lang) => {
+    if (lang !== "en" && lang !== "ar" && lang !== "de" && lang !== "fr") return;
+    setAppLangState(lang);
+    saveAppLang(lang);
+    try {
+      document.documentElement.lang = lang;
+      document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+    } catch (_) {}
+  }, []);
+
+  const toggleAppLang = useCallback(() => {
+    // Legacy two-way flip used on older auth toggle — cycles en <-> ar
+    setAppLang(appLang === "ar" ? "en" : "ar");
+  }, [appLang, setAppLang]);
+
+  // Keep <html lang/dir> in sync on mount + change
+  useEffect(() => {
+    try {
+      document.documentElement.lang = appLang;
+      document.documentElement.dir = appLang === "ar" ? "rtl" : "ltr";
+    } catch (_) {}
+  }, [appLang]);
+
+  // --- Device layout mode ---
+  const [deviceMode, setDeviceModeState] = useState(() => loadDeviceMode());
+
+  const setDeviceMode = useCallback((mode) => {
+    if (mode !== "mobile" && mode !== "tablet" && mode !== "desktop") return;
+    setDeviceModeState(mode);
+    saveDeviceMode(mode);
+    applyDeviceModeToDom(mode);
+  }, []);
+
+  useEffect(() => {
+    const effective = deviceMode || guessDeviceMode();
+    applyDeviceModeToDom(effective);
+  }, [deviceMode]);
+
+  // --- Theme (light / dark / system) ---
+  const [theme, setTheme] = useState(loadSavedTheme);
+
+  useEffect(() => {
+    const resolved = resolveTheme(theme);
+    document.documentElement.setAttribute("data-theme", resolved);
+    document.documentElement.setAttribute("data-theme-pref", theme);
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch (_) {}
+  }, [theme]);
+
+  // Follow OS dark/light when preference is "system"
+  useEffect(() => {
+    if (theme !== "system") return undefined;
+    let mq;
+    try {
+      mq = window.matchMedia("(prefers-color-scheme: dark)");
+    } catch (_) {
+      return undefined;
+    }
+    const apply = () => {
+      document.documentElement.setAttribute("data-theme", resolveTheme("system"));
+    };
+    apply();
+    try {
+      mq.addEventListener("change", apply);
+      return () => mq.removeEventListener("change", apply);
+    } catch (_) {
+      try {
+        mq.addListener(apply);
+        return () => mq.removeListener(apply);
+      } catch (__) {}
+    }
+    return undefined;
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((t) => {
+      // cycle light → dark → system → light
+      if (t === "light") return "dark";
+      if (t === "dark") return "system";
+      return "light";
+    });
+  }, []);
+
+  // --- Accent ---
+  const [accentTheme, setAccentTheme] = useState(loadSavedAccent);
+
+  useEffect(() => {
+    applyAccentTheme(
+      accentTheme,
+      resolveTheme(theme),
+      accentTheme === "custom" ? loadCustomAccentHex() : null
+    );
+    saveAccent(accentTheme);
+  }, [accentTheme, theme]);
+
+  // --- UI scale ---
+  const [uiScale, setUiScaleState] = useState(() => loadUiScale());
+
+  const setUiScale = useCallback((scale) => {
+    setUiScaleState(scale);
+    saveUiScale(scale);
+    try {
+      document.documentElement.style.setProperty("--ui-scale", String(scale));
+    } catch (_) {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      document.documentElement.style.setProperty("--ui-scale", String(uiScale));
+    } catch (_) {}
+  }, [uiScale]);
+
+  return {
+    appLang,
+    setAppLang,
+    toggleAppLang,
+    appIsAr,
+    atr,
+    deviceMode,
+    setDeviceMode,
+    theme,
+    setTheme,
+    toggleTheme,
+    accentTheme,
+    setAccentTheme,
+    uiScale,
+    setUiScale,
+  };
+}

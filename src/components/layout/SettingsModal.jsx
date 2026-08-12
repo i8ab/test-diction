@@ -1,0 +1,464 @@
+import { createPortal } from "react-dom";
+import { tr } from "../../lib/config/i18n";
+import {
+  XIcon, SunIcon, MoonIcon, GlobeIcon, PaletteIcon, BellIcon, BellOffIcon,
+  UserIcon, LogoutIcon, UsersIcon, MenuIcon, LayersIcon, SettingsIcon, BookIcon,
+  CheckIcon, TrashIcon, LoaderIcon, FlameIcon, StarIcon,
+} from "../common/Icons";
+import {
+  BRAND_PRESETS,
+  loadPresetId,
+  loadCustomGlyph,
+  savePresetId,
+  saveCustomGlyph,
+} from "../common/BrandMark";
+
+/**
+ * Main Settings sheet opened from the gear button.
+ * Sub-modals (language, accent, appearance, device) stay controlled by HeaderMenu.
+ */
+export default function SettingsModal({
+  open,
+  onClose,
+  isAr = false,
+  appLang = "en",
+  theme,
+  onToggleTheme,
+  isAdmin,
+  onOpenAccount,
+  onOpenAdmin,
+  onLogout,
+  onOpenNotif,
+  onOpenBanner,
+  onOpenInfo,
+  onOpenExamSettings = null,
+  onOpenAchievements = null,
+  onEnableReminders = null,
+  onDisableReminders = null,
+  onPersistSiteBanner = null,
+  siteBanner = null,
+  remindersOn = false,
+  pendingCount = 0,
+  focusMode = false,
+  onToggleFocus = null,
+  onOpenLang,
+  onOpenDevice,
+  onOpenAccent,
+  onOpenAppearance,
+  brandPresetId,
+  setBrandPresetId,
+  brandCustomGlyph,
+  setBrandCustomGlyph,
+  brandAddMode,
+  setBrandAddMode,
+  brandDraftCustom,
+  setBrandDraftCustom,
+  vaultAccounts = [],
+  mainAccountCode = "",
+  onSwitchAccount,
+  onSetMainAccount,
+  onUnlinkVaultAccount,
+  onLogoutAll,
+  onLinkAccount,
+  myAccountCode = null,
+}) {
+  if (!open || typeof document === "undefined") return null;
+  const lang = appLang || (isAr ? "ar" : "en");
+  const T = (en, ar, de, fr) => tr(lang, en, ar, de, fr);
+  const closeSettings = onClose;
+
+  function itemClick(fn) {
+    if (typeof fn === "function") fn();
+  }
+
+  function Row({ icon, label, onClick, disabled, tint, danger, trailing }) {
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onClick}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          width: "100%",
+          padding: "10px 12px",
+          border: "none",
+          background: "transparent",
+          color: danger ? "var(--danger, #c44)" : tint || "var(--ink)",
+          fontSize: 14,
+          fontFamily: "inherit",
+          textAlign: "start",
+          cursor: disabled ? "default" : "pointer",
+          opacity: disabled ? 0.5 : 1,
+          borderRadius: 10,
+        }}
+      >
+        <span style={{ width: 22, display: "flex", justifyContent: "center", flexShrink: 0 }}>{icon}</span>
+        <span style={{ flex: 1 }}>{label}</span>
+        {trailing}
+      </button>
+    );
+  }
+
+  return createPortal(
+        <div
+          onClick={() => { /* Settings stays open unless user presses X */ }}
+          className="modal-backdrop"
+          style={{
+            position: "fixed", inset: 0, zIndex: 3400,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-modal-title"
+            className="modal-card"
+            style={{
+              width: "100%", maxWidth: "min(440px, 100%)",
+              maxHeight: "min(90dvh, 820px)", overflow: "hidden", display: "flex", flexDirection: "column",
+              background: "var(--card)", color: "var(--ink)",
+              border: "1px solid rgba(var(--border-rgb),0.14)",
+              borderRadius: 16,
+              padding: "clamp(14px, 3vw, 22px)",
+              boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexShrink: 0 }}>
+              <h2 id="settings-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: "var(--ink)" }}>
+                {T( "Settings", "الإعدادات")}
+              </h2>
+              <button
+                type="button"
+                onClick={closeSettings}
+                aria-label={T( "Close", "إغلاق")}
+                style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", minWidth: 36, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <XIcon size={20} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <Row
+                tint="#f5a623"
+                icon={theme === "dark" ? <SunIcon size={14} /> : <MoonIcon size={14} />}
+                label={T("Appearance", "المظهر")}
+                onClick={() => {
+                  setBrandPresetId(loadPresetId());
+                  setBrandCustomGlyph(loadCustomGlyph());
+                  setBrandAddMode(false);
+                  setBrandDraftCustom("");
+                  // Keep settings open underneath — appearance stacks above it
+                  onOpenAppearance && onOpenAppearance();
+                }}
+                trailing={
+                  <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                    {theme === "dark" ? T("Dark", "داكن") : T("Light", "فاتح")}
+                    {isAr ? " ◂" : " ▸"}
+                  </span>
+                }
+              />
+
+                 {onChangeAppLang && (
+                <Row
+                  tint="#5b8def"
+                  icon={<GlobeIcon size={14} />}
+                  label={T("Language", "اللغة", "Sprache", "Langue")}
+                  onClick={() => onOpenLang && onOpenLang()}
+                  trailing={
+                    <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                      {(UI_LANGS.find((l) => l.id === lang) || {}).native || "English"}
+                      {isAr ? " ◂" : " ▸"}
+                    </span>
+                  }
+                />
+              )}
+
+              {typeof onChangeDeviceMode === "function" && (
+                <Row
+                  tint="#19A7CE"
+                  icon={<LayersIcon size={14} />}
+                  label={T("Device layout", "واجهة الجهاز")}
+                  onClick={() => onOpenDevice && onOpenDevice()}
+                  trailing={
+                    <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                      {deviceMode === "mobile" ? T("Phone", "موبايل")
+                        : deviceMode === "tablet" ? T("Tablet", "تابلت")
+                        : deviceMode === "desktop" ? T("Computer", "كمبيوتر")
+                        : T("Auto", "تلقائي")}
+                      {isAr ? " ◂" : " ▸"}
+                    </span>
+                  }
+                />
+              )}
+
+              <Row
+                tint="#af52de"
+                icon={<MicIcon size={14} />}
+                label={T("Accent / dialect", "اللهجة / النطق")}
+                onClick={() => onOpenAccent && onOpenAccent()}
+                trailing={
+                  <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                    {enAccentPref === "uk" ? T("British", "بريطاني") : T("American", "أمريكي")}
+                    {isAr ? " ◂" : " ▸"}
+                  </span>
+                }
+              />
+
+              <Row
+                tint="#5b8def"
+                icon={<BookIcon size={14} />}
+                label={T("Information", "معلومات")}
+                onClick={() => onOpenInfo && onOpenInfo()}
+                trailing={
+                  <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                    {isAr ? "◂" : "▸"}
+                  </span>
+                }
+              />
+
+              {/* ========== Notifications — opens small modal ========== */}
+              {(onEnableReminders || onDisableReminders) && (
+                <Row
+                  tint={remindersOn ? "#34c759" : "#8e8e93"}
+                  icon={remindersOn ? <BellIcon size={14} /> : <BellOffIcon size={14} />}
+                  label={T("Notifications", "الإشعارات")}
+                  onClick={() => onOpenNotif && onOpenNotif()}
+                  trailing={
+                    <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                      {isAr ? "◂" : "▸"}
+                    </span>
+                  }
+                />
+              )}
+
+              {/* ========== Site banner (admins) — opens small modal ========== */}
+              {isAdmin && onPersistSiteBanner && (
+                <div style={{ marginTop: 0 }}>
+                  <Row
+                    tint="#146C94"
+                    icon={<LayersIcon size={14} />}
+                    label={T( "Site banner", "بانر الموقع")}
+                    onClick={() => onOpenBanner && onOpenBanner()}
+                    trailing={
+                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {siteBanner && siteBanner.enabled && (
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, color: "#fff", background: "#34c759",
+                            borderRadius: 8, padding: "2px 6px",
+                          }}>
+                            {T( "ON", "مفعّل")}
+                          </span>
+                        )}
+                        <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                          {isAr ? "◂" : "▸"}
+                        </span>
+                      </span>
+                    }
+                  />
+                </div>
+              )}
+
+
+              {isAdmin && typeof onOpenExamSettings === "function" && (
+                <Row
+                  tint="#e85d04"
+                  icon={<FlameIcon size={14} />}
+                  label={T("Exam countdown", "عدّاد الامتحان")}
+                  onClick={() => { onClose(); onOpenExamSettings && onOpenExamSettings(); }}
+                  trailing={
+                    <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                      {isAr ? "◂" : "▸"}
+                    </span>
+                  }
+                />
+              )}
+
+              {isAdmin && typeof onOpenAdmin === "function" && (
+                <Row
+                  tint="#af52de"
+                  icon={<UsersIcon size={14} />}
+                  label={T("Admin Panel", "لوحة التحكم")}
+                  onClick={onOpenAdmin}
+                />
+              )}
+
+              {/* Saved accounts — moved into Settings */}
+              {Array.isArray(vaultAccounts) && vaultAccounts.length > 0 && (
+                <div style={{ padding: "10px 4px 4px", marginTop: 4, borderTop: "1px solid rgba(var(--border-rgb),0.12)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-strong)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 6, paddingInline: 6 }}>
+                    {T("Saved accounts", "الحسابات المحفوظة")}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {vaultAccounts.map((va) => {
+                      const active = va.code === myAccountCode;
+                      const isMain = va.code === mainAccountCode;
+                      return (
+                        <div
+                          key={va.code}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "8px 10px",
+                            borderRadius: 10,
+                            border: active ? "1px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                            background: active ? "var(--accent-1-soft)" : "var(--input-bg)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: "50%",
+                              overflow: "hidden",
+                              flexShrink: 0,
+                              background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+                              color: "#fff",
+                              fontWeight: 800,
+                              fontSize: 12,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            {va.avatar ? (
+                              <img src={va.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            ) : (
+                              String(va.name || "?").slice(0, 2).toUpperCase()
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!active && typeof onSwitchAccount === "function") {
+                                onSwitchAccount(va.code);
+                              }
+                            }}
+                            style={{
+                              flex: 1,
+                              minWidth: 0,
+                              border: "none",
+                              background: "none",
+                              textAlign: "start",
+                              cursor: active ? "default" : "pointer",
+                              padding: 0,
+                            }}
+                          >
+                            <div style={{ fontWeight: 700, fontSize: 13, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {va.name || va.username}
+                              {isMain ? (
+                                <span style={{ marginInlineStart: 6, fontSize: 10, fontWeight: 700, color: "var(--accent-1)" }}>
+                                  · {T("Main", "أساسي")}
+                                </span>
+                              ) : null}
+                            </div>
+                            <div style={{ fontSize: 11, color: "var(--muted-strong)", fontFamily: "ui-monospace, monospace" }} dir="ltr">
+                              @{va.username || "—"}
+                            </div>
+                          </button>
+                          {isAdmin && !isMain && typeof onSetMainAccount === "function" && (
+                            <button
+                              type="button"
+                              title={T("Set as main account", "تعيين كحساب أساسي")}
+                              onClick={() => onSetMainAccount(va.code)}
+                              style={{
+                                border: "none",
+                                background: "none",
+                                color: "var(--muted-strong)",
+                                fontSize: 11,
+                                fontWeight: 700,
+                                cursor: "pointer",
+                                padding: "4px 6px",
+                                flexShrink: 0,
+                              }}
+                            >
+                              {T("Main", "أساسي")}
+                            </button>
+                          )}
+                          {typeof onUnlinkVaultAccount === "function" && (
+                            <button
+                              type="button"
+                              title={T("Remove from this device", "إزالة من هذا الجهاز")}
+                              aria-label={T("Remove from this device", "إزالة من هذا الجهاز")}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const label = va.name || va.username || va.code;
+                                const ok = window.confirm(
+                                  T(
+                                    `Remove "${label}" from the switch list on this device only? The account stays in the database — you can sign in again anytime.`,
+                                    `تشيل "${label}" من قائمة التبديل على الجهاز ده بس؟ الحساب مش هيتشال من قاعدة البيانات — تقدر تسجّل دخول بيه في أي وقت.`
+                                  )
+                                );
+                                if (!ok) return;
+                                onUnlinkVaultAccount(va.code);
+                              }}
+                              style={{
+                                border: "none",
+                                background: "none",
+                                color: "var(--danger)",
+                                cursor: "pointer",
+                                padding: "4px 6px",
+                                flexShrink: 0,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                borderRadius: 8,
+                              }}
+                            >
+                              <TrashIcon size={14} />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {isAdmin && typeof onLinkAccount === "function" && (
+                    <button
+                      type="button"
+                      onClick={() => { onLinkAccount(); }}
+                      style={{
+                        marginTop: 8,
+                        width: "100%",
+                        minHeight: 40,
+                        borderRadius: 10,
+                        border: "1px dashed rgba(var(--border-rgb),0.35)",
+                        background: "transparent",
+                        color: "var(--accent-1)",
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: "pointer",
+                      }}
+                    >
+                      + {T("Add another account", "إضافة حساب آخر")}
+                    </button>
+                  )}
+                  {!isAdmin && (
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6, lineHeight: 1.4, paddingInline: 6 }}>
+                      {T(
+                        "Standard accounts can save only one login on this device.",
+                        "الحساب العادي يحفظ تسجيل دخول واحد فقط على هذا الجهاز."
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ marginTop: 8, borderTop: "1px solid rgba(var(--border-rgb),0.12)", paddingTop: 6 }}>
+                <Row danger tint="var(--danger)" icon={<LogoutIcon size={14} />} label={T("Sign Out", "تسجيل الخروج")} onClick={onLogout} />
+              </div>
+
+            </div>
+            </div>
+          </div>
+        </div>
+    ,
+    document.body
+  );
+}

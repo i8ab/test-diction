@@ -32,6 +32,53 @@ import {
   InfoGuideModal,
 } from "../modals/lazyModals";
 
+/** Lightweight shell while a lazy modal chunk downloads. */
+function ModalChunkFallback({ label = "Loading…" }) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 5000,
+        background: "rgba(0,0,0,0.45)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        style={{
+          background: "var(--card)",
+          color: "var(--ink)",
+          borderRadius: 16,
+          padding: "28px 32px",
+          minWidth: 160,
+          boxShadow: "0 24px 60px -12px rgba(0,0,0,0.4)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 12,
+          border: "1px solid rgba(var(--border-rgb),0.14)",
+        }}
+      >
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: "50%",
+            border: "3px solid rgba(var(--border-rgb),0.25)",
+            borderTopColor: "var(--accent-1)",
+            animation: "tt-spin 0.6s linear infinite",
+          }}
+        />
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--muted-strong)" }}>{label}</div>
+        <style>{`@keyframes tt-spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    </div>
+  );
+}
+
 /** Feature overlays (add/edit/zoom/quiz/practice/admin) for MainView. */
 export default function MainViewOverlays(p) {
   const {
@@ -347,18 +394,20 @@ export default function MainViewOverlays(p) {
           />
         )}
         {showAdmin && (
-          <AdminModal
-            accounts={accounts}
-            entries={entries}
-            myAccountCode={accountCode}
-            logs={logs}
-            onClearLogs={onClearLogs}
-            onClose={onCloseAdmin}
-            onAdd={onAdminAddAccount}
-            onEdit={onAdminEditAccount}
-            onDelete={onAdminDeleteAccount}
-            isAr={appIsAr}
-          />
+          <Suspense fallback={<ModalChunkFallback label={tr(appIsAr, "Opening admin…", "جاري فتح لوحة التحكم…")} />}>
+            <AdminModal
+              accounts={accounts}
+              entries={entries}
+              myAccountCode={accountCode}
+              logs={logs}
+              onClearLogs={onClearLogs}
+              onClose={onCloseAdmin}
+              onAdd={onAdminAddAccount}
+              onEdit={onAdminEditAccount}
+              onDelete={onAdminDeleteAccount}
+              isAr={appIsAr}
+            />
+          </Suspense>
         )}
       </Suspense>
     {showInfoGuide && (

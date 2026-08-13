@@ -4,6 +4,7 @@ import SiteBannerAdminModal from "./SiteBannerAdminModal";
 import NotificationsModal from "./NotificationsModal";
 import SettingsModal from "./SettingsModal";
 import AppearanceModal from "./AppearanceModal";
+import { preloadSettingsHeavy } from "../modals/lazyModals";
 import InfoGuidePanel from "./InfoGuidePanel";
 import { DeviceModeModal, LangModal, AccentModal } from "./PreferenceModals";
 
@@ -107,6 +108,8 @@ export default function HeaderMenu({
   function openSettings() {
     // Keep the menu open underneath — settings stacks above it
     setSettingsOpen(true);
+    // Warm up heavy modals the user is likely to open next
+    try { preloadSettingsHeavy(); } catch (_) {}
   }
 
   function closeSettings() {
@@ -189,7 +192,7 @@ export default function HeaderMenu({
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button
-        onClick={() => setSettingsOpen(true)}
+        onClick={() => { setSettingsOpen(true); try { preloadSettingsHeavy(); } catch (_) {} }}
         title={T("Settings", "الإعدادات")}
         aria-label={T("Settings", "الإعدادات")}
         aria-expanded={settingsOpen}

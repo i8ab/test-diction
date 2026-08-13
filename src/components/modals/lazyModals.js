@@ -32,3 +32,34 @@ export const LevelsModal = lazy(() => import("./LevelsModal"));
 export const LevelUpModal = lazy(() => import("./LevelUpModal"));
 export const ProgressCompareModal = lazy(() => import("./ProgressCompareModal"));
 export const TextExtractModal = lazy(() => import("./TextExtractModal"));
+
+
+/** Fire-and-forget chunk preloads so the next open feels instant. */
+const _preloaded = new Set();
+
+function preload(key, importer) {
+  if (_preloaded.has(key)) return;
+  _preloaded.add(key);
+  try {
+    importer();
+  } catch (_) {}
+}
+
+export function preloadAdminModal() {
+  preload("admin", () => import("./AdminModal"));
+}
+export function preloadAccountModal() {
+  preload("account", () => import("./AccountModal"));
+}
+export function preloadInfoGuideModal() {
+  preload("info", () => import("./InfoGuideModal"));
+}
+export function preloadExamSettingsModal() {
+  preload("examSettings", () => import("./ExamSettingsModal"));
+}
+export function preloadSettingsHeavy() {
+  preloadAdminModal();
+  preloadAccountModal();
+  preloadInfoGuideModal();
+  preloadExamSettingsModal();
+}

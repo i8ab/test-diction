@@ -729,6 +729,7 @@ export default function DictionaryApp() {
   }, []);
 
   function openAdminModal() {
+    try { import("./components/modals/AdminModal"); } catch (_) {}
     setShowAdmin(true);
     pushHistory({ showAdmin: true });
   }

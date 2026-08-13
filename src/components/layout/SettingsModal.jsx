@@ -6,6 +6,7 @@ import {
   CheckIcon, TrashIcon, LoaderIcon, FlameIcon, StarIcon, MicIcon,
 } from "../common/Icons";
 import { loadEnAccent } from "../../lib/utils/speech";
+import { preloadAdminModal, preloadExamSettingsModal, preloadInfoGuideModal } from "../modals/lazyModals";
 import {
   BRAND_PRESETS,
   loadPresetId,
@@ -92,13 +93,15 @@ export default function SettingsModal({
     );
   }
 
-  function Row({ icon, label, onClick, disabled, tint, danger, trailing }) {
+  function Row({ icon, label, onClick, disabled, tint, danger, trailing, onPointerDown, onMouseEnter }) {
     const color = danger ? "var(--danger, #c44)" : (tint || "var(--ink)");
     return (
       <button
         type="button"
         disabled={disabled}
         onClick={onClick}
+        onPointerDown={onPointerDown}
+        onMouseEnter={onMouseEnter}
         className="settings-menu-item"
         style={{
           display: "flex",
@@ -282,7 +285,7 @@ export default function SettingsModal({
                 tint="#5b8def"
                 icon={<BookIcon size={16} />}
                 label={T("Information", "معلومات")}
-                onClick={() => onOpenInfo && onOpenInfo()}
+                onClick={() => onOpenInfo && onOpenInfo()} onPointerDown={() => { try { preloadInfoGuideModal(); } catch (_) {} }}
                 trailing={
                   <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
                     {isAr ? "◂" : "▸"}
@@ -342,7 +345,7 @@ export default function SettingsModal({
                   tint="#e85d04"
                   icon={<FlameIcon size={16} />}
                   label={T("Exam countdown", "عدّاد الامتحان")}
-                  onClick={() => { onClose(); onOpenExamSettings && onOpenExamSettings(); }}
+                  onClick={() => { onClose(); onOpenExamSettings && onOpenExamSettings(); }} onPointerDown={() => { try { preloadExamSettingsModal(); } catch (_) {} }}
                   trailing={
                     <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
                       {isAr ? "◂" : "▸"}
@@ -357,6 +360,7 @@ export default function SettingsModal({
                   icon={<UsersIcon size={16} />}
                   label={T("Admin Panel", "لوحة التحكم")}
                   onClick={onOpenAdmin}
+                  onPointerDown={() => { try { preloadAdminModal(); } catch (_) {} }}
                 />
               )}
 

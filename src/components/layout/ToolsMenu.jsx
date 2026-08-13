@@ -473,32 +473,6 @@ export default function ToolsMenu({
         </span>
       </button>
 
-      {/* زر الإغلاق بجانب المزيد — يظهر فقط عند الفتح */}
-      {open && (
-        <button
-          type="button"
-          onClick={closeMenu}
-          title={tr(isAr, "Close", "إغلاق")}
-          aria-label={tr(isAr, "Close menu", "إغلاق القائمة")}
-          className="lift-hover"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 40,
-            height: 40,
-            borderRadius: "50%",
-            color: "var(--ink)",
-            background: "var(--card)",
-            border: "1px solid rgba(var(--border-rgb),0.22)",
-            cursor: "pointer",
-            marginInlineStart: 4,
-          }}
-        >
-          <XIcon size={16} />
-        </button>
-      )}
-
       {open && typeof document !== "undefined" ? createPortal(menuPanel, document.body) : null}
     </div>
   );

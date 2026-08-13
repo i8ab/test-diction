@@ -39,14 +39,16 @@ export default function WeaknessReviewModal({
   onRecordSrsAnswer,
   limit = 12,
 }) {
-  const weakList = useMemo(() => {
-    const list = (entries || []).filter((e) => studiedIds.has(e.id));
+  // Freeze the queue at open so answering (which updates SRS) doesn't shrink
+  // the list mid-session and leave idx pointing at a missing entry ("—").
+  const [weakList] = useState(() => {
+    const hasWord = (e) => e && String(e.word || e.term || "").trim();
+    const list = (entries || []).filter((e) => studiedIds.has(e.id) && hasWord(e));
     list.sort((a, b) => {
       const sa = weaknessScore(a.id, srsStats, srsDueAt, wordPriorities);
       const sb = weaknessScore(b.id, srsStats, srsDueAt, wordPriorities);
       return sa - sb; // weakest first
     });
-    // Keep only genuinely weak ones (level <= 2 or accuracy < 75% with some attempts)
     const filtered = list.filter((e) => {
       const stats = srsStats[e.id] || { correct: 0, total: 0 };
       const level = srsLevelFromStats(stats);
@@ -54,7 +56,7 @@ export default function WeaknessReviewModal({
       return level <= 2 || (stats.total >= 2 && ratio < 0.75);
     });
     return (filtered.length ? filtered : list).slice(0, limit);
-  }, [entries, studiedIds, srsStats, srsDueAt, wordPriorities, limit]);
+  });
 
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState("prompt"); // prompt | revealed | done
@@ -86,7 +88,7 @@ export default function WeaknessReviewModal({
   const ratio = stats && stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : null;
 
   function handleKnew(ok) {
-    if (!entry) return;
+    if (!entry || phase === "done") return;
     if (ok) setKnew((n) => n + 1);
     else setLearning((n) => n + 1);
     try {
@@ -239,7 +241,7 @@ export default function WeaknessReviewModal({
                   direction: cfg?.rtl ? "rtl" : "ltr",
                 }}
               >
-                {entry?.word || entry?.term || "—"}
+                {String(entry?.word || entry?.term || "").trim() || "—"}
               </div>
               {entry?.phonetic && (
                 <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 8 }}>
@@ -257,7 +259,11 @@ export default function WeaknessReviewModal({
                   }}
                 >
                   <div style={{ fontSize: 16, fontWeight: 600, color: INK, direction: isAr ? "rtl" : "ltr" }}>
-                    {entry?.meaning || entry?.translation || entry?.def || "—"}
+                    {entry?.meaning
+                      || entry?.translation
+                      || entry?.def
+                      || (Array.isArray(entry?.senses) && entry.senses[0] && (entry.senses[0].meaning || entry.senses[0].def))
+                      || "—"}
                   </div>
                   {entry?.example && (
                     <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 6, fontStyle: "italic" }}>

@@ -262,6 +262,7 @@ export default function MainViewOverlays(p) {
             onOpenGoals={openGoals}
             onOpenCalendar={openCalendar}
             onOpenFlashcards={() => { setShowFlashcards(true); }}
+            onOpenSmartCards={() => { setShowSmartCards(true); setShowDashboard(false); }}
           />
         )}
         {showWordLists && (

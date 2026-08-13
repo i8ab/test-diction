@@ -24,6 +24,7 @@ export default function DashboardPage({
   onOpenGoals,
   onOpenCalendar,
   onOpenFlashcards,
+  onOpenSmartCards,
   name,
 }) {
   useBodyScrollLock(true);
@@ -317,7 +318,7 @@ export default function DashboardPage({
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 4 }}>
           {[
             { label: tr(isAr, "Quiz", "اختبار"), onClick: onOpenQuiz },
-            { label: tr(isAr, "Flashcards", "بطاقات"), onClick: onOpenFlashcards },
+            { label: tr(isAr, "Smart cards", "بطاقات ذكية"), onClick: onOpenSmartCards || onOpenFlashcards },
             { label: tr(isAr, "Stats", "إحصائيات"), onClick: onOpenStats },
             { label: tr(isAr, "Calendar", "التقويم"), onClick: onOpenCalendar },
           ].map((b) => (

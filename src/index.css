@@ -1178,38 +1178,41 @@ html[data-theme="dark"] .letter-rail {
   width: 36px;
   min-width: 36px;
   max-width: 36px;
-  height: 28px;
-  min-height: 28px;
+  height: 30px;
+  min-height: 30px;
   box-sizing: border-box;
   margin: 0;
   padding: 0;
   line-height: 1;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   font-family: "Source Sans 3", system-ui, sans-serif;
+  letter-spacing: 0.02em;
   text-align: center;
   border: none;
   background: transparent;
   border-radius: 10px;
   flex-shrink: 0;
   color: var(--muted, #7FA3B5);
-  opacity: 0.42;
+  opacity: 0.38;
   cursor: default;
   transition:
     background 0.18s ease,
     color 0.18s ease,
     opacity 0.18s ease,
     transform 0.15s ease,
-    box-shadow 0.18s ease;
+    box-shadow 0.18s ease,
+    text-shadow 0.18s ease;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
 
-/* Arabic section — clearer Amiri, modern feel */
+/* Arabic section — clearer, more present Amiri */
 .letter-rail[data-section="ar-ar"] .letter-rail-btn {
   font-family: "Amiri", "Source Sans 3", serif;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
+  letter-spacing: 0;
 }
 
 .letter-rail-btn.has-words {
@@ -1217,21 +1220,44 @@ html[data-theme="dark"] .letter-rail {
   opacity: 1;
   cursor: pointer;
   font-weight: 700;
+  background: color-mix(in srgb, var(--letter-accent, var(--accent-1)) 10%, transparent);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--letter-accent, var(--accent-1)) 45%, transparent);
 }
 
 .letter-rail-btn.has-words:hover {
-  background: color-mix(in srgb, var(--letter-accent, var(--accent-1)) 14%, transparent);
-  transform: scale(1.08);
-  box-shadow: 0 2px 8px -2px color-mix(in srgb, var(--letter-accent, var(--accent-1)) 35%, transparent);
+  background: color-mix(in srgb, var(--letter-accent, var(--accent-1)) 20%, transparent);
+  transform: scale(1.1);
+  box-shadow: 0 2px 10px -2px color-mix(in srgb, var(--letter-accent, var(--accent-1)) 40%, transparent);
+  text-shadow: 0 0 16px color-mix(in srgb, var(--letter-accent, var(--accent-1)) 55%, transparent);
 }
 
 .letter-rail-btn.has-words:active {
   transform: scale(0.94);
-  background: color-mix(in srgb, var(--letter-accent, var(--accent-1)) 22%, transparent);
+  background: color-mix(in srgb, var(--letter-accent, var(--accent-1)) 28%, transparent);
 }
 
 .letter-rail-btn.no-words {
   pointer-events: none;
+}
+
+/* Anchor for A–Z jump — keeps first word fully visible under sticky header */
+.letter-section-anchor {
+  scroll-margin-top: 88px;
+}
+
+@media (max-width: 640px) {
+  .letter-section-anchor {
+    /* header (~56px) + sticky letter rail height */
+    scroll-margin-top: 120px;
+  }
+}
+
+html[data-device="mobile"] .letter-section-anchor {
+  scroll-margin-top: 120px;
+}
+
+html[data-device="tablet"] .letter-section-anchor {
+  scroll-margin-top: 92px;
 }
 
 @media (min-width: 641px) {
@@ -1287,12 +1313,12 @@ html[data-theme="dark"] .letter-rail {
   }
   .letter-rail-btn {
     width: auto;
-    min-width: 32px;
+    min-width: 34px;
     max-width: none;
-    height: 32px;
-    min-height: 32px;
-    padding: 0 8px;
-    font-size: 13px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0 9px;
+    font-size: 14px;
     border-radius: 10px;
   }
   .word-list-main {
@@ -1349,12 +1375,12 @@ html[data-device="mobile"] .letter-rail {
 }
 html[data-device="mobile"] .letter-rail-btn {
   width: auto !important;
-  min-width: 32px !important;
+  min-width: 34px !important;
   max-width: none !important;
-  height: 32px !important;
-  min-height: 32px !important;
-  padding: 0 8px !important;
-  font-size: 13px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 9px !important;
+  font-size: 14px !important;
   border-radius: 10px !important;
 }
 html[data-device="mobile"] .word-list-main {
@@ -1743,9 +1769,9 @@ html[data-device="tablet"] .letter-rail-btn {
   width: 42px !important;
   min-width: 42px !important;
   max-width: 42px !important;
-  height: 32px !important;
-  min-height: 32px !important;
-  font-size: 14px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  font-size: 15px !important;
   padding: 0 !important;
   border-radius: 10px !important;
 }

@@ -144,8 +144,8 @@ const STEPS = [
         ar: "aboawad — Backend و Frontend · مفكر ومنفذ للقرارات",
       },
       {
-        en: "mickoly — Backend · idea designer & frontend",
-        ar: "mickoly — Backend · مصمم أفكار وفرونت إند",
+        en: "mickoly — Backend & Frontend · idea designer",
+        ar: "mickoly — Backend و Frontend · مصمم أفكار",
       },
       {
         en: "Thank you for trusting Bacaloria with your study time. Let’s build the habit together.",
@@ -334,9 +334,7 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
       aria-modal="true"
       aria-label={tr(isAr, "Welcome", "مرحباً")}
       className={`wel-root ${phase === "exit" ? "wel-root-exit" : ""} ${phase === "enter" ? "wel-root-enter" : "wel-root-on"}`}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) finish();
-      }}
+
     >
       <BodyScrollLock />
       <style>{CSS}</style>
@@ -403,7 +401,7 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
               <div className="wel-dev-card">
                 <div className="wel-dev-card-top">
                   <div className="wel-dev-avatar" aria-hidden>
-                    <img src="/icons/dev-aboawad.png" alt="" />
+                    <img src="/icons/dev-aboawad.jpg" alt="" />
                   </div>
                   <div className="wel-dev-id">
                     <div className="wel-dev-role">{tr(isAr, "Backend & Frontend", "Backend و Frontend")}</div>
@@ -426,10 +424,10 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
               <div className="wel-dev-card">
                 <div className="wel-dev-card-top">
                   <div className="wel-dev-avatar wel-dev-avatar-2" aria-hidden>
-                    <img src="/icons/dev-mickoly.png" alt="" onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.parentElement.textContent = "M"; }} />
+                    <img src="/icons/dev-mickoly.jpg" alt="" onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.parentElement.textContent = "M"; }} />
                   </div>
                   <div className="wel-dev-id">
-                    <div className="wel-dev-role">{tr(isAr, "Backend · Ideas", "Backend · أفكار")}</div>
+                    <div className="wel-dev-role">{tr(isAr, "Backend & Frontend", "Backend و Frontend")}</div>
                     <div className="wel-dev-name">mickoly</div>
                   </div>
                 </div>
@@ -441,7 +439,7 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
                   </div>
                   <div className="wel-dev-row">
                     <span className="wel-dev-k">{tr(isAr, "Role", "الدور")}</span>
-                    <span className="wel-dev-v">{tr(isAr, "Backend · idea designer & frontend", "Backend · مصمم أفكار وفرونت إند")}</span>
+                    <span className="wel-dev-v">{tr(isAr, "Backend & Frontend · idea designer", "Backend و Frontend · مصمم أفكار")}</span>
                   </div>
                 </div>
               </div>
@@ -525,6 +523,7 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
 const CSS = `
 .wel-root {
   position: fixed; inset: 0; z-index: 8000;
+  touch-action: none; overscroll-behavior: none;
   display: flex; align-items: center; justify-content: center;
   padding: max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
   transition: background 0.45s ease, backdrop-filter 0.45s ease;
@@ -676,6 +675,7 @@ const CSS = `
 .wel-body {
   flex: 1; overflow-y: auto; padding: 6px 22px 10px;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y; overscroll-behavior: contain;
 }
 .wel-body-text {
   margin: 0 0 16px; font-size: 14.5px; line-height: 1.75;

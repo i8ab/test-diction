@@ -5,10 +5,11 @@ import { useState, memo } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { cambridgeUrl } from "../../lib/utils/wordCard";
+import { formatDueIn, isSrsDue } from "../../lib/utils/quizHelpers";
 import { entryPosList, posLabel, getEntrySenses } from "../../lib/utils/wordTypes";
 import { detectDir, detectFont } from "../../lib/utils/searchUtils";
 import {
-  ChevronIcon, CheckIcon, StarIcon, EditIcon, TrashIcon, ZoomIcon,
+  ChevronIcon, CheckIcon, StarIcon, EditIcon, TrashIcon, ZoomIcon, FlameIcon,
   EyeIcon, EyeOffIcon, SpeakButton,
 } from "./Icons";
 
@@ -82,7 +83,7 @@ function MobilePairChips({ label, pairs, tone = "success" }) {
 
 function EntryCard({
   entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpenZoom,
-  isStudied, onToggleStudied, isFavorite, onToggleFavorite,
+  isStudied, onToggleStudied, isFavorite, onToggleFavorite, priority = 0, onCyclePriority, dueAt = null, isStudiedEntry = false,
   addedByLabel, editedByLabel,
   mobileLayout = false, tabletLayout = false,
 }) {
@@ -91,6 +92,14 @@ function EntryCard({
   const hasDefinition = !!entry.definition;
   const hasExample = !!entry.example || !!(entry.examples && entry.examples.length);
   const hasSynAnt = !!((entry.synonyms && entry.synonyms.length) || (entry.antonyms && entry.antonyms.length));
+  
+  const dueLabel = (isStudiedEntry || isStudied) && dueAt != null
+    ? formatDueIn(dueAt, isAr)
+    : (isStudiedEntry || isStudied) && dueAt == null
+      ? (isAr ? "مستحق" : "Due")
+      : null;
+  const dueNow = (isStudiedEntry || isStudied) && (dueAt == null || isSrsDue(entry.id, { [entry.id]: dueAt }));
+
   const isEnglishWord = cfg.wordDir === "ltr";
   const senses = getEntrySenses(entry);
   // Same layout language as tablet on every device: equal-width icon+label strip.
@@ -248,6 +257,25 @@ function EntryCard({
           >
             {entry.word}
           </span>
+          {dueLabel && (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                padding: "2px 7px",
+                borderRadius: 999,
+                background: dueNow ? "rgba(255,59,48,0.15)" : "rgba(91,141,239,0.15)",
+                color: dueNow ? "#ff3b30" : "#5b8def",
+                border: dueNow ? "1px solid rgba(255,59,48,0.35)" : "1px solid rgba(91,141,239,0.35)",
+                lineHeight: 1.3,
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+              title={tr(isAr, "Next review", "المراجعة القادمة")}
+            >
+              {dueNow ? (isAr ? "الآن" : "Now") : dueLabel}
+            </span>
+          )}
           {/* POS chips sit beside the word */}
           {entryPosList(entry).length > 0 && (
             <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4, flex: "0 1 auto", minWidth: 0 }}>
@@ -442,6 +470,32 @@ function EntryCard({
           <StarIcon size={iconSize} fill={isFavorite ? BRASS : "none"} />
           <span>{tr(isAr, "Fav", "مفضلة")}</span>
         </button>
+        {typeof onCyclePriority === "function" && (
+          <button
+            type="button"
+            className="entry-action-btn"
+            style={{
+              ...actionBtnBase,
+              color: priority === 3 ? "#ff3b30" : priority === 2 ? "#ff9f0a" : priority === 1 ? "#34c759" : "var(--icon-muted)",
+            }}
+            onClick={(e) => { e.stopPropagation(); onCyclePriority(entry.id); }}
+            aria-label={tr(isAr, "Priority", "أولوية")}
+            title={
+              priority === 3 ? tr(isAr, "High priority", "أولوية عالية")
+              : priority === 2 ? tr(isAr, "Medium priority", "أولوية متوسطة")
+              : priority === 1 ? tr(isAr, "Low priority", "أولوية منخفضة")
+              : tr(isAr, "Set priority", "تعيين أولوية")
+            }
+          >
+            <FlameIcon size={iconSize} />
+            <span>{
+              priority === 3 ? tr(isAr, "High", "عالية")
+              : priority === 2 ? tr(isAr, "Med", "متوسطة")
+              : priority === 1 ? tr(isAr, "Low", "منخفضة")
+              : tr(isAr, "Prio", "أولوية")
+            }</span>
+          </button>
+        )}
         <button
           type="button"
           className="entry-action-btn"

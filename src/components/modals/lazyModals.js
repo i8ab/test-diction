@@ -32,6 +32,10 @@ export const LevelsModal = lazy(() => import("./LevelsModal"));
 export const LevelUpModal = lazy(() => import("./LevelUpModal"));
 export const ProgressCompareModal = lazy(() => import("./ProgressCompareModal"));
 export const TextExtractModal = lazy(() => import("./TextExtractModal"));
+export const WeaknessReviewModal = lazy(() => import("./WeaknessReviewModal"));
+export const ListeningLoopModal = lazy(() => import("./ListeningLoopModal"));
+export const SentencePracticeModal = lazy(() => import("./SentencePracticeModal"));
+export const WeeklyReportModal = lazy(() => import("./WeeklyReportModal"));
 
 
 /** Fire-and-forget chunk preloads so the next open feels instant. */

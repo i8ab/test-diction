@@ -43,7 +43,7 @@ export default function MainView({
   name, isAdmin, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
   showAdd, onOpenAdd, onCloseAdd, persistEntries, saveError, onLogout,
   accounts, accountCode, logs, onClearLogs, studiedIds, studiedAt, onToggleStudied, favoriteIds, onToggleFavorite, showAccount, onOpenAccount, onCloseAccount, onUpdateOwnAccount,
-  srsBox, srsDueAt, quizHistory, onRecordSrsAnswer, onSaveQuizResult, onDictationRoundFinished,
+  srsBox, srsDueAt, srsStats = {}, wordPriorities = {}, onSetWordPriority, quizHistory, onRecordSrsAnswer, onSaveQuizResult, onDictationRoundFinished,
   siteBanner, onPersistSiteBanner,
   examConfig, onPersistExamConfig,
   showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount, onApproveRequest, onRejectRequest,
@@ -152,6 +152,10 @@ export default function MainView({
   const [showProgressCompare, setShowProgressCompare] = useState(false);
   const [showTextExtract, setShowTextExtract] = useState(false);
   const [showQuickReview, setShowQuickReview] = useState(false);
+  const [showWeaknessReview, setShowWeaknessReview] = useState(false);
+  const [showListeningLoop, setShowListeningLoop] = useState(false);
+  const [showSentencePractice, setShowSentencePractice] = useState(false);
+  const [showWeeklyReport, setShowWeeklyReport] = useState(false);
   const [showExamMode, setShowExamMode] = useState(false);
   const [showExamSettings, setShowExamSettings] = useState(false);
   const [showInfoGuide, setShowInfoGuide] = useState(false);
@@ -166,6 +170,10 @@ export default function MainView({
   useHistoryBackClose(showGoals, closeGoals);
   useHistoryBackClose(showTodo, closeTodo);
   useHistoryBackClose(showInfoGuide, () => setShowInfoGuide(false));
+  useHistoryBackClose(showWeaknessReview, () => setShowWeaknessReview(false));
+  useHistoryBackClose(showListeningLoop, () => setShowListeningLoop(false));
+  useHistoryBackClose(showSentencePractice, () => setShowSentencePractice(false));
+  useHistoryBackClose(showWeeklyReport, () => setShowWeeklyReport(false));
 
   const [showDictation, setShowDictation] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
@@ -305,8 +313,9 @@ export default function MainView({
         posFilter,
         dateFilter,
         sortKey,
+        wordPriorities,
       }),
-    [sectionEntries, query, studyFilter, studiedIds, favoriteIds, srsDueAt, srsBox, posFilter, dateFilter, sortKey]
+    [sectionEntries, query, studyFilter, studiedIds, favoriteIds, srsDueAt, srsBox, posFilter, dateFilter, sortKey, wordPriorities]
   );
 
   // Full grouping (all matching entries) — used for the A-Z sidebar so it
@@ -396,6 +405,9 @@ export default function MainView({
 
   const handleToggleStudiedById = useCallback((id) => { haptic(12); onToggleStudied(id); }, [onToggleStudied]);
   const handleToggleFavoriteById = useCallback((id) => { onToggleFavorite(id); }, [onToggleFavorite]);
+  const handleCyclePriority = useCallback((id) => {
+    if (typeof onSetWordPriority === "function") onSetWordPriority(id);
+  }, [onSetWordPriority]);
   async function handleUndoDelete() {
     await undoDeleteEntry({
       undoDelete,
@@ -512,6 +524,7 @@ export default function MainView({
               accent={cfg.accent}
               onLeaderboard={() => setShowLeaderboard(true)}
               onStats={() => setShowStats(true)}
+              onWeeklyReport={() => setShowWeeklyReport(true)}
               onQuiz={() => setShowQuiz(true)}
               onExamMode={() => setShowExamMode(true)}
               onFlashcards={() => setShowFlashcards(true)}
@@ -520,6 +533,9 @@ export default function MainView({
               onTodo={openTodo}
               onGoals={openGoals}
               onQuickReview={() => setShowQuickReview(true)}
+              onWeaknessReview={() => setShowWeaknessReview(true)}
+              onListeningLoop={() => setShowListeningLoop(true)}
+              onSentencePractice={() => setShowSentencePractice(true)}
               onDictation={() => setShowDictation(true)}
               onAchievements={() => setShowAchievements(true)}
               onRandomWord={() => setShowRandomWord(true)}
@@ -789,6 +805,9 @@ export default function MainView({
         onOpenZoom={handleZoomRequest}
         onToggleStudied={handleToggleStudiedById}
         onToggleFavorite={handleToggleFavoriteById}
+        wordPriorities={wordPriorities}
+        onCyclePriority={handleCyclePriority}
+        srsDueAt={srsDueAt}
       />
 
       <MainViewOverlays
@@ -884,6 +903,16 @@ export default function MainView({
         setShowRandomWord={setShowRandomWord}
         showQuickReview={showQuickReview}
         setShowQuickReview={setShowQuickReview}
+        showWeaknessReview={showWeaknessReview}
+        setShowWeaknessReview={setShowWeaknessReview}
+        showListeningLoop={showListeningLoop}
+        setShowListeningLoop={setShowListeningLoop}
+        showSentencePractice={showSentencePractice}
+        setShowSentencePractice={setShowSentencePractice}
+        showWeeklyReport={showWeeklyReport}
+        setShowWeeklyReport={setShowWeeklyReport}
+        srsStats={srsStats}
+        wordPriorities={wordPriorities}
         showInfoGuide={showInfoGuide}
         setShowInfoGuide={setShowInfoGuide}
       />

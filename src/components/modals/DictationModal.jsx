@@ -29,8 +29,9 @@ export default function DictationModal({
   onRecordSrsAnswer,
   onFinishRound,
 }) {
-  const [mode, setMode] = useState("listen-meaning"); // listen-meaning | type-word
+  const [mode, setMode] = useState("listen-meaning"); // listen-meaning | type-word | listen-loop
   const [count, setCount] = useState(8);
+  const [loopReps, setLoopReps] = useState(3); // for listen-loop mode
   const [stage, setStage] = useState("setup"); // setup | running | done
   const [queue, setQueue] = useState([]);
   const [index, setIndex] = useState(0);
@@ -40,6 +41,8 @@ export default function DictationModal({
   const [correct, setCorrect] = useState(false);
   const [results, setResults] = useState([]);
   const [error, setError] = useState("");
+  const [loopPlayCount, setLoopPlayCount] = useState(0);
+  const [loopPlaying, setLoopPlaying] = useState(false);
 
   const studiedSet = useMemo(
     () => (studiedIds instanceof Set ? studiedIds : new Set(studiedIds || [])),
@@ -78,11 +81,22 @@ export default function DictationModal({
     setRevealed(false);
     setAnswered(false);
     setResults([]);
+    setLoopPlayCount(0);
+    setLoopPlaying(false);
     setStage("running");
-    // auto-speak first item in listen mode
-    if (mode === "listen-meaning" && q[0]) {
+    // auto-speak first item in listen modes
+    if ((mode === "listen-meaning" || mode === "listen-loop") && q[0]) {
       setTimeout(() => speakWord(q[0].word, q[0].section === "ar-ar" ? "rtl" : "ltr"), 300);
+      if (mode === "listen-loop") setLoopPlayCount(1);
     }
+  }
+
+  function playLoopOnce() {
+    if (!current) return;
+    setLoopPlaying(true);
+    speakWord(current.word, current.section === "ar-ar" ? "rtl" : "ltr");
+    setLoopPlayCount((c) => c + 1);
+    setTimeout(() => setLoopPlaying(false), 800);
   }
 
   const current = queue[index];
@@ -101,6 +115,7 @@ export default function DictationModal({
       return;
     }
     setError("");
+    // listen-meaning → type meaning; type-word & listen-loop → type the word
     const expected = mode === "listen-meaning" ? current.meaning : current.word;
     const ok = isTypingCorrect(typed, expected);
     setCorrect(ok);
@@ -122,11 +137,14 @@ export default function DictationModal({
     setAnswered(false);
     setCorrect(false);
     setError("");
-    if (mode === "listen-meaning" && queue[nextIdx]) {
+    setLoopPlayCount(0);
+    setLoopPlaying(false);
+    if ((mode === "listen-meaning" || mode === "listen-loop") && queue[nextIdx]) {
       setTimeout(
         () => speakWord(queue[nextIdx].word, queue[nextIdx].section === "ar-ar" ? "rtl" : "ltr"),
         200
       );
+      if (mode === "listen-loop") setLoopPlayCount(1);
     }
   }
 
@@ -186,8 +204,8 @@ export default function DictationModal({
             <p style={{ fontSize: 13.5, color: "var(--muted-strong)", margin: "0 0 14px" }}>
               {tr(
                 isAr,
-                "Hear the word and type its meaning, or see the meaning and type the word.",
-                "اسمع الكلمة واكتب معناها، أو شوف المعنى واكتب الكلمة."
+                "Hear the word and type its meaning, see the meaning and type the word, or use the listening loop.",
+                "اسمع الكلمة واكتب معناها، أو شوف المعنى واكتب الكلمة، أو استخدم حلقة الاستماع."
               )}
             </p>
             <label style={labelStyle}>{tr(isAr, "Mode", "الوضع")}</label>
@@ -195,6 +213,7 @@ export default function DictationModal({
               {[
                 { id: "listen-meaning", en: "Hear word → type meaning", ar: "اسمع الكلمة → اكتب المعنى" },
                 { id: "type-word", en: "See meaning → type word", ar: "شوف المعنى → اكتب الكلمة" },
+                { id: "listen-loop", en: "Listening loop → type word", ar: "حلقة استماع → اكتب الكلمة" },
               ].map((m) => (
                 <button
                   key={m.id}
@@ -217,6 +236,12 @@ export default function DictationModal({
                 </button>
               ))}
             </div>
+            {mode === "listen-loop" && (
+              <>
+                <label style={labelStyle}>{tr(isAr, "Repeats per word", "مرات التكرار لكل كلمة")}</label>
+                <NumberStepper value={loopReps} min={2} max={6} onChange={setLoopReps} />
+              </>
+            )}
             <label style={labelStyle}>{tr(isAr, "Number of words", "عدد الكلمات")}</label>
             <NumberStepper value={count} min={3} max={30} onChange={setCount} />
             {error && <div style={errorStyle}>{error}</div>}
@@ -243,6 +268,37 @@ export default function DictationModal({
                 <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--muted-strong)" }}>
                   {tr(isAr, "Tap the speaker, then type the meaning", "اضغط السماعة، وبعدين اكتب المعنى")}
                 </p>
+                {revealed && (
+                  <div
+                    dir={current.section === "ar-ar" ? "rtl" : "ltr"}
+                    style={{
+                      marginTop: 12,
+                      fontFamily: current.section === "ar-ar" ? "'Amiri', serif" : "'Fraunces', serif",
+                      fontSize: 22,
+                      fontWeight: 700,
+                      color: INK,
+                    }}
+                  >
+                    {current.word}
+                  </div>
+                )}
+              </div>
+            ) : mode === "listen-loop" ? (
+              <div style={{ textAlign: "center", padding: "18px 8px" }}>
+                <div style={{ fontSize: 36, marginBottom: 6 }}>{loopPlaying ? "🔊" : "🎧"}</div>
+                <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted-strong)" }}>
+                  {tr(isAr, `Played ${Math.min(loopPlayCount, loopReps)} / ${loopReps} — then type the word`, `اتشغّل ${Math.min(loopPlayCount, loopReps)} / ${loopReps} — بعدين اكتب الكلمة`)}
+                </p>
+                <button
+                  type="button"
+                  onClick={playLoopOnce}
+                  style={{
+                    padding: "10px 16px", borderRadius: 10, border: "1px solid rgba(var(--border-rgb),0.25)",
+                    background: "var(--input-bg)", color: INK, fontWeight: 600, fontSize: 13, cursor: "pointer",
+                  }}
+                >
+                  {tr(isAr, "Play again", "شغّل تاني")}
+                </button>
                 {revealed && (
                   <div
                     dir={current.section === "ar-ar" ? "rtl" : "ltr"}

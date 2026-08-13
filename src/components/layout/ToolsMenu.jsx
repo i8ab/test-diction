@@ -63,6 +63,10 @@ export default function ToolsMenu({
   onLevels = null,
   onProgressCompare = null,
   onTextExtract = null,
+  onWeeklyReport = null,
+  onWeaknessReview = null,
+  onListeningLoop = null,
+  onSentencePractice = null,
   nightStudy = false,
   onToggleNightStudy = null,
 }) {
@@ -126,12 +130,29 @@ export default function ToolsMenu({
       id: "practice",
       title: tr(isAr, "Practice", "التدريب"),
       items: [
-        { key: "exam", icon: <FlameIcon size={18} />, tint: "#e85d04", label: tr(isAr, "Exam Mode", "وضع الامتحان"), onClick: onExamMode },
-        { key: "quiz", icon: <QuizIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quiz", "اختبار"), onClick: onQuiz },
-        { key: "flashcards", icon: <LayersIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Flashcards", "بطاقات تعليمية"), onClick: onFlashcards },
-        { key: "dictation", icon: <MicIcon size={18} />, tint: "#e76f51", label: tr(isAr, "Dictation", "استماع وإملاء"), onClick: onDictation },
+        // مراجعة
         { key: "quick", icon: <LayersIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quick review", "مراجعة سريعة"), onClick: onQuickReview },
+        ...(typeof onWeaknessReview === "function"
+          ? [{ key: "weakness", icon: <FlameIcon size={18} />, tint: "#ff3b30", label: tr(isAr, "Weakness review", "مراجعة الضعف"), onClick: onWeaknessReview }]
+          : []),
+        // بطاقات (Smart بدل Flashcards العادية)
+        ...(typeof onSmartCards === "function"
+          ? [{ key: "smartCards", icon: <LayersIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Smart cards", "بطاقات ذكية"), onClick: onSmartCards }]
+          : []),
+        // استماع وكتابة
+        { key: "dictation", icon: <MicIcon size={18} />, tint: "#e76f51", label: tr(isAr, "Listening & Dictation", "استماع وإملاء"), onClick: onDictation },
+        ...(typeof onSentencePractice === "function"
+          ? [{ key: "sentence", icon: <CheckIcon size={18} />, tint: "#32ade6", label: tr(isAr, "Sentence practice", "تمرين الجمل"), onClick: onSentencePractice }]
+          : []),
+        // اختبارات
+        { key: "quiz", icon: <QuizIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quiz", "اختبار"), onClick: onQuiz },
+        { key: "exam", icon: <FlameIcon size={18} />, tint: "#e85d04", label: tr(isAr, "Exam Mode", "وضع الامتحان"), onClick: onExamMode },
+        // اكتشاف
         { key: "random", icon: <WandIcon size={18} />, tint: "#7b2cbf", label: tr(isAr, "Random word", "كلمة عشوائية"), onClick: onRandomWord },
+        { key: "morning", icon: <StarIcon size={18} />, tint: "#ffcc00", label: tr(isAr, "Morning review", "مراجعة الصباح"), onClick: onQuickReview },
+        ...(typeof onWeaknessReview === "function"
+          ? [{ key: "night", icon: <StarIcon size={18} />, tint: "#5856d6", label: tr(isAr, "Night review", "مراجعة قبل النوم"), onClick: onWeaknessReview }]
+          : []),
       ],
     },
     {
@@ -140,6 +161,9 @@ export default function ToolsMenu({
       items: [
         { key: "dashboard", icon: <StatsIcon size={18} />, tint: "#5b8def", label: tr(isAr, "Dashboard", "لوحة القيادة"), onClick: onDashboard },
         { key: "stats", icon: <StatsIcon size={18} />, tint: "#5b8def", label: tr(isAr, "Stats", "إحصائياتي"), onClick: onStats },
+        ...(typeof onWeeklyReport === "function"
+          ? [{ key: "weekly", icon: <StatsIcon size={18} />, tint: "#30d158", label: tr(isAr, "Weekly report", "التقرير الأسبوعي"), onClick: onWeeklyReport }]
+          : []),
         { key: "achievements", icon: <StarIcon size={18} />, tint: "#f4a261", label: tr(isAr, "Achievements", "الإنجازات"), onClick: onAchievements },
         { key: "leaderboard", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Leaderboard", "الترتيب"), onClick: onLeaderboard },
         { key: "goals", icon: <FlameIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Goals", "الأهداف"), onClick: onGoals },
@@ -160,9 +184,6 @@ export default function ToolsMenu({
         { key: "todo", icon: <CheckIcon size={18} />, tint: "#30d158", label: tr(isAr, "To-do list", "قائمة المهام"), onClick: onTodo },
         { key: "lists", icon: <LayersIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Word lists", "قوائم الكلمات"), onClick: onWordLists },
         { key: "challenges", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Challenges", "تحديات"), onClick: onChallenges },
-        ...(typeof onSmartCards === "function"
-          ? [{ key: "smartCards", icon: <LayersIcon size={18} />, tint: "#af52de", label: tr(isAr, "Smart cards", "بطاقات ذكية"), onClick: onSmartCards }]
-          : []),
         ...(typeof onConversation === "function"
           ? [{ key: "conversation", icon: <MicIcon size={18} />, tint: "#5e5ce6", label: tr(isAr, "Conversation", "محادثة"), onClick: onConversation }]
           : []),

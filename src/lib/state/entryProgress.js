@@ -260,3 +260,61 @@ export async function saveQuizResult({ result, accountCode, persistAccounts }) {
     /* best-effort */
   }
 }
+
+/** Priority levels for a word: 3 = high, 2 = medium, 1 = low, 0 / missing = none */
+export const PRIORITY_LEVELS = [
+  { value: 0, en: "None", ar: "بدون", color: "var(--muted)" },
+  { value: 1, en: "Low", ar: "منخفضة", color: "#34c759" },
+  { value: 2, en: "Medium", ar: "متوسطة", color: "#ff9f0a" },
+  { value: 3, en: "High", ar: "عالية", color: "#ff3b30" },
+];
+
+export function getWordPriority(account, entryId) {
+  if (!account || !entryId) return 0;
+  const map = account.wordPriorities || {};
+  const v = Number(map[entryId]);
+  return v >= 1 && v <= 3 ? v : 0;
+}
+
+/**
+ * Cycle or set priority for a word on the current account.
+ * If `nextValue` is provided, set it; otherwise cycle 0 → 3 → 2 → 1 → 0.
+ */
+export async function setWordPriority({
+  entryId,
+  nextValue,
+  accountCode,
+  persistAccounts,
+}) {
+  if (!entryId || !accountCode || accountCode === "guest") {
+    // guest: localStorage only
+    try {
+      const key = "twoTongues.guestPriorities";
+      const raw = localStorage.getItem(key);
+      const map = raw ? JSON.parse(raw) : {};
+      let v = nextValue;
+      if (v == null) {
+        const cur = Number(map[entryId]) || 0;
+        v = cur === 0 ? 3 : cur === 3 ? 2 : cur === 2 ? 1 : 0;
+      }
+      if (v === 0) delete map[entryId];
+      else map[entryId] = v;
+      localStorage.setItem(key, JSON.stringify(map));
+    } catch (_) {}
+    return;
+  }
+  await persistAccounts((curAccounts) =>
+    curAccounts.map((a) => {
+      if (a.code !== accountCode) return a;
+      const map = { ...(a.wordPriorities || {}) };
+      let v = nextValue;
+      if (v == null) {
+        const cur = Number(map[entryId]) || 0;
+        v = cur === 0 ? 3 : cur === 3 ? 2 : cur === 2 ? 1 : 0;
+      }
+      if (v === 0) delete map[entryId];
+      else map[entryId] = v;
+      return { ...a, wordPriorities: map };
+    })
+  );
+}

@@ -30,6 +30,10 @@ import {
   ProgressCompareModal,
   TextExtractModal,
   InfoGuideModal,
+  WeaknessReviewModal,
+  ListeningLoopModal,
+  SentencePracticeModal,
+  WeeklyReportModal,
 } from "../modals/lazyModals";
 
 /** Lightweight shell while a lazy modal chunk downloads. */
@@ -108,7 +112,12 @@ export default function MainViewOverlays(p) {
     showAchievements, setShowAchievements,
     showRandomWord, setShowRandomWord,
     showQuickReview, setShowQuickReview,
+    showWeaknessReview, setShowWeaknessReview,
+    showListeningLoop, setShowListeningLoop,
+    showSentencePractice, setShowSentencePractice,
+    showWeeklyReport, setShowWeeklyReport,
     showInfoGuide, setShowInfoGuide,
+    srsStats,
   } = p;
 
   // Local aliases used by copied JSX from MainView
@@ -426,6 +435,65 @@ export default function MainViewOverlays(p) {
           onClose={() => setShowQuickReview(false)}
           onToggleStudied={onToggleStudied}
           onRecordSrsAnswer={onRecordSrsAnswer}
+        />
+      </Suspense>
+    )}
+
+    {showWeaknessReview && (
+      <Suspense fallback={null}>
+        <WeaknessReviewModal
+          entries={sectionEntries}
+          studiedIds={studiedIds}
+          srsStats={srsStats}
+          srsDueAt={srsDueAt}
+          wordPriorities={p.wordPriorities || {}}
+          isAr={appIsAr}
+          onClose={() => setShowWeaknessReview(false)}
+          onRecordSrsAnswer={onRecordSrsAnswer}
+        />
+      </Suspense>
+    )}
+
+    {showListeningLoop && (
+      <Suspense fallback={null}>
+        <ListeningLoopModal
+          entries={sectionEntries}
+          studiedIds={studiedIds}
+          srsStats={srsStats}
+          srsDueAt={srsDueAt}
+          isAr={appIsAr}
+          onClose={() => setShowListeningLoop(false)}
+          onRecordSrsAnswer={onRecordSrsAnswer}
+        />
+      </Suspense>
+    )}
+
+    {showSentencePractice && (
+      <Suspense fallback={null}>
+        <SentencePracticeModal
+          entries={sectionEntries}
+          studiedIds={studiedIds}
+          srsStats={srsStats}
+          srsDueAt={srsDueAt}
+          isAr={appIsAr}
+          onClose={() => setShowSentencePractice(false)}
+          onRecordSrsAnswer={onRecordSrsAnswer}
+        />
+      </Suspense>
+    )}
+
+
+    {showWeeklyReport && (
+      <Suspense fallback={null}>
+        <WeeklyReportModal
+          entries={sectionEntries}
+          studiedIds={studiedIds}
+          studiedAt={studiedAt}
+          srsStats={srsStats}
+          srsDueAt={srsDueAt}
+          wordPriorities={p.wordPriorities || {}}
+          isAr={appIsAr}
+          onClose={() => setShowWeeklyReport(false)}
         />
       </Suspense>
     )}

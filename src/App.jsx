@@ -32,6 +32,7 @@ import {
   recordSrsAnswer,
   dictationRoundFinished,
   saveQuizResult,
+  setWordPriority,
 } from "./lib/state/entryProgress";
 import { srsLevelFromStats, computeStreak } from "./lib/utils/quizHelpers";
 import { unlockAchievements } from "./lib/state/achievements";
@@ -314,6 +315,18 @@ export default function DictionaryApp() {
     const acct = accounts.find((a) => a.code === accountCode);
     return (acct && acct.srsStats) || {};
   }, [accounts, accountCode]);
+
+  const [priorityTick, setPriorityTick] = useState(0);
+  const wordPriorities = useMemo(() => {
+    if (accountCode === "guest") {
+      try {
+        const raw = localStorage.getItem("twoTongues.guestPriorities");
+        return raw ? JSON.parse(raw) : {};
+      } catch (_) { return {}; }
+    }
+    const acct = accounts.find((a) => a.code === accountCode);
+    return (acct && acct.wordPriorities) || {};
+  }, [accounts, accountCode, priorityTick]);
 
   // Derived level (0-3) per word, computed from cumulative accuracy — see
   // srsLevelFromStats. Kept as its own memo so consumers (Stats panel,
@@ -1030,6 +1043,11 @@ export default function DictionaryApp() {
     await toggleFavorite({ entryId, accountCode, accounts, persistAccounts });
   }
 
+  async function handleSetWordPriority(entryId, nextValue) {
+    await setWordPriority({ entryId, nextValue, accountCode, persistAccounts });
+    if (accountCode === "guest") setPriorityTick((t) => t + 1);
+  }
+
   async function handleRecordSrsAnswer(entryId, correct, qualityOverride) {
     await recordSrsAnswer({ entryId, correct, qualityOverride, accountCode, persistAccounts });
   }
@@ -1415,7 +1433,8 @@ export default function DictionaryApp() {
       accounts={accounts} accountCode={accountCode} logs={logs} onClearLogs={clearLogsExceptFirstSignIn}
       studiedIds={studiedIds} studiedAt={studiedAt} onToggleStudied={handleToggleStudied}
       favoriteIds={favoriteIds} onToggleFavorite={handleToggleFavorite}
-      srsBox={srsBox} srsDueAt={srsDueAt} quizHistory={quizHistory}
+      wordPriorities={wordPriorities} onSetWordPriority={handleSetWordPriority}
+      srsBox={srsBox} srsDueAt={srsDueAt} srsStats={srsStats} quizHistory={quizHistory}
       onRecordSrsAnswer={handleRecordSrsAnswer} onSaveQuizResult={handleSaveQuizResult}
       onDictationRoundFinished={handleDictationRoundFinished}
       showAccount={showAccount} onOpenAccount={openAccountModal} onCloseAccount={closeAccountModal} onUpdateOwnAccount={handleUpdateOwnAccount}

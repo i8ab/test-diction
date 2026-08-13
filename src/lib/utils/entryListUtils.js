@@ -41,6 +41,7 @@ export function filterSectionEntries({
   posFilter,
   dateFilter,
   sortKey,
+  wordPriorities = {},
 }) {
   const q = String(query || "").trim();
   let base = q
@@ -64,6 +65,10 @@ export function filterSectionEntries({
     base = base.filter(
       (e) => studiedIds.has(e.id) && ((srsBox && srsBox[e.id]) || 0) <= 1
     );
+  else if (studyFilter === "priority")
+    base = base.filter((e) => (Number(wordPriorities[e.id]) || 0) >= 1);
+  else if (studyFilter === "priority-high")
+    base = base.filter((e) => (Number(wordPriorities[e.id]) || 0) === 3);
 
   if (posFilter && posFilter !== "all") {
     base = base.filter(
@@ -92,6 +97,16 @@ export function filterSectionEntries({
     base = [...base].sort(
       (a, b) => ((srsBox && srsBox[a.id]) || 0) - ((srsBox && srsBox[b.id]) || 0)
     );
+  else if (sortKey === "priority")
+    base = [...base].sort(
+      (a, b) => (Number(wordPriorities[b.id]) || 0) - (Number(wordPriorities[a.id]) || 0)
+    );
+  else if (sortKey === "due")
+    base = [...base].sort((a, b) => {
+      const da = srsDueAt && srsDueAt[a.id] != null ? Number(srsDueAt[a.id]) : 0;
+      const db = srsDueAt && srsDueAt[b.id] != null ? Number(srsDueAt[b.id]) : 0;
+      return da - db;
+    });
 
   return base;
 }

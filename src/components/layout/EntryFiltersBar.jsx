@@ -25,6 +25,8 @@ export default function EntryFiltersBar({
     { key: "favorites", label: tr(isAr, "Favorites", "المفضلة") },
     { key: "due", label: tr(isAr, "Due today", "مستحقة") },
     { key: "weak", label: tr(isAr, "Weak", "ضعيفة") },
+    { key: "priority", label: tr(isAr, "Priority", "أولوية") },
+    { key: "priority-high", label: tr(isAr, "High priority", "أولوية عالية") },
   ];
 
   const hasActiveExtra =
@@ -147,6 +149,8 @@ export default function EntryFiltersBar({
           <option value="newest">{tr(isAr, "Newest", "الأحدث")}</option>
           <option value="oldest">{tr(isAr, "Oldest", "الأقدم")}</option>
           <option value="weak">{tr(isAr, "Weakest first", "الأضعف أولاً")}</option>
+          <option value="priority">{tr(isAr, "Priority first", "الأولوية أولاً")}</option>
+          <option value="due">{tr(isAr, "Due soonest", "الأقرب للاستحقاق")}</option>
         </select>
       </div>
     </>

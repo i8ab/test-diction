@@ -39,6 +39,9 @@ export default function WordListPanel({
   onOpenZoom,
   onToggleStudied,
   onToggleFavorite,
+  wordPriorities = {},
+  onCyclePriority,
+  srsDueAt = {},
 }) {
   const letterRefs = useRef({});
   const railRef = useRef(null);
@@ -242,6 +245,10 @@ export default function WordListPanel({
                       onToggleStudied={onToggleStudied}
                       isFavorite={favoriteIds.has(e.id)}
                       onToggleFavorite={onToggleFavorite}
+                      priority={Number(wordPriorities[e.id]) || 0}
+                      onCyclePriority={onCyclePriority}
+                      dueAt={srsDueAt[e.id]}
+                      isStudiedEntry={studiedIds.has(e.id)}
                       addedByLabel={accountNameByCode[e.addedBy] || e.addedBy}
                       editedByLabel={
                         accountNameByCode[e.editedBy] || e.editedBy

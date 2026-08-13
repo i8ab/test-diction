@@ -503,11 +503,25 @@ const ADDM_CSS = `
   background: rgba(255,255,255,0.07);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--addm-accent, #5b8def) 22%, transparent);
 }
-.addm-select { cursor: pointer; appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='rgba(255,255,255,0.45)' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px;
+.addm-select {
+  cursor: pointer; appearance: none; -webkit-appearance: none;
+  color-scheme: dark;
+  background-color: rgba(255,255,255,0.05);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='rgba(255,255,255,0.55)' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center;
+  background-size: 12px 8px; padding-right: 36px;
 }
 [dir="rtl"] .addm-select { background-position: left 14px center; padding-right: 14px; padding-left: 36px; }
+.addm-select option,
+.addm-select optgroup {
+  background: #1a2030;
+  color: #eef2f8;
+}
+.addm-select option:checked,
+.addm-select option:hover {
+  background: #2a3550;
+  color: #fff;
+}
 .addm-textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
 .addm-row { display: flex; gap: 8px; align-items: flex-start; }
 .addm-row .addm-input { flex: 1; }

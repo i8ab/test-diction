@@ -215,6 +215,29 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
     setTick((x) => x + 1);
   }, [step, reveal]);
 
+  // Auto-scroll body to bottom after new content is revealed (waits for DOM paint)
+  useEffect(() => {
+    if (reveal === 0) return;
+    const el = bodyRef.current;
+    if (!el) return;
+    const scrollToBottom = () => {
+      try {
+        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+      } catch (_) {
+        el.scrollTop = el.scrollHeight;
+      }
+    };
+    // Double rAF + short timeout so layout/animation of new block is ready
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollToBottom();
+        setTimeout(scrollToBottom, 80);
+        setTimeout(scrollToBottom, 220);
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [reveal, step]);
+
   useEffect(() => {
     function onKey(e) {
       if (e.key === "Escape") finish();
@@ -239,9 +262,6 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
   function goNext() {
     if (!isChapterDone) {
       setReveal((r) => r + 1);
-      try {
-        if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-      } catch (_) {}
       return;
     }
     if (isLastStep) {
@@ -363,20 +383,20 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
             </p>
           )}
 
-          <div className="wel-points">
+          <ul className="wel-points">
             {(s.points || []).map((p, i) =>
               reveal >= 2 + i ? (
-                <div
+                <li
                   key={`${step}-pt-${i}`}
                   className="wel-point wel-stagger"
                   style={{ animationDelay: "0.06s" }}
                 >
-                  <div className="wel-point-num">{String(i + 1).padStart(2, "0")}</div>
-                  <div className="wel-point-text">{tr(isAr, p.en, p.ar)}</div>
-                </div>
+                  <span className="wel-point-dot" aria-hidden />
+                  <span className="wel-point-text">{tr(isAr, p.en, p.ar)}</span>
+                </li>
               ) : null
             )}
-          </div>
+          </ul>
 
           {s.isDev && reveal >= maxReveal && (
             <div className="wel-dev wel-stagger" key="dev" style={{ animationDelay: "0.08s" }}>
@@ -618,29 +638,23 @@ const CSS = `
   color: rgba(230,236,245,0.72);
 }
 
-.wel-points { display: flex; flex-direction: column; gap: 8px; }
+.wel-points {
+  display: flex; flex-direction: column; gap: 10px;
+  list-style: none; margin: 0; padding: 0;
+}
 .wel-point {
   display: flex; gap: 12px; align-items: flex-start;
-  padding: 12px 13px; border-radius: 16px;
-  background: rgba(255,255,255,0.035);
-  border: 1px solid rgba(255,255,255,0.07);
-  transition: transform 0.25s ease, border-color 0.25s;
+  padding: 2px 0;
 }
-.wel-point:hover {
-  border-color: rgba(90,140,255,0.35);
-  transform: translateY(-1px);
-}
-.wel-point-num {
-  flex-shrink: 0; font-size: 11px; font-weight: 800;
-  letter-spacing: 0.06em; color: #fff;
-  min-width: 28px; height: 28px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
+.wel-point-dot {
+  flex-shrink: 0; width: 8px; height: 8px; margin-top: 7px;
+  border-radius: 50%;
   background: linear-gradient(135deg, var(--accent-1, #5b8def), var(--accent-2, #7c3aed));
-  box-shadow: 0 6px 14px -6px rgba(80,140,255,0.7);
+  box-shadow: 0 0 10px rgba(90,140,255,0.55);
 }
 .wel-point-text {
-  font-size: 13.5px; line-height: 1.55; color: rgba(242,245,250,0.92);
-  font-weight: 500; padding-top: 3px;
+  font-size: 13.5px; line-height: 1.6; color: rgba(242,245,250,0.88);
+  font-weight: 500;
 }
 
 .wel-dev {

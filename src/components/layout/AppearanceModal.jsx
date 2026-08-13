@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
-import { XIcon, SunIcon, MoonIcon, PlusIcon } from "../common/Icons";
+import { XIcon, SunIcon, MoonIcon, PlusIcon, GlobeIcon } from "../common/Icons";
 import {
   BRAND_PRESETS,
   savePresetId,

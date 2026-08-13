@@ -19,6 +19,26 @@ export default function SiteBannerAdminModal({
   const lang = appLang || (isAr ? "ar" : "en");
   const T = (en, ar, de, fr) => tr(lang, en, ar, de, fr);
 
+  const fieldLabel = {
+    display: "block",
+    fontSize: 12,
+    fontWeight: 700,
+    color: "var(--muted-strong)",
+    marginBottom: 6,
+  };
+  const fieldInput = {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid rgba(var(--border-rgb),0.2)",
+    background: "var(--input-bg)",
+    color: "var(--ink)",
+    fontSize: 14,
+    fontFamily: "inherit",
+    outline: "none",
+  };
+
   const [bannerMessage, setBannerMessage] = useState("");
   const [bannerColor, setBannerColor] = useState("#146C94");
   const [bannerEnabled, setBannerEnabled] = useState(false);

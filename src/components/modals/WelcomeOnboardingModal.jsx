@@ -419,24 +419,21 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
         </div>
 
         <div className="wel-foot">
-          <div className="wel-chapter-bar">
-            {STEPS.map((ch, i) => (
-              <button
-                key={ch.id}
-                type="button"
-                className={`wel-chapter-seg ${i === step ? "is-on" : ""} ${i < step ? "is-done" : ""}`}
-                onClick={() => jumpToStep(i)}
-                aria-label={tr(isAr, ch.enTitle, ch.arTitle)}
-                title={tr(isAr, ch.enTitle, ch.arTitle)}
-              >
-                <span className="wel-chapter-seg-fill" />
-              </button>
-            ))}
-          </div>
           <div className="wel-chapter-meta">
-            <span>
-              {tr(isAr, `Chapter ${step + 1} of ${STEPS.length}`, `الفصل ${step + 1} من ${STEPS.length}`)}
-            </span>
+            <nav className="wel-chapter-nav" aria-label={tr(isAr, "Chapters", "الفصول")}>
+              {STEPS.map((ch, i) => (
+                <button
+                  key={ch.id}
+                  type="button"
+                  className={`wel-chapter-link ${i === step ? "is-on" : ""} ${i < step ? "is-done" : ""}`}
+                  onClick={() => jumpToStep(i)}
+                  aria-label={tr(isAr, ch.enTitle, ch.arTitle)}
+                  title={tr(isAr, ch.enTitle, ch.arTitle)}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </nav>
             <span className="wel-chapter-meta-sub">
               {reveal === 0
                 ? tr(isAr, "Intro", "مقدمة")
@@ -444,6 +441,12 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
                   ? tr(isAr, "Complete", "مكتمل")
                   : tr(isAr, `${reveal} / ${maxReveal}`, `${reveal} / ${maxReveal}`)}
             </span>
+          </div>
+          <div className="wel-chapter-line" aria-hidden>
+            <div
+              className="wel-chapter-line-fill"
+              style={{ width: `${((step + (isChapterDone ? 1 : Math.min(reveal, maxReveal) / Math.max(maxReveal, 1))) / STEPS.length) * 100}%` }}
+            />
           </div>
 
           <div className="wel-actions">
@@ -724,42 +727,39 @@ const CSS = `
   border-top: 1px solid rgba(255,255,255,0.06);
   background: linear-gradient(180deg, transparent, rgba(0,0,0,0.2));
 }
-.wel-chapter-bar {
-  display: flex; gap: 6px; margin-bottom: 8px;
-}
-.wel-chapter-seg {
-  flex: 1; height: 4px; border: none; padding: 0; border-radius: 999px;
-  background: rgba(255,255,255,0.1); cursor: pointer; position: relative;
-  overflow: hidden; transition: transform 0.15s ease;
-}
-.wel-chapter-seg:hover { transform: scaleY(1.35); }
-.wel-chapter-seg-fill {
-  position: absolute; inset: 0; border-radius: inherit;
-  background: rgba(255,255,255,0.12);
-  transform: scaleX(0); transform-origin: left center;
-  transition: transform 0.4s cubic-bezier(.22,1,.36,1), background 0.25s;
-}
-[dir="rtl"] .wel-chapter-seg-fill { transform-origin: right center; }
-.wel-chapter-seg.is-done .wel-chapter-seg-fill {
-  transform: scaleX(1);
-  background: rgba(90,140,255,0.45);
-}
-.wel-chapter-seg.is-on .wel-chapter-seg-fill {
-  transform: scaleX(1);
-  background: linear-gradient(90deg, var(--accent-1, #5b8def), var(--accent-2, #af52de));
-  box-shadow: 0 0 12px rgba(90,140,255,0.5);
-  animation: welSegPulse 2s ease-in-out infinite;
-}
-@keyframes welSegPulse {
-  0%, 100% { filter: brightness(1); }
-  50% { filter: brightness(1.25); }
-}
 .wel-chapter-meta {
   display: flex; justify-content: space-between; align-items: center;
-  font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.4);
-  margin-bottom: 12px; letter-spacing: 0.04em;
+  font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.4);
+  margin-bottom: 10px; letter-spacing: 0.02em;
 }
-.wel-chapter-meta-sub { color: var(--accent-1, #7eb6ff); }
+.wel-chapter-nav {
+  display: flex; align-items: center; gap: 2px;
+}
+.wel-chapter-link {
+  border: none; background: transparent; cursor: pointer;
+  width: 26px; height: 26px; padding: 0;
+  font-size: 12px; font-weight: 700;
+  color: rgba(255,255,255,0.28);
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.2s ease;
+}
+.wel-chapter-link:hover { color: rgba(255,255,255,0.7); }
+.wel-chapter-link.is-done { color: rgba(126,182,255,0.65); }
+.wel-chapter-link.is-on {
+  color: #fff;
+  text-shadow: 0 0 12px rgba(90,140,255,0.6);
+}
+.wel-chapter-meta-sub { color: var(--accent-1, #7eb6ff); font-size: 11px; }
+.wel-chapter-line {
+  height: 2px; border-radius: 1px;
+  background: rgba(255,255,255,0.08);
+  margin-bottom: 14px; overflow: hidden;
+}
+.wel-chapter-line-fill {
+  height: 100%; border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent-1, #5b8def), var(--accent-2, #af52de));
+  transition: width 0.45s cubic-bezier(.22,1,.36,1);
+}
 .wel-hint {
   margin: 8px 0 0; font-size: 13px; line-height: 1.5;
   color: rgba(255,255,255,0.4); font-style: italic; text-align: center;

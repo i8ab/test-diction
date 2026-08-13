@@ -1,7 +1,6 @@
 // Add/edit-word form modal.
 import { useState, useEffect, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
-import { INK, CARD, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { normalizePairs } from "../../lib/utils/pairUtils";
 import { fetchDictionarySuggestion, DictionaryLookupError } from "../../lib/utils/dictionaryApi";
 import { uid } from "../../lib/utils/quizHelpers";
@@ -118,7 +117,6 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
     const trimmedWord = word.trim();
     if (!trimmedWord) { setError(tr(isAr, "Word is required.", "الكلمة مطلوبة.")); return; }
 
-    // If the word already exists, show "Go to it" even when meaning is empty.
     if (!isEdit && typeof findExisting === "function") {
       const existing = findExisting(trimmedWord);
       if (existing) {
@@ -143,7 +141,6 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
         setError(tr(isAr, "Add at least one meaning.", "ضيف معنى واحد على الأقل."));
         return;
       }
-      // POS is optional per meaning (same type can have several translations).
       payloadSenses = cleaned;
       payloadMeaning = cleaned[0].meaning;
       payloadPos = cleaned[0].pos;
@@ -170,7 +167,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
       });
       if (result && result.duplicate) {
         setDupEntry(result.duplicate);
-        setError(""); // top banner only — avoid duplicate "Go to it"
+        setError("");
         try {
           if (cardRef.current) cardRef.current.scrollTop = 0;
         } catch (_) {}
@@ -181,219 +178,417 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
   }
 
   return (
-    <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 5000 }}>
+    <div
+      onClick={onClose}
+      className="addm-backdrop"
+      style={{
+        position: "fixed", inset: 0, zIndex: 5000,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom))",
+        background: "rgba(3, 6, 14, 0.72)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+      }}
+    >
       <BodyScrollLock />
-      <div ref={cardRef} onClick={(e) => e.stopPropagation()} className="modal-card" dir={cfg.dir} role="dialog" aria-modal="true" aria-labelledby="add-modal-title" style={{ width: "100%", maxWidth: 440, background: CARD, borderRadius: 4, padding: "24px 24px 22px", boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, flexShrink: 0 }}>
-          <h2 id="add-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: INK, margin: 0 }}>{isEdit ? tr(isAr, "Edit word", "تعديل الكلمة") : tr(isAr, `Add to ${cfg.label}`, `إضافة إلى ${cfg.label}`)}</h2>
-          <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}><XIcon size={20} /></button>
+      <style>{ADDM_CSS}</style>
+      <div
+        ref={cardRef}
+        onClick={(e) => e.stopPropagation()}
+        className="addm-card"
+        dir={cfg.dir}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-modal-title"
+        style={{ "--addm-accent": cfg.accent, "--addm-accent-soft": cfg.accentSoft }}
+      >
+        <div className="addm-head">
+          <div className="addm-head-text">
+            <div className="addm-kicker">{isEdit ? tr(isAr, "Edit", "تعديل") : tr(isAr, "New entry", "مدخل جديد")}</div>
+            <h2 id="add-modal-title" className="addm-title">
+              {isEdit ? tr(isAr, "Edit word", "تعديل الكلمة") : tr(isAr, `Add to ${cfg.label}`, `إضافة إلى ${cfg.label}`)}
+            </h2>
+          </div>
+          <button type="button" onClick={onClose} className="addm-close" aria-label={tr(isAr, "Close", "إغلاق")}>
+            <XIcon size={18} />
+          </button>
         </div>
 
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
-
-        {dupEntry && (
-          <div
-            role="alert"
-            style={{
-              marginTop: 12,
-              marginBottom: 4,
-              padding: "12px 14px",
-              borderRadius: 10,
-              background: "color-mix(in srgb, var(--danger, #c0392b) 16%, transparent)",
-              border: "1px solid color-mix(in srgb, var(--danger, #c0392b) 45%, transparent)",
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-            }}
-          >
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--danger, #e74c3c)", lineHeight: 1.45 }}>
-              {tr(
-                isAr,
-                `"${dupEntry.word}" is already in the dictionary.`,
-                `«${dupEntry.word}» موجودة أصلًا في القاموس.`
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof onGoToExisting === "function") onGoToExisting(dupEntry);
-                else onClose();
-              }}
-              style={{
-                border: "none",
-                cursor: "pointer",
-                background: cfg.accent,
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: 14,
-                padding: "12px 14px",
-                borderRadius: 8,
-                width: "100%",
-              }}
-            >
-              {tr(isAr, "Go to it", "اذهب إليها")}
-            </button>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} style={{ marginTop: 14 }}>
-          <label style={labelStyle} htmlFor="add-word">{tr(isAr, "Word *", "الكلمة *")}</label>
-          <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
-            <input
-              id="add-word"
-              value={word}
-              onChange={(e) => {
-                setWord(e.target.value);
-                // dupEntry is managed by the live-check effect above
-              }}
-              placeholder={cfg.wordPlaceholder}
-              dir={cfg.wordDir}
-              style={{ ...inputStyle, flex: 1, fontFamily: cfg.wordFont, fontSize: 16 }}
-              autoFocus
-            />
-            {canAutoSuggest && (
-              <button type="button" onClick={handleAutoSuggest} disabled={!word.trim() || suggesting}
-                title={tr(isAr, "Fetch definition and examples only", "جلب التعريف والأمثلة فقط")}
-                style={{ display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap", padding: "10px 12px", fontSize: 12.5, fontWeight: 700, color: cfg.accent, background: cfg.accentSoft, border: "none", borderRadius: 3, cursor: !word.trim() || suggesting ? "default" : "pointer", opacity: !word.trim() ? 0.6 : 1 }}>
-                {suggesting ? <LoaderIcon size={14} /> : <WandIcon size={14} />}
-                {tr(isAr, "Auto-fill", "تعبئة تلقائية")}
-              </button>
-            )}
-          </div>
-          {suggestError && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{suggestError}</div>}
-
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 4, marginBottom: 4 }}>
-            <span style={{ ...labelStyle, margin: 0 }}>{tr(isAr, "Word type", "نوع الكلمة")}</span>
-            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12.5, fontWeight: 600, color: "var(--muted-strong)", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={multiSense}
-                onChange={(e) => {
-                  const on = e.target.checked;
-                  setMultiSense(on);
-                  if (on && meaning.trim() && !senses.some((s) => s.meaning.trim())) {
-                    setSenses((list) => {
-                      const next = list.slice();
-                      next[0] = { ...next[0], pos: pos || next[0].pos, meaning: meaning.trim() };
-                      return next;
-                    });
-                  }
-                }}
-              />
-              {tr(isAr, "More than one meaning", "أكتر من معنى")}
-            </label>
-          </div>
-
-          {!multiSense ? (
-            <>
-              <select
-                id="add-pos"
-                value={pos}
-                onChange={(e) => setPos(e.target.value)}
-                style={{ ...inputStyle, marginBottom: 8, cursor: "pointer" }}
-                aria-label={tr(isAr, "Word type", "نوع الكلمة")}
-              >
-                <option value="">{tr(isAr, "— optional —", "— اختياري —")}</option>
-                {WORD_TYPES.map((wt) => (
-                  <option key={wt.id} value={wt.id}>{tr(isAr, wt.en, wt.ar)}</option>
-                ))}
-              </select>
-              <label style={labelStyle} htmlFor="add-meaning">{tr(isAr, "Meaning *", "المعنى *")}</label>
-              <input id="add-meaning" value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder={cfg.meaningPlaceholder} dir={cfg.meaningDir} style={{ ...inputStyle, fontFamily: cfg.meaningFont, fontSize: 16 }} />
+        <div className="addm-body">
+          {dupEntry && (
+            <div role="alert" className="addm-dup">
+              <div className="addm-dup-text">
+                {tr(
+                  isAr,
+                  `"${dupEntry.word}" is already in the dictionary.`,
+                  `«${dupEntry.word}» موجودة أصلًا في القاموس.`
+                )}
+              </div>
               <button
                 type="button"
+                className="addm-dup-btn"
                 onClick={() => {
-                  setMultiSense(true);
-                  setSenses([
-                    { id: uid(), pos: pos || "", meaning: meaning.trim() },
-                    { id: uid(), pos: pos || "", meaning: "" },
-                  ]);
+                  if (typeof onGoToExisting === "function") onGoToExisting(dupEntry);
+                  else onClose();
                 }}
-                style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, border: "none", background: "none", color: cfg.accent, fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: 0 }}
               >
-                <PlusIcon size={12} /> {tr(isAr, "Add another meaning (e.g. زلزال + هزة أرضية)", "أضف معنى تاني (مثلاً زلزال + هزة أرضية)")}
-              </button>
-            </>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 8 }}>
-              <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", lineHeight: 1.45 }}>
-                {tr(isAr,
-                  "Add every valid meaning. Same word type is fine (e.g. earthquake → زلزال and هزة أرضية). Type is optional.",
-                  "ضيف كل معنى صحيح. نفس النوع عادي (مثلاً earthquake → زلزال وهزة أرضية). نوع الكلمة اختياري.")}
-              </p>
-              {senses.map((s, i) => (
-                <div key={s.id} style={{ padding: 10, borderRadius: 8, border: "1px solid rgba(var(--border-rgb),0.18)", background: "var(--input-bg)" }}>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
-                    <select
-                      value={s.pos}
-                      onChange={(e) => setSenses((list) => list.map((row, idx) => idx === i ? { ...row, pos: e.target.value } : row))}
-                      style={{ ...inputStyle, margin: 0, flex: 1, cursor: "pointer" }}
-                      aria-label={tr(isAr, `Type ${i + 1}`, `النوع ${i + 1}`)}
-                    >
-                      <option value="">{tr(isAr, "Pick type…", "اختار النوع…")}</option>
-                      {WORD_TYPES.map((wt) => (
-                        <option key={wt.id} value={wt.id}>{tr(isAr, wt.en, wt.ar)}</option>
-                      ))}
-                    </select>
-                    {senses.length > 1 && (
-                      <button type="button" onClick={() => setSenses((list) => list.filter((_, idx) => idx !== i))}
-                        aria-label={tr(isAr, "Remove", "حذف")}
-                        style={{ border: "none", background: "none", color: "var(--icon-muted)", cursor: "pointer", padding: 4 }}>
-                        <XIcon size={16} />
-                      </button>
-                    )}
-                  </div>
-                  <input
-                    value={s.meaning}
-                    onChange={(e) => setSenses((list) => list.map((row, idx) => idx === i ? { ...row, meaning: e.target.value } : row))}
-                    placeholder={tr(isAr, `Meaning (${i + 1}) *`, `المعنى (${i + 1}) *`)}
-                    dir={cfg.meaningDir}
-                    style={{ ...inputStyle, margin: 0, fontFamily: cfg.meaningFont, fontSize: 15 }}
-                  />
-                </div>
-              ))}
-              <button type="button" onClick={() => setSenses((list) => [...list, { id: uid(), pos: "", meaning: "" }])}
-                style={{ display: "flex", alignItems: "center", gap: 10, border: "none", background: "none", color: cfg.accent, fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: 0 }}>
-                <PlusIcon size={12} /> {tr(isAr, "Add another meaning", "أضف معنى تاني")}
+                {tr(isAr, "Go to it", "اذهب إليها")}
               </button>
             </div>
           )}
-          <label style={labelStyle} htmlFor="add-definition">{tr(isAr, "Definition (optional)", "تعريف (اختياري)")}</label>
-          <textarea id="add-definition" value={definition} onChange={(e) => setDefinition(e.target.value)} placeholder="شرح إضافي أو مثال" dir="rtl" rows={3} style={{ ...inputStyle, fontFamily: "'Amiri', serif", fontSize: 15, resize: "vertical" }} />
-          <label style={labelStyle} htmlFor="add-example">{tr(isAr, "Example sentence (optional)", "جملة توضيحية (اختياري)")}</label>
-          <textarea id="add-example" value={example} onChange={(e) => setExample(e.target.value)} placeholder={cfg.wordPlaceholder} dir={cfg.wordDir} rows={2} style={{ ...inputStyle, fontFamily: cfg.wordFont, fontSize: 15, resize: "vertical" }} />
-          {extraExamples.map((ex, i) => (
-            <div key={i} style={{ display: "flex", gap: 6, marginTop: 6 }}>
-              <textarea value={ex} dir={cfg.wordDir} rows={2}
-                onChange={(e) => setExtraExamples((list) => list.map((v, idx) => (idx === i ? e.target.value : v)))}
+
+          <form onSubmit={handleSubmit} className="addm-form">
+            <label className="addm-label" htmlFor="add-word">{tr(isAr, "Word", "الكلمة")} <span className="addm-req">*</span></label>
+            <div className="addm-row">
+              <input
+                id="add-word"
+                className="addm-input"
+                value={word}
+                onChange={(e) => setWord(e.target.value)}
                 placeholder={cfg.wordPlaceholder}
-                style={{ ...inputStyle, flex: 1, fontFamily: cfg.wordFont, fontSize: 15, resize: "vertical", marginTop: 0 }} />
-              <button type="button" onClick={() => setExtraExamples((list) => list.filter((_, idx) => idx !== i))}
-                aria-label={tr(isAr, "Remove example", "إزالة الجملة")}
-                style={{ alignSelf: "flex-start", marginTop: 4, border: "none", background: "none", color: "var(--icon-muted)", cursor: "pointer", padding: 2 }}>
-                <XIcon size={15} />
-              </button>
+                dir={cfg.wordDir}
+                style={{ fontFamily: cfg.wordFont }}
+                autoFocus
+              />
+              {canAutoSuggest && (
+                <button
+                  type="button"
+                  onClick={handleAutoSuggest}
+                  disabled={!word.trim() || suggesting}
+                  title={tr(isAr, "Fetch definition and examples only", "جلب التعريف والأمثلة فقط")}
+                  className="addm-autofill"
+                  style={{ opacity: !word.trim() ? 0.55 : 1 }}
+                >
+                  {suggesting ? <LoaderIcon size={14} /> : <WandIcon size={14} />}
+                  {tr(isAr, "Auto-fill", "تعبئة")}
+                </button>
+              )}
             </div>
-          ))}
-          <button type="button" onClick={() => setExtraExamples((list) => [...list, ""])}
-            style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, border: "none", background: "none", color: cfg.accent, fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: 0 }}>
-            <PlusIcon size={12} /> {tr(isAr, "Add another example", "أضف جملة تانية")}
-          </button>
-          <PairListEditor cfg={cfg} label={tr(isAr, "Synonyms (optional)", "مرادفات (اختياري)")} pairs={synonyms} onChange={setSynonyms} isAr={isAr} />
-          <PairListEditor cfg={cfg} label={tr(isAr, "Antonyms (optional)", "مضادات (اختياري)")} pairs={antonyms} onChange={setAntonyms} isAr={isAr} />
-          {error && (
-            <div style={{ ...errorStyle }} role="alert" aria-live="assertive">
-              {error}
+            {suggestError && <div className="addm-hint">{suggestError}</div>}
+
+            <div className="addm-type-row">
+              <span className="addm-label" style={{ margin: 0 }}>{tr(isAr, "Word type", "نوع الكلمة")}</span>
+              <label className="addm-check">
+                <input
+                  type="checkbox"
+                  checked={multiSense}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setMultiSense(on);
+                    if (on && meaning.trim() && !senses.some((s) => s.meaning.trim())) {
+                      setSenses((list) => {
+                        const next = list.slice();
+                        next[0] = { ...next[0], pos: pos || next[0].pos, meaning: meaning.trim() };
+                        return next;
+                      });
+                    }
+                  }}
+                />
+                <span>{tr(isAr, "More than one meaning", "أكتر من معنى")}</span>
+              </label>
             </div>
-          )}
-          <button type="submit" disabled={saving} style={{ ...primaryBtnStyle, background: cfg.accent }}>
-            {saving ? <LoaderIcon size={16} /> : (isEdit ? <CheckIcon size={16} /> : <PlusIcon size={16} />)} {isEdit ? tr(isAr, "Save changes", "حفظ التغييرات") : tr(isAr, "Save word", "حفظ الكلمة")}
-          </button>
-        </form>
+
+            {!multiSense ? (
+              <>
+                <select
+                  id="add-pos"
+                  value={pos}
+                  onChange={(e) => setPos(e.target.value)}
+                  className="addm-input addm-select"
+                  aria-label={tr(isAr, "Word type", "نوع الكلمة")}
+                >
+                  <option value="">{tr(isAr, "— optional —", "— اختياري —")}</option>
+                  {WORD_TYPES.map((wt) => (
+                    <option key={wt.id} value={wt.id}>{tr(isAr, wt.en, wt.ar)}</option>
+                  ))}
+                </select>
+                <label className="addm-label" htmlFor="add-meaning">{tr(isAr, "Meaning", "المعنى")} <span className="addm-req">*</span></label>
+                <input
+                  id="add-meaning"
+                  className="addm-input"
+                  value={meaning}
+                  onChange={(e) => setMeaning(e.target.value)}
+                  placeholder={cfg.meaningPlaceholder}
+                  dir={cfg.meaningDir}
+                  style={{ fontFamily: cfg.meaningFont }}
+                />
+                <button
+                  type="button"
+                  className="addm-link"
+                  onClick={() => {
+                    setMultiSense(true);
+                    setSenses([
+                      { id: uid(), pos: pos || "", meaning: meaning.trim() },
+                      { id: uid(), pos: pos || "", meaning: "" },
+                    ]);
+                  }}
+                >
+                  <PlusIcon size={13} /> {tr(isAr, "Add another meaning (e.g. زلزال + هزة أرضية)", "أضف معنى تاني (مثلاً زلزال + هزة أرضية)")}
+                </button>
+              </>
+            ) : (
+              <div className="addm-senses">
+                <p className="addm-hint" style={{ marginBottom: 4 }}>
+                  {tr(isAr,
+                    "Add every valid meaning. Same word type is fine. Type is optional.",
+                    "ضيف كل معنى صحيح. نفس النوع عادي. نوع الكلمة اختياري.")}
+                </p>
+                {senses.map((s, i) => (
+                  <div key={s.id} className="addm-sense">
+                    <div className="addm-row">
+                      <select
+                        value={s.pos}
+                        onChange={(e) => setSenses((list) => list.map((row, idx) => idx === i ? { ...row, pos: e.target.value } : row))}
+                        className="addm-input addm-select"
+                        style={{ flex: 1, margin: 0 }}
+                        aria-label={tr(isAr, `Type ${i + 1}`, `النوع ${i + 1}`)}
+                      >
+                        <option value="">{tr(isAr, "Pick type…", "اختار النوع…")}</option>
+                        {WORD_TYPES.map((wt) => (
+                          <option key={wt.id} value={wt.id}>{tr(isAr, wt.en, wt.ar)}</option>
+                        ))}
+                      </select>
+                      {senses.length > 1 && (
+                        <button type="button" className="addm-icon-btn" onClick={() => setSenses((list) => list.filter((_, idx) => idx !== i))}
+                          aria-label={tr(isAr, "Remove", "حذف")}>
+                          <XIcon size={16} />
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      value={s.meaning}
+                      onChange={(e) => setSenses((list) => list.map((row, idx) => idx === i ? { ...row, meaning: e.target.value } : row))}
+                      placeholder={tr(isAr, `Meaning (${i + 1}) *`, `المعنى (${i + 1}) *`)}
+                      dir={cfg.meaningDir}
+                      className="addm-input"
+                      style={{ margin: 0, fontFamily: cfg.meaningFont }}
+                    />
+                  </div>
+                ))}
+                <button type="button" className="addm-link" onClick={() => setSenses((list) => [...list, { id: uid(), pos: "", meaning: "" }])}>
+                  <PlusIcon size={13} /> {tr(isAr, "Add another meaning", "أضف معنى تاني")}
+                </button>
+              </div>
+            )}
+
+            <label className="addm-label" htmlFor="add-definition">{tr(isAr, "Definition", "تعريف")} <span className="addm-opt">{tr(isAr, "optional", "اختياري")}</span></label>
+            <textarea
+              id="add-definition"
+              className="addm-input addm-textarea"
+              value={definition}
+              onChange={(e) => setDefinition(e.target.value)}
+              placeholder={tr(isAr, "Extra explanation or note", "شرح إضافي أو مثال")}
+              dir="rtl"
+              rows={3}
+              style={{ fontFamily: "'Amiri', serif" }}
+            />
+
+            <label className="addm-label" htmlFor="add-example">{tr(isAr, "Example sentence", "جملة توضيحية")} <span className="addm-opt">{tr(isAr, "optional", "اختياري")}</span></label>
+            <textarea
+              id="add-example"
+              className="addm-input addm-textarea"
+              value={example}
+              onChange={(e) => setExample(e.target.value)}
+              placeholder={cfg.wordPlaceholder}
+              dir={cfg.wordDir}
+              rows={2}
+              style={{ fontFamily: cfg.wordFont }}
+            />
+            {extraExamples.map((ex, i) => (
+              <div key={i} className="addm-row" style={{ marginTop: 8 }}>
+                <textarea
+                  value={ex}
+                  dir={cfg.wordDir}
+                  rows={2}
+                  onChange={(e) => setExtraExamples((list) => list.map((v, idx) => (idx === i ? e.target.value : v)))}
+                  placeholder={cfg.wordPlaceholder}
+                  className="addm-input addm-textarea"
+                  style={{ flex: 1, margin: 0, fontFamily: cfg.wordFont }}
+                />
+                <button type="button" className="addm-icon-btn" onClick={() => setExtraExamples((list) => list.filter((_, idx) => idx !== i))}
+                  aria-label={tr(isAr, "Remove example", "إزالة الجملة")}>
+                  <XIcon size={15} />
+                </button>
+              </div>
+            ))}
+            <button type="button" className="addm-link" onClick={() => setExtraExamples((list) => [...list, ""])}>
+              <PlusIcon size={13} /> {tr(isAr, "Add another example", "أضف جملة تانية")}
+            </button>
+
+            <PairListEditor cfg={cfg} label={tr(isAr, "Synonyms (optional)", "مرادفات (اختياري)")} pairs={synonyms} onChange={setSynonyms} isAr={isAr} />
+            <PairListEditor cfg={cfg} label={tr(isAr, "Antonyms (optional)", "مضادات (اختياري)")} pairs={antonyms} onChange={setAntonyms} isAr={isAr} />
+
+            {error && (
+              <div className="addm-error" role="alert" aria-live="assertive">{error}</div>
+            )}
+
+            <button type="submit" disabled={saving} className="addm-submit" style={{ background: cfg.accent }}>
+              {saving ? <LoaderIcon size={16} /> : (isEdit ? <CheckIcon size={16} /> : <PlusIcon size={16} />)}
+              {isEdit ? tr(isAr, "Save changes", "حفظ التغييرات") : tr(isAr, "Save word", "حفظ الكلمة")}
+            </button>
+          </form>
         </div>
       </div>
     </div>
   );
 }
+
+const ADDM_CSS = `
+.addm-card {
+  width: 100%; max-width: 440px; max-height: min(92dvh, 720px);
+  display: flex; flex-direction: column;
+  border-radius: 22px; overflow: hidden;
+  background: linear-gradient(165deg, rgba(28,34,48,0.98) 0%, rgba(16,20,30,0.99) 100%);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.04),
+    0 28px 80px -20px rgba(0,0,0,0.65),
+    0 0 60px -28px color-mix(in srgb, var(--addm-accent, #5b8def) 45%, transparent);
+  color: #eef2f8;
+}
+[data-theme="light"] .addm-card,
+:root:not([data-theme="dark"]) .addm-card {
+  /* keep dark glass look in modal for consistency; theme vars still used for accents */
+}
+.addm-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; padding: 18px 18px 12px; flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.addm-kicker {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--addm-accent, #7eb6ff);
+  margin-bottom: 4px;
+}
+.addm-title {
+  margin: 0; font-size: 18px; font-weight: 800;
+  letter-spacing: -0.02em; line-height: 1.25; color: #f4f7fc;
+}
+.addm-close {
+  width: 36px; height: 36px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.65);
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: background 0.15s, color 0.15s;
+}
+.addm-close:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.addm-body {
+  flex: 1; min-height: 0; overflow-y: auto;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  padding: 14px 18px 20px;
+}
+.addm-form { display: flex; flex-direction: column; gap: 0; }
+.addm-label {
+  display: block; margin: 12px 0 6px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: rgba(255,255,255,0.45);
+}
+.addm-label:first-child { margin-top: 0; }
+.addm-req { color: #ff7b8a; }
+.addm-opt {
+  text-transform: none; font-weight: 600; letter-spacing: 0;
+  color: rgba(255,255,255,0.28); margin-inline-start: 4px;
+}
+.addm-input {
+  width: 100%; box-sizing: border-box;
+  padding: 12px 14px; border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: #f2f5fa; font-size: 15.5px; font-weight: 500;
+  outline: none; transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.addm-input::placeholder { color: rgba(255,255,255,0.28); }
+.addm-input:focus {
+  border-color: color-mix(in srgb, var(--addm-accent, #5b8def) 70%, transparent);
+  background: rgba(255,255,255,0.07);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--addm-accent, #5b8def) 22%, transparent);
+}
+.addm-select { cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='rgba(255,255,255,0.45)' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px;
+}
+[dir="rtl"] .addm-select { background-position: left 14px center; padding-right: 14px; padding-left: 36px; }
+.addm-textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
+.addm-row { display: flex; gap: 8px; align-items: flex-start; }
+.addm-row .addm-input { flex: 1; }
+.addm-autofill {
+  display: inline-flex; align-items: center; gap: 6px;
+  white-space: nowrap; padding: 0 14px; height: 46px;
+  border-radius: 14px; border: none; cursor: pointer;
+  font-size: 12.5px; font-weight: 700;
+  color: var(--addm-accent, #7eb6ff);
+  background: color-mix(in srgb, var(--addm-accent, #5b8def) 18%, transparent);
+  transition: filter 0.15s, opacity 0.15s;
+}
+.addm-autofill:disabled { cursor: default; }
+.addm-autofill:not(:disabled):hover { filter: brightness(1.12); }
+.addm-type-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-top: 14px; margin-bottom: 6px; flex-wrap: wrap;
+}
+.addm-check {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,0.55);
+  cursor: pointer; user-select: none;
+}
+.addm-check input {
+  width: 16px; height: 16px; accent-color: var(--addm-accent, #5b8def);
+  cursor: pointer;
+}
+.addm-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 10px; border: none; background: none; padding: 0;
+  color: var(--addm-accent, #7eb6ff); font-size: 12.5px; font-weight: 700;
+  cursor: pointer;
+}
+.addm-link:hover { filter: brightness(1.15); }
+.addm-senses { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+.addm-sense {
+  padding: 12px; border-radius: 16px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.08);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.addm-icon-btn {
+  width: 36px; height: 36px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.5);
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.addm-icon-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+.addm-hint { font-size: 12px; color: rgba(255,255,255,0.38); line-height: 1.45; margin-top: 6px; }
+.addm-dup {
+  margin-bottom: 12px; padding: 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, #e74c3c 14%, transparent);
+  border: 1px solid color-mix(in srgb, #e74c3c 40%, transparent);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.addm-dup-text { font-size: 13px; font-weight: 700; color: #ff8a8a; line-height: 1.45; }
+.addm-dup-btn {
+  border: none; cursor: pointer; border-radius: 12px;
+  background: var(--addm-accent, #5b8def); color: #fff;
+  font-weight: 800; font-size: 14px; padding: 12px 14px; width: 100%;
+}
+.addm-error {
+  margin-top: 12px; padding: 10px 12px; border-radius: 12px;
+  background: color-mix(in srgb, #e74c3c 14%, transparent);
+  border: 1px solid color-mix(in srgb, #e74c3c 35%, transparent);
+  color: #ff9a9a; font-size: 13px; font-weight: 600;
+}
+.addm-submit {
+  margin-top: 16px; width: 100%;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  border: none; cursor: pointer; border-radius: 16px;
+  color: #fff; font-weight: 800; font-size: 15px;
+  padding: 14px 16px;
+  box-shadow: 0 12px 28px -10px color-mix(in srgb, var(--addm-accent, #5b8def) 65%, transparent);
+  transition: filter 0.15s, transform 0.12s;
+}
+.addm-submit:hover:not(:disabled) { filter: brightness(1.08); }
+.addm-submit:active:not(:disabled) { transform: scale(0.98); }
+.addm-submit:disabled { opacity: 0.7; cursor: default; }
+`;
 
 export default AddModal;

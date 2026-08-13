@@ -54,6 +54,7 @@ export default function ExamBanner({
       return (
         <div
           role="region"
+          dir={isAr ? "rtl" : "ltr"}
           style={{
             margin: 0,
             padding: "10px 14px",
@@ -110,6 +111,7 @@ export default function ExamBanner({
   return (
     <div
       role="region"
+      dir={isAr ? "rtl" : "ltr"}
       aria-label={tr(isAr, "Exam countdown", "عدّاد الامتحان")}
       style={{
         margin: 0,

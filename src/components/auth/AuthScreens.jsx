@@ -16,6 +16,7 @@ import BrandMark from "../common/BrandMark";
 import { Shell, LanguageToggle } from "../layout/Shell";
 import DevicePicker from "../layout/DevicePicker";
 import { GenderPicker } from "../common/GenderUI";
+import { birthDateInputMin, birthDateInputMax } from "../../lib/utils/authUtils";
 
 const MAX_AVATAR_BYTES = 180000;
 
@@ -66,6 +67,7 @@ function AuthScreens({
   signupPassword2, setSignupPassword2,
   signupAvatar = "", setSignupAvatar,
   signupGender = "", setSignupGender,
+  signupBirthDate = "", setSignupBirthDate,
   signupError, setSignupError, signupSaving, handleSignup,
   usernameInput, setUsernameInput,
   passwordInput, setPasswordInput,
@@ -350,6 +352,27 @@ function AuthScreens({
                   isAr={appIsAr}
                   atr={atr}
                 />
+              </div>
+            </div>
+
+            <div className="auth-field-1" style={{ marginTop: 16, marginBottom: 4 }}>
+              <label style={labelStyle} htmlFor="signup-birthdate">
+                <CalendarIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />
+                {atr("Date of birth (optional)", "تاريخ الميلاد (اختياري)")}
+              </label>
+              <input
+                id="signup-birthdate"
+                type="date"
+                value={signupBirthDate || ""}
+                onChange={(e) => setSignupBirthDate && setSignupBirthDate(e.target.value)}
+                min={birthDateInputMin()}
+                max={birthDateInputMax()}
+                style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace", direction: "ltr" }}
+                dir="ltr"
+                autoComplete="bday"
+              />
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
+                {atr("You can add or change this later in your account.", "تقدر تضيفه أو تعدّله بعدين من صفحة حسابك.")}
               </div>
             </div>
 

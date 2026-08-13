@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
-import { XIcon, CheckIcon, LoaderIcon, KeyIcon, UserIcon, EyeIcon, EyeOffIcon, EditIcon } from "../common/Icons";
+import { XIcon, CheckIcon, LoaderIcon, KeyIcon, UserIcon, EyeIcon, EyeOffIcon, EditIcon, CalendarIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { GenderBadge, GenderPicker } from "../common/GenderUI";
+import { birthDateInputMin, birthDateInputMax, validateBirthDate } from "../../lib/utils/authUtils";
 import {
   loadXp,
   levelFromXp,
@@ -60,6 +61,9 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
   const [nameInput, setNameInput] = useState(account.name || "");
   const [avatar, setAvatar] = useState(account.avatar || "");
   const [gender, setGender] = useState(account.gender === "male" || account.gender === "female" ? account.gender : "");
+  const [birthDate, setBirthDate] = useState(
+    account.birthDate && /^\d{4}-\d{2}-\d{2}$/.test(String(account.birthDate)) ? String(account.birthDate) : ""
+  );
   const [changePassword, setChangePassword] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [password2, setPassword2] = useState("");
@@ -117,11 +121,26 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
         return;
       }
     }
+    const bCheck = validateBirthDate(birthDate);
+    if (!bCheck.ok) {
+      const msg =
+        bCheck.error === "Birth date can't be in the future."
+          ? T("Birth date can't be in the future.", "تاريخ الميلاد مش ينفع يكون في المستقبل.")
+          : bCheck.error === "You must be at least 5 years old."
+          ? T("You must be at least 5 years old.", "لازم يكون عمرك ٥ سنين على الأقل.")
+          : bCheck.error === "Birth date is too far in the past."
+          ? T("Birth date is too far in the past.", "تاريخ الميلاد قديم زيادة.")
+          : T("Enter a valid birth date.", "أدخل تاريخ ميلاد صحيح.");
+      setError(msg);
+      setSaving(false);
+      return;
+    }
     const result = await onSave({
       name: nameInput,
       password: changePassword && passwordInput ? passwordInput : undefined,
       avatar: avatar || "",
       gender: gender || "",
+      birthDate: bCheck.birthDate,
     });
     setSaving(false);
     if (result && result.error) {
@@ -476,6 +495,25 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
           <label style={{ ...labelStyle, marginTop: 14 }}>{T("Gender", "الجنس")}</label>
           <div style={{ marginTop: 8, marginBottom: 6 }}>
             <GenderPicker value={gender} onChange={setGender} isAr={isAr} />
+          </div>
+
+          <label style={{ ...labelStyle, marginTop: 14 }} htmlFor="account-birthdate">
+            <CalendarIcon size={12} style={{ marginInlineEnd: 4, verticalAlign: -1 }} />
+            {T("Date of birth", "تاريخ الميلاد")}
+          </label>
+          <input
+            id="account-birthdate"
+            type="date"
+            value={birthDate || ""}
+            onChange={(e) => setBirthDate(e.target.value)}
+            min={birthDateInputMin()}
+            max={birthDateInputMax()}
+            style={{ ...inputStyle, borderRadius: 12, fontFamily: "ui-monospace, monospace", direction: "ltr" }}
+            dir="ltr"
+            autoComplete="bday"
+          />
+          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4, marginBottom: 4 }}>
+            {T("Optional — leave empty to clear.", "اختياري — اتركه فاضي لمسحه.")}
           </div>
 
           {account.role === "admin" && (

@@ -7,6 +7,7 @@ import { fetchRecord, saveRecord, SaveConflictError } from "./cloudApi";
 import {
   validateUsername,
   validatePassword,
+  validateBirthDate,
   hashPassword,
   verifyPasswordDetailed,
   normalizeUsername,
@@ -35,6 +36,7 @@ export async function performSignup(p) {
     signupPassword2,
     signupAvatar,
     signupGender,
+    signupBirthDate,
     appIsAr,
     ensureMigratedAccounts,
     commitRecordVersion,
@@ -44,6 +46,7 @@ export async function performSignup(p) {
     setSignupPassword2,
     setSignupAvatar,
     setSignupGender,
+    setSignupBirthDate,
     setAccounts,
     setEntries,
     setLogs,
@@ -79,6 +82,12 @@ export async function performSignup(p) {
     return;
   }
 
+  const bCheck = validateBirthDate(signupBirthDate);
+  if (!bCheck.ok) {
+    setSignupError(bCheck.error);
+    return;
+  }
+
   setSignupSaving(true);
   const code = generatePersonalCode();
   let passwordHash;
@@ -100,6 +109,7 @@ export async function performSignup(p) {
     createdAt: Date.now(),
     ...(signupAvatar ? { avatar: signupAvatar } : {}),
     gender: signupGender,
+    ...(bCheck.birthDate ? { birthDate: bCheck.birthDate } : {}),
   };
 
   try {
@@ -151,6 +161,7 @@ export async function performSignup(p) {
         setSignupPassword2("");
         setSignupAvatar("");
         setSignupGender("");
+        if (typeof setSignupBirthDate === "function") setSignupBirthDate("");
         goToStage("pendingShown");
         return;
       } catch (err) {
@@ -217,6 +228,7 @@ export async function performSignup(p) {
         setSignupPassword2("");
         setSignupAvatar("");
         setSignupGender("");
+        if (typeof setSignupBirthDate === "function") setSignupBirthDate("");
         goToStage("pendingShown");
         return;
       } catch (_) {

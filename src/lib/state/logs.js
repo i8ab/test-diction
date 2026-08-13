@@ -47,6 +47,10 @@ function translateAdminError(msg, isAr) {
     "Someone else just made a change — please try again.": "شخص آخر عدّل للتو — حاول مرة أخرى.",
     "Couldn't create the account — check your connection and try again.": "تعذّر إنشاء الحساب — تحقق من اتصالك وحاول مرة أخرى.",
     "Please select Male or Female.": "من فضلك اختر ذكر أو أنثى.",
+    "Enter a valid birth date.": "أدخل تاريخ ميلاد صحيح.",
+    "Birth date can't be in the future.": "تاريخ الميلاد مش ينفع يكون في المستقبل.",
+    "Birth date is too far in the past.": "تاريخ الميلاد قديم زيادة.",
+    "You must be at least 5 years old.": "لازم يكون عمرك ٥ سنين على الأقل.",
   };
   return map[msg] || msg;
 }

@@ -66,6 +66,7 @@ export default function DictionaryApp() {
   const [signupPassword2, setSignupPassword2] = useState("");
   const [signupAvatar, setSignupAvatar] = useState("");
   const [signupGender, setSignupGender] = useState(""); // "male" | "female"
+  const [signupBirthDate, setSignupBirthDate] = useState(""); // YYYY-MM-DD optional
   const [authError, setAuthError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
   const [signupError, setSignupError] = useState("");
@@ -1050,6 +1051,7 @@ export default function DictionaryApp() {
       signupPassword2,
       signupAvatar,
       signupGender,
+      signupBirthDate,
       appIsAr,
       ensureMigratedAccounts,
       commitRecordVersion,
@@ -1059,6 +1061,7 @@ export default function DictionaryApp() {
       setSignupPassword2,
       setSignupAvatar,
       setSignupGender,
+      setSignupBirthDate,
       setAccounts,
       setEntries,
       setLogs,
@@ -1288,12 +1291,13 @@ export default function DictionaryApp() {
     };
   }, [authStage, accountCode]);
 
-  async function handleUpdateOwnAccount({ name: newName, password: newPassword, avatar: nextAvatar, gender: nextGender }) {
+  async function handleUpdateOwnAccount({ name: newName, password: newPassword, avatar: nextAvatar, gender: nextGender, birthDate: nextBirthDate }) {
     return updateOwnAccount({
       newName,
       newPassword,
       nextAvatar,
       nextGender,
+      nextBirthDate,
       accountCode,
       name,
       accounts,
@@ -1378,6 +1382,7 @@ export default function DictionaryApp() {
         signupPassword2={signupPassword2} setSignupPassword2={setSignupPassword2}
         signupAvatar={signupAvatar} setSignupAvatar={setSignupAvatar}
         signupGender={signupGender} setSignupGender={setSignupGender}
+        signupBirthDate={signupBirthDate} setSignupBirthDate={setSignupBirthDate}
         signupError={signupError} setSignupError={setSignupError} signupSaving={signupSaving} handleSignup={handleSignup}
         usernameInput={usernameInput} setUsernameInput={setUsernameInput}
         passwordInput={passwordInput} setPasswordInput={setPasswordInput}

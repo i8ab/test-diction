@@ -152,6 +152,76 @@ export async function verifyPasswordDetailed(password, saltCode, expectedHash) {
 
   return { ok: false, needsUpgrade: false };
 }
+
+/**
+ * Normalize / validate optional birth date (YYYY-MM-DD).
+ * Empty is allowed. If provided: must be a real calendar date,
+ * not in the future, and age roughly between 5 and 120 years.
+ * Returns { ok, birthDate?, error? }.
+ */
+export function validateBirthDate(raw) {
+  const s = String(raw ?? "").trim();
+  if (!s) return { ok: true, birthDate: "" };
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    return { ok: false, error: "Enter a valid birth date." };
+  }
+
+  const [yStr, mStr, dStr] = s.split("-");
+  const y = Number(yStr);
+  const m = Number(mStr);
+  const d = Number(dStr);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+    return { ok: false, error: "Enter a valid birth date." };
+  }
+
+  // Reject impossible calendar dates (e.g. 2024-02-31)
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (
+    dt.getUTCFullYear() !== y ||
+    dt.getUTCMonth() !== m - 1 ||
+    dt.getUTCDate() !== d
+  ) {
+    return { ok: false, error: "Enter a valid birth date." };
+  }
+
+  const today = new Date();
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  if (dt.getTime() > todayUtc) {
+    return { ok: false, error: "Birth date can't be in the future." };
+  }
+
+  // Age bounds: 5–120 years (user-facing, not legal KYC)
+  const minDate = new Date(Date.UTC(today.getFullYear() - 120, today.getMonth(), today.getDate()));
+  const maxDate = new Date(Date.UTC(today.getFullYear() - 5, today.getMonth(), today.getDate()));
+  if (dt.getTime() < minDate.getTime()) {
+    return { ok: false, error: "Birth date is too far in the past." };
+  }
+  if (dt.getTime() > maxDate.getTime()) {
+    return { ok: false, error: "You must be at least 5 years old." };
+  }
+
+  return { ok: true, birthDate: s };
+}
+
+/** ISO date string for <input type="date" max=...> = today local */
+export function birthDateInputMax() {
+  const t = new Date();
+  const y = t.getFullYear();
+  const m = String(t.getMonth() + 1).padStart(2, "0");
+  const d = String(t.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** ISO date string for <input type="date" min=...> ≈ 120 years ago */
+export function birthDateInputMin() {
+  const t = new Date();
+  const y = t.getFullYear() - 120;
+  const m = String(t.getMonth() + 1).padStart(2, "0");
+  const d = String(t.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export function migrateAccounts(accounts) {
   if (!Array.isArray(accounts)) return { accounts: [], changed: false };
   let changed = false;
@@ -202,6 +272,19 @@ export function migrateAccounts(accounts) {
       const n = normalizeUsername(copy.username);
       if (n !== copy.username) {
         copy.username = n;
+        changed = true;
+      }
+    }
+    // Keep birthDate only if clean YYYY-MM-DD; drop invalid legacy values
+    if (copy.birthDate != null && copy.birthDate !== "") {
+      const b = validateBirthDate(copy.birthDate);
+      if (b.ok && b.birthDate) {
+        if (copy.birthDate !== b.birthDate) {
+          copy.birthDate = b.birthDate;
+          changed = true;
+        }
+      } else {
+        delete copy.birthDate;
         changed = true;
       }
     }

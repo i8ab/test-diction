@@ -5,6 +5,7 @@
 import {
   validateUsername,
   validatePassword,
+  validateBirthDate,
   hashPassword,
   normalizeUsername,
 } from "../utils/authUtils";
@@ -12,13 +13,14 @@ import { generatePersonalCode } from "./storage";
 import { makeLogEntry } from "./logs";
 
 /**
- * Current user updates their own profile (name / password / avatar / gender).
+ * Current user updates their own profile (name / password / avatar / gender / birthDate).
  */
 export async function updateOwnAccount({
   newName,
   newPassword,
   nextAvatar,
   nextGender,
+  nextBirthDate,
   accountCode,
   name,
   accounts,
@@ -35,6 +37,11 @@ export async function updateOwnAccount({
   }
   if (nextGender === "male" || nextGender === "female") {
     updates.gender = nextGender;
+  }
+  if (typeof nextBirthDate === "string") {
+    const bCheck = validateBirthDate(nextBirthDate);
+    if (!bCheck.ok) return { error: bCheck.error };
+    updates.birthDate = bCheck.birthDate || "";
   }
   if (newPassword) {
     const pCheck = validatePassword(newPassword);

@@ -199,8 +199,8 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
   const bodyRef = useRef(null);
   const s = STEPS[step];
   const pointCount = (s.points || []).length;
-  // reveal stages: 0 = title area only, 1 = body paragraph, 2.. = points, last+ = dev card if any
-  const maxReveal = 1 + pointCount + (s.isDev ? 1 : 0);
+  // reveal stages: 0 = title, 1 = body, 2.. = points, then dev cards one-by-one if isDev
+  const maxReveal = 1 + pointCount + (s.isDev ? 2 : 0);
   const isLastStep = step >= STEPS.length - 1;
   const isChapterDone = reveal >= maxReveal;
   const isFullyDone = isLastStep && isChapterDone;
@@ -396,53 +396,56 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
             )}
           </ul>
 
-          {s.isDev && reveal >= maxReveal && (
-            <div className="wel-dev-list wel-stagger" key="dev" style={{ animationDelay: "0.08s" }}>
-              <div className="wel-dev-card">
-                <div className="wel-dev-card-top">
-                  <div className="wel-dev-avatar" aria-hidden>
-                    <img src="/icons/dev-aboawad.jpg" alt="" />
+          {s.isDev && reveal >= maxReveal - 1 && (
+            <div className="wel-dev-list">
+              {reveal >= maxReveal - 1 && (
+                <div className="wel-dev-card wel-stagger" key="dev-aboawad" style={{ animationDelay: "0.06s" }}>
+                  <div className="wel-dev-card-top">
+                    <div className="wel-dev-avatar" aria-hidden>
+                      <img src="/icons/dev-aboawad.jpg" alt="" loading="eager" decoding="async" />
+                    </div>
+                    <div className="wel-dev-id">
+                      <div className="wel-dev-role">{tr(isAr, "Backend & Frontend", "Backend و Frontend")}</div>
+                      <div className="wel-dev-name">aboawad</div>
+                    </div>
                   </div>
-                  <div className="wel-dev-id">
-                    <div className="wel-dev-role">{tr(isAr, "Backend & Frontend", "Backend و Frontend")}</div>
-                    <div className="wel-dev-name">aboawad</div>
-                  </div>
-                </div>
-                <div className="wel-dev-divider" />
-                <div className="wel-dev-meta">
-                  <div className="wel-dev-row">
-                    <span className="wel-dev-k">{tr(isAr, "Project", "المشروع")}</span>
-                    <span className="wel-dev-v">Bacaloria Community</span>
-                  </div>
-                  <div className="wel-dev-row">
-                    <span className="wel-dev-k">{tr(isAr, "Role", "الدور")}</span>
-                    <span className="wel-dev-v">{tr(isAr, "Backend & Frontend · thinker & decision executor", "Backend و Frontend · مفكر ومنفذ للقرارات")}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="wel-dev-card">
-                <div className="wel-dev-card-top">
-                  <div className="wel-dev-avatar wel-dev-avatar-2" aria-hidden>
-                    <img src="/icons/dev-mickoly.jpg" alt="" onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.parentElement.textContent = "M"; }} />
-                  </div>
-                  <div className="wel-dev-id">
-                    <div className="wel-dev-role">{tr(isAr, "Backend & Frontend", "Backend و Frontend")}</div>
-                    <div className="wel-dev-name">mickoly</div>
+                  <div className="wel-dev-divider" />
+                  <div className="wel-dev-meta">
+                    <div className="wel-dev-row">
+                      <span className="wel-dev-k">{tr(isAr, "Project", "المشروع")}</span>
+                      <span className="wel-dev-v">Bacaloria Community</span>
+                    </div>
+                    <div className="wel-dev-row">
+                      <span className="wel-dev-k">{tr(isAr, "Role", "الدور")}</span>
+                      <span className="wel-dev-v">{tr(isAr, "Backend & Frontend · thinker & decision executor", "Backend و Frontend · مفكر ومنفذ للقرارات")}</span>
+                    </div>
                   </div>
                 </div>
-                <div className="wel-dev-divider" />
-                <div className="wel-dev-meta">
-                  <div className="wel-dev-row">
-                    <span className="wel-dev-k">{tr(isAr, "Project", "المشروع")}</span>
-                    <span className="wel-dev-v">Bacaloria Community</span>
+              )}
+              {reveal >= maxReveal && (
+                <div className="wel-dev-card wel-stagger" key="dev-mickoly" style={{ animationDelay: "0.06s" }}>
+                  <div className="wel-dev-card-top">
+                    <div className="wel-dev-avatar wel-dev-avatar-2" aria-hidden>
+                      <img src="/icons/dev-mickoly.jpg" alt="" loading="eager" decoding="async" onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.parentElement.textContent = "M"; }} />
+                    </div>
+                    <div className="wel-dev-id">
+                      <div className="wel-dev-role">{tr(isAr, "Backend & Frontend", "Backend و Frontend")}</div>
+                      <div className="wel-dev-name">mickoly</div>
+                    </div>
                   </div>
-                  <div className="wel-dev-row">
-                    <span className="wel-dev-k">{tr(isAr, "Role", "الدور")}</span>
-                    <span className="wel-dev-v">{tr(isAr, "Backend & Frontend · idea designer", "Backend و Frontend · مصمم أفكار")}</span>
+                  <div className="wel-dev-divider" />
+                  <div className="wel-dev-meta">
+                    <div className="wel-dev-row">
+                      <span className="wel-dev-k">{tr(isAr, "Project", "المشروع")}</span>
+                      <span className="wel-dev-v">Bacaloria Community</span>
+                    </div>
+                    <div className="wel-dev-row">
+                      <span className="wel-dev-k">{tr(isAr, "Role", "الدور")}</span>
+                      <span className="wel-dev-v">{tr(isAr, "Backend & Frontend · idea designer", "Backend و Frontend · مصمم أفكار")}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 

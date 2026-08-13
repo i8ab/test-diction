@@ -38,6 +38,7 @@ import { useToolViews } from "../lib/hooks/useToolViews";
 import { useEntrySearch } from "../lib/hooks/useEntrySearch";
 import { useStudyShortcuts } from "../lib/hooks/useStudyShortcuts";
 import { useListPagination } from "../lib/hooks/useListPagination";
+import WelcomeOnboardingModal, { hasSeenWelcome, markWelcomeSeen } from "./modals/WelcomeOnboardingModal";
 
 export default function MainView({
   name, isAdmin, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
@@ -156,6 +157,8 @@ export default function MainView({
   const [showListeningLoop, setShowListeningLoop] = useState(false);
   const [showSentencePractice, setShowSentencePractice] = useState(false);
   const [showWeeklyReport, setShowWeeklyReport] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+
   const [showExamMode, setShowExamMode] = useState(false);
   const [showExamSettings, setShowExamSettings] = useState(false);
   const [showInfoGuide, setShowInfoGuide] = useState(false);
@@ -174,6 +177,28 @@ export default function MainView({
   useHistoryBackClose(showListeningLoop, () => setShowListeningLoop(false));
   useHistoryBackClose(showSentencePractice, () => setShowSentencePractice(false));
   useHistoryBackClose(showWeeklyReport, () => setShowWeeklyReport(false));
+
+  // First-login onboarding — only for new accounts (created < 48h) or explicit flag
+  useEffect(() => {
+    if (!accountCode || accountCode === "guest") return;
+    if (hasSeenWelcome(accountCode)) return;
+    const acct = (accounts || []).find((a) => a.code === accountCode);
+    const created = acct && typeof acct.createdAt === "number" ? acct.createdAt : 0;
+    const isNewAccount = created > 0 && Date.now() - created < 48 * 60 * 60 * 1000;
+    // Also show if server marked firstSession / no studied words yet and no flag
+    const neverStudied = !acct || !acct.studied || acct.studied.length === 0;
+    if (!isNewAccount && !neverStudied) {
+      // Existing active user on first deploy of this feature — don't nag
+      markWelcomeSeen(accountCode);
+      return;
+    }
+    if (!isNewAccount && neverStudied) {
+      // Brand-new empty account without createdAt — still show once
+    }
+    const t = setTimeout(() => setShowWelcome(true), 700);
+    return () => clearTimeout(t);
+  }, [accountCode, accounts]);
+
 
   const [showDictation, setShowDictation] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
@@ -809,6 +834,17 @@ export default function MainView({
         onCyclePriority={handleCyclePriority}
         srsDueAt={srsDueAt}
       />
+
+      {showWelcome && (
+        <WelcomeOnboardingModal
+          isAr={appIsAr}
+          userName={name}
+          onClose={() => {
+            markWelcomeSeen(accountCode);
+            setShowWelcome(false);
+          }}
+        />
+      )}
 
       <MainViewOverlays
         cfg={cfg}

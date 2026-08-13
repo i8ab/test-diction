@@ -5,7 +5,7 @@ import { tr } from "../../lib/config/i18n";
 import {
   ChevronIcon, XIcon, TrophyIcon, StatsIcon, QuizIcon, LayersIcon,
   DownloadIcon, UploadIcon, LoaderIcon, ClockIcon, CalendarIcon, CheckIcon, FlameIcon,
-  MicIcon, StarIcon, WandIcon,
+  MicIcon, StarIcon, WandIcon, MoreIcon,
 } from "../common/Icons";
 
 /**
@@ -415,45 +415,61 @@ export default function ToolsMenu({
         gap: 8, // مسافة مريحة بين زر المزيد وزر الإغلاق
       }}
     >
-      {/* زر المزيد */}
+      {/* زر المزيد — شكل حديث (pill + أيقونة نقاط) */}
       <button
         ref={btnRef}
         onClick={toggleOpen}
-        title={tr(isAr, "More", "المزيد")}
+        title={tr(isAr, "Tools & more", "أدوات والمزيد")}
         aria-label={tr(isAr, "More actions", "المزيد")}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="lift-hover"
+        className="lift-hover tools-more-btn"
         style={{
-          display: "flex",
+          display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          gap: 6,
-          minWidth: 40,
+          gap: 8,
+          minWidth: 44,
           height: 40,
-          padding: "0 10px",
-          borderRadius: 12,
-          color: open ? "#fff" : accent,
-          background: open ? accent : "var(--card)",
-          border: `1px solid ${accent}40`,
+          padding: "0 14px",
+          borderRadius: 999,
+          color: open ? "#fff" : "var(--ink)",
+          background: open
+            ? `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 70%, #7c3aed))`
+            : "color-mix(in srgb, var(--card) 88%, transparent)",
+          border: open
+            ? "1px solid transparent"
+            : "1px solid rgba(var(--border-rgb),0.22)",
+          boxShadow: open
+            ? `0 8px 22px -10px color-mix(in srgb, ${accent} 70%, transparent)`
+            : "0 1px 2px rgba(0,0,0,0.06)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
           cursor: "pointer",
-          transition: "transform 0.15s ease, background 0.15s ease",
+          transition: "transform 0.18s ease, background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease",
           fontWeight: 700,
           fontSize: 13,
           fontFamily: "inherit",
+          letterSpacing: "0.01em",
         }}
       >
-        <span style={{ display: "none" }} className="tools-more-label">
-          {tr(isAr, "More", "المزيد")}
-        </span>
         <span
           style={{
             display: "inline-flex",
-            transform: open ? "rotate(-90deg)" : "rotate(90deg)",
-            transition: "transform 0.2s ease",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 22,
+            height: 22,
+            borderRadius: 8,
+            background: open ? "rgba(255,255,255,0.18)" : `color-mix(in srgb, ${accent} 16%, transparent)`,
+            color: open ? "#fff" : accent,
+            transition: "background 0.2s ease, color 0.2s ease",
           }}
         >
-          <ChevronIcon size={18} />
+          <MoreIcon size={16} />
+        </span>
+        <span className="tools-more-label" style={{ lineHeight: 1 }}>
+          {tr(isAr, "More", "المزيد")}
         </span>
       </button>
 

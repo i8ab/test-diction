@@ -191,13 +191,20 @@ function Particles() {
 
 export default function WelcomeOnboardingModal({ isAr, userName = "", onClose }) {
   const [step, setStep] = useState(0);
+  /** How many content blocks are visible inside the current chapter (0 = title only / lead+title, then body, then points…) */
+  const [reveal, setReveal] = useState(0);
   const [phase, setPhase] = useState("enter");
   const [dir, setDir] = useState(1);
   const [tick, setTick] = useState(0);
   const bodyRef = useRef(null);
   const s = STEPS[step];
-  const isLast = step >= STEPS.length - 1;
-  const progress = ((step + 1) / STEPS.length) * 100;
+  const pointCount = (s.points || []).length;
+  // reveal stages: 0 = title area only, 1 = body paragraph, 2.. = points, last+ = dev card if any
+  const maxReveal = 1 + pointCount + (s.isDev ? 1 : 0);
+  const isLastStep = step >= STEPS.length - 1;
+  const isChapterDone = reveal >= maxReveal;
+  const isFullyDone = isLastStep && isChapterDone;
+  const progress = ((step + Math.min(reveal, maxReveal) / Math.max(maxReveal, 1)) / STEPS.length) * 100;
 
   useEffect(() => {
     const t = requestAnimationFrame(() => setPhase("idle"));
@@ -206,18 +213,18 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
 
   useEffect(() => {
     setTick((x) => x + 1);
-  }, [step]);
+  }, [step, reveal]);
 
   useEffect(() => {
     function onKey(e) {
       if (e.key === "Escape") finish();
       if (e.key === "Enter" || e.key === "ArrowRight") {
         e.preventDefault();
-        go(1);
+        goNext();
       }
       if (e.key === "ArrowLeft") {
         e.preventDefault();
-        go(-1);
+        goBack();
       }
     }
     document.addEventListener("keydown", onKey);
@@ -229,22 +236,62 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
     setTimeout(() => onClose && onClose(), 420);
   }
 
-  function go(delta) {
-    if (delta > 0 && isLast) {
+  function goNext() {
+    if (!isChapterDone) {
+      setReveal((r) => r + 1);
+      try {
+        if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+      } catch (_) {}
+      return;
+    }
+    if (isLastStep) {
       finish();
       return;
     }
-    if (delta < 0 && step === 0) return;
-    setDir(delta);
+    setDir(1);
     setPhase("stepOut");
     setTimeout(() => {
-      setStep((x) => x + delta);
+      setStep((x) => x + 1);
+      setReveal(0);
       setPhase("stepIn");
       setTimeout(() => setPhase("idle"), 30);
       try {
         if (bodyRef.current) bodyRef.current.scrollTop = 0;
       } catch (_) {}
     }, 280);
+  }
+
+  function goBack() {
+    if (reveal > 0) {
+      setReveal((r) => r - 1);
+      return;
+    }
+    if (step === 0) {
+      finish();
+      return;
+    }
+    setDir(-1);
+    setPhase("stepOut");
+    setTimeout(() => {
+      const prev = step - 1;
+      setStep(prev);
+      const prevMax = 1 + (STEPS[prev].points || []).length + (STEPS[prev].isDev ? 1 : 0);
+      setReveal(prevMax);
+      setPhase("stepIn");
+      setTimeout(() => setPhase("idle"), 30);
+    }, 280);
+  }
+
+  function jumpToStep(i) {
+    if (i === step) return;
+    setDir(i > step ? 1 : -1);
+    setPhase("stepOut");
+    setTimeout(() => {
+      setStep(i);
+      setReveal(0);
+      setPhase("stepIn");
+      setTimeout(() => setPhase("idle"), 30);
+    }, 260);
   }
 
   const sheetOn = phase !== "enter" && phase !== "exit";
@@ -303,71 +350,98 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
             <span className="wel-icon-ring wel-icon-ring-2" />
           </div>
 
-          <div className={`wel-title-block ${slide}`} key={`title-${tick}`}>
+          <div className={`wel-title-block ${slide}`} key={`title-${step}`}>
             <div className="wel-lead">{tr(isAr, s.enLead, s.arLead)}</div>
             <h2 className="wel-title">{tr(isAr, s.enTitle, s.arTitle)}</h2>
           </div>
         </div>
 
-        <div ref={bodyRef} className={`wel-body ${slide}`} key={`body-${tick}`}>
-          <p className="wel-body-text wel-stagger" style={{ animationDelay: "0.05s" }}>
-            {tr(isAr, s.enBody, s.arBody)}
-          </p>
+        <div ref={bodyRef} className={`wel-body ${slide}`} key={`body-${step}`}>
+          {reveal >= 1 && (
+            <p className="wel-body-text wel-stagger" key={`p-${step}-body`} style={{ animationDelay: "0.04s" }}>
+              {tr(isAr, s.enBody, s.arBody)}
+            </p>
+          )}
 
           <div className="wel-points">
-            {(s.points || []).map((p, i) => (
-              <div
-                key={i}
-                className="wel-point wel-stagger"
-                style={{ animationDelay: `${0.12 + i * 0.08}s` }}
-              >
-                <div className="wel-point-num">{String(i + 1).padStart(2, "0")}</div>
-                <div className="wel-point-text">{tr(isAr, p.en, p.ar)}</div>
-              </div>
-            ))}
+            {(s.points || []).map((p, i) =>
+              reveal >= 2 + i ? (
+                <div
+                  key={`${step}-pt-${i}`}
+                  className="wel-point wel-stagger"
+                  style={{ animationDelay: "0.06s" }}
+                >
+                  <div className="wel-point-num">{String(i + 1).padStart(2, "0")}</div>
+                  <div className="wel-point-text">{tr(isAr, p.en, p.ar)}</div>
+                </div>
+              ) : null
+            )}
           </div>
 
-          {s.isDev && (
-            <div className="wel-dev wel-stagger" style={{ animationDelay: "0.4s" }}>
+          {s.isDev && reveal >= maxReveal && (
+            <div className="wel-dev wel-stagger" key="dev" style={{ animationDelay: "0.08s" }}>
               <div className="wel-dev-label">{tr(isAr, "Lead developer", "المطوّر الرئيسي")}</div>
               <div className="wel-dev-en">mickoly-aboawad</div>
               <div className="wel-dev-ar">ميكول-ابوعوض</div>
               <div className="wel-dev-line" />
             </div>
           )}
+
+          {reveal === 0 && (
+            <p className="wel-hint wel-stagger" style={{ animationDelay: "0.1s" }}>
+              {tr(
+                isAr,
+                "Tap Continue to reveal this chapter line by line.",
+                "اضغط متابعة عشان الفصل يظهر سطر سطر."
+              )}
+            </p>
+          )}
         </div>
 
         <div className="wel-foot">
-          <div className="wel-dots">
-            {STEPS.map((_, i) => (
+          <div className="wel-chapter-bar">
+            {STEPS.map((ch, i) => (
               <button
-                key={i}
+                key={ch.id}
                 type="button"
-                className={`wel-dot ${i === step ? "is-on" : ""} ${i < step ? "is-done" : ""}`}
-                onClick={() => {
-                  if (i === step) return;
-                  setDir(i > step ? 1 : -1);
-                  setPhase("stepOut");
-                  setTimeout(() => {
-                    setStep(i);
-                    setPhase("stepIn");
-                    setTimeout(() => setPhase("idle"), 30);
-                  }, 260);
-                }}
-                aria-label={`Step ${i + 1}`}
-              />
+                className={`wel-chapter-seg ${i === step ? "is-on" : ""} ${i < step ? "is-done" : ""}`}
+                onClick={() => jumpToStep(i)}
+                aria-label={tr(isAr, ch.enTitle, ch.arTitle)}
+                title={tr(isAr, ch.enTitle, ch.arTitle)}
+              >
+                <span className="wel-chapter-seg-fill" />
+              </button>
             ))}
+          </div>
+          <div className="wel-chapter-meta">
+            <span>
+              {tr(isAr, `Chapter ${step + 1} of ${STEPS.length}`, `الفصل ${step + 1} من ${STEPS.length}`)}
+            </span>
+            <span className="wel-chapter-meta-sub">
+              {reveal === 0
+                ? tr(isAr, "Intro", "مقدمة")
+                : isChapterDone
+                  ? tr(isAr, "Complete", "مكتمل")
+                  : tr(isAr, `${reveal} / ${maxReveal}`, `${reveal} / ${maxReveal}`)}
+            </span>
           </div>
 
           <div className="wel-actions">
-            <button type="button" className="wel-btn wel-btn-ghost" onClick={() => (step === 0 ? finish() : go(-1))}>
-              {step === 0 ? tr(isAr, "Skip intro", "تخطي المقدمة") : tr(isAr, "Back", "رجوع")}
+            <button type="button" className="wel-btn wel-btn-ghost" onClick={goBack}>
+              {step === 0 && reveal === 0
+                ? tr(isAr, "Skip intro", "تخطي المقدمة")
+                : tr(isAr, "Back", "رجوع")}
             </button>
-            <button type="button" className="wel-btn wel-btn-primary" onClick={() => go(1)}>
-              {isLast ? (
+            <button type="button" className="wel-btn wel-btn-primary" onClick={goNext}>
+              {isFullyDone ? (
                 <>
                   <CheckIcon size={16} />
                   {tr(isAr, "Start studying", "ابدأ المذاكرة")}
+                </>
+              ) : isChapterDone ? (
+                <>
+                  {tr(isAr, "Next chapter", "الفصل التالي")}
+                  <span className="wel-btn-arrow">→</span>
                 </>
               ) : (
                 <>
@@ -382,6 +456,7 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
     </div>
   );
 }
+
 
 const CSS = `
 .wel-root {
@@ -635,20 +710,46 @@ const CSS = `
   border-top: 1px solid rgba(255,255,255,0.06);
   background: linear-gradient(180deg, transparent, rgba(0,0,0,0.2));
 }
-.wel-dots {
-  display: flex; justify-content: center; gap: 7px; margin-bottom: 14px;
+.wel-chapter-bar {
+  display: flex; gap: 6px; margin-bottom: 8px;
 }
-.wel-dot {
-  width: 7px; height: 7px; border-radius: 999px; border: none; padding: 0;
-  cursor: pointer; background: rgba(255,255,255,0.15);
-  transition: width 0.35s cubic-bezier(.22,1,.36,1), background 0.25s;
+.wel-chapter-seg {
+  flex: 1; height: 4px; border: none; padding: 0; border-radius: 999px;
+  background: rgba(255,255,255,0.1); cursor: pointer; position: relative;
+  overflow: hidden; transition: transform 0.15s ease;
 }
-.wel-dot.is-on {
-  width: 26px;
+.wel-chapter-seg:hover { transform: scaleY(1.35); }
+.wel-chapter-seg-fill {
+  position: absolute; inset: 0; border-radius: inherit;
+  background: rgba(255,255,255,0.12);
+  transform: scaleX(0); transform-origin: left center;
+  transition: transform 0.4s cubic-bezier(.22,1,.36,1), background 0.25s;
+}
+[dir="rtl"] .wel-chapter-seg-fill { transform-origin: right center; }
+.wel-chapter-seg.is-done .wel-chapter-seg-fill {
+  transform: scaleX(1);
+  background: rgba(90,140,255,0.45);
+}
+.wel-chapter-seg.is-on .wel-chapter-seg-fill {
+  transform: scaleX(1);
   background: linear-gradient(90deg, var(--accent-1, #5b8def), var(--accent-2, #af52de));
-  box-shadow: 0 0 12px rgba(90,140,255,0.45);
+  box-shadow: 0 0 12px rgba(90,140,255,0.5);
+  animation: welSegPulse 2s ease-in-out infinite;
 }
-.wel-dot.is-done { background: rgba(90,140,255,0.5); }
+@keyframes welSegPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.25); }
+}
+.wel-chapter-meta {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.4);
+  margin-bottom: 12px; letter-spacing: 0.04em;
+}
+.wel-chapter-meta-sub { color: var(--accent-1, #7eb6ff); }
+.wel-hint {
+  margin: 8px 0 0; font-size: 13px; line-height: 1.5;
+  color: rgba(255,255,255,0.4); font-style: italic; text-align: center;
+}
 
 .wel-actions { display: flex; gap: 10px; }
 .wel-btn {

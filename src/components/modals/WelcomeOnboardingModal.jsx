@@ -130,22 +130,22 @@ const STEPS = [
     icon: "⬡",
     enKicker: "Chapter 05",
     arKicker: "الفصل ٠٥",
-    enTitle: "Crafted by the builder",
-    arTitle: "من صُنع المطوّر",
+    enTitle: "Crafted by the builders",
+    arTitle: "من صُنع المطوّرين",
     enLead: "Development credit",
     arLead: "نَسب التطوير",
     enBody:
-      "Bacaloria is developed by mickoly-aboawad (ميكول-ابوعوض). The goal is simple and hard: a study app that feels premium in motion, honest in pedagogy, and worth opening every single day.",
+      "Bacaloria is developed by mickoly and aboawad. The goal is simple and hard: a study app that feels premium in motion, honest in pedagogy, and worth opening every single day.",
     arBody:
-      "Bacaloria من تطوير mickoly-aboawad (ميكول-ابوعوض). الهدف بسيط وصعب في نفس الوقت: تطبيق مذاكرة شكله premium في الحركة، أمين في أسلوب التعلّم، ويستاهل يتفتح كل يوم.",
+      "Bacaloria من تطوير mickoly و aboawad. الهدف بسيط وصعب في نفس الوقت: تطبيق مذاكرة شكله premium في الحركة، أمين في أسلوب التعلّم، ويستاهل يتفتح كل يوم.",
     points: [
       {
-        en: "English: mickoly-aboawad",
-        ar: "بالإنجليزي: mickoly-aboawad",
+        en: "mickoly — product & full-stack",
+        ar: "mickoly — منتج وفل ستاك",
       },
       {
-        en: "Arabic: ميكول-ابوعوض",
-        ar: "بالعربي: ميكول-ابوعوض",
+        en: "aboawad — product & full-stack",
+        ar: "aboawad — منتج وفل ستاك",
       },
       {
         en: "Thank you for trusting Bacaloria with your study time. Let’s build the habit together.",
@@ -399,11 +399,52 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
           </ul>
 
           {s.isDev && reveal >= maxReveal && (
-            <div className="wel-dev wel-stagger" key="dev" style={{ animationDelay: "0.08s" }}>
-              <div className="wel-dev-label">{tr(isAr, "Lead developer", "المطوّر الرئيسي")}</div>
-              <div className="wel-dev-en">mickoly-aboawad</div>
-              <div className="wel-dev-ar">ميكول-ابوعوض</div>
-              <div className="wel-dev-line" />
+            <div className="wel-dev-list wel-stagger" key="dev" style={{ animationDelay: "0.08s" }}>
+              <div className="wel-dev-card">
+                <div className="wel-dev-card-top">
+                  <div className="wel-dev-avatar" aria-hidden>
+                    <span>M</span>
+                  </div>
+                  <div className="wel-dev-id">
+                    <div className="wel-dev-role">{tr(isAr, "Developer", "مطوّر")}</div>
+                    <div className="wel-dev-name">mickoly</div>
+                  </div>
+                </div>
+                <div className="wel-dev-divider" />
+                <div className="wel-dev-meta">
+                  <div className="wel-dev-row">
+                    <span className="wel-dev-k">{tr(isAr, "Project", "المشروع")}</span>
+                    <span className="wel-dev-v">Bacaloria Community</span>
+                  </div>
+                  <div className="wel-dev-row">
+                    <span className="wel-dev-k">{tr(isAr, "Role", "الدور")}</span>
+                    <span className="wel-dev-v">{tr(isAr, "Full-stack · Product", "فل ستاك · منتج")}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="wel-dev-card">
+                <div className="wel-dev-card-top">
+                  <div className="wel-dev-avatar wel-dev-avatar-2" aria-hidden>
+                    <span>A</span>
+                  </div>
+                  <div className="wel-dev-id">
+                    <div className="wel-dev-role">{tr(isAr, "Developer", "مطوّر")}</div>
+                    <div className="wel-dev-name">aboawad</div>
+                  </div>
+                </div>
+                <div className="wel-dev-divider" />
+                <div className="wel-dev-meta">
+                  <div className="wel-dev-row">
+                    <span className="wel-dev-k">{tr(isAr, "Project", "المشروع")}</span>
+                    <span className="wel-dev-v">Bacaloria Community</span>
+                  </div>
+                  <div className="wel-dev-row">
+                    <span className="wel-dev-k">{tr(isAr, "Role", "الدور")}</span>
+                    <span className="wel-dev-v">{tr(isAr, "Full-stack · Product", "فل ستاك · منتج")}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -660,40 +701,57 @@ const CSS = `
   font-weight: 500;
 }
 
-.wel-dev {
-  margin-top: 16px; padding: 18px 16px 16px; border-radius: 20px;
-  text-align: center;
-  background: linear-gradient(145deg, rgba(90,140,255,0.14), rgba(124,58,237,0.12));
-  border: 1px solid rgba(90,140,255,0.28);
-  position: relative; overflow: hidden;
+.wel-dev-list {
+  margin-top: 14px;
+  display: flex; flex-direction: column; gap: 10px;
 }
-.wel-dev::before {
-  content: ""; position: absolute; inset: 0;
-  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.08) 50%, transparent 70%);
-  background-size: 200% 100%;
-  animation: welShine 3.5s ease-in-out infinite;
+.wel-dev-card {
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  position: relative;
 }
-@keyframes welShine {
-  0% { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
+.wel-dev-card-top {
+  display: flex; align-items: center; gap: 14px;
 }
-.wel-dev-label {
-  position: relative; font-size: 10px; font-weight: 700;
-  letter-spacing: 0.16em; text-transform: uppercase;
-  color: rgba(255,255,255,0.45); margin-bottom: 8px;
+.wel-dev-avatar {
+  flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 800; color: #fff; letter-spacing: 0.04em;
+  background: linear-gradient(145deg, #5b8def, #7c3aed);
+  box-shadow: 0 8px 20px -8px rgba(80,140,255,0.7);
 }
-.wel-dev-en {
-  position: relative; font-size: 22px; font-weight: 800;
-  letter-spacing: 0.04em; color: #fff; margin-bottom: 4px;
+.wel-dev-avatar-2 {
+  background: linear-gradient(145deg, #7c3aed, #c026d3);
+  box-shadow: 0 8px 20px -8px rgba(124,58,237,0.7);
 }
-.wel-dev-ar {
-  position: relative; font-size: 17px; font-weight: 700;
-  color: var(--accent-1, #7eb6ff);
+.wel-dev-id { min-width: 0; }
+.wel-dev-role {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--accent-1, #7eb6ff);
+  margin-bottom: 2px;
 }
-.wel-dev-line {
-  position: relative; margin: 12px auto 0; width: 48px; height: 2px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+.wel-dev-name {
+  font-size: 16px; font-weight: 800; color: #f2f5fa;
+  letter-spacing: -0.02em; line-height: 1.25;
+}
+.wel-dev-divider {
+  height: 1px; margin: 12px 0 10px;
+  background: rgba(255,255,255,0.08);
+}
+.wel-dev-meta {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.wel-dev-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 12px; font-size: 12.5px;
+}
+.wel-dev-k {
+  color: rgba(255,255,255,0.4); font-weight: 600; flex-shrink: 0;
+}
+.wel-dev-v {
+  color: rgba(242,245,250,0.9); font-weight: 600; text-align: end;
 }
 
 .wel-stagger { animation: welUp 0.55s cubic-bezier(.22,1,.36,1) both; }

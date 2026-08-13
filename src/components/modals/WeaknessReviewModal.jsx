@@ -44,18 +44,32 @@ export default function WeaknessReviewModal({
   const [weakList] = useState(() => {
     const hasWord = (e) => e && String(e.word || e.term || "").trim();
     const list = (entries || []).filter((e) => studiedIds.has(e.id) && hasWord(e));
-    list.sort((a, b) => {
+
+    // Strict "weak" definition — never include near-perfect words:
+    // - need at least 2 attempts
+    // - accuracy under 85%
+    // - or several fails (correct much lower than total)
+    // Words at 100% / high accuracy are excluded even if SRS box is still low
+    // (box stays low until enough volume, which was flooding this mode).
+    const filtered = list.filter((e) => {
+      const stats = srsStats[e.id] || { correct: 0, total: 0 };
+      const total = stats.total || 0;
+      const correct = stats.correct || 0;
+      if (total < 2) return false; // not enough data — not "weak", just new
+      const ratio = correct / total;
+      if (ratio >= 0.9) return false; // 90%+ → not weak
+      if (ratio >= 0.85 && total >= 6) return false;
+      const level = srsLevelFromStats(stats);
+      return level <= 2 || ratio < 0.75;
+    });
+
+    filtered.sort((a, b) => {
       const sa = weaknessScore(a.id, srsStats, srsDueAt, wordPriorities);
       const sb = weaknessScore(b.id, srsStats, srsDueAt, wordPriorities);
       return sa - sb; // weakest first
     });
-    const filtered = list.filter((e) => {
-      const stats = srsStats[e.id] || { correct: 0, total: 0 };
-      const level = srsLevelFromStats(stats);
-      const ratio = stats.total > 0 ? stats.correct / stats.total : 0;
-      return level <= 2 || (stats.total >= 2 && ratio < 0.75);
-    });
-    return (filtered.length ? filtered : list).slice(0, limit);
+    // No fallback to strong words — empty session is better than 100% cards
+    return filtered.slice(0, limit);
   });
 
   const [idx, setIdx] = useState(0);

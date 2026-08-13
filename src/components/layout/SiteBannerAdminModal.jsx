@@ -39,6 +39,22 @@ export default function SiteBannerAdminModal({
     outline: "none",
   };
 
+  function bannerSection(en, ar) {
+    return (
+      <div style={{
+        fontSize: 12,
+        fontWeight: 800,
+        color: "var(--muted)",
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+        marginTop: 6,
+        marginBottom: 4,
+      }}>
+        {T(en, ar)}
+      </div>
+    );
+  }
+
   const [bannerMessage, setBannerMessage] = useState("");
   const [bannerColor, setBannerColor] = useState("#146C94");
   const [bannerEnabled, setBannerEnabled] = useState(false);

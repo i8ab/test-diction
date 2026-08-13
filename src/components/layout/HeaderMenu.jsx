@@ -350,6 +350,8 @@ export default function HeaderMenu({
         setUiRadius={setUiRadius}
         cardHeight={cardHeight}
         setCardHeight={setCardHeight}
+        accentTheme={accentTheme}
+        onChangeAccent={onChangeAccent}
       />
 
     </div>

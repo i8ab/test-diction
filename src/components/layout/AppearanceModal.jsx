@@ -6,6 +6,13 @@ import {
   savePresetId,
   saveCustomGlyph,
 } from "../common/BrandMark";
+import {
+  ACCENT_THEMES,
+  loadCustomAccentHex,
+  saveCustomAccentHex,
+  saveAccent,
+  applyAccentTheme,
+} from "../../lib/state/storage";
 
 /**
  * Appearance settings: theme, brand mark, density, radius, card height, UI scale.
@@ -34,6 +41,8 @@ export default function AppearanceModal({
   setUiRadius,
   cardHeight,
   setCardHeight,
+  accentTheme = null,
+  onChangeAccent = null,
 }) {
   if (!open || typeof document === "undefined") return null;
   const lang = appLang || (isAr ? "ar" : "en");

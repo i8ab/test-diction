@@ -41,6 +41,7 @@ export function DeviceModeModal({ open, onClose, isAr, appLang, deviceMode, onCh
 /** UI language picker */
 export function LangModal({ open, onClose, isAr, appLang, onChangeAppLang }) {
   if (!open || typeof document === "undefined") return null;
+  const lang = appLang || (isAr ? "ar" : "en");
   const T = useT(appLang, isAr);
   return createPortal(
         <div onClick={() => { /* Stay open unless X */ }} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>

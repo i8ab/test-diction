@@ -121,8 +121,7 @@ export default function HeaderMenu({
     setNotifOpen(false);
     setBannerOpen(false);
     setInfoExpanded(null);
-    setSettingsOpen(false);
-    // Prefer the full detailed guide from the parent (InfoGuideModal).
+    // Keep settings open underneath — info guide stacks above it
     if (onOpenInfo) {
       onOpenInfo();
       return;
@@ -138,7 +137,6 @@ export default function HeaderMenu({
   function openNotifModal() {
     setInfoOpen(false);
     setBannerOpen(false);
-    setSettingsOpen(false);
     setNotifOpen(true);
   }
 
@@ -149,7 +147,6 @@ export default function HeaderMenu({
   function openBannerModal() {
     setInfoOpen(false);
     setNotifOpen(false);
-    setSettingsOpen(false);
     setBannerOpen(true);
   }
 
@@ -239,10 +236,10 @@ export default function HeaderMenu({
         pendingCount={pendingCount}
         focusMode={focusMode}
         onToggleFocus={onToggleFocus}
-        onOpenLang={() => { setSettingsOpen(false); setLangModalOpen(true); }}
-        onOpenDevice={() => { setSettingsOpen(false); setDeviceModalOpen(true); }}
-        onOpenAccent={() => { setSettingsOpen(false); setAccentModalOpen(true); }}
-        onOpenAppearance={() => { setSettingsOpen(false); setAppearanceModalOpen(true); }}
+        onOpenLang={() => setLangModalOpen(true)}
+        onOpenDevice={() => setDeviceModalOpen(true)}
+        onOpenAccent={() => setAccentModalOpen(true)}
+        onOpenAppearance={() => setAppearanceModalOpen(true)}
         deviceMode={deviceMode}
         brandPresetId={brandPresetId}
         setBrandPresetId={setBrandPresetId}

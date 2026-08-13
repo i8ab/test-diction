@@ -1,108 +1,199 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { tr } from "../../lib/config/i18n";
-import { INK, CARD } from "../../lib/config/theme";
+import { INK } from "../../lib/config/theme";
 import { XIcon, CheckIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 /**
- * Premium first-login onboarding — cinematic steps, rich copy, smooth motion.
+ * Premium cinematic onboarding — long-form intro + layered motion.
  */
 
 const STEPS = [
   {
     id: "welcome",
     icon: "✦",
+    enKicker: "Chapter 01",
+    arKicker: "الفصل ٠١",
     enTitle: "Welcome to Bacaloria",
     arTitle: "أهلاً بك في Bacaloria",
-    enLead: "Your personal language lab",
-    arLead: "مختبرك الشخصي للغة",
+    enLead: "Where vocabulary becomes a daily craft",
+    arLead: "المكان اللي المفردات فيه بتتحول لحرفة يومية",
     enBody:
-      "Bacaloria Community is a bilingual study app built for serious learners. Arabic ⇄ English vocabulary, smart review, and tools that stay with you — even offline.",
+      "Bacaloria Community is not just a word list. It is a full study environment designed for Arabic ⇄ English learners who want structure, speed, and results. You add words, train them with spaced repetition, test yourself under pressure, and watch your progress compound week after week — on phone or desktop, online or offline.",
     arBody:
-      "Bacaloria Community تطبيق دراسة ثنائي اللغة للطلاب الجادين. مفردات عربي ⇄ إنجليزي، مراجعة ذكية، وأدوات تفضل معاك — حتى بدون إنترنت.",
-    bullets: [
-      { en: "Dictionary with search, lists & notes", ar: "قاموس مع بحث وقوائم وملاحظات" },
-      { en: "Works as a PWA on phone & desktop", ar: "يعمل كتطبيق PWA على الموبايل والكومبيوتر" },
-      { en: "Cloud sync across your devices", ar: "مزامنة سحابية بين أجهزتك" },
+      "Bacaloria Community مش مجرد قائمة كلمات. دي بيئة مذاكرة كاملة مصممة لمتعلمي عربي ⇄ إنجليزي اللي عايزين نظام وسرعة ونتيجة. بتضيف كلمات، بتدرّبها بتكرار متباعد، بتختبر نفسك تحت ضغط، وبتشوف تقدّمك بيتراكم أسبوع ورا أسبوع — على الموبايل أو الكمبيوتر، أونلاين أو أوفلاين.",
+    points: [
+      {
+        en: "Bilingual dictionary with search, filters, favorites, notes, and word lists so every entry has a place and a purpose.",
+        ar: "قاموس ثنائي اللغة مع بحث وفلاتر ومفضلة وملاحظات وقوائم كلمات — كل مدخل ليه مكان وهدف.",
+      },
+      {
+        en: "Progressive Web App: install it, use it offline, and keep studying even when the network drops.",
+        ar: "تطبيق ويب تقدمي (PWA): ثبّته، استخدمه أوفلاين، وكمل مذاكرة حتى لو النت فصل.",
+      },
+      {
+        en: "Cloud sync keeps your studied words, SRS schedule, XP, and settings aligned across devices.",
+        ar: "مزامنة سحابية بتخلي كلماتك المدروسة وجدول الـ SRS والـ XP والإعدادات متوحّدة بين الأجهزة.",
+      },
     ],
   },
   {
     id: "study",
     icon: "◎",
-    enTitle: "Study that sticks",
-    arTitle: "مذاكرة تثبت",
-    enLead: "Spaced repetition & practice modes",
-    arLead: "تكرار متباعد وأوضاع تدريب",
+    enKicker: "Chapter 02",
+    arKicker: "الفصل ٠٢",
+    enTitle: "How you actually learn",
+    arTitle: "إزاي بتتعلم بجد",
+    enLead: "Spaced repetition + focused practice modes",
+    arLead: "تكرار متباعد + أوضاع تدريب مركّزة",
     enBody:
-      "Every word you mark as studied enters a smart schedule. Review due cards, crush weak ones, and practice the way your brain actually remembers.",
+      "When you mark a word as studied, Bacaloria does not leave it to chance. The SRS engine schedules the next review — from a few minutes to weeks — based on how well you answer. Weak words rise to the surface. Strong words wait longer. You spend time where it matters.",
     arBody:
-      "كل كلمة تعلّمها تدخل جدول ذكي. راجع المستحق، ركّز على الضعيف، واتدرّب بالطريقة اللي المخ بيتذكر بيها فعلاً.",
-    bullets: [
-      { en: "SRS boxes — from relearn to mastered", ar: "مستويات SRS — من إعادة التعلم للإتقان" },
-      { en: "Quick review, weakness focus, smart cards", ar: "مراجعة سريعة، تركيز على الضعف، بطاقات ذكية" },
-      { en: "Dictation, listening loop, sentence writing", ar: "إملاء، حلقة استماع، كتابة جمل" },
-      { en: "Quiz & full exam mode with settings", ar: "اختبار ووضع امتحان كامل بالإعدادات" },
+      "لما تعلّم كلمة كـ «مدروسة»، Bacaloria مش بسيبها للحظ. محرك الـ SRS بيحدد المراجعة الجاية — من دقايق لأسابيع — حسب إجابتك. الكلمات الضعيفة بتطلع لفوق. القوية بتستنى أكتر. وقتك بيروح للحتة اللي محتاجاها.",
+    points: [
+      {
+        en: "Quick Review for due cards. Weakness Review for low accuracy. Smart Cards for flip, type, cloze, and audio drills.",
+        ar: "مراجعة سريعة للمستحق. مراجعة الضعف للدقة المنخفضة. بطاقات ذكية للقلب والكتابة والفراغ والصوت.",
+      },
+      {
+        en: "Dictation and Listening Loop train your ear; Sentence Practice pushes you to use the word in a real line.",
+        ar: "الإملاء وحلقة الاستماع بتدرّب ودنك؛ تمرين الجمل بيجبرك تستخدم الكلمة في سطر حقيقي.",
+      },
+      {
+        en: "Quiz for mixed checks. Exam Mode for timed, formal sessions with admin-configurable rules.",
+        ar: "اختبار لفحص متنوّع. وضع امتحان لجلسات موقوتة ورسمية بقواعد يضبطها الأدمن.",
+      },
+      {
+        en: "Priority flags, due badges, morning and night shortcuts — so important words never get buried.",
+        ar: "شارات أولوية واستحقاق، واختصارات صباح وليل — عشان الكلمات المهمة ما تتدفنشي.",
+      },
     ],
   },
   {
     id: "progress",
     icon: "◈",
-    enTitle: "See your growth",
-    arTitle: "شوف تقدّمك",
-    enLead: "XP, goals, streaks & reports",
-    arLead: "نقاط، أهداف، سلاسل وتقارير",
+    enKicker: "Chapter 03",
+    arKicker: "الفصل ٠٣",
+    enTitle: "Momentum you can measure",
+    arTitle: "زخم تقدر تقيسه",
+    enLead: "XP, streaks, goals, calendar, reports",
+    arLead: "نقاط، سلاسل، أهداف، تقويم، تقارير",
     enBody:
-      "Stay motivated with levels, achievements, weekly challenges, a study calendar, and a weekly report you can export as image or PDF.",
+      "Motivation fades when progress is invisible. Bacaloria makes growth obvious: levels and XP for consistency, achievements for milestones, a study calendar for habits, weekly challenges for focus, and a weekly report you can export as image, text, or print-to-PDF.",
     arBody:
-      "حفّز نفسك بالمستويات والإنجازات وتحديات الأسبوع وتقويم الدراسة وتقرير أسبوعي تصدّره صورة أو PDF.",
-    bullets: [
-      { en: "Priority flags on important words", ar: "أولوية للكلمات المهمة" },
-      { en: "Due badges — know what to review next", ar: "شارات الاستحقاق — اعرف تراجع إيه" },
-      { en: "Timer, to-do, goals & leaderboard", ar: "مؤقت، مهام، أهداف وترتيب" },
-      { en: "Morning & night review shortcuts", ar: "اختصارات مراجعة الصباح وقبل النوم" },
+      "الحماس بيخف لما التقدّم يبقى مش باين. Bacaloria بيخلّي النمو واضح: مستويات وXP للانتظام، إنجازات للمحطات، تقويم دراسة للعادات، تحديات أسبوعية للتركيز، وتقرير أسبوعي تصدّره صورة أو نص أو طباعة PDF.",
+    points: [
+      {
+        en: "Dashboard, stats, leaderboard, and «you vs past you» so improvement is not a guess.",
+        ar: "لوحة قيادة وإحصائيات وترتيب ومقارنة «أنت ونفسك القديمة» — التحسّن مش تخمين.",
+      },
+      {
+        en: "Study timer, to-do list, and goals keep sessions intentional instead of endless scrolling.",
+        ar: "مؤقت دراسة وقائمة مهام وأهداف بتخلي الجلسة هادفة مش سكرول بلا نهاية.",
+      },
+      {
+        en: "Filters for due, weak, priority, and sort by weakness or next review time.",
+        ar: "فلاتر للمستحق والضعيف والأولوية، وترتيب حسب الضعف أو أقرب مراجعة.",
+      },
     ],
   },
   {
     id: "who",
     icon: "◇",
+    enKicker: "Chapter 04",
+    arKicker: "الفصل ٠٤",
     enTitle: "Who we are",
     arTitle: "مين إحنا",
-    enLead: "An independent learning community",
-    arLead: "مجتمع تعلّم مستقل",
+    enLead: "An independent study community",
+    arLead: "مجتمع دراسة مستقل",
     enBody:
-      "We design study tools that feel fast, clear, and mobile-first — no clutter, no noise. Just vocabulary, practice, and progress you can trust.",
+      "Bacaloria Community is built for students who prepare for real exams and real conversations — not for passive content feeds. We care about clarity, mobile-first layout, offline resilience, and tools that respect your time. Arabic and English sit at the center; the interface speaks your language.",
     arBody:
-      "بنصمّم أدوات دراسة سريعة وواضحة ومناسبة للموبايل — من غير زحمة ولا تشتيت. مفردات، تدريب، وتقدّم تعتمد عليه.",
-    bullets: [
-      { en: "Arabic ⇄ English at the core", ar: "عربي ⇄ إنجليزي في الصميم" },
-      { en: "UI in Arabic, English & more", ar: "واجهة بالعربي والإنجليزي والمزيد" },
-      { en: "Built for students preparing for real exams", ar: "مصمم لطلاب بيحضّروا لامتحانات حقيقية" },
+      "Bacaloria Community معمولة لطلاب بيحضّروا لامتحانات حقيقية ومحادثات حقيقية — مش لفيد محتوى سلبي. بنهتم بالوضوح، وتصميم الموبايل أولاً، والشغل أوفلاين، وأدوات تحترم وقتك. العربي والإنجليزي في الصميم؛ والواجهة بتتكلم لغتك.",
+    points: [
+      {
+        en: "Product focus: vocabulary mastery through deliberate practice, not random flashy gimmicks.",
+        ar: "تركيز المنتج: إتقان المفردات بالممارسة الواعية، مش حيل عشوائية لامعة.",
+      },
+      {
+        en: "Community-minded: shared lists, challenges, and progress that can inspire (not pressure) peers.",
+        ar: "بروح مجتمع: قوائم وتحديات وتقدّم يقدر يلهم الزملاء من غير ما يضغطهم.",
+      },
+      {
+        en: "Always evolving — new study modes and polish land continuously for people who show up daily.",
+        ar: "بيتطور باستمرار — أوضاع مذاكرة وتحسينات بتنزل للي بيفتحوا التطبيق كل يوم.",
+      },
     ],
   },
   {
     id: "dev",
     icon: "⬡",
-    enTitle: "Crafted with care",
-    arTitle: "صُنع بعناية",
-    enLead: "Development",
-    arLead: "التطوير",
+    enKicker: "Chapter 05",
+    arKicker: "الفصل ٠٥",
+    enTitle: "Crafted by the builder",
+    arTitle: "من صُنع المطوّر",
+    enLead: "Development credit",
+    arLead: "نَسب التطوير",
     enBody:
-      "Bacaloria is developed by mickoly-aboawad — focused on polish, performance, and a study experience you’ll actually enjoy opening every day.",
+      "Bacaloria is developed by mickoly-aboawad (ميكول-ابوعوض). The goal is simple and hard: a study app that feels premium in motion, honest in pedagogy, and worth opening every single day.",
     arBody:
-      "Bacaloria من تطوير ميكول-ابوعوض — مع اهتمام بالتفاصيل والأداء وتجربة دراسة نفسك تحب تفتحها كل يوم.",
-    bullets: [
-      { en: "Developer: mickoly-aboawad", ar: "المطوّر: ميكول-ابوعوض" },
-      { en: "English name: mickoly-aboawad", ar: "بالإنجليزي: mickoly-aboawad" },
-      { en: "Thank you for joining the community", ar: "شكراً لانضمامك للمجتمع" },
+      "Bacaloria من تطوير mickoly-aboawad (ميكول-ابوعوض). الهدف بسيط وصعب في نفس الوقت: تطبيق مذاكرة شكله premium في الحركة، أمين في أسلوب التعلّم، ويستاهل يتفتح كل يوم.",
+    points: [
+      {
+        en: "English: mickoly-aboawad",
+        ar: "بالإنجليزي: mickoly-aboawad",
+      },
+      {
+        en: "Arabic: ميكول-ابوعوض",
+        ar: "بالعربي: ميكول-ابوعوض",
+      },
+      {
+        en: "Thank you for trusting Bacaloria with your study time. Let’s build the habit together.",
+        ar: "شكراً إنك وثقت في Bacaloria بوقت مذاكرتك. يلا نبني العادة سوا.",
+      },
     ],
     isDev: true,
   },
 ];
 
+function Particles() {
+  const dots = useMemo(
+    () =>
+      Array.from({ length: 18 }, (_, i) => ({
+        id: i,
+        left: `${(i * 17 + 7) % 100}%`,
+        delay: `${(i % 7) * 0.35}s`,
+        dur: `${6 + (i % 5)}s`,
+        size: 2 + (i % 3),
+        opacity: 0.15 + (i % 4) * 0.08,
+      })),
+    []
+  );
+  return (
+    <div aria-hidden className="wel-particles">
+      {dots.map((d) => (
+        <span
+          key={d.id}
+          className="wel-particle"
+          style={{
+            left: d.left,
+            width: d.size,
+            height: d.size,
+            animationDelay: d.delay,
+            animationDuration: d.dur,
+            opacity: d.opacity,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function WelcomeOnboardingModal({ isAr, userName = "", onClose }) {
   const [step, setStep] = useState(0);
   const [phase, setPhase] = useState("enter");
   const [dir, setDir] = useState(1);
+  const [tick, setTick] = useState(0);
   const bodyRef = useRef(null);
   const s = STEPS[step];
   const isLast = step >= STEPS.length - 1;
@@ -112,6 +203,10 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
     const t = requestAnimationFrame(() => setPhase("idle"));
     return () => cancelAnimationFrame(t);
   }, []);
+
+  useEffect(() => {
+    setTick((x) => x + 1);
+  }, [step]);
 
   useEffect(() => {
     function onKey(e) {
@@ -131,7 +226,7 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
 
   function finish() {
     setPhase("exit");
-    setTimeout(() => onClose && onClose(), 380);
+    setTimeout(() => onClose && onClose(), 420);
   }
 
   function go(delta) {
@@ -145,292 +240,110 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
     setTimeout(() => {
       setStep((x) => x + delta);
       setPhase("stepIn");
-      setTimeout(() => setPhase("idle"), 40);
+      setTimeout(() => setPhase("idle"), 30);
       try {
         if (bodyRef.current) bodyRef.current.scrollTop = 0;
       } catch (_) {}
-    }, 220);
+    }, 280);
   }
 
-  const sheetVisible = phase !== "enter" && phase !== "exit";
-  const contentAnim =
+  const sheetOn = phase !== "enter" && phase !== "exit";
+  const slide =
     phase === "stepOut"
-      ? { opacity: 0, transform: `translateX(${dir > 0 ? -18 : 18}px)` }
-      : phase === "stepIn" || phase === "idle"
-        ? { opacity: 1, transform: "translateX(0)" }
-        : { opacity: 0, transform: "translateY(12px)" };
+      ? dir > 0
+        ? "wel-out-left"
+        : "wel-out-right"
+      : phase === "stepIn"
+        ? dir > 0
+          ? "wel-in-right"
+          : "wel-in-left"
+        : phase === "idle"
+          ? "wel-idle"
+          : "";
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label={tr(isAr, "Welcome", "مرحباً")}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 8000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom))",
-        background: phase === "exit" || phase === "enter" ? "rgba(0,0,0,0)" : "rgba(4, 8, 16, 0.72)",
-        backdropFilter: phase === "idle" || phase === "stepIn" || phase === "stepOut" ? "blur(12px)" : "blur(0px)",
-        WebkitBackdropFilter: phase === "idle" || phase === "stepIn" || phase === "stepOut" ? "blur(12px)" : "none",
-        transition: "background 0.4s ease, backdrop-filter 0.4s ease",
-      }}
+      className={`wel-root ${phase === "exit" ? "wel-root-exit" : ""} ${phase === "enter" ? "wel-root-enter" : "wel-root-on"}`}
       onClick={(e) => {
         if (e.target === e.currentTarget) finish();
       }}
     >
       <BodyScrollLock />
-      <style>{`
-        @keyframes welPulse {
-          0%, 100% { opacity: 0.45; transform: scale(1); }
-          50% { opacity: 0.8; transform: scale(1.06); }
-        }
-        @keyframes welFloat {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-6px); }
-        }
-        @keyframes welShimmer {
-          0% { background-position: 0% 50%; }
-          100% { background-position: 100% 50%; }
-        }
-      `}</style>
+      <style>{CSS}</style>
+      <Particles />
 
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 440,
-          maxHeight: "min(92dvh, 720px)",
-          borderRadius: 28,
-          overflow: "hidden",
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          background: "var(--card, #12161e)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          boxShadow:
-            "0 0 0 1px rgba(255,255,255,0.04), 0 32px 80px -20px rgba(0,0,0,0.65), 0 0 60px -20px rgba(var(--focus-rgb, 90,140,255), 0.35)",
-          transform: sheetVisible ? "translateY(0) scale(1)" : "translateY(28px) scale(0.94)",
-          opacity: sheetVisible ? 1 : 0,
-          transition: "transform 0.45s cubic-bezier(.22,1,.36,1), opacity 0.35s ease",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            top: -80,
-            left: "50%",
-            width: 280,
-            height: 180,
-            transform: "translateX(-50%)",
-            background: "radial-gradient(ellipse, rgba(var(--focus-rgb, 90,140,255),0.35), transparent 70%)",
-            pointerEvents: "none",
-            animation: "welPulse 5s ease-in-out infinite",
-          }}
-        />
+      <div className={`wel-sheet ${sheetOn ? "wel-sheet-on" : "wel-sheet-off"}`} onClick={(e) => e.stopPropagation()}>
+        <div className="wel-glow" />
+        <div className="wel-glow wel-glow-2" />
 
-        <div style={{ height: 3, background: "rgba(255,255,255,0.06)", flexShrink: 0 }}>
-          <div
-            style={{
-              height: "100%",
-              width: `${progress}%`,
-              background: "linear-gradient(90deg, var(--accent-1), var(--accent-2), var(--accent-1))",
-              backgroundSize: "200% 100%",
-              animation: "welShimmer 2.5s linear infinite",
-              transition: "width 0.35s cubic-bezier(.22,1,.36,1)",
-              borderRadius: "0 2px 2px 0",
-            }}
-          />
+        <div className="wel-progress-track">
+          <div className="wel-progress-bar" style={{ width: `${progress}%` }} />
         </div>
 
-        <div style={{ padding: "22px 22px 12px", position: "relative", flexShrink: 0 }}>
-          <button
-            type="button"
-            onClick={finish}
-            aria-label={tr(isAr, "Skip", "تخطي")}
-            style={{
-              position: "absolute",
-              top: 16,
-              insetInlineEnd: 16,
-              width: 36,
-              height: 36,
-              borderRadius: 12,
-              border: "1px solid rgba(255,255,255,0.1)",
-              background: "rgba(255,255,255,0.06)",
-              color: "rgba(255,255,255,0.7)",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 2,
-            }}
-          >
+        <div className="wel-head">
+          <button type="button" className="wel-close" onClick={finish} aria-label={tr(isAr, "Skip", "تخطي")}>
             <XIcon size={15} />
           </button>
 
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: "var(--accent-1)",
-              marginBottom: 10,
-            }}
-          >
+          <div className="wel-kicker">
+            <span className="wel-kicker-dot" />
+            {tr(isAr, s.enKicker, s.arKicker)}
+            <span className="wel-kicker-sep">·</span>
             {userName
               ? tr(isAr, `Hello, ${userName}`, `أهلاً، ${userName}`)
               : tr(isAr, "Bacaloria Community", "Bacaloria Community")}
           </div>
 
-          <div
-            style={{
-              width: 52,
-              height: 52,
-              borderRadius: 18,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 24,
-              marginBottom: 14,
-              background: "linear-gradient(145deg, rgba(var(--focus-rgb,90,140,255),0.25), rgba(124,58,237,0.2))",
-              border: "1px solid rgba(255,255,255,0.1)",
-              boxShadow: "0 12px 28px -12px rgba(var(--focus-rgb,90,140,255),0.5)",
-              animation: "welFloat 4s ease-in-out infinite",
-              color: "#fff",
-            }}
-          >
-            {s.icon}
+          <div className={`wel-icon-wrap wel-icon-pulse`} key={`ico-${step}`}>
+            <span className="wel-icon">{s.icon}</span>
+            <span className="wel-icon-ring" />
+            <span className="wel-icon-ring wel-icon-ring-2" />
           </div>
 
-          <div
-            style={{
-              ...contentAnim,
-              transition: "opacity 0.22s ease, transform 0.28s cubic-bezier(.22,1,.36,1)",
-            }}
-          >
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)", marginBottom: 4 }}>
-              {tr(isAr, s.enLead, s.arLead)}
-            </div>
-            <h2
-              style={{
-                margin: 0,
-                fontSize: 26,
-                fontWeight: 800,
-                letterSpacing: "-0.02em",
-                lineHeight: 1.2,
-                color: INK,
-              }}
-            >
-              {tr(isAr, s.enTitle, s.arTitle)}
-            </h2>
+          <div className={`wel-title-block ${slide}`} key={`title-${tick}`}>
+            <div className="wel-lead">{tr(isAr, s.enLead, s.arLead)}</div>
+            <h2 className="wel-title">{tr(isAr, s.enTitle, s.arTitle)}</h2>
           </div>
         </div>
 
-        <div
-          ref={bodyRef}
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: "4px 22px 8px",
-            WebkitOverflowScrolling: "touch",
-            ...contentAnim,
-            transition: "opacity 0.22s ease, transform 0.28s cubic-bezier(.22,1,.36,1)",
-          }}
-        >
-          <p style={{ margin: "0 0 16px", fontSize: 14.5, lineHeight: 1.7, color: "var(--muted-strong)" }}>
+        <div ref={bodyRef} className={`wel-body ${slide}`} key={`body-${tick}`}>
+          <p className="wel-body-text wel-stagger" style={{ animationDelay: "0.05s" }}>
             {tr(isAr, s.enBody, s.arBody)}
           </p>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {(s.bullets || []).map((b, i) => (
+          <div className="wel-points">
+            {(s.points || []).map((p, i) => (
               <div
                 key={i}
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 12,
-                  padding: "11px 13px",
-                  borderRadius: 14,
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                }}
+                className="wel-point wel-stagger"
+                style={{ animationDelay: `${0.12 + i * 0.08}s` }}
               >
-                <span
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 8,
-                    flexShrink: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 11,
-                    fontWeight: 800,
-                    color: "#fff",
-                    background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-                    marginTop: 1,
-                  }}
-                >
-                  {i + 1}
-                </span>
-                <span style={{ fontSize: 13.5, lineHeight: 1.45, color: INK, fontWeight: 560 }}>
-                  {tr(isAr, b.en, b.ar)}
-                </span>
+                <div className="wel-point-num">{String(i + 1).padStart(2, "0")}</div>
+                <div className="wel-point-text">{tr(isAr, p.en, p.ar)}</div>
               </div>
             ))}
           </div>
 
           {s.isDev && (
-            <div
-              style={{
-                marginTop: 16,
-                padding: "16px 16px 14px",
-                borderRadius: 18,
-                textAlign: "center",
-                background:
-                  "linear-gradient(145deg, rgba(var(--focus-rgb,90,140,255),0.12), rgba(124,58,237,0.1))",
-                border: "1px solid rgba(var(--focus-rgb,90,140,255),0.22)",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: "0.16em",
-                  textTransform: "uppercase",
-                  color: "var(--muted)",
-                  marginBottom: 8,
-                }}
-              >
-                {tr(isAr, "Lead developer", "المطوّر الرئيسي")}
-              </div>
-              <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: "0.03em", color: INK, marginBottom: 4 }}>
-                mickoly-aboawad
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--accent-1)" }}>ميكول-ابوعوض</div>
+            <div className="wel-dev wel-stagger" style={{ animationDelay: "0.4s" }}>
+              <div className="wel-dev-label">{tr(isAr, "Lead developer", "المطوّر الرئيسي")}</div>
+              <div className="wel-dev-en">mickoly-aboawad</div>
+              <div className="wel-dev-ar">ميكول-ابوعوض</div>
+              <div className="wel-dev-line" />
             </div>
           )}
         </div>
 
-        <div
-          style={{
-            padding: "14px 22px 20px",
-            flexShrink: 0,
-            borderTop: "1px solid rgba(255,255,255,0.06)",
-            background: "linear-gradient(180deg, transparent, rgba(0,0,0,0.15))",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "center", gap: 7, marginBottom: 14 }}>
+        <div className="wel-foot">
+          <div className="wel-dots">
             {STEPS.map((_, i) => (
               <button
                 key={i}
                 type="button"
+                className={`wel-dot ${i === step ? "is-on" : ""} ${i < step ? "is-done" : ""}`}
                 onClick={() => {
                   if (i === step) return;
                   setDir(i > step ? 1 : -1);
@@ -438,75 +351,29 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
                   setTimeout(() => {
                     setStep(i);
                     setPhase("stepIn");
-                    setTimeout(() => setPhase("idle"), 40);
-                  }, 200);
+                    setTimeout(() => setPhase("idle"), 30);
+                  }, 260);
                 }}
                 aria-label={`Step ${i + 1}`}
-                style={{
-                  width: i === step ? 24 : 7,
-                  height: 7,
-                  borderRadius: 999,
-                  border: "none",
-                  padding: 0,
-                  cursor: "pointer",
-                  background:
-                    i === step
-                      ? "linear-gradient(90deg, var(--accent-1), var(--accent-2))"
-                      : i < step
-                        ? "rgba(var(--focus-rgb,90,140,255),0.45)"
-                        : "rgba(255,255,255,0.15)",
-                  transition: "width 0.3s cubic-bezier(.22,1,.36,1), background 0.25s ease",
-                }}
               />
             ))}
           </div>
 
-          <div style={{ display: "flex", gap: 10 }}>
-            <button
-              type="button"
-              onClick={() => (step === 0 ? finish() : go(-1))}
-              style={{
-                flex: 1,
-                padding: "13px 12px",
-                borderRadius: 16,
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(255,255,255,0.04)",
-                color: step === 0 ? "var(--muted)" : INK,
-                fontWeight: 700,
-                fontSize: 14,
-                cursor: "pointer",
-              }}
-            >
-              {step === 0 ? tr(isAr, "Skip", "تخطي") : tr(isAr, "Back", "رجوع")}
+          <div className="wel-actions">
+            <button type="button" className="wel-btn wel-btn-ghost" onClick={() => (step === 0 ? finish() : go(-1))}>
+              {step === 0 ? tr(isAr, "Skip intro", "تخطي المقدمة") : tr(isAr, "Back", "رجوع")}
             </button>
-            <button
-              type="button"
-              onClick={() => go(1)}
-              style={{
-                flex: 1.55,
-                padding: "13px 14px",
-                borderRadius: 16,
-                border: "none",
-                background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-                color: "#fff",
-                fontWeight: 800,
-                fontSize: 14,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                boxShadow: "0 12px 28px -10px rgba(var(--focus-rgb),0.65)",
-                letterSpacing: "0.01em",
-              }}
-            >
+            <button type="button" className="wel-btn wel-btn-primary" onClick={() => go(1)}>
               {isLast ? (
                 <>
                   <CheckIcon size={16} />
                   {tr(isAr, "Start studying", "ابدأ المذاكرة")}
                 </>
               ) : (
-                tr(isAr, "Continue", "متابعة")
+                <>
+                  {tr(isAr, "Continue", "متابعة")}
+                  <span className="wel-btn-arrow">→</span>
+                </>
               )}
             </button>
           </div>
@@ -515,6 +382,302 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
     </div>
   );
 }
+
+const CSS = `
+.wel-root {
+  position: fixed; inset: 0; z-index: 8000;
+  display: flex; align-items: center; justify-content: center;
+  padding: max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  transition: background 0.45s ease, backdrop-filter 0.45s ease;
+}
+.wel-root-enter { background: rgba(0,0,0,0); }
+.wel-root-on {
+  background: rgba(3, 6, 14, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.wel-root-exit {
+  background: rgba(0,0,0,0);
+  backdrop-filter: blur(0);
+  pointer-events: none;
+}
+
+.wel-particles { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.wel-particle {
+  position: absolute; bottom: -10px; border-radius: 50%;
+  background: rgba(120, 180, 255, 0.9);
+  box-shadow: 0 0 8px rgba(100,160,255,0.5);
+  animation: welRise linear infinite;
+}
+@keyframes welRise {
+  0% { transform: translateY(0) scale(1); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(-110vh) scale(0.4); opacity: 0; }
+}
+
+.wel-sheet {
+  width: 100%; max-width: 460px; max-height: min(92dvh, 760px);
+  border-radius: 28px; overflow: hidden; position: relative;
+  display: flex; flex-direction: column;
+  background: linear-gradient(165deg, rgba(22,28,40,0.98) 0%, rgba(12,16,24,0.99) 100%);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.04),
+    0 40px 100px -24px rgba(0,0,0,0.75),
+    0 0 80px -30px rgba(80,140,255,0.4);
+  transition: transform 0.5s cubic-bezier(.22,1,.36,1), opacity 0.4s ease;
+}
+.wel-sheet-off { transform: translateY(36px) scale(0.92); opacity: 0; }
+.wel-sheet-on { transform: translateY(0) scale(1); opacity: 1; }
+
+.wel-glow {
+  position: absolute; top: -100px; left: 50%; width: 320px; height: 200px;
+  transform: translateX(-50%); pointer-events: none;
+  background: radial-gradient(ellipse, rgba(90,140,255,0.35), transparent 70%);
+  animation: welPulse 5s ease-in-out infinite;
+}
+.wel-glow-2 {
+  top: auto; bottom: -80px; width: 260px; height: 140px;
+  background: radial-gradient(ellipse, rgba(124,58,237,0.22), transparent 70%);
+  animation-delay: 1.5s;
+}
+@keyframes welPulse {
+  0%, 100% { opacity: 0.5; transform: translateX(-50%) scale(1); }
+  50% { opacity: 0.9; transform: translateX(-50%) scale(1.08); }
+}
+
+.wel-progress-track {
+  height: 3px; background: rgba(255,255,255,0.06); flex-shrink: 0;
+}
+.wel-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-1, #5b8def), var(--accent-2, #af52de), var(--accent-1, #5b8def));
+  background-size: 200% 100%;
+  animation: welShimmer 2.2s linear infinite;
+  transition: width 0.4s cubic-bezier(.22,1,.36,1);
+  border-radius: 0 2px 2px 0;
+}
+@keyframes welShimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.wel-head { padding: 20px 22px 8px; position: relative; flex-shrink: 0; }
+.wel-close {
+  position: absolute; top: 14px; inset-inline-end: 14px;
+  width: 36px; height: 36px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.65);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  z-index: 2; transition: background 0.2s, color 0.2s;
+}
+.wel-close:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+.wel-kicker {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--accent-1, #5b8def);
+  margin-bottom: 14px; padding-inline-end: 40px;
+}
+.wel-kicker-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent-1, #5b8def);
+  box-shadow: 0 0 10px var(--accent-1, #5b8def);
+  animation: welBlink 2s ease-in-out infinite;
+}
+.wel-kicker-sep { opacity: 0.4; }
+@keyframes welBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.wel-icon-wrap {
+  position: relative; width: 56px; height: 56px; margin-bottom: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.wel-icon {
+  position: relative; z-index: 1;
+  width: 52px; height: 52px; border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; color: #fff;
+  background: linear-gradient(145deg, rgba(90,140,255,0.35), rgba(124,58,237,0.28));
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: 0 12px 32px -10px rgba(80,140,255,0.55);
+  animation: welFloat 4s ease-in-out infinite;
+}
+.wel-icon-ring, .wel-icon-ring-2 {
+  position: absolute; inset: -4px; border-radius: 22px;
+  border: 1px solid rgba(90,140,255,0.35);
+  animation: welRing 2.8s ease-out infinite;
+}
+.wel-icon-ring-2 { animation-delay: 1.2s; }
+@keyframes welFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+@keyframes welRing {
+  0% { transform: scale(0.92); opacity: 0.7; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+.wel-icon-pulse { animation: welPop 0.5s cubic-bezier(.22,1,.36,1); }
+@keyframes welPop {
+  0% { transform: scale(0.7); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.wel-lead {
+  font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.45);
+  margin-bottom: 6px;
+}
+.wel-title {
+  margin: 0; font-size: 26px; font-weight: 800;
+  letter-spacing: -0.03em; line-height: 1.2; color: #f2f5fa;
+}
+
+.wel-body {
+  flex: 1; overflow-y: auto; padding: 6px 22px 10px;
+  -webkit-overflow-scrolling: touch;
+}
+.wel-body-text {
+  margin: 0 0 16px; font-size: 14.5px; line-height: 1.75;
+  color: rgba(230,236,245,0.72);
+}
+
+.wel-points { display: flex; flex-direction: column; gap: 8px; }
+.wel-point {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 12px 13px; border-radius: 16px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.07);
+  transition: transform 0.25s ease, border-color 0.25s;
+}
+.wel-point:hover {
+  border-color: rgba(90,140,255,0.35);
+  transform: translateY(-1px);
+}
+.wel-point-num {
+  flex-shrink: 0; font-size: 11px; font-weight: 800;
+  letter-spacing: 0.06em; color: #fff;
+  min-width: 28px; height: 28px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--accent-1, #5b8def), var(--accent-2, #7c3aed));
+  box-shadow: 0 6px 14px -6px rgba(80,140,255,0.7);
+}
+.wel-point-text {
+  font-size: 13.5px; line-height: 1.55; color: rgba(242,245,250,0.92);
+  font-weight: 500; padding-top: 3px;
+}
+
+.wel-dev {
+  margin-top: 16px; padding: 18px 16px 16px; border-radius: 20px;
+  text-align: center;
+  background: linear-gradient(145deg, rgba(90,140,255,0.14), rgba(124,58,237,0.12));
+  border: 1px solid rgba(90,140,255,0.28);
+  position: relative; overflow: hidden;
+}
+.wel-dev::before {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.08) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: welShine 3.5s ease-in-out infinite;
+}
+@keyframes welShine {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+.wel-dev-label {
+  position: relative; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: rgba(255,255,255,0.45); margin-bottom: 8px;
+}
+.wel-dev-en {
+  position: relative; font-size: 22px; font-weight: 800;
+  letter-spacing: 0.04em; color: #fff; margin-bottom: 4px;
+}
+.wel-dev-ar {
+  position: relative; font-size: 17px; font-weight: 700;
+  color: var(--accent-1, #7eb6ff);
+}
+.wel-dev-line {
+  position: relative; margin: 12px auto 0; width: 48px; height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+}
+
+.wel-stagger { animation: welUp 0.55s cubic-bezier(.22,1,.36,1) both; }
+@keyframes welUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.wel-out-left { animation: welOutL 0.28s ease forwards; }
+.wel-out-right { animation: welOutR 0.28s ease forwards; }
+.wel-in-right { animation: welInR 0.4s cubic-bezier(.22,1,.36,1) both; }
+.wel-in-left { animation: welInL 0.4s cubic-bezier(.22,1,.36,1) both; }
+.wel-idle { opacity: 1; transform: none; }
+@keyframes welOutL {
+  to { opacity: 0; transform: translateX(-24px); }
+}
+@keyframes welOutR {
+  to { opacity: 0; transform: translateX(24px); }
+}
+@keyframes welInR {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes welInL {
+  from { opacity: 0; transform: translateX(-28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.wel-foot {
+  padding: 12px 22px 18px; flex-shrink: 0;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  background: linear-gradient(180deg, transparent, rgba(0,0,0,0.2));
+}
+.wel-dots {
+  display: flex; justify-content: center; gap: 7px; margin-bottom: 14px;
+}
+.wel-dot {
+  width: 7px; height: 7px; border-radius: 999px; border: none; padding: 0;
+  cursor: pointer; background: rgba(255,255,255,0.15);
+  transition: width 0.35s cubic-bezier(.22,1,.36,1), background 0.25s;
+}
+.wel-dot.is-on {
+  width: 26px;
+  background: linear-gradient(90deg, var(--accent-1, #5b8def), var(--accent-2, #af52de));
+  box-shadow: 0 0 12px rgba(90,140,255,0.45);
+}
+.wel-dot.is-done { background: rgba(90,140,255,0.5); }
+
+.wel-actions { display: flex; gap: 10px; }
+.wel-btn {
+  padding: 13px 14px; border-radius: 16px; font-weight: 800; font-size: 14px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: transform 0.15s ease, box-shadow 0.2s;
+}
+.wel-btn:active { transform: scale(0.98); }
+.wel-btn-ghost {
+  flex: 1; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.75);
+}
+.wel-btn-primary {
+  flex: 1.6; border: none; color: #fff;
+  background: linear-gradient(135deg, var(--accent-1, #5b8def), var(--accent-2, #7c3aed));
+  box-shadow: 0 12px 28px -10px rgba(80,140,255,0.7);
+}
+.wel-btn-primary:hover {
+  box-shadow: 0 14px 32px -8px rgba(80,140,255,0.85);
+}
+.wel-btn-arrow {
+  display: inline-block;
+  animation: welArrow 1.2s ease-in-out infinite;
+}
+@keyframes welArrow {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(4px); }
+}
+`;
 
 export function hasSeenWelcome(accountCode) {
   if (!accountCode || accountCode === "guest") return true;

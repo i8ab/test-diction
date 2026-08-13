@@ -1,51 +1,49 @@
 /**
- * بطاقة تعريفية للمطوّرين — للتجربة والعرض.
- * مطورين فقط: mickoly و aboawad
+ * بطاقة تعريفية للمطوّرين
+ * aboawad أولاً، ثم mickoly
  */
 
 export const DEVELOPERS = [
-  {
-    id: "mickoly",
-    initials: "M",
-    enName: "mickoly",
-    arName: "mickoly",
-    enRole: "Developer",
-    arRole: "مطوّر",
-    enTitle: "Full-stack · Product",
-    arTitle: "فل ستاك · منتج",
-    enFocus: "Study UX · SRS · Offline PWA",
-    arFocus: "تجربة المذاكرة · SRS · أوفلاين",
-    enBio: "Building a study app that feels premium, honest, and worth opening every day.",
-    arBio: "ببني تطبيق مذاكرة شكله premium، أمين، ويستاهل يتفتح كل يوم.",
-    project: "Bacaloria Community",
-    skills: ["React", "Node", "PWA", "SRS", "i18n"],
-    years: "3+",
-    avatarTone: 1,
-  },
   {
     id: "aboawad",
     initials: "A",
     enName: "aboawad",
     arName: "aboawad",
-    enRole: "Developer",
-    arRole: "مطوّر",
-    enTitle: "Full-stack · Product",
-    arTitle: "فل ستاك · منتج",
-    enFocus: "Study UX · SRS · Offline PWA",
-    arFocus: "تجربة المذاكرة · SRS · أوفلاين",
-    enBio: "Building a study app that feels premium, honest, and worth opening every day.",
-    arBio: "ببني تطبيق مذاكرة شكله premium، أمين، ويستاهل يتفتح كل يوم.",
+    enRole: "Backend & Frontend",
+    arRole: "Backend و Frontend",
+    enTitle: "Backend & Frontend · strategist & decision executor",
+    arTitle: "Backend و Frontend · مفكر ومنفذ للقرارات",
+    enFocus: "Backend · Frontend · Decisions",
+    arFocus: "باك إند · فرونت إند · قرارات",
+    enBio: "Thinker and decision executor — building Bacaloria end to end.",
+    arBio: "مفكر ومنفذ للقرارات — بيبني Bacaloria من الطرف للطرف.",
     project: "Bacaloria Community",
-    skills: ["React", "Node", "PWA", "SRS", "i18n"],
+    skills: ["Backend", "Frontend", "React", "Node"],
+    years: "3+",
+    avatarTone: 1,
+    photo: "/icons/dev-aboawad.png",
+  },
+  {
+    id: "mickoly",
+    initials: "M",
+    enName: "mickoly",
+    arName: "mickoly",
+    enRole: "Backend · Ideas",
+    arRole: "Backend · أفكار",
+    enTitle: "Backend · idea designer & frontend",
+    arTitle: "Backend · مصمم أفكار وفرونت إند",
+    enFocus: "Backend · Ideas · Frontend",
+    arFocus: "باك إند · أفكار · فرونت إند",
+    enBio: "Idea designer with backend and frontend craft.",
+    arBio: "مصمم أفكار مع باك إند وفرونت إند.",
+    project: "Bacaloria Community",
+    skills: ["Backend", "Frontend", "Ideas", "React"],
     years: "3+",
     avatarTone: 2,
+    photo: "/icons/dev-mickoly.png",
   },
 ];
 
-/**
- * بطاقة تعريف مطوّر واحدة.
- * @param {{ dev: typeof DEVELOPERS[0], isAr?: boolean, compact?: boolean }} props
- */
 export default function DevIdCard({ dev, isAr = false, compact = false }) {
   if (!dev) return null;
 
@@ -61,7 +59,20 @@ export default function DevIdCard({ dev, isAr = false, compact = false }) {
           className={`dev-id-avatar${dev.avatarTone === 2 ? " is-tone-2" : ""}`}
           aria-hidden
         >
-          <span>{dev.initials}</span>
+          {dev.photo ? (
+            <img
+              src={dev.photo}
+              alt=""
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+                const span = document.createElement("span");
+                span.textContent = dev.initials;
+                e.currentTarget.parentElement.appendChild(span);
+              }}
+            />
+          ) : (
+            <span>{dev.initials}</span>
+          )}
         </div>
         <div className="dev-id-who">
           <div className="dev-id-role">{isAr ? dev.arRole : dev.enRole}</div>
@@ -84,12 +95,6 @@ export default function DevIdCard({ dev, isAr = false, compact = false }) {
           <span className="dev-id-k">{isAr ? "التركيز" : "Focus"}</span>
           <span className="dev-id-v">{isAr ? dev.arFocus : dev.enFocus}</span>
         </div>
-        {!compact && (
-          <div className="dev-id-row">
-            <span className="dev-id-k">{isAr ? "خبرة" : "Experience"}</span>
-            <span className="dev-id-v">{dev.years} {isAr ? "سنة" : "yrs"}</span>
-          </div>
-        )}
       </div>
 
       {!compact && dev.skills?.length > 0 && (
@@ -126,6 +131,10 @@ const DEV_CARD_CSS = `
   font-size: 16px; font-weight: 800; color: #fff; letter-spacing: 0.04em;
   background: linear-gradient(145deg, #5b8def, #7c3aed);
   box-shadow: 0 8px 20px -8px rgba(80,140,255,0.7);
+  overflow: hidden;
+}
+.dev-id-avatar img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
 }
 .dev-id-avatar.is-tone-2 {
   background: linear-gradient(145deg, #7c3aed, #c026d3);

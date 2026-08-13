@@ -135,17 +135,17 @@ const STEPS = [
     enLead: "Development credit",
     arLead: "نَسب التطوير",
     enBody:
-      "Bacaloria is developed by mickoly and aboawad. The goal is simple and hard: a study app that feels premium in motion, honest in pedagogy, and worth opening every single day.",
+      "Bacaloria is developed by aboawad and mickoly. The goal is simple and hard: a study app that feels premium in motion, honest in pedagogy, and worth opening every single day.",
     arBody:
-      "Bacaloria من تطوير mickoly و aboawad. الهدف بسيط وصعب في نفس الوقت: تطبيق مذاكرة شكله premium في الحركة، أمين في أسلوب التعلّم، ويستاهل يتفتح كل يوم.",
+      "Bacaloria من تطوير aboawad و mickoly. الهدف بسيط وصعب في نفس الوقت: تطبيق مذاكرة شكله premium في الحركة، أمين في أسلوب التعلّم، ويستاهل يتفتح كل يوم.",
     points: [
       {
-        en: "mickoly — product & full-stack",
-        ar: "mickoly — منتج وفل ستاك",
+        en: "aboawad — Backend & Frontend · strategist & decision executor",
+        ar: "aboawad — Backend و Frontend · مفكر ومنفذ للقرارات",
       },
       {
-        en: "aboawad — product & full-stack",
-        ar: "aboawad — منتج وفل ستاك",
+        en: "mickoly — Backend · idea designer & frontend",
+        ar: "mickoly — Backend · مصمم أفكار وفرونت إند",
       },
       {
         en: "Thank you for trusting Bacaloria with your study time. Let’s build the habit together.",
@@ -403,33 +403,10 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
               <div className="wel-dev-card">
                 <div className="wel-dev-card-top">
                   <div className="wel-dev-avatar" aria-hidden>
-                    <span>M</span>
+                    <img src="/icons/dev-aboawad.png" alt="" />
                   </div>
                   <div className="wel-dev-id">
-                    <div className="wel-dev-role">{tr(isAr, "Developer", "مطوّر")}</div>
-                    <div className="wel-dev-name">mickoly</div>
-                  </div>
-                </div>
-                <div className="wel-dev-divider" />
-                <div className="wel-dev-meta">
-                  <div className="wel-dev-row">
-                    <span className="wel-dev-k">{tr(isAr, "Project", "المشروع")}</span>
-                    <span className="wel-dev-v">Bacaloria Community</span>
-                  </div>
-                  <div className="wel-dev-row">
-                    <span className="wel-dev-k">{tr(isAr, "Role", "الدور")}</span>
-                    <span className="wel-dev-v">{tr(isAr, "Full-stack · Product", "فل ستاك · منتج")}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="wel-dev-card">
-                <div className="wel-dev-card-top">
-                  <div className="wel-dev-avatar wel-dev-avatar-2" aria-hidden>
-                    <span>A</span>
-                  </div>
-                  <div className="wel-dev-id">
-                    <div className="wel-dev-role">{tr(isAr, "Developer", "مطوّر")}</div>
+                    <div className="wel-dev-role">{tr(isAr, "Backend & Frontend", "Backend و Frontend")}</div>
                     <div className="wel-dev-name">aboawad</div>
                   </div>
                 </div>
@@ -441,7 +418,30 @@ export default function WelcomeOnboardingModal({ isAr, userName = "", onClose })
                   </div>
                   <div className="wel-dev-row">
                     <span className="wel-dev-k">{tr(isAr, "Role", "الدور")}</span>
-                    <span className="wel-dev-v">{tr(isAr, "Full-stack · Product", "فل ستاك · منتج")}</span>
+                    <span className="wel-dev-v">{tr(isAr, "Backend & Frontend · thinker & decision executor", "Backend و Frontend · مفكر ومنفذ للقرارات")}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="wel-dev-card">
+                <div className="wel-dev-card-top">
+                  <div className="wel-dev-avatar wel-dev-avatar-2" aria-hidden>
+                    <img src="/icons/dev-mickoly.png" alt="" onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.parentElement.textContent = "M"; }} />
+                  </div>
+                  <div className="wel-dev-id">
+                    <div className="wel-dev-role">{tr(isAr, "Backend · Ideas", "Backend · أفكار")}</div>
+                    <div className="wel-dev-name">mickoly</div>
+                  </div>
+                </div>
+                <div className="wel-dev-divider" />
+                <div className="wel-dev-meta">
+                  <div className="wel-dev-row">
+                    <span className="wel-dev-k">{tr(isAr, "Project", "المشروع")}</span>
+                    <span className="wel-dev-v">Bacaloria Community</span>
+                  </div>
+                  <div className="wel-dev-row">
+                    <span className="wel-dev-k">{tr(isAr, "Role", "الدور")}</span>
+                    <span className="wel-dev-v">{tr(isAr, "Backend · idea designer & frontend", "Backend · مصمم أفكار وفرونت إند")}</span>
                   </div>
                 </div>
               </div>
@@ -716,11 +716,15 @@ const CSS = `
   display: flex; align-items: center; gap: 14px;
 }
 .wel-dev-avatar {
-  flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
+  flex-shrink: 0; width: 48px; height: 48px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 15px; font-weight: 800; color: #fff; letter-spacing: 0.04em;
   background: linear-gradient(145deg, #5b8def, #7c3aed);
   box-shadow: 0 8px 20px -8px rgba(80,140,255,0.7);
+  overflow: hidden;
+}
+.wel-dev-avatar img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
 }
 .wel-dev-avatar-2 {
   background: linear-gradient(145deg, #7c3aed, #c026d3);

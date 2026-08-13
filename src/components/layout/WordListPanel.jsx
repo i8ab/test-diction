@@ -7,6 +7,8 @@ import EmptyState from "./EmptyState";
 
 /**
  * Letter rail + paginated word list for the dictionary main view.
+ * Letter rail uses seamless circular (infinite) scroll on tablet/desktop —
+ * independent from the words list scroll.
  */
 export default function WordListPanel({
   cfg,
@@ -41,7 +43,7 @@ export default function WordListPanel({
   const letterRefs = useRef({});
   const railRef = useRef(null);
   const railAdjustingRef = useRef(false);
-  // Circular (infinite) scroll only on tablet/desktop vertical rail
+  // Circular (infinite) scroll on tablet/desktop vertical rail — one strip that loops
   const enableCircularRail = deviceMode === "tablet" || deviceMode === "desktop";
   const baseLetters = cfg.letters || [];
   // Render letters twice so the rail can loop seamlessly
@@ -101,7 +103,6 @@ export default function WordListPanel({
       >
         {railLetters.map((l, i) => {
           const hasWords = availableLetters.has(l);
-          // unique key across duplicated sets
           const key = enableCircularRail ? `${l}-${i}` : l;
           return (
             <button

@@ -1156,6 +1156,7 @@ canvas {
     0 4px 16px -4px rgba(0, 0, 0, 0.08);
   z-index: 60;
   transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  scrollbar-width: none;
 }
 
 html[data-theme="dark"] .letter-rail {
@@ -1240,7 +1241,7 @@ html[data-theme="dark"] .letter-rail {
   pointer-events: none;
 }
 
-/* Circular vertical rail (tablet / desktop): constrained height + internal scroll */
+/* Circular vertical rail (tablet / desktop): constrained height + internal scroll — loops A↔Z */
 .letter-rail.letter-rail--circular {
   max-height: calc(100dvh - 120px);
   overflow-y: auto;
@@ -1255,33 +1256,38 @@ html[data-theme="dark"] .letter-rail {
   height: 0;
 }
 
-/* Anchor for A–Z jump — keeps first word fully visible under sticky header */
+/* Anchor for A–Z jump — keeps first word fully visible under sticky header (+ sticky search) */
 .letter-section-anchor {
   scroll-margin-top: 88px;
 }
 
 @media (max-width: 640px) {
   .letter-section-anchor {
-    /* header only — letter rail scrolls away on mobile */
-    scroll-margin-top: 72px;
+    /* header + sticky search — avoid word top being covered */
+    scroll-margin-top: 140px;
   }
 }
 
 html[data-device="mobile"] .letter-section-anchor {
-  scroll-margin-top: 72px;
+  /* sticky header + sticky search bar */
+  scroll-margin-top: 140px;
 }
 
 html[data-device="tablet"] .letter-section-anchor {
-  scroll-margin-top: 92px;
+  /* sticky header + sticky search */
+  scroll-margin-top: 130px;
 }
 
 @media (min-width: 641px) {
   .letter-rail {
     position: sticky;
     top: 72px;
-    max-height: none !important;
-    overflow: visible !important;
     height: auto;
+  }
+  .letter-rail.letter-rail--circular {
+    max-height: calc(100dvh - 120px);
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 }
 
@@ -1797,11 +1803,14 @@ html[data-device="tablet"] .letter-rail {
   max-width: 52px !important;
   position: sticky !important;
   top: 72px !important;
-  max-height: none !important;
-  overflow: visible !important;
   gap: 3px !important;
   padding: 8px 5px !important;
   border-radius: 16px !important;
+}
+html[data-device="tablet"] .letter-rail.letter-rail--circular {
+  max-height: calc(100dvh - 120px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
 }
 html[data-device="tablet"] .letter-rail-btn {
   width: 42px !important;

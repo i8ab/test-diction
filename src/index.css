@@ -1143,12 +1143,12 @@ canvas {
   justify-content: space-between;
   gap: 4px;
   position: sticky;
-  top: 112px;
+  top: 156px;
   height: auto;
   min-height: 100%;
   max-height: none;
   overflow: visible;
-  padding: 10px 4px;
+  padding: 14px 4px 12px;
   margin: 0;
   border: 1px solid rgba(var(--border-rgb), 0.14);
   background: var(--card, #ffffff);
@@ -1248,7 +1248,7 @@ html[data-theme="dark"] .letter-rail {
 .letter-rail.letter-rail--circular {
   align-self: stretch;
   min-height: 100%;
-  max-height: calc(100dvh - 148px);
+  max-height: calc(100dvh - 196px);
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -1287,13 +1287,13 @@ html[data-device="tablet"] .letter-section-anchor {
 @media (min-width: 641px) {
   .letter-rail {
     position: sticky;
-    top: 112px;
+    top: 156px;
     height: auto;
     min-height: 100%;
     align-self: stretch;
   }
   .letter-rail.letter-rail--circular {
-    max-height: calc(100dvh - 148px);
+    max-height: calc(100dvh - 196px);
     overflow-y: auto;
     overflow-x: hidden;
     justify-content: space-between;
@@ -1811,7 +1811,7 @@ html[data-device="tablet"] .letter-rail {
   min-width: 56px !important;
   max-width: 56px !important;
   position: sticky !important;
-  top: 112px !important;
+  top: 156px !important;
   align-self: stretch !important;
   min-height: 100% !important;
   justify-content: space-between !important;
@@ -1820,7 +1820,7 @@ html[data-device="tablet"] .letter-rail {
   border-radius: 16px !important;
 }
 html[data-device="tablet"] .letter-rail.letter-rail--circular {
-  max-height: calc(100dvh - 148px) !important;
+  max-height: calc(100dvh - 196px) !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
   justify-content: space-between !important;

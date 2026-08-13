@@ -178,26 +178,20 @@ export default function MainView({
   useHistoryBackClose(showSentencePractice, () => setShowSentencePractice(false));
   useHistoryBackClose(showWeeklyReport, () => setShowWeeklyReport(false));
 
-  // First-login onboarding — only for new accounts (created < 48h) or explicit flag
+  // Welcome onboarding: once per account, or forced via sessionStorage for testing
   useEffect(() => {
     if (!accountCode || accountCode === "guest") return;
-    if (hasSeenWelcome(accountCode)) return;
-    const acct = (accounts || []).find((a) => a.code === accountCode);
-    const created = acct && typeof acct.createdAt === "number" ? acct.createdAt : 0;
-    const isNewAccount = created > 0 && Date.now() - created < 48 * 60 * 60 * 1000;
-    // Also show if server marked firstSession / no studied words yet and no flag
-    const neverStudied = !acct || !acct.studied || acct.studied.length === 0;
-    if (!isNewAccount && !neverStudied) {
-      // Existing active user on first deploy of this feature — don't nag
-      markWelcomeSeen(accountCode);
-      return;
+    let force = false;
+    try {
+      force = sessionStorage.getItem("twoTongues.forceWelcome") === "1";
+    } catch (_) {}
+    if (!force && hasSeenWelcome(accountCode)) return;
+    if (force) {
+      try { sessionStorage.removeItem("twoTongues.forceWelcome"); } catch (_) {}
     }
-    if (!isNewAccount && neverStudied) {
-      // Brand-new empty account without createdAt — still show once
-    }
-    const t = setTimeout(() => setShowWelcome(true), 700);
+    const t = setTimeout(() => setShowWelcome(true), 500);
     return () => clearTimeout(t);
-  }, [accountCode, accounts]);
+  }, [accountCode]);
 
 
   const [showDictation, setShowDictation] = useState(false);

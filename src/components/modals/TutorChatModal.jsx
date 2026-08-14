@@ -212,6 +212,8 @@ function detectTextDir(text) {
     else if ((c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a)) en += 1;
   }
   if (ar === 0 && en === 0) return "auto";
+  // Prefer RTL as soon as there is meaningful Arabic (stats replies are AR-heavy)
+  if (ar >= 3) return "rtl";
   return ar >= en ? "rtl" : "ltr";
 }
 

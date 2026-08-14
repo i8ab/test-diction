@@ -15,14 +15,14 @@ export function buildSearchSuggestions(sectionEntries, query, section, limit = 6
   const scored = [];
   for (const e of sectionEntries || []) {
     if (seen.has(e.word)) continue;
-    const score = matchScore(e.word, q);
-    if (score === null) continue;
+    const score = matchScore(e, q);
+    if (!score) continue; // 0 = no match at all, skip it
     seen.add(e.word);
     scored.push({ entry: e, score });
   }
   const locale = section === "ar-ar" ? "ar" : "en";
   scored.sort(
-    (a, b) => a.score - b.score || a.entry.word.localeCompare(b.entry.word, locale)
+    (a, b) => b.score - a.score || a.entry.word.localeCompare(b.entry.word, locale)
   );
   return scored.slice(0, limit).map((s) => s.entry);
 }

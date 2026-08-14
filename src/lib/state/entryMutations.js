@@ -442,3 +442,81 @@ export async function importWordsFromText({
     } catch (_) {}
   }
 }
+
+
+/**
+ * Import rich entries coming from the AI Agent (PDF extraction).
+ * Preserves meaning, definition, example, synonyms, antonyms, etc.
+ */
+export async function importWordsFromAi({
+  aiEntries,
+  section,
+  entries,
+  accountCode,
+  name,
+  appIsAr,
+  persistEntries,
+  showToast,
+}) {
+  if (!aiEntries || !aiEntries.length) return;
+
+  const existing = new Set(
+    (entries || [])
+      .filter((e) => e.section === section)
+      .map((e) => (e.word || "").trim().toLowerCase())
+  );
+
+  const newEntries = [];
+  for (const e of aiEntries) {
+    const key = (e.word || "").trim().toLowerCase();
+    if (!key || existing.has(key)) continue;
+    existing.add(key);
+
+    // normalize synonyms / antonyms to simple string arrays
+    const normList = (arr) => {
+      if (!Array.isArray(arr)) return [];
+      return arr
+        .map((item) => (typeof item === "string" ? item : item?.word || ""))
+        .filter(Boolean);
+    };
+
+    newEntries.push({
+      id: e.id || uid(),
+      section: e.section || section,
+      word: e.word,
+      meaning: e.meaning || "",
+      definition: e.definition || "",
+      example: e.example || "",
+      examples: Array.isArray(e.examples) ? e.examples : [],
+      pos: e.pos || "",
+      synonyms: normList(e.synonyms),
+      antonyms: normList(e.antonyms),
+      addedBy: accountCode || e.addedBy || "ai-agent",
+      addedAt: e.addedAt || Date.now(),
+      // extra metadata
+      source_book: e.source_book || null,
+      unit: e.unit || null,
+      page: e.page || null,
+      from_ai: true,
+      importance: e.importance || "key",
+    });
+  }
+
+  if (!newEntries.length) {
+    showToast?.(tr(appIsAr, "No new words to add", "مفيش كلمات جديدة للإضافة"));
+    return { added: 0 };
+  }
+
+  await persistEntries(
+    (cur) => [...cur, ...newEntries],
+    () =>
+      makeLogEntry(
+        "word_add",
+        `${name} imported ${newEntries.length} word(s) from AI (PDF)`,
+        name,
+        accountCode
+      )
+  );
+
+  return { added: newEntries.length };
+}

@@ -152,6 +152,8 @@ export default function MainView({
   const [showLevels, setShowLevels] = useState(false);
   const [showProgressCompare, setShowProgressCompare] = useState(false);
   const [showTextExtract, setShowTextExtract] = useState(false);
+  const [showAiPdfExtract, setShowAiPdfExtract] = useState(false);
+  const [showAiPdfExtract, setShowAiPdfExtract] = useState(false);
   const [showQuickReview, setShowQuickReview] = useState(false);
   const [showWeaknessReview, setShowWeaknessReview] = useState(false);
   const [showListeningLoop, setShowListeningLoop] = useState(false);
@@ -272,6 +274,7 @@ export default function MainView({
     showSmartCards ||
     showConversation ||
     showTextExtract ||
+    showAiPdfExtract ||
     showQuickReview;
 
   const showLevelUpNow = pendingLevelUp && !blockingActivity;
@@ -915,6 +918,8 @@ export default function MainView({
         setShowProgressCompare={setShowProgressCompare}
         showTextExtract={showTextExtract}
         setShowTextExtract={setShowTextExtract}
+        showAiPdfExtract={showAiPdfExtract}
+        setShowAiPdfExtract={setShowAiPdfExtract}
         showAccount={showAccount}
         onCloseAccount={onCloseAccount}
         onUpdateOwnAccount={onUpdateOwnAccount}

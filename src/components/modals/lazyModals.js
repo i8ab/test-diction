@@ -32,6 +32,7 @@ export const LevelsModal = lazy(() => import("./LevelsModal"));
 export const LevelUpModal = lazy(() => import("./LevelUpModal"));
 export const ProgressCompareModal = lazy(() => import("./ProgressCompareModal"));
 export const TextExtractModal = lazy(() => import("./TextExtractModal"));
+export const AiPdfExtractModal = lazy(() => import("./AiPdfExtractModal"));
 export const WeaknessReviewModal = lazy(() => import("./WeaknessReviewModal"));
 export const ListeningLoopModal = lazy(() => import("./ListeningLoopModal"));
 export const SentencePracticeModal = lazy(() => import("./SentencePracticeModal"));

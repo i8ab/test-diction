@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { tr } from "../../lib/config/i18n";
 import { computeStreak } from "../../lib/utils/quizHelpers";
-import { importWordsFromList, importWordsFromText } from "../../lib/state/entryMutations";
+import { importWordsFromList, importWordsFromText, importWordsFromAi } from "../../lib/state/entryMutations";
 import { grantSmartCard, grantConversation, grantExtract } from "../../lib/state/xp";
 import { setWordNote } from "../../lib/state/wordNotes";
 import { loadProgress } from "../../lib/state/goals";
@@ -29,6 +29,7 @@ import {
   LevelUpModal,
   ProgressCompareModal,
   TextExtractModal,
+  AiPdfExtractModal,
   InfoGuideModal,
   WeaknessReviewModal,
   ListeningLoopModal,
@@ -106,6 +107,7 @@ export default function MainViewOverlays(p) {
     showLevelUpNow, pendingLevelUp, setPendingLevelUp,
     showProgressCompare, setShowProgressCompare,
     showTextExtract, setShowTextExtract,
+    showAiPdfExtract, setShowAiPdfExtract,
     showAccount, onCloseAccount, onUpdateOwnAccount,
     showAdmin, onCloseAdmin, onClearLogs, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount,
     showDictation, setShowDictation, onDictationRoundFinished,
@@ -394,6 +396,29 @@ export default function MainViewOverlays(p) {
             />
           </Suspense>
         )}
+        {showAiPdfExtract && (
+          <Suspense fallback={null}>
+            <AiPdfExtractModal
+              section={section}
+              entries={entries}
+              isAr={appIsAr}
+              onClose={() => setShowAiPdfExtract(false)}
+              showToast={showToast}
+              onAddEntries={(aiEntries) =>
+                importWordsFromAi({
+                  aiEntries,
+                  section,
+                  entries,
+                  accountCode,
+                  name,
+                  appIsAr,
+                  persistEntries,
+                  showToast,
+                })
+              }
+            />
+          </Suspense>
+        )}
         {showAccount && (
           <AccountModal
             account={accounts.find((a) => a.code === accountCode) || { name, code: accountCode, role: isAdmin ? "admin" : "user" }}
@@ -416,6 +441,7 @@ export default function MainViewOverlays(p) {
               onEdit={onAdminEditAccount}
               onDelete={onAdminDeleteAccount}
               isAr={appIsAr}
+              onOpenAiPdf={() => setShowAiPdfExtract(true)}
             />
           </Suspense>
         )}

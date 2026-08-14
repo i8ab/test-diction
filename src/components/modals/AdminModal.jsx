@@ -36,7 +36,7 @@ function StatPill({ label, value, accent }) {
   );
 }
 
-function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClose, onAdd, onEdit, onDelete, isAr }) {
+function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClose, onAdd, onEdit, onDelete, isAr, onOpenAiPdf }) {
   const [backupDone, setBackupDone] = useState(false);
   const [tab, setTab] = useState("accounts"); // accounts | log | tools
   const [mode, setMode] = useState("list"); // list | add | edit | added
@@ -658,6 +658,52 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                   {inviteCopied ? tr(isAr, "Copied!", "تم النسخ!") : tr(isAr, "Copy invite link", "نسخ رابط الدعوة")}
                 </button>
               </div>
+
+              {typeof onOpenAiPdf === "function" && (
+                <div
+                  style={{
+                    padding: 16,
+                    borderRadius: 16,
+                    background: "var(--input-bg)",
+                    border: "1px solid rgba(var(--border-rgb),0.12)",
+                  }}
+                >
+                  <div style={{ fontWeight: 800, fontSize: 14, color: INK, marginBottom: 6 }}>
+                    {tr(isAr, "AI Book Extractor", "استخراج كلمات من كتاب")}
+                  </div>
+                  <p style={{ margin: "0 0 12px", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.45 }}>
+                    {tr(
+                      isAr,
+                      "Upload an English PDF textbook. AI extracts key vocabulary with Arabic meanings, synonyms and antonyms from the book.",
+                      "ارفع كتاب إنجليزي PDF. الذكاء الاصطناعي هيستخرج الكلمات المهمة مع معانيها بالعربي والمرادفات والمضادات من الكتاب."
+                    )}
+                  </p>
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onOpenAiPdf();
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      width: "100%",
+                      minHeight: 44,
+                      borderRadius: 12,
+                      border: "none",
+                      cursor: "pointer",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      color: "#fff",
+                      background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+                    }}
+                  >
+                    <BookIcon size={15} />
+                    {tr(isAr, "Upload PDF & Extract", "رفع PDF واستخراج")}
+                  </button>
+                </div>
+              )}
 
               <div
                 style={{

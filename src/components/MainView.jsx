@@ -153,7 +153,6 @@ export default function MainView({
   const [showProgressCompare, setShowProgressCompare] = useState(false);
   const [showTextExtract, setShowTextExtract] = useState(false);
   const [showAiPdfExtract, setShowAiPdfExtract] = useState(false);
-  const [showAiPdfExtract, setShowAiPdfExtract] = useState(false);
   const [showQuickReview, setShowQuickReview] = useState(false);
   const [showWeaknessReview, setShowWeaknessReview] = useState(false);
   const [showListeningLoop, setShowListeningLoop] = useState(false);

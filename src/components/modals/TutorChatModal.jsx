@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { tr } from "../../lib/config/i18n";
-import { primaryBtnStyle, inputStyle } from "../../lib/config/theme";
 import { XIcon, LoaderIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { srsLevelFromStats, computeStreak, dateKey } from "../../lib/utils/quizHelpers";
@@ -481,50 +480,99 @@ export default function TutorChatModal({
           ) : null}
         </div>
 
-        {/* Input — user types freely */}
+        {/* Input bar — premium chat style */}
         <form
           onSubmit={onSubmit}
           style={{
-            padding: "10px 12px 12px",
-            borderTop: "1px solid rgba(var(--border-rgb), 0.14)",
+            padding: "10px 12px 14px",
+            borderTop: "1px solid rgba(var(--border-rgb), 0.12)",
             display: "flex",
-            gap: 8,
+            gap: 10,
             alignItems: "center",
             flexShrink: 0,
+            background: "var(--card, #1c1f26)",
           }}
         >
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={tr(isAr, "Type your question…", "اكتب سؤالك…")}
-            disabled={loading}
-            autoComplete="off"
+          <div
             style={{
-              ...inputStyle,
               flex: 1,
-              minHeight: 42,
-              height: 42,
-              padding: "0 12px",
-              fontSize: 14,
-              margin: 0,
+              minWidth: 0,
+              display: "flex",
+              alignItems: "center",
+              height: 44,
+              borderRadius: 22,
+              padding: "0 16px",
+              background: "rgba(var(--border-rgb), 0.1)",
+              border: "1px solid rgba(var(--border-rgb), 0.18)",
+              boxShadow: "inset 0 1px 2px rgba(0,0,0,0.12)",
             }}
-          />
+          >
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={tr(isAr, "Type your question…", "اكتب سؤالك…")}
+              disabled={loading}
+              autoComplete="off"
+              style={{
+                flex: 1,
+                width: "100%",
+                minWidth: 0,
+                height: "100%",
+                border: "none",
+                outline: "none",
+                background: "transparent",
+                color: "var(--ink, #e8eaed)",
+                fontSize: 14,
+                lineHeight: 1.4,
+                padding: 0,
+                margin: 0,
+                boxShadow: "none",
+              }}
+            />
+          </div>
           <button
             type="submit"
             disabled={loading || !input.trim()}
+            aria-label={tr(isAr, "Send", "إرسال")}
+            title={tr(isAr, "Send", "إرسال")}
             style={{
-              ...primaryBtnStyle,
-              marginTop: 0,
-              height: 42,
-              padding: "0 16px",
-              opacity: loading || !input.trim() ? 0.45 : 1,
+              width: 44,
+              height: 44,
+              borderRadius: "50%",
+              border: "none",
               flexShrink: 0,
-              whiteSpace: "nowrap",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: loading || !input.trim() ? "default" : "pointer",
+              background: loading || !input.trim()
+                ? "rgba(var(--border-rgb), 0.18)"
+                : "linear-gradient(135deg, var(--accent-1, #5b8def), #4a7de0)",
+              color: loading || !input.trim() ? "var(--muted-strong, #9aa0a6)" : "#fff",
+              boxShadow: loading || !input.trim()
+                ? "none"
+                : "0 4px 14px rgba(91, 141, 239, 0.4)",
+              transition: "background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease",
+              padding: 0,
             }}
           >
-            {tr(isAr, "Send", "إرسال")}
+            {loading ? (
+              <LoaderIcon size={18} />
+            ) : (
+              /* Paper-plane / send triangle (social style) */
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+                style={{ marginLeft: 2 }}
+              >
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+              </svg>
+            )}
           </button>
         </form>
       </div>

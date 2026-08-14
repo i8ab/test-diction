@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { isSrsDue } from "../../lib/utils/quizHelpers";
 import { SpeakButton, XIcon, CheckIcon, EyeIcon } from "../common/Icons";
+import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 /**
@@ -32,7 +33,19 @@ export default function RandomWordModal({
   onClose,
   onRecordSrsAnswer,
   onToggleStudied,
+  academicUnits = null,
+  activeUnitId = null,
 }) {
+  const {
+    hasUnits,
+    sortedUnits,
+    selectedUnitIds,
+    unitFilteredEntries,
+    setUnitPreset,
+    toggleUnit,
+    selectAllUnits,
+  } = useUnitScope(academicUnits, activeUnitId, entries);
+
   const studiedSet = useMemo(
     () => (studiedIds instanceof Set ? studiedIds : new Set(studiedIds || [])),
     [studiedIds]
@@ -40,19 +53,18 @@ export default function RandomWordModal({
 
   // Prefer: due studied → not yet studied → other studied → everything in section
   const pool = useMemo(() => {
-    const list = (entries || []).filter((e) => e.section === section || !section);
+    const list = (unitFilteredEntries || []).filter((e) => e.section === section || !section);
     if (!list.length) return [];
     const due = list.filter((e) => studiedSet.has(e.id) && isSrsDue(e.id, srsDueAt));
     if (due.length >= 2) return due;
     const notStudied = list.filter((e) => !studiedSet.has(e.id));
     if (notStudied.length >= 1) {
-      // Mix a few due words in if any, but prioritize learning new ones
       return notStudied.length >= 3 ? notStudied : [...notStudied, ...due];
     }
     const studied = list.filter((e) => studiedSet.has(e.id));
     if (studied.length >= 1) return studied;
     return list;
-  }, [entries, studiedSet, srsDueAt, section]);
+  }, [unitFilteredEntries, studiedSet, srsDueAt, section]);
 
   const [current, setCurrent] = useState(null);
   const [flipped, setFlipped] = useState(false);
@@ -204,6 +216,17 @@ export default function RandomWordModal({
           </button>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+
+        <UnitScopePicker
+          isAr={isAr}
+          hasUnits={hasUnits}
+          sortedUnits={sortedUnits}
+          selectedUnitIds={selectedUnitIds}
+          entries={entries}
+          setUnitPreset={setUnitPreset}
+          toggleUnit={toggleUnit}
+          selectAllUnits={selectAllUnits}
+        />
 
         <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted)" }}>
           {sessionTotal > 0

@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
-import { INK, CARD, labelStyle, primaryBtnStyle } from "../../lib/config/theme";
+import { INK, CARD, BRASS, labelStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { shuffleArray, pickEntryExample, makeClozeFromExample } from "../../lib/utils/quizHelpers";
 import { XIcon, LayersIcon, SpeakerIcon, CheckIcon } from "../common/Icons";
+import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { SECTIONS } from "../../lib/config/sections";
 
@@ -48,6 +49,8 @@ export default function SmartCardsModal({
   onClose,
   onRecordSrsAnswer,
   onXp,
+  academicUnits = null,
+  activeUnitId = null,
 }) {
   const [mode, setMode] = useState("mix");
   const [filterKey, setFilterKey] = useState("studied");
@@ -60,12 +63,22 @@ export default function SmartCardsModal({
   const [missed, setMissed] = useState(0);
   const inputRef = useRef(null);
 
+  const {
+    hasUnits,
+    sortedUnits,
+    selectedUnitIds,
+    unitFilteredEntries,
+    setUnitPreset,
+    toggleUnit,
+    selectAllUnits,
+  } = useUnitScope(academicUnits, activeUnitId, entries);
+
   const pool = useMemo(() => {
-    let list = entries || [];
+    let list = unitFilteredEntries || [];
     if (filterKey === "studied") list = list.filter((e) => studiedIds && studiedIds.has(e.id));
     if (filterKey === "favorites") list = list.filter((e) => favoriteIds && favoriteIds.has(e.id));
     return list;
-  }, [entries, filterKey, studiedIds, favoriteIds]);
+  }, [unitFilteredEntries, filterKey, studiedIds, favoriteIds]);
 
   useEffect(() => {
     function onKey(e) {
@@ -363,6 +376,16 @@ export default function SmartCardsModal({
 
         {!deck && (
           <div>
+            <UnitScopePicker
+              isAr={isAr}
+              hasUnits={hasUnits}
+              sortedUnits={sortedUnits}
+              selectedUnitIds={selectedUnitIds}
+              entries={entries}
+              setUnitPreset={setUnitPreset}
+              toggleUnit={toggleUnit}
+              selectAllUnits={selectAllUnits}
+            />
             <div style={labelStyle}>{tr(isAr, "Card style", "نوع البطاقة")}</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {MODES.map((m) => (

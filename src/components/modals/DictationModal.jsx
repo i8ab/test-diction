@@ -4,6 +4,7 @@ import { INK, CARD, BRASS, labelStyle, inputStyle, primaryBtnStyle, errorStyle }
 import { speakWord } from "../../lib/utils/speech";
 import { isTypingCorrect, uid } from "../../lib/utils/quizHelpers";
 import { SpeakButton, XIcon, CheckIcon, EyeIcon, MicIcon } from "../common/Icons";
+import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import NumberStepper from "../common/NumberStepper";
 
@@ -28,6 +29,8 @@ export default function DictationModal({
   onClose,
   onRecordSrsAnswer,
   onFinishRound,
+  academicUnits = null,
+  activeUnitId = null,
 }) {
   const [mode, setMode] = useState("listen-meaning"); // listen-meaning | type-word | listen-loop
   const [count, setCount] = useState(8);
@@ -44,14 +47,24 @@ export default function DictationModal({
   const [loopPlayCount, setLoopPlayCount] = useState(0);
   const [loopPlaying, setLoopPlaying] = useState(false);
 
+  const {
+    hasUnits,
+    sortedUnits,
+    selectedUnitIds,
+    unitFilteredEntries,
+    setUnitPreset,
+    toggleUnit,
+    selectAllUnits,
+  } = useUnitScope(academicUnits, activeUnitId, entries);
+
   const studiedSet = useMemo(
     () => (studiedIds instanceof Set ? studiedIds : new Set(studiedIds || [])),
     [studiedIds]
   );
 
   const pool = useMemo(
-    () => (entries || []).filter((e) => studiedSet.has(e.id) && e.word && e.meaning),
-    [entries, studiedSet]
+    () => (unitFilteredEntries || []).filter((e) => studiedSet.has(e.id) && e.word && e.meaning),
+    [unitFilteredEntries, studiedSet]
   );
 
   useEffect(() => {
@@ -208,6 +221,17 @@ export default function DictationModal({
                 "اسمع الكلمة واكتب معناها، أو شوف المعنى واكتب الكلمة، أو استخدم حلقة الاستماع."
               )}
             </p>
+            <UnitScopePicker
+              isAr={isAr}
+              hasUnits={hasUnits}
+              sortedUnits={sortedUnits}
+              selectedUnitIds={selectedUnitIds}
+              entries={entries}
+              setUnitPreset={setUnitPreset}
+              toggleUnit={toggleUnit}
+              selectAllUnits={selectAllUnits}
+              onChange={() => setError("")}
+            />
             <label style={labelStyle}>{tr(isAr, "Mode", "الوضع")}</label>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {[

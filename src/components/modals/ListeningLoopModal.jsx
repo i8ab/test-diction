@@ -4,6 +4,7 @@ import { INK, CARD } from "../../lib/config/theme";
 import { isSrsDue, srsLevelFromStats, shuffleArray } from "../../lib/utils/quizHelpers";
 import { playCambridgeAudio, speakWord } from "../../lib/utils/speech";
 import { XIcon, SpeakButton } from "../common/Icons";
+import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { SECTIONS } from "../../lib/config/sections";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
@@ -21,9 +22,21 @@ export default function ListeningLoopModal({
   onClose,
   onRecordSrsAnswer,
   limit = 10,
+  academicUnits = null,
+  activeUnitId = null,
 }) {
+  const {
+    hasUnits,
+    sortedUnits,
+    selectedUnitIds,
+    unitFilteredEntries,
+    setUnitPreset,
+    toggleUnit,
+    selectAllUnits,
+  } = useUnitScope(academicUnits, activeUnitId, entries);
+
   const list = useMemo(() => {
-    const base = (entries || []).filter((e) => studiedIds.has(e.id));
+    const base = (unitFilteredEntries || []).filter((e) => studiedIds.has(e.id));
     // Prefer due + weaker words
     const scored = base.map((e) => {
       const stats = srsStats[e.id] || { correct: 0, total: 0 };
@@ -33,7 +46,7 @@ export default function ListeningLoopModal({
     });
     scored.sort((a, b) => a.score - b.score);
     return scored.map((x) => x.e).slice(0, limit);
-  }, [entries, studiedIds, srsStats, srsDueAt, limit]);
+  }, [unitFilteredEntries, studiedIds, srsStats, srsDueAt, limit]);
 
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState("listen"); // listen | type | result | done
@@ -211,6 +224,18 @@ export default function ListeningLoopModal({
             <XIcon size={18} />
           </button>
         </div>
+
+        <UnitScopePicker
+          isAr={isAr}
+          hasUnits={hasUnits}
+          sortedUnits={sortedUnits}
+          selectedUnitIds={selectedUnitIds}
+          entries={entries}
+          setUnitPreset={setUnitPreset}
+          toggleUnit={toggleUnit}
+          selectAllUnits={selectAllUnits}
+          onChange={() => { setIdx(0); setPhase("listen"); setReps(0); setUserInput(""); setCorrectCount(0); setWrongCount(0); }}
+        />
 
         {phase === "done" ? (
           <div style={{ padding: "28px 12px", textAlign: "center" }}>

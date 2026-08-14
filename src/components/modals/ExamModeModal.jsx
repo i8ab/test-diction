@@ -5,6 +5,7 @@ import {
   selectExamPool, buildQuiz, isTypingCorrect, quizQuestionLabel, uid,
 } from "../../lib/utils/quizHelpers";
 import { SpeakButton, XIcon, CheckIcon, QuizIcon, ClockIcon, FlameIcon } from "../common/Icons";
+import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { loadExamDate, daysUntilExam, formatExamCountdown } from "../../lib/state/exam";
 
@@ -24,6 +25,8 @@ export default function ExamModeModal({
   onRecordSrsAnswer,
   onSaveQuizResult,
   sectionLabel = "",
+  academicUnits = null,
+  activeUnitId = null,
 }) {
   const [stage, setStage] = useState("setup"); // setup | running | done
   const [modes, setModes] = useState(() => new Set(["mcq", "typing"])); // multi-select
@@ -50,12 +53,22 @@ export default function ExamModeModal({
   const [remainingMs, setRemainingMs] = useState(null);
   const endAtRef = useRef(null);
 
+  const {
+    hasUnits,
+    sortedUnits,
+    selectedUnitIds,
+    unitFilteredEntries,
+    setUnitPreset,
+    toggleUnit,
+    selectAllUnits,
+  } = useUnitScope(academicUnits, activeUnitId, entries);
+
   const examDays = daysUntilExam(loadExamDate());
   const countdownLabel = formatExamCountdown(examDays, isAr);
 
   const examPoolPreview = useMemo(
-    () => selectExamPool(entries, studiedIds, srsDueAt, srsBox, studiedAt, 200),
-    [entries, studiedIds, srsDueAt, srsBox, studiedAt]
+    () => selectExamPool(unitFilteredEntries, studiedIds, srsDueAt, srsBox, studiedAt, 200),
+    [unitFilteredEntries, studiedIds, srsDueAt, srsBox, studiedAt]
   );
 
   useEffect(() => {
@@ -97,7 +110,7 @@ export default function ExamModeModal({
   }
 
   function startSession() {
-    const selectedPool = selectExamPool(entries, studiedIds, srsDueAt, srsBox, studiedAt, limit);
+    const selectedPool = selectExamPool(unitFilteredEntries, studiedIds, srsDueAt, srsBox, studiedAt, limit);
     if (!selectedPool.length) {
       setStartError(tr(isAr,
         "No weak or due words yet. Study a few words first, then come back for exam practice.",
@@ -471,6 +484,20 @@ export default function ExamModeModal({
                 "Focused practice on words you still struggle with or that are due for review. No distractions — just the words that matter before the exam.",
                 "تدريب مركّز على الكلمات اللي لسه ضعيفة أو مستحقة للمراجعة. بدون تشتيت — بس الكلمات المهمة قبل الامتحان.")}
             </p>
+
+            <UnitScopePicker
+              isAr={isAr}
+              hasUnits={hasUnits}
+              sortedUnits={sortedUnits}
+              selectedUnitIds={selectedUnitIds}
+              entries={entries}
+              setUnitPreset={setUnitPreset}
+              toggleUnit={toggleUnit}
+              selectAllUnits={selectAllUnits}
+              accent="#e85d04"
+              accentSoft="rgba(232, 93, 4, 0.12)"
+              onChange={() => setStartError("")}
+            />
 
             <div style={{ fontSize: 13, color: "var(--muted-strong)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
               <QuizIcon size={14} color="var(--success)" />

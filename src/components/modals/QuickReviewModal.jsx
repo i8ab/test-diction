@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { isSrsDue } from "../../lib/utils/quizHelpers";
 import { XIcon, CheckIcon, SpeakButton } from "../common/Icons";
+import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { SECTIONS } from "../../lib/config/sections";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
@@ -18,18 +19,36 @@ import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
  */
 export default function QuickReviewModal({
   entries, studiedIds, srsDueAt, isAr, onClose, onToggleStudied, onRecordSrsAnswer, limit = 8,
+  academicUnits = null, activeUnitId = null,
 }) {
+  const {
+    hasUnits,
+    sortedUnits,
+    selectedUnitIds,
+    unitFilteredEntries,
+    setUnitPreset,
+    toggleUnit,
+    selectAllUnits,
+  } = useUnitScope(academicUnits, activeUnitId, entries);
+
   const due = useMemo(() => {
-    const list = (entries || []).filter(
+    const list = (unitFilteredEntries || []).filter(
       (e) => studiedIds.has(e.id) && isSrsDue(e.id, srsDueAt)
     );
     return list.slice(0, limit);
-  }, [entries, studiedIds, srsDueAt, limit]);
+  }, [unitFilteredEntries, studiedIds, srsDueAt, limit]);
 
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState("prompt"); // prompt | revealed | done
   const [knew, setKnew] = useState(0);
   const [learning, setLearning] = useState(0);
+
+  function onUnitsChanged() {
+    setIdx(0);
+    setPhase("prompt");
+    setKnew(0);
+    setLearning(0);
+  }
 
   useEffect(() => {
     function onKey(e) {
@@ -118,6 +137,18 @@ export default function QuickReviewModal({
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+
+        <UnitScopePicker
+          isAr={isAr}
+          hasUnits={hasUnits}
+          sortedUnits={sortedUnits}
+          selectedUnitIds={selectedUnitIds}
+          entries={entries}
+          setUnitPreset={setUnitPreset}
+          toggleUnit={toggleUnit}
+          selectAllUnits={selectAllUnits}
+          onChange={onUnitsChanged}
+        />
 
         {total === 0 ? (
           <div style={{ textAlign: "center", padding: "28px 12px" }}>

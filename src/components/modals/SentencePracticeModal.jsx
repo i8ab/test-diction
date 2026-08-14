@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD } from "../../lib/config/theme";
 import { srsLevelFromStats, isSrsDue, shuffleArray } from "../../lib/utils/quizHelpers";
 import { XIcon, SpeakButton, CheckIcon } from "../common/Icons";
+import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { SECTIONS } from "../../lib/config/sections";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
@@ -20,9 +21,21 @@ export default function SentencePracticeModal({
   onClose,
   onRecordSrsAnswer,
   limit = 8,
+  academicUnits = null,
+  activeUnitId = null,
 }) {
+  const {
+    hasUnits,
+    sortedUnits,
+    selectedUnitIds,
+    unitFilteredEntries,
+    setUnitPreset,
+    toggleUnit,
+    selectAllUnits,
+  } = useUnitScope(academicUnits, activeUnitId, entries);
+
   const list = useMemo(() => {
-    const base = (entries || []).filter((e) => studiedIds.has(e.id));
+    const base = (unitFilteredEntries || []).filter((e) => studiedIds.has(e.id));
     const scored = base.map((e) => {
       const stats = srsStats[e.id] || { correct: 0, total: 0 };
       const level = srsLevelFromStats(stats);
@@ -31,7 +44,7 @@ export default function SentencePracticeModal({
     });
     scored.sort((a, b) => a.score - b.score);
     return shuffleArray(scored.map((x) => x.e).slice(0, Math.min(limit * 2, scored.length))).slice(0, limit);
-  }, [entries, studiedIds, srsStats, srsDueAt, limit]);
+  }, [unitFilteredEntries, studiedIds, srsStats, srsDueAt, limit]);
 
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState("write"); // write | review | done
@@ -167,6 +180,18 @@ export default function SentencePracticeModal({
             <XIcon size={18} />
           </button>
         </div>
+
+        <UnitScopePicker
+          isAr={isAr}
+          hasUnits={hasUnits}
+          sortedUnits={sortedUnits}
+          selectedUnitIds={selectedUnitIds}
+          entries={entries}
+          setUnitPreset={setUnitPreset}
+          toggleUnit={toggleUnit}
+          selectAllUnits={selectAllUnits}
+          onChange={() => { setIdx(0); setPhase("write"); setSentence(""); setUsedWord(null); setCorrectCount(0); setSkipCount(0); }}
+        />
 
         {phase === "done" ? (
           <div style={{ padding: "28px 12px", textAlign: "center" }}>

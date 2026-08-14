@@ -125,6 +125,14 @@ export default function MainViewOverlays(p) {
   // Local aliases used by copied JSX from MainView
   const setDupNotice = p.setDupNotice;
 
+  // Academic: practice/exam tools can span multiple units (not only the active one)
+  const isAcademic = section === "academic";
+  const practiceEntries = isAcademic
+    ? (entries || []).filter((e) => e.section === "academic")
+    : sectionEntries;
+  const practiceUnits = isAcademic ? (p.academicUnits || []) : null;
+  const practiceActiveUnitId = isAcademic ? (p.activeUnitId || null) : null;
+
   return (
     <>
       <Suspense fallback={null}>
@@ -166,7 +174,7 @@ export default function MainViewOverlays(p) {
         )}
         {showQuiz && (
           <QuizModal
-            entries={sectionEntries}
+            entries={practiceEntries}
             sectionLabel={cfg.shortLabel}
             studiedIds={studiedIds}
             studiedAt={studiedAt}
@@ -174,6 +182,8 @@ export default function MainViewOverlays(p) {
             sessionStart={sessionStart}
             isAr={appIsAr}
             initialDueOnly={quizDueOnly}
+            academicUnits={practiceUnits}
+            activeUnitId={practiceActiveUnitId}
             onClose={() => { setShowQuiz(false); setQuizDueOnly(false); }}
             onRecordSrsAnswer={onRecordSrsAnswer}
             onSaveQuizResult={onSaveQuizResult}
@@ -194,13 +204,15 @@ export default function MainViewOverlays(p) {
         {showExamMode && (
           <Suspense fallback={null}>
             <ExamModeModal
-              entries={sectionEntries}
+              entries={practiceEntries}
               studiedIds={studiedIds}
               studiedAt={studiedAt}
               srsDueAt={srsDueAt}
               srsBox={srsBox}
               isAr={appIsAr}
               sectionLabel={cfg.shortLabel}
+              academicUnits={practiceUnits}
+              activeUnitId={practiceActiveUnitId}
               onClose={() => setShowExamMode(false)}
               onRecordSrsAnswer={onRecordSrsAnswer}
               onSaveQuizResult={onSaveQuizResult}
@@ -209,13 +221,15 @@ export default function MainViewOverlays(p) {
         )}
         {showFlashcards && (
           <FlashcardsModal
-            entries={sectionEntries}
+            entries={practiceEntries}
             cfg={cfg}
             sectionLabel={cfg.shortLabel}
             studiedIds={studiedIds}
             favoriteIds={favoriteIds}
             onToggleStudied={onToggleStudied}
             isAr={appIsAr}
+            academicUnits={practiceUnits}
+            activeUnitId={practiceActiveUnitId}
             onClose={() => setShowFlashcards(false)}
           />
         )}
@@ -304,10 +318,12 @@ export default function MainViewOverlays(p) {
         {showSmartCards && (
           <Suspense fallback={null}>
             <SmartCardsModal
-              entries={sectionEntries}
+              entries={practiceEntries}
               studiedIds={studiedIds}
               favoriteIds={favoriteIds}
               isAr={appIsAr}
+              academicUnits={practiceUnits}
+              activeUnitId={practiceActiveUnitId}
               onClose={() => setShowSmartCards(false)}
               onRecordSrsAnswer={onRecordSrsAnswer}
               onXp={(entryId) => {
@@ -322,9 +338,11 @@ export default function MainViewOverlays(p) {
         {showConversation && (
           <Suspense fallback={null}>
             <ConversationModal
-              entries={sectionEntries}
+              entries={practiceEntries}
               studiedIds={studiedIds}
               isAr={appIsAr}
+              academicUnits={practiceUnits}
+              activeUnitId={practiceActiveUnitId}
               onClose={() => setShowConversation(false)}
               onXp={(scenarioId) => {
                 try {
@@ -458,10 +476,12 @@ export default function MainViewOverlays(p) {
     {showQuickReview && (
       <Suspense fallback={null}>
         <QuickReviewModal
-          entries={sectionEntries}
+          entries={practiceEntries}
           studiedIds={studiedIds}
           srsDueAt={srsDueAt}
           isAr={appIsAr}
+          academicUnits={practiceUnits}
+          activeUnitId={practiceActiveUnitId}
           onClose={() => setShowQuickReview(false)}
           onToggleStudied={onToggleStudied}
           onRecordSrsAnswer={onRecordSrsAnswer}
@@ -472,12 +492,14 @@ export default function MainViewOverlays(p) {
     {showWeaknessReview && (
       <Suspense fallback={null}>
         <WeaknessReviewModal
-          entries={sectionEntries}
+          entries={practiceEntries}
           studiedIds={studiedIds}
           srsStats={srsStats}
           srsDueAt={srsDueAt}
           wordPriorities={p.wordPriorities || {}}
           isAr={appIsAr}
+          academicUnits={practiceUnits}
+          activeUnitId={practiceActiveUnitId}
           onClose={() => setShowWeaknessReview(false)}
           onRecordSrsAnswer={onRecordSrsAnswer}
         />
@@ -487,11 +509,13 @@ export default function MainViewOverlays(p) {
     {showListeningLoop && (
       <Suspense fallback={null}>
         <ListeningLoopModal
-          entries={sectionEntries}
+          entries={practiceEntries}
           studiedIds={studiedIds}
           srsStats={srsStats}
           srsDueAt={srsDueAt}
           isAr={appIsAr}
+          academicUnits={practiceUnits}
+          activeUnitId={practiceActiveUnitId}
           onClose={() => setShowListeningLoop(false)}
           onRecordSrsAnswer={onRecordSrsAnswer}
         />
@@ -501,11 +525,13 @@ export default function MainViewOverlays(p) {
     {showSentencePractice && (
       <Suspense fallback={null}>
         <SentencePracticeModal
-          entries={sectionEntries}
+          entries={practiceEntries}
           studiedIds={studiedIds}
           srsStats={srsStats}
           srsDueAt={srsDueAt}
           isAr={appIsAr}
+          academicUnits={practiceUnits}
+          activeUnitId={practiceActiveUnitId}
           onClose={() => setShowSentencePractice(false)}
           onRecordSrsAnswer={onRecordSrsAnswer}
         />
@@ -564,9 +590,11 @@ export default function MainViewOverlays(p) {
         }
       >
         <DictationModal
-          entries={sectionEntries}
+          entries={practiceEntries}
           studiedIds={studiedIds}
           isAr={appIsAr}
+          academicUnits={practiceUnits}
+          activeUnitId={practiceActiveUnitId}
           onClose={() => setShowDictation(false)}
           onRecordSrsAnswer={onRecordSrsAnswer}
           onFinishRound={() => {
@@ -608,11 +636,13 @@ export default function MainViewOverlays(p) {
     {showRandomWord && (
       <Suspense fallback={null}>
         <RandomWordModal
-          entries={sectionEntries}
+          entries={practiceEntries}
           studiedIds={studiedIds}
           srsDueAt={srsDueAt}
           isAr={appIsAr}
           section={section}
+          academicUnits={practiceUnits}
+          activeUnitId={practiceActiveUnitId}
           onClose={() => setShowRandomWord(false)}
           onRecordSrsAnswer={onRecordSrsAnswer}
           onToggleStudied={onToggleStudied}

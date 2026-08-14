@@ -1444,6 +1444,25 @@ html[data-device="mobile"] header .section-tab {
   padding: 8px 10px !important;
   min-height: 40px;
 }
+
+/* Section tabs: distribute evenly across width on tablet / desktop
+   (on mobile they already share space via flex:1 from the inline style) */
+.section-tabs-row {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+}
+.section-tabs-row .section-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+}
+html[data-device="tablet"] .section-tabs-row .section-tab,
+html[data-device="desktop"] .section-tabs-row .section-tab {
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+  font-size: 14px !important;
+}
 html[data-device="mobile"] .toolbar-row {
   gap: 8px !important;
 }

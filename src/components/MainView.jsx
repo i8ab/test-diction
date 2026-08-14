@@ -625,12 +625,12 @@ export default function MainView({
             />
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+          <div className="section-tabs-row" style={{ display: "flex", gap: 8, marginTop: 16, width: "100%" }}>
             {Object.entries(SECTIONS).map(([key, s]) => {
               const active = key === section;
               return (
                 <button key={key} onClick={() => onChangeSection(key)}
-                  className="section-tab" style={{ padding: "9px 16px", fontSize: 14, fontWeight: 600, color: active ? s.accent : "var(--icon-muted)", background: active ? CARD : "transparent", border: "1px solid rgba(var(--border-rgb),0.15)", borderBottom: active ? `1px solid ${CARD}` : "1px solid rgba(var(--border-rgb),0.15)", borderRadius: "8px 8px 0 0", marginBottom: -1, cursor: "pointer", transform: active ? "translateY(-1px)" : "none" }}>
+                  className="section-tab" style={{ flex: "1 1 0", minWidth: 0, padding: "9px 16px", fontSize: 14, fontWeight: 600, color: active ? s.accent : "var(--icon-muted)", background: active ? CARD : "transparent", border: "1px solid rgba(var(--border-rgb),0.15)", borderBottom: active ? `1px solid ${CARD}` : "1px solid rgba(var(--border-rgb),0.15)", borderRadius: "8px 8px 0 0", marginBottom: -1, cursor: "pointer", transform: active ? "translateY(-1px)" : "none", textAlign: "center", whiteSpace: "nowrap" }}>
                   {s.shortLabel}
                 </button>
               );

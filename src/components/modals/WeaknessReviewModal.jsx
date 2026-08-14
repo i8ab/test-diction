@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { srsLevelFromStats, isSrsDue } from "../../lib/utils/quizHelpers";
 import { XIcon, CheckIcon, SpeakButton } from "../common/Icons";
+import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { SECTIONS } from "../../lib/config/sections";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
@@ -38,44 +39,57 @@ export default function WeaknessReviewModal({
   onClose,
   onRecordSrsAnswer,
   limit = 12,
+  academicUnits = null,
+  activeUnitId = null,
 }) {
-  // Freeze the queue at open so answering (which updates SRS) doesn't shrink
-  // the list mid-session and leave idx pointing at a missing entry ("—").
-  const [weakList] = useState(() => {
-    const hasWord = (e) => e && String(e.word || e.term || "").trim();
-    const list = (entries || []).filter((e) => studiedIds.has(e.id) && hasWord(e));
+  const {
+    hasUnits,
+    sortedUnits,
+    selectedUnitIds,
+    unitFilteredEntries,
+    setUnitPreset,
+    toggleUnit,
+    selectAllUnits,
+  } = useUnitScope(academicUnits, activeUnitId, entries);
 
-    // Strict "weak" definition — never include near-perfect words:
-    // - need at least 2 attempts
-    // - accuracy under 85%
-    // - or several fails (correct much lower than total)
-    // Words at 100% / high accuracy are excluded even if SRS box is still low
-    // (box stays low until enough volume, which was flooding this mode).
+  function buildWeakList(source) {
+    const hasWord = (e) => e && String(e.word || e.term || "").trim();
+    const list = (source || []).filter((e) => studiedIds.has(e.id) && hasWord(e));
     const filtered = list.filter((e) => {
       const stats = srsStats[e.id] || { correct: 0, total: 0 };
       const total = stats.total || 0;
       const correct = stats.correct || 0;
-      if (total < 2) return false; // not enough data — not "weak", just new
+      if (total < 2) return false;
       const ratio = correct / total;
-      if (ratio >= 0.9) return false; // 90%+ → not weak
+      if (ratio >= 0.9) return false;
       if (ratio >= 0.85 && total >= 6) return false;
       const level = srsLevelFromStats(stats);
       return level <= 2 || ratio < 0.75;
     });
-
     filtered.sort((a, b) => {
       const sa = weaknessScore(a.id, srsStats, srsDueAt, wordPriorities);
       const sb = weaknessScore(b.id, srsStats, srsDueAt, wordPriorities);
-      return sa - sb; // weakest first
+      return sa - sb;
     });
-    // No fallback to strong words — empty session is better than 100% cards
     return filtered.slice(0, limit);
-  });
+  }
 
+  // Freeze queue so answering doesn't shrink the list mid-session
+  const [weakList, setWeakList] = useState(() => buildWeakList(unitFilteredEntries));
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState("prompt"); // prompt | revealed | done
   const [knew, setKnew] = useState(0);
   const [learning, setLearning] = useState(0);
+
+  const unitKey = selectedUnitIds ? [...selectedUnitIds].sort().join(",") : "";
+  useEffect(() => {
+    setWeakList(buildWeakList(unitFilteredEntries));
+    setIdx(0);
+    setPhase("prompt");
+    setKnew(0);
+    setLearning(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unitKey]);
 
   useEffect(() => {
     function onKey(e) {
@@ -179,6 +193,17 @@ export default function WeaknessReviewModal({
             <XIcon size={18} />
           </button>
         </div>
+
+        <UnitScopePicker
+          isAr={isAr}
+          hasUnits={hasUnits}
+          sortedUnits={sortedUnits}
+          selectedUnitIds={selectedUnitIds}
+          entries={entries}
+          setUnitPreset={setUnitPreset}
+          toggleUnit={toggleUnit}
+          selectAllUnits={selectAllUnits}
+        />
 
         {total === 0 ? (
           <div style={{ padding: "32px 12px", textAlign: "center", color: "var(--muted)" }}>

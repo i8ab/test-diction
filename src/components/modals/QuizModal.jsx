@@ -7,6 +7,7 @@ import {
 } from "../../lib/utils/quizHelpers";
 import { SpeakButton, XIcon, CheckIcon, EyeIcon, QuizIcon } from "../common/Icons";
 import NumberStepper from "../common/NumberStepper";
+import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 function ReviewRow({ item, isAr }) {
@@ -29,7 +30,7 @@ function ReviewRow({ item, isAr }) {
   );
 }
 
-function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, sessionStart, isAr, onClose, onRecordSrsAnswer, onSaveQuizResult, initialDueOnly }) {
+function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, sessionStart, isAr, onClose, onRecordSrsAnswer, onSaveQuizResult, initialDueOnly, academicUnits = null, activeUnitId = null }) {
   // "Daily review" entry points (the reminder banner's "Review now", the
   // due-count stat) jump straight into a due-only quiz spanning every
   // studied word, not just whatever the last-used time range happened to
@@ -51,6 +52,16 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
   const [finishedAt, setFinishedAt] = useState(null);
   const [typedAnswer, setTypedAnswer] = useState("");
   const [elapsedSec, setElapsedSec] = useState(0);
+
+  const {
+    hasUnits,
+    sortedUnits,
+    selectedUnitIds,
+    unitFilteredEntries,
+    setUnitPreset,
+    toggleUnit,
+    selectAllUnits,
+  } = useUnitScope(academicUnits, activeUnitId, entries);
 
   useEffect(() => {
     function onKeyDown(e) { if (e.key === "Escape") onClose(); }
@@ -82,12 +93,12 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
 
   const rangeStart = useMemo(() => quizRangeStart(rangeKey, customMinutes, sessionStart), [rangeKey, customMinutes, sessionStart]);
   const matchingEntries = useMemo(() => {
-    const base = selectQuizEntries(entries, studiedIds, studiedAt, rangeStart);
+    const base = selectQuizEntries(unitFilteredEntries, studiedIds, studiedAt, rangeStart);
     return dueOnly ? base.filter((e) => isSrsDue(e.id, srsDueAt)) : base;
-  }, [entries, studiedIds, studiedAt, rangeStart, dueOnly, srsDueAt]);
+  }, [unitFilteredEntries, studiedIds, studiedAt, rangeStart, dueOnly, srsDueAt]);
 
   function startQuiz() {
-    const built = buildQuiz(matchingEntries, entries, mode);
+    const built = buildQuiz(matchingEntries, unitFilteredEntries, mode);
     if (!built.length) {
       setStartError(tr(isAr,
         "Not enough words yet to build a quiz from this selection — add a few more words to the dictionary or pick a wider time range.",
@@ -343,6 +354,19 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                 "Pick which studied words to be tested on. Questions are multiple choice — choose the correct meaning.",
                 "اختار الكلمات اللي ذاكرتها واللي عايز تختبر فيها. الأسئلة اختيار من متعدد — اختار المعنى الصحيح.")}
             </p>
+
+            <UnitScopePicker
+              isAr={isAr}
+              hasUnits={hasUnits}
+              sortedUnits={sortedUnits}
+              selectedUnitIds={selectedUnitIds}
+              entries={entries}
+              setUnitPreset={setUnitPreset}
+              toggleUnit={toggleUnit}
+              selectAllUnits={selectAllUnits}
+              onChange={() => setStartError("")}
+            />
+
             <label style={labelStyle}>{tr(isAr, "Studied within", "تمت دراستها خلال")}</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 6 }}>
               {RANGE_OPTIONS.map((o) => (

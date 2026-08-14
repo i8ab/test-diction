@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD } from "../../lib/config/theme";
 import { cambridgeUrl, shareWordCard } from "../../lib/utils/wordCard";
 import { detectDir, detectFont } from "../../lib/utils/searchUtils";
+import { getEntrySenses, posLabel } from "../../lib/utils/wordTypes";
 import { getSpeechRecognitionCtor, scorePronunciation, AR_DIALECTS, loadArDialect, saveArDialect, loadEnAccent, enAccentLang, startVoiceRecording } from "../../lib/utils/speech";
 import { LoaderIcon, ShareIcon, SpeakButton, XIcon, MicIcon } from "../common/Icons";
 import { PairListDisplay } from "../common/PairList";
@@ -182,12 +183,79 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
           <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={cfg.dir === "rtl"} size={22} style={{ color: cfg.accent, flexShrink: 0 }} showBoth={false} />
         </div>
         <div style={{ width: 40, height: 3, background: `linear-gradient(90deg, ${cfg.accent}, transparent)`, borderRadius: 2, margin: "16px auto 18px" }} />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
-          <div dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: "clamp(18px, 4vw, 26px)", color: "var(--meaning)", lineHeight: 1.4, wordBreak: "break-word" }}>
-            {entry.meaning}
-          </div>
-          <SpeakButton text={entry.meaning} dir={cfg.meaningDir} isAr={cfg.dir === "rtl"} size={18} style={{ color: "var(--meaning)", flexShrink: 0 }} showBoth={false} />
-        </div>
+        {(() => {
+          const senses = getEntrySenses(entry);
+          if (senses.length > 1) {
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", maxWidth: 420, margin: "0 auto" }}>
+                {senses.map((s, i) => (
+                  <div
+                    key={s.id || i}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 10,
+                      flexWrap: "wrap",
+                      padding: "10px 14px",
+                      borderRadius: 12,
+                      background: "var(--input-bg)",
+                      border: "1px solid rgba(var(--border-rgb),0.1)",
+                    }}
+                  >
+                    {s.pos && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 800,
+                          padding: "3px 8px",
+                          borderRadius: 999,
+                          background: "color-mix(in srgb, var(--accent-1) 14%, transparent)",
+                          color: "var(--accent-1)",
+                          letterSpacing: "0.02em",
+                        }}
+                      >
+                        {posLabel(s.pos, isAr)}
+                      </span>
+                    )}
+                    <div
+                      dir={cfg.meaningDir}
+                      style={{
+                        fontFamily: cfg.meaningFont,
+                        fontSize: "clamp(17px, 3.8vw, 24px)",
+                        color: "var(--meaning)",
+                        lineHeight: 1.4,
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {s.meaning}
+                    </div>
+                    <SpeakButton
+                      text={s.meaning}
+                      dir={cfg.meaningDir}
+                      isAr={cfg.dir === "rtl"}
+                      size={17}
+                      style={{ color: "var(--meaning)", flexShrink: 0 }}
+                      showBoth={false}
+                    />
+                  </div>
+                ))}
+              </div>
+            );
+          }
+          // Single meaning (legacy or one sense)
+          const one = senses[0]?.meaning || entry.meaning || "";
+          return (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
+              <div dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: "clamp(18px, 4vw, 26px)", color: "var(--meaning)", lineHeight: 1.4, wordBreak: "break-word" }}>
+                {one}
+              </div>
+              {!!one && (
+                <SpeakButton text={one} dir={cfg.meaningDir} isAr={cfg.dir === "rtl"} size={18} style={{ color: "var(--meaning)", flexShrink: 0 }} showBoth={false} />
+              )}
+            </div>
+          );
+        })()}
         {speechSupported && (
           <div style={{ marginTop: 20, padding: "14px 14px 12px", borderRadius: 14, background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
             {cfg.wordDir === "rtl" && (

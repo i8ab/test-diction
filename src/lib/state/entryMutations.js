@@ -495,15 +495,47 @@ export async function importWordsFromAi({
         .filter(Boolean);
     };
 
+    // Build senses (multiple Arabic meanings) — matches AddModal multi-sense feature
+    let senses = [];
+    if (Array.isArray(e.senses) && e.senses.length) {
+      senses = e.senses
+        .map((s) => ({
+          id: s.id || uid(),
+          pos: (s.pos || pos || "").trim(),
+          meaning: String(s.meaning || "").trim(),
+        }))
+        .filter((s) => s.meaning);
+    } else {
+      // Split "معنى1 / معنى2" or "معنى1 | معنى2" into separate senses
+      const rawMeaning = String(e.meaning || "").trim();
+      if (rawMeaning) {
+        const parts = rawMeaning
+          .split(/\s*[\/|｜،]\s*/)
+          .map((p) => p.trim())
+          .filter(Boolean);
+        if (parts.length > 1) {
+          senses = parts.map((m) => ({ id: uid(), pos: pos || "", meaning: m }));
+        }
+      }
+    }
+
+    const primaryMeaning = senses.length
+      ? senses[0].meaning
+      : String(e.meaning || "").trim();
+    const primaryPos = senses.length
+      ? (senses[0].pos || pos || "")
+      : (pos || "");
+
     newEntries.push({
       id: e.id || uid(),
       section: e.section || section,
       word,
-      meaning: e.meaning || "",
+      meaning: primaryMeaning,
       definition: e.definition || "",
       example: e.example || "",
       examples: Array.isArray(e.examples) ? e.examples : [],
-      pos: pos || "",
+      pos: primaryPos,
+      ...(senses.length > 1 ? { senses } : {}),
       synonyms: toPairList(e.synonyms),
       antonyms: toPairList(e.antonyms),
       addedBy: accountCode || e.addedBy || "ai-agent",

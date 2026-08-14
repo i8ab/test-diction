@@ -3,7 +3,7 @@
  * `ctx` holds the live refs + setters from App so behavior stays identical.
  */
 import { SaveConflictError, saveRecord } from "./cloudApi";
-import { saveOfflineCache, clearPendingCloudSync, removePendingApproveCode } from "./storage";
+import { saveOfflineCache, clearPendingCloudSync, markPendingCloudSync, removePendingApproveCode } from "./storage";
 import { capLogs } from "./logs";
 import { attachXpToAccounts } from "./xp";
 import { applyOps, MAX_SAVE_RETRIES } from "./cloudQueue";
@@ -107,6 +107,8 @@ export function flushPendingAccounts(ctx) {
             curAccounts = e.fresh.accounts || [];
             curLogs = e.fresh.logs || [];
             if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
+            if (e.fresh.examConfig !== undefined) curExam = e.fresh.examConfig || null;
+            if (e.fresh.academicUnits !== undefined) curUnits = e.fresh.academicUnits || null;
             curVersion = e.fresh.version || 0;
             entriesRef.current = curEntries;
             accountsRef.current = curAccounts;
@@ -118,7 +120,15 @@ export function flushPendingAccounts(ctx) {
             continue;
           }
           if (e instanceof SaveConflictError && e.fresh) {
-            setEntries(e.fresh.entries || []);
+            // Re-apply the user's pending ops on top of the latest server data
+            // so an add/edit is not silently discarded after conflicts.
+            const baseEntries = e.fresh.entries || [];
+            const applied = applyOps(baseEntries, ops, "entries");
+            let mergedEntries = applied.next;
+            let mergedLogs = e.fresh.logs || [];
+            for (const le of applied.logsToAdd) mergedLogs = capLogs([...mergedLogs, le]);
+            setEntries(mergedEntries);
+            entriesRef.current = mergedEntries;
             let freshAccounts = e.fresh.accounts || [];
             if (pendingRemoveCodesRef.current.size) {
               const drop = pendingRemoveCodesRef.current;
@@ -133,16 +143,44 @@ export function flushPendingAccounts(ctx) {
               );
             }
             setAccounts(freshAccounts);
-            setLogs(e.fresh.logs || []);
+            setLogs(mergedLogs);
+            logsRef.current = mergedLogs;
             if (e.fresh.siteBanner !== undefined) setSiteBanner(e.fresh.siteBanner || null);
-            entriesRef.current = e.fresh.entries || [];
             accountsRef.current = freshAccounts;
-            logsRef.current = e.fresh.logs || [];
             commitRecordVersion(e.fresh.version || 0);
-            setSaveError("");
+            // Put ops back so a later flush can still push to the server
+            pendingEntryOpsRef.current = ops.concat(pendingEntryOpsRef.current);
+            setSaveError("Save conflict — changes kept locally. Retrying…");
+            // one more immediate attempt will happen if more ops arrive; snapshot local
+            try {
+              saveOfflineCache({
+                entries: mergedEntries,
+                accounts: freshAccounts,
+                logs: mergedLogs,
+                siteBanner: e.fresh.siteBanner,
+                examConfig: e.fresh.examConfig,
+                academicUnits: e.fresh.academicUnits,
+                version: e.fresh.version || 0,
+              });
+            } catch (_) {}
           } else if (String(e && e.message) === "unauthorized") {
             setSaveError("Session expired — sign out and sign in again.");
           } else {
+            // Keep optimistic local data — do not wipe the user's new word
+            try {
+              saveOfflineCache({
+                entries: entriesRef.current,
+                accounts: accountsRef.current,
+                logs: logsRef.current,
+                siteBanner: siteBannerRef.current,
+                examConfig: examConfigRef?.current || null,
+                academicUnits: academicUnitsRef?.current || null,
+                version: recordVersionRef.current,
+              });
+              markPendingCloudSync();
+            } catch (_) {}
+            // re-queue ops so next successful online flush can push them
+            pendingEntryOpsRef.current = ops.concat(pendingEntryOpsRef.current);
             setSaveError("Couldn't save — check your connection and try again.");
           }
           break;
@@ -162,6 +200,8 @@ export function flushPendingEntries(ctx) {
     accountsRef,
     logsRef,
     siteBannerRef,
+    examConfigRef,
+    academicUnitsRef,
     recordVersionRef,
     commitRecordVersion,
     setEntries,
@@ -180,6 +220,8 @@ export function flushPendingEntries(ctx) {
       let curAccounts = accountsRef.current;
       let curLogs = logsRef.current;
       let curBanner = siteBannerRef.current;
+      let curExam = examConfigRef?.current || null;
+      let curUnits = academicUnitsRef?.current || null;
       let curVersion = recordVersionRef.current;
       let useOptimisticSnapshot = true;
 
@@ -204,11 +246,25 @@ export function flushPendingEntries(ctx) {
 
         try {
           const newVersion = await saveRecord(
-            { entries: nextEntries, accounts: curAccounts, logs: nextLogs, siteBanner: curBanner },
+            {
+              entries: nextEntries,
+              accounts: curAccounts,
+              logs: nextLogs,
+              siteBanner: curBanner,
+              examConfig: curExam,
+              academicUnits: curUnits,
+            },
             curVersion
           );
           commitRecordVersion(newVersion);
-          saveOfflineCache({ entries: nextEntries, accounts: curAccounts, logs: nextLogs, siteBanner: curBanner });
+          saveOfflineCache({
+            entries: nextEntries,
+            accounts: curAccounts,
+            logs: nextLogs,
+            siteBanner: curBanner,
+            examConfig: curExam,
+            academicUnits: curUnits,
+          });
           clearPendingCloudSync();
           setSaveError("");
           break;

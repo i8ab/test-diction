@@ -67,22 +67,35 @@ export default function MainView({
   const cfg = SECTIONS[section] || SECTIONS["en-ar"];
   const isAr = section === "ar-ar";
   const isAcademic = section === "academic";
+  // Always resolve a concrete unit for Academic (never add/filter with null)
+  const resolvedUnitId = useMemo(() => {
+    if (!isAcademic) return null;
+    const list = academicUnits || [];
+    if (activeUnitId && list.some((u) => u.id === activeUnitId)) return activeUnitId;
+    return list[0]?.id || null;
+  }, [isAcademic, activeUnitId, academicUnits]);
   const sectionEntries = useMemo(() => {
     const base = entries.filter((e) => e.section === section);
-    if (!isAcademic || !activeUnitId) return base;
-    return base.filter((e) => (e.unitId || null) === activeUnitId);
-  }, [entries, section, isAcademic, activeUnitId]);
+    if (!isAcademic) return base;
+    if (!resolvedUnitId) return base;
+    // Show words tagged for this unit OR legacy words with no unitId yet
+    return base.filter((e) => {
+      const uid = e.unitId || null;
+      return !uid || uid === resolvedUnitId;
+    });
+  }, [entries, section, isAcademic, resolvedUnitId]);
   const allAcademicEntries = useMemo(
     () => (isAcademic ? entries.filter((e) => e.section === "academic") : []),
     [entries, isAcademic]
   );
-  // Ensure a unit is selected whenever Academic is open
+  // Keep activeUnitId in sync when Academic is open
   useEffect(() => {
     if (!isAcademic) return;
-    if (activeUnitId && (academicUnits || []).some((u) => u.id === activeUnitId)) return;
-    const first = (academicUnits || [])[0]?.id || null;
-    if (first && onChangeActiveUnitId) onChangeActiveUnitId(first);
-  }, [isAcademic, activeUnitId, academicUnits, onChangeActiveUnitId]);
+    if (!resolvedUnitId) return;
+    if (activeUnitId !== resolvedUnitId && onChangeActiveUnitId) {
+      onChangeActiveUnitId(resolvedUnitId);
+    }
+  }, [isAcademic, resolvedUnitId, activeUnitId, onChangeActiveUnitId]);
   const studiedCount = useMemo(() => sectionEntries.filter((e) => studiedIds.has(e.id)).length, [sectionEntries, studiedIds]);
   const notStudiedCount = sectionEntries.length - studiedCount;
   const dueCountMobile = useMemo(
@@ -419,7 +432,7 @@ export default function MainView({
       persistEntries,
       onCloseAdd,
       showToast,
-      unitId: isAcademic ? activeUnitId : null,
+      unitId: isAcademic ? resolvedUnitId : null,
     });
   }
   const handleDelete = useCallback(async (id) => {
@@ -646,7 +659,7 @@ export default function MainView({
               {tr(appIsAr, "Units", "الوحدات")}
             </span>
             {(academicUnits || []).map((u) => {
-              const active = u.id === activeUnitId;
+              const active = u.id === resolvedUnitId;
               const count = allAcademicEntries.filter((e) => (e.unitId || null) === u.id).length;
               return (
                 <button

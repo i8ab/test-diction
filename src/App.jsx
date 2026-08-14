@@ -159,7 +159,13 @@ export default function DictionaryApp() {
   const [vaultAccounts, setVaultAccounts] = useState(() => loadAccountVault());
   const [mainAccountCode, setMainAccountCodeState] = useState(() => getMainAccountCode());
   const [linkMode, setLinkMode] = useState(false);
-  const [section, setSection] = useState("en-ar");
+  const [section, setSection] = useState(() => {
+    try {
+      const s = localStorage.getItem("twoTongues.section");
+      if (s === "en-ar" || s === "ar-ar" || s === "academic") return s;
+    } catch (_) {}
+    return "en-ar";
+  });
   const [query, setQuery] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
@@ -785,6 +791,7 @@ export default function DictionaryApp() {
 
   function changeSection(nextSection) {
     setSection(nextSection);
+    try { localStorage.setItem("twoTongues.section", nextSection); } catch (_) {}
     setQuery("");
     pushHistory({ section: nextSection });
   }
@@ -831,6 +838,8 @@ export default function DictionaryApp() {
       accountsRef,
       logsRef,
       siteBannerRef,
+      examConfigRef,
+      academicUnitsRef,
       recordVersionRef,
       commitRecordVersion,
       setAccounts,

@@ -461,7 +461,7 @@ export default function TutorChatModal({
           content: msg,
         },
       ]);
-    } finally {} finally {
+    } finally {
       setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 40);
     }

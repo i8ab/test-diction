@@ -442,8 +442,8 @@ export default function AiPdfExtractModal({
                 style={{
                   ...primaryBtnStyle,
                   width: "100%",
-                  opacity: file ? 1 : 0.5,
-                  cursor: file ? "pointer" : "not-allowed",
+                  opacity: !file || (isAcademic && !targetUnitId) ? 0.5 : 1,
+                  cursor: !file || (isAcademic && !targetUnitId) ? "not-allowed" : "pointer",
                 }}
               >
                 {tr(isAr, "Extract Vocabulary", "استخراج المفردات")}

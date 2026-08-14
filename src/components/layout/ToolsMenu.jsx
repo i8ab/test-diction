@@ -60,6 +60,7 @@ export default function ToolsMenu({
   onToggleFocus = null,
   onSmartCards = null,
   onConversation = null,
+  onTutorChat = null,
   onLevels = null,
   onProgressCompare = null,
   onTextExtract = null,
@@ -186,6 +187,9 @@ export default function ToolsMenu({
         { key: "challenges", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Challenges", "تحديات"), onClick: onChallenges },
         ...(typeof onConversation === "function"
           ? [{ key: "conversation", icon: <MicIcon size={18} />, tint: "#5e5ce6", label: tr(isAr, "Conversation", "محادثة"), onClick: onConversation }]
+          : []),
+        ...(typeof onTutorChat === "function"
+          ? [{ key: "tutorChat", icon: <WandIcon size={18} />, tint: "#5b8def", label: tr(isAr, "Study Coach", "مساعد الدراسة"), onClick: onTutorChat }]
           : []),
         ...(typeof onTextExtract === "function"
           ? [{ key: "extract", icon: <WandIcon size={18} />, tint: "#ff2d55", label: tr(isAr, "Extract from text", "استخراج من نص"), onClick: onTextExtract }]

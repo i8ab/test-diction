@@ -184,6 +184,7 @@ export default function MainView({
   });
   const [showSmartCards, setShowSmartCards] = useState(false);
   const [showConversation, setShowConversation] = useState(false);
+  const [showTutorChat, setShowTutorChat] = useState(false);
   const [showLevels, setShowLevels] = useState(false);
   const [showProgressCompare, setShowProgressCompare] = useState(false);
   const [showTextExtract, setShowTextExtract] = useState(false);
@@ -213,6 +214,7 @@ export default function MainView({
   useHistoryBackClose(showListeningLoop, () => setShowListeningLoop(false));
   useHistoryBackClose(showSentencePractice, () => setShowSentencePractice(false));
   useHistoryBackClose(showWeeklyReport, () => setShowWeeklyReport(false));
+  useHistoryBackClose(showTutorChat, () => setShowTutorChat(false));
 
   // Welcome onboarding: once per account, or forced via sessionStorage for testing
   useEffect(() => {
@@ -307,6 +309,7 @@ export default function MainView({
     showFlashcards ||
     showSmartCards ||
     showConversation ||
+    showTutorChat ||
     showTextExtract ||
     showAiPdfExtract ||
     showQuickReview;
@@ -643,6 +646,7 @@ export default function MainView({
               onToggleFocus={() => setFocusMode((v) => !v)}
               onSmartCards={() => setShowSmartCards(true)}
               onConversation={() => setShowConversation(true)}
+              onTutorChat={() => setShowTutorChat(true)}
               onLevels={() => setShowLevels(true)}
               onProgressCompare={() => setShowProgressCompare(true)}
               onTextExtract={() => setShowTextExtract(true)}
@@ -1080,6 +1084,8 @@ export default function MainView({
         setShowSmartCards={setShowSmartCards}
         showConversation={showConversation}
         setShowConversation={setShowConversation}
+        showTutorChat={showTutorChat}
+        setShowTutorChat={setShowTutorChat}
         showLevels={showLevels}
         setShowLevels={setShowLevels}
         showLevelUpNow={showLevelUpNow}

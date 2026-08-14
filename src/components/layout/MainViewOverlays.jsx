@@ -25,6 +25,7 @@ import {
   ChallengeModal,
   SmartCardsModal,
   ConversationModal,
+  TutorChatModal,
   LevelsModal,
   LevelUpModal,
   ProgressCompareModal,
@@ -103,6 +104,7 @@ export default function MainViewOverlays(p) {
     showChallenges, setShowChallenges,
     showSmartCards, setShowSmartCards,
     showConversation, setShowConversation,
+    showTutorChat, setShowTutorChat,
     showLevels, setShowLevels,
     showLevelUpNow, pendingLevelUp, setPendingLevelUp,
     showProgressCompare, setShowProgressCompare,
@@ -349,6 +351,32 @@ export default function MainViewOverlays(p) {
                   const r = grantConversation(accountCode, scenarioId);
                   if (r && r.leveledUp) showToast?.(appIsAr ? `مستوى جديد: ${r.levelInfo.level}` : `Level up: ${r.levelInfo.level}`);
                 } catch (_) {}
+              }}
+            />
+          </Suspense>
+        )}
+        {showTutorChat && (
+          <Suspense fallback={<ModalChunkFallback label={appIsAr ? "جاري التحميل…" : "Loading…"} />}>
+            <TutorChatModal
+              name={name}
+              accountCode={accountCode}
+              entries={entries}
+              studiedIds={studiedIds}
+              studiedAt={studiedAt}
+              srsStats={srsStats}
+              isAr={appIsAr}
+              onClose={() => setShowTutorChat(false)}
+              showToast={showToast}
+              onOpenQuiz={({ weakOnly } = {}) => {
+                setShowTutorChat(false);
+                if (weakOnly) {
+                  setQuizDueOnly?.(true);
+                }
+                setShowQuiz(true);
+              }}
+              onOpenFlashcards={() => {
+                setShowTutorChat(false);
+                setShowFlashcards(true);
               }}
             />
           </Suspense>

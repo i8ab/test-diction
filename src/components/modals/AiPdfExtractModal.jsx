@@ -15,8 +15,10 @@ export default function AiPdfExtractModal({
   entries = [],
   isAr,
   onClose,
-  onAddEntries, // async (entries[]) => void
+  onAddEntries, // async (entries[], unitId?) => void
   showToast,
+  academicUnits = [],
+  activeUnitId = null,
 }) {
   const [file, setFile] = useState(null);
   const [pageFrom, setPageFrom] = useState("");
@@ -26,11 +28,19 @@ export default function AiPdfExtractModal({
   const [selected, setSelected] = useState(() => new Set());
   const [error, setError] = useState("");
   const [progressMsg, setProgressMsg] = useState("");
+  const isAcademic = section === "academic";
+  const [targetUnitId, setTargetUnitId] = useState(
+    () => activeUnitId || academicUnits[0]?.id || null
+  );
 
-  // existing words in this section (one card per English word)
+  // existing words in this section (one card per English word); academic scoped by unit
   const existing = new Set(
     (entries || [])
-      .filter((e) => e.section === section)
+      .filter((e) => {
+        if (e.section !== section) return false;
+        if (!isAcademic) return true;
+        return (e.unitId || null) === (targetUnitId || null);
+      })
       .map((e) => String(e.word || "").toLowerCase())
   );
 
@@ -166,7 +176,7 @@ export default function AiPdfExtractModal({
 
     setPhase("saving");
     try {
-      await onAddEntries(toAdd);
+      await onAddEntries(toAdd, isAcademic ? targetUnitId : null);
       showToast?.(
         tr(
           isAr,
@@ -329,6 +339,39 @@ export default function AiPdfExtractModal({
                 </div>
               </div>
 
+              {isAcademic && (
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-strong)", marginBottom: 6, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                    {tr(isAr, "Save words to unit", "حفظ الكلمات في وحدة")}
+                  </label>
+                  <select
+                    value={targetUnitId || ""}
+                    onChange={(e) => setTargetUnitId(e.target.value || null)}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid rgba(var(--border-rgb),0.2)",
+                      background: "var(--input-bg)",
+                      color: "var(--ink)",
+                      fontSize: 14,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {(academicUnits || []).map((u) => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                  <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--icon-muted)" }}>
+                    {tr(
+                      isAr,
+                      "Words go only into Academic → this unit (not general English).",
+                      "الكلمات هتنزل بس في الأكاديميك ← الوحدة دي (مش الإنجليزي العام)."
+                    )}
+                  </p>
+                </div>
+              )}
+
               {error && (
                 <div
                   style={{
@@ -346,7 +389,7 @@ export default function AiPdfExtractModal({
 
               <button
                 onClick={startExtract}
-                disabled={!file}
+                disabled={!file || (isAcademic && !targetUnitId)}
                 style={{
                   ...primaryBtnStyle,
                   width: "100%",

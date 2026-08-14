@@ -36,6 +36,7 @@ export async function fetchRecord({ fresh = false } = {}) {
     logs: data.logs || [],
     siteBanner: data.siteBanner || null,
     examConfig: data.examConfig || null,
+    academicUnits: data.academicUnits || null,
     version: data.version || 0,
   };
 }
@@ -63,7 +64,7 @@ export async function saveRecord(record, expectedVersion) {
   }
   if (res.status === 409) {
     const data = await res.json().catch(() => null);
-    throw new SaveConflictError(data || { entries: [], accounts: [], logs: [], siteBanner: null, examConfig: null, version: expectedVersion });
+    throw new SaveConflictError(data || { entries: [], accounts: [], logs: [], siteBanner: null, examConfig: null, academicUnits: null, version: expectedVersion });
   }
   if (!res.ok) throw new Error("save failed");
   const data = await res.json().catch(() => ({}));

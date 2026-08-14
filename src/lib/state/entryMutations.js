@@ -20,9 +20,21 @@ export async function addEntry({
   persistEntries,
   onCloseAdd,
   showToast,
+  unitId = null,
 }) {
   const key = (newEntry.word || "").trim().toLowerCase();
-  const existing = sectionEntries.find((e) => (e.word || "").trim().toLowerCase() === key);
+  const isAcademic = section === "academic";
+  const effectiveUnitId = isAcademic ? (newEntry.unitId || unitId || null) : null;
+
+  const sameScope = (e) => {
+    if (e.section !== section) return false;
+    if (!isAcademic) return true;
+    return (e.unitId || null) === (effectiveUnitId || null);
+  };
+
+  const existing = sectionEntries.find(
+    (e) => sameScope(e) && (e.word || "").trim().toLowerCase() === key
+  );
   if (existing) {
     return { duplicate: existing };
   }
@@ -33,13 +45,14 @@ export async function addEntry({
     section,
     addedBy: accountCode,
     addedAt: Date.now(),
+    ...(isAcademic && effectiveUnitId ? { unitId: effectiveUnitId } : {}),
   };
   let skippedDup = false;
   await persistEntries(
     (curEntries) => {
       if (
         curEntries.some(
-          (e) => e.section === section && (e.word || "").trim().toLowerCase() === key
+          (e) => sameScope(e) && (e.word || "").trim().toLowerCase() === key
         )
       ) {
         skippedDup = true;
@@ -52,14 +65,14 @@ export async function addEntry({
         ? null
         : makeLogEntry(
             "word_add",
-            `${name} added "${newEntry.word}" (${cfg.shortLabel})`,
+            `${name} added "${newEntry.word}" (${cfg.shortLabel}${effectiveUnitId ? ` / ${effectiveUnitId}` : ""})`,
             name,
             accountCode
           )
   );
   if (skippedDup) {
     const again = entries.find(
-      (e) => e.section === section && (e.word || "").trim().toLowerCase() === key
+      (e) => sameScope(e) && (e.word || "").trim().toLowerCase() === key
     );
     if (again) return { duplicate: again };
     showToast(
@@ -457,13 +470,22 @@ export async function importWordsFromAi({
   appIsAr,
   persistEntries,
   showToast,
+  unitId = null,
 }) {
   if (!aiEntries || !aiEntries.length) return;
 
+  const isAcademic = section === "academic";
+  const targetUnitId = isAcademic ? unitId || null : null;
+
   // One card per English word (same spelling). Multiple meanings/POS → senses on that card.
+  // Academic: uniqueness is scoped per unit.
   const existingWords = new Set(
     (entries || [])
-      .filter((e) => e.section === section)
+      .filter((e) => {
+        if (e.section !== section) return false;
+        if (!isAcademic) return true;
+        return (e.unitId || null) === (targetUnitId || null);
+      })
       .map((e) => (e.word || "").trim().toLowerCase())
   );
 
@@ -591,6 +613,7 @@ export async function importWordsFromAi({
       page: page || null,
       from_ai: true,
       importance,
+      ...(isAcademic && targetUnitId ? { unitId: targetUnitId } : {}),
     });
   }
 

@@ -15,6 +15,11 @@ import {
   importEntriesFromCsv,
 } from "../lib/state/entryMutations";
 import { SECTIONS } from "../lib/config/sections";
+import {
+  createAcademicUnit,
+  renameAcademicUnit,
+  deleteAcademicUnit,
+} from "../lib/state/academicUnits";
 import MinecraftAchievementToast from "./common/MinecraftAchievementToast";
 import HeaderMenu from "./layout/HeaderMenu";
 import BrandMark from "./common/BrandMark";
@@ -47,6 +52,7 @@ export default function MainView({
   srsBox, srsDueAt, srsStats = {}, wordPriorities = {}, onSetWordPriority, quizHistory, onRecordSrsAnswer, onSaveQuizResult, onDictationRoundFinished,
   siteBanner, onPersistSiteBanner,
   examConfig, onPersistExamConfig,
+  academicUnits = [], activeUnitId = null, onChangeActiveUnitId, onPersistAcademicUnits,
   showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount, onApproveRequest, onRejectRequest,
   toast, showToast, theme, onToggleTheme, onChangeTheme, accentTheme, onChangeAccent,
   appIsAr, appLang = "en", onToggleAppLang, onChangeAppLang,
@@ -58,9 +64,25 @@ export default function MainView({
   vaultAccounts = [], mainAccountCode = "",
   onSwitchAccount, onSetMainAccount, onUnlinkVaultAccount, onLogoutAll, onLinkAccount,
 }) {
-  const cfg = SECTIONS[section];
+  const cfg = SECTIONS[section] || SECTIONS["en-ar"];
   const isAr = section === "ar-ar";
-  const sectionEntries = useMemo(() => entries.filter((e) => e.section === section), [entries, section]);
+  const isAcademic = section === "academic";
+  const sectionEntries = useMemo(() => {
+    const base = entries.filter((e) => e.section === section);
+    if (!isAcademic || !activeUnitId) return base;
+    return base.filter((e) => (e.unitId || null) === activeUnitId);
+  }, [entries, section, isAcademic, activeUnitId]);
+  const allAcademicEntries = useMemo(
+    () => (isAcademic ? entries.filter((e) => e.section === "academic") : []),
+    [entries, isAcademic]
+  );
+  // Ensure a unit is selected whenever Academic is open
+  useEffect(() => {
+    if (!isAcademic) return;
+    if (activeUnitId && (academicUnits || []).some((u) => u.id === activeUnitId)) return;
+    const first = (academicUnits || [])[0]?.id || null;
+    if (first && onChangeActiveUnitId) onChangeActiveUnitId(first);
+  }, [isAcademic, activeUnitId, academicUnits, onChangeActiveUnitId]);
   const studiedCount = useMemo(() => sectionEntries.filter((e) => studiedIds.has(e.id)).length, [sectionEntries, studiedIds]);
   const notStudiedCount = sectionEntries.length - studiedCount;
   const dueCountMobile = useMemo(
@@ -397,6 +419,7 @@ export default function MainView({
       persistEntries,
       onCloseAdd,
       showToast,
+      unitId: isAcademic ? activeUnitId : null,
     });
   }
   const handleDelete = useCallback(async (id) => {
@@ -604,6 +627,112 @@ export default function MainView({
       </header>
 
       <div className="app-container" style={{ margin: "0 auto", padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px) 0" }}>
+        {isAcademic && (
+          <div
+            className="academic-unit-bar"
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              alignItems: "center",
+              marginBottom: 14,
+              padding: "10px 12px",
+              background: CARD,
+              border: "1px solid rgba(var(--border-rgb),0.15)",
+              borderRadius: 12,
+            }}
+          >
+            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-strong)", letterSpacing: "0.04em", textTransform: "uppercase", marginInlineEnd: 4 }}>
+              {tr(appIsAr, "Units", "الوحدات")}
+            </span>
+            {(academicUnits || []).map((u) => {
+              const active = u.id === activeUnitId;
+              const count = allAcademicEntries.filter((e) => (e.unitId || null) === u.id).length;
+              return (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => onChangeActiveUnitId && onChangeActiveUnitId(u.id)}
+                  style={{
+                    padding: "7px 12px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    borderRadius: 999,
+                    border: active ? `1.5px solid ${cfg.accent}` : "1px solid rgba(var(--border-rgb),0.2)",
+                    background: active ? cfg.accentSoft : "transparent",
+                    color: active ? cfg.accent : "var(--icon-muted)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {u.name}
+                  <span style={{ marginInlineStart: 6, opacity: 0.75, fontSize: 11 }}>{count}</span>
+                </button>
+              );
+            })}
+            {isAdmin && typeof onPersistAcademicUnits === "function" && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const name = window.prompt(tr(appIsAr, "New unit name", "اسم الوحدة الجديدة"));
+                    if (!name || !name.trim()) return;
+                    const next = createAcademicUnit(academicUnits, name.trim());
+                    onPersistAcademicUnits(next);
+                    const created = next[next.length - 1];
+                    if (created) onChangeActiveUnitId && onChangeActiveUnitId(created.id);
+                  }}
+                  style={{
+                    padding: "7px 12px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    borderRadius: 999,
+                    border: "1px dashed rgba(var(--border-rgb),0.35)",
+                    background: "transparent",
+                    color: cfg.accent,
+                    cursor: "pointer",
+                  }}
+                >
+                  + {tr(appIsAr, "Add unit", "إضافة وحدة")}
+                </button>
+                {activeUnitId && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = (academicUnits || []).find((u) => u.id === activeUnitId);
+                        if (!cur) return;
+                        const name = window.prompt(tr(appIsAr, "Rename unit", "إعادة تسمية الوحدة"), cur.name);
+                        if (!name || !name.trim() || name.trim() === cur.name) return;
+                        onPersistAcademicUnits(renameAcademicUnit(academicUnits, activeUnitId, name.trim()));
+                      }}
+                      style={{ padding: "7px 10px", fontSize: 12, fontWeight: 600, borderRadius: 999, border: "none", background: "var(--input-bg)", color: "var(--icon-muted)", cursor: "pointer" }}
+                    >
+                      {tr(appIsAr, "Rename", "إعادة تسمية")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if ((academicUnits || []).length <= 1) {
+                          showToast?.(tr(appIsAr, "Keep at least one unit.", "لازم تفضل وحدة واحدة على الأقل."));
+                          return;
+                        }
+                        const cur = (academicUnits || []).find((u) => u.id === activeUnitId);
+                        if (!cur) return;
+                        if (!window.confirm(tr(appIsAr, `Delete "${cur.name}"? Words stay but lose this unit tag.`, `حذف «${cur.name}»؟ الكلمات هتفضل بس من غير الوحدة دي.`))) return;
+                        const next = deleteAcademicUnit(academicUnits, activeUnitId);
+                        onPersistAcademicUnits(next);
+                        onChangeActiveUnitId && onChangeActiveUnitId(next[0]?.id || null);
+                      }}
+                      style={{ padding: "7px 10px", fontSize: 12, fontWeight: 600, borderRadius: 999, border: "none", background: "var(--danger-bg, rgba(220,50,50,0.12))", color: "var(--danger, #ff6b6b)", cursor: "pointer" }}
+                    >
+                      {tr(appIsAr, "Delete", "حذف")}
+                    </button>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        )}
         {!focusMode && (
           <div className="exam-banner-slot" style={{ marginBottom: 14 }}>
             <ExamBanner
@@ -918,6 +1047,8 @@ export default function MainView({
         showTextExtract={showTextExtract}
         setShowTextExtract={setShowTextExtract}
         showAiPdfExtract={showAiPdfExtract}
+        academicUnits={academicUnits}
+        activeUnitId={activeUnitId}
         setShowAiPdfExtract={setShowAiPdfExtract}
         showAccount={showAccount}
         onCloseAccount={onCloseAccount}

@@ -118,6 +118,30 @@ function pickExamConfig(raw) {
   };
 }
 
+
+function pickAcademicUnits(raw) {
+  if (!Array.isArray(raw)) return null;
+  const seen = new Set();
+  const out = [];
+  for (const u of raw) {
+    if (!u || typeof u !== "object") continue;
+    const id = typeof u.id === "string" && u.id.trim() ? u.id.trim() : null;
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const name =
+      typeof u.name === "string" && u.name.trim()
+        ? u.name.trim()
+        : `Unit ${out.length + 1}`;
+    const order =
+      typeof u.order === "number" && Number.isFinite(u.order)
+        ? u.order
+        : out.length + 1;
+    out.push({ id, name, order });
+  }
+  out.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  return out.length ? out : null;
+}
+
 function logFromRow(row) {
   return {
     id: row.id,
@@ -201,6 +225,7 @@ async function loadRecord() {
   let version = 0;
   let siteBanner = null;
   let examConfig = null;
+  let academicUnits = null;
   for (const row of settingsRows || []) {
     if (row.key === "version") {
       version = typeof row.value === "number" ? row.value : Number(row.value) || 0;
@@ -211,6 +236,9 @@ async function loadRecord() {
     if (row.key === "exam_config") {
       examConfig = pickExamConfig(row.value);
     }
+    if (row.key === "academic_units") {
+      academicUnits = pickAcademicUnits(row.value);
+    }
   }
 
   if (!siteBanner) {
@@ -220,7 +248,7 @@ async function loadRecord() {
     } catch (_) {}
   }
 
-  return { entries, accounts, logs, siteBanner, examConfig, version };
+  return { entries, accounts, logs, siteBanner, examConfig, academicUnits, version };
 }
 
 /** Delete every row in a table (PostgREST requires a filter). */
@@ -240,6 +268,7 @@ async function saveFullRecord(record, nextVersion) {
       { key: "version", value: nextVersion },
       { key: "site_banner", value: record.siteBanner },
       { key: "exam_config", value: record.examConfig || null },
+      { key: "academic_units", value: record.academicUnits || null },
     ],
     { Prefer: "resolution=merge-duplicates,return=minimal" }
   );
@@ -425,6 +454,16 @@ export default async function handler(req, res) {
           nextExam = current.examConfig || null;
         }
 
+        let nextAcademicUnits;
+        if (body.academicUnits !== undefined) {
+          nextAcademicUnits =
+            body.academicUnits === null
+              ? null
+              : pickAcademicUnits(body.academicUnits);
+        } else {
+          nextAcademicUnits = current.academicUnits || null;
+        }
+
         // Accounts are ALWAYS merged by `code` so concurrent signups and
         // stale clients never silently drop a pending (or any other) account.
         // Intentional deletes must send `removeAccountCodes: ["code1", ...]`.
@@ -492,6 +531,7 @@ export default async function handler(req, res) {
           logs: pruneLogsLast24h(Array.isArray(body.logs) ? body.logs : []),
           siteBanner: nextBanner,
           examConfig: nextExam,
+          academicUnits: nextAcademicUnits,
           version: nextVersion,
         };
 

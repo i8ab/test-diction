@@ -78,7 +78,7 @@ export function parseCsv(text) {
             .filter(Boolean)
             .map((w) => ({ word: w, meaning: "" }))
         : [],
-      section: row.section === "ar-ar" ? "ar-ar" : "en-ar",
+      section: row.section === "ar-ar" ? "ar-ar" : row.section === "academic" ? "academic" : "en-ar",
       id: row.id || undefined,
       addedAt: row.addedat ? Number(row.addedat) || Date.now() : Date.now(),
     });

@@ -460,91 +460,137 @@ export async function importWordsFromAi({
 }) {
   if (!aiEntries || !aiEntries.length) return;
 
-  // Same word + same POS = duplicate. Different POS (e.g. bow verb vs bow noun) = allowed as separate entries.
-  const existing = new Set(
+  // One card per English word (same spelling). Multiple meanings/POS → senses on that card.
+  const existingWords = new Set(
     (entries || [])
       .filter((e) => e.section === section)
-      .map((e) => {
-        const w = (e.word || "").trim().toLowerCase();
-        const p = (e.pos || "").trim().toLowerCase();
-        return p ? `${w}|${p}` : w;
-      })
+      .map((e) => (e.word || "").trim().toLowerCase())
   );
 
-  const newEntries = [];
+  const toPairList = (arr) => {
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .map((item) => {
+        if (typeof item === "string") {
+          const w = item.trim();
+          return w ? { word: w, meaning: "" } : null;
+        }
+        const w = (item?.word || item?.text || "").trim();
+        return w ? { word: w, meaning: (item?.meaning || "").trim() } : null;
+      })
+      .filter(Boolean);
+  };
+
+  // Group AI rows by word
+  const groups = new Map();
   for (const e of aiEntries) {
     const word = (e.word || "").trim();
     if (!word) continue;
-    const pos = (e.pos || "").trim();
-    const key = pos ? `${word.toLowerCase()}|${pos.toLowerCase()}` : word.toLowerCase();
-    if (existing.has(key)) continue;
-    existing.add(key);
+    const key = word.toLowerCase();
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(e);
+  }
 
-    // Synonyms/antonyms must be objects { word } so EntryCard chips render correctly
-    const toPairList = (arr) => {
-      if (!Array.isArray(arr)) return [];
-      return arr
-        .map((item) => {
-          if (typeof item === "string") {
-            const w = item.trim();
-            return w ? { word: w, meaning: "" } : null;
+  const newEntries = [];
+  for (const [, rows] of groups) {
+    const word = (rows[0].word || "").trim();
+    const key = word.toLowerCase();
+    if (existingWords.has(key)) continue;
+    existingWords.add(key);
+
+    // Collect all senses from all rows for this word
+    const senses = [];
+    const seenSense = new Set();
+    let synonyms = [];
+    let antonyms = [];
+    let definition = "";
+    let example = "";
+    let examples = [];
+    let source_book = null;
+    let unit = null;
+    let page = null;
+    let importance = "key";
+
+    for (const e of rows) {
+      const pos = (e.pos || "").trim();
+
+      if (Array.isArray(e.senses) && e.senses.length) {
+        for (const s of e.senses) {
+          const m = String(s.meaning || "").trim();
+          if (!m) continue;
+          const p = (s.pos || pos || "").trim();
+          const sk = `${p}|${m}`;
+          if (seenSense.has(sk)) continue;
+          seenSense.add(sk);
+          senses.push({ id: uid(), pos: p, meaning: m });
+        }
+      } else {
+        const rawMeaning = String(e.meaning || "").trim();
+        if (rawMeaning) {
+          // split "a / b" into separate senses
+          const parts = rawMeaning
+            .split(/\s*[\/|｜،]\s*/)
+            .map((p) => p.trim())
+            .filter(Boolean);
+          for (const m of parts) {
+            const sk = `${pos}|${m}`;
+            if (seenSense.has(sk)) continue;
+            seenSense.add(sk);
+            senses.push({ id: uid(), pos, meaning: m });
           }
-          const w = (item?.word || item?.text || "").trim();
-          return w ? { word: w, meaning: (item?.meaning || "").trim() } : null;
-        })
-        .filter(Boolean);
-    };
-
-    // Build senses (multiple Arabic meanings) — matches AddModal multi-sense feature
-    let senses = [];
-    if (Array.isArray(e.senses) && e.senses.length) {
-      senses = e.senses
-        .map((s) => ({
-          id: s.id || uid(),
-          pos: (s.pos || pos || "").trim(),
-          meaning: String(s.meaning || "").trim(),
-        }))
-        .filter((s) => s.meaning);
-    } else {
-      // Split "معنى1 / معنى2" or "معنى1 | معنى2" into separate senses
-      const rawMeaning = String(e.meaning || "").trim();
-      if (rawMeaning) {
-        const parts = rawMeaning
-          .split(/\s*[\/|｜،]\s*/)
-          .map((p) => p.trim())
-          .filter(Boolean);
-        if (parts.length > 1) {
-          senses = parts.map((m) => ({ id: uid(), pos: pos || "", meaning: m }));
         }
       }
+
+      synonyms = synonyms.concat(toPairList(e.synonyms));
+      antonyms = antonyms.concat(toPairList(e.antonyms));
+      if (!definition && e.definition) definition = e.definition;
+      if (!example && e.example) example = e.example;
+      if (Array.isArray(e.examples) && e.examples.length) {
+        examples = examples.concat(e.examples);
+      }
+      if (!source_book && e.source_book) source_book = e.source_book;
+      if (!unit && e.unit) unit = e.unit;
+      if (!page && e.page) page = e.page;
+      if (e.importance) importance = e.importance;
     }
 
-    const primaryMeaning = senses.length
-      ? senses[0].meaning
-      : String(e.meaning || "").trim();
-    const primaryPos = senses.length
-      ? (senses[0].pos || pos || "")
-      : (pos || "");
+    // dedupe pairs by word
+    const dedupePairs = (list) => {
+      const seen = new Set();
+      const out = [];
+      for (const p of list) {
+        const k = (p.word || "").toLowerCase();
+        if (!k || seen.has(k)) continue;
+        seen.add(k);
+        out.push(p);
+      }
+      return out;
+    };
+
+    if (!senses.length) continue;
+
+    const primaryMeaning = senses[0].meaning;
+    const primaryPos = senses[0].pos || "";
 
     newEntries.push({
-      id: e.id || uid(),
-      section: e.section || section,
+      id: uid(),
+      section: section,
       word,
       meaning: primaryMeaning,
-      definition: e.definition || "",
-      example: e.example || "",
-      examples: Array.isArray(e.examples) ? e.examples : [],
+      definition: definition || "",
+      example: example || "",
+      examples: examples.filter(Boolean),
       pos: primaryPos,
       ...(senses.length > 1 ? { senses } : {}),
-      synonyms: toPairList(e.synonyms),
-      antonyms: toPairList(e.antonyms),
-      addedBy: accountCode || e.addedBy || "ai-agent",
-      addedAt: e.addedAt || Date.now(),
-      source_book: e.source_book || null,
-      unit: e.unit || null,
-      page: e.page || null,
+      synonyms: dedupePairs(synonyms),
+      antonyms: dedupePairs(antonyms),
+      addedBy: accountCode || "ai-agent",
+      addedAt: Date.now(),
+      source_book: source_book || null,
+      unit: unit || null,
+      page: page || null,
       from_ai: true,
-      importance: e.importance || "key",
+      importance,
     });
   }
 

@@ -19,21 +19,19 @@ export default function AiPdfExtractModal({
   showToast,
 }) {
   const [file, setFile] = useState(null);
+  const [pageFrom, setPageFrom] = useState("");
+  const [pageTo, setPageTo] = useState("");
   const [phase, setPhase] = useState("upload"); // upload | extracting | review | saving
   const [extracted, setExtracted] = useState([]);
   const [selected, setSelected] = useState(() => new Set());
   const [error, setError] = useState("");
   const [progressMsg, setProgressMsg] = useState("");
 
-  // existing words in this section (word + POS = unique)
+  // existing words in this section (one card per English word)
   const existing = new Set(
     (entries || [])
       .filter((e) => e.section === section)
-      .map((e) => {
-        const w = String(e.word || "").toLowerCase();
-        const p = String(e.pos || "").toLowerCase();
-        return p ? `${w}|${p}` : w;
-      })
+      .map((e) => String(e.word || "").toLowerCase())
   );
 
   useEffect(() => {
@@ -68,6 +66,10 @@ export default function AiPdfExtractModal({
     try {
       const form = new FormData();
       form.append("file", file);
+      const pf = parseInt(pageFrom, 10);
+      const pt = parseInt(pageTo, 10);
+      if (!Number.isNaN(pf) && pf >= 1) form.append("page_from", String(pf));
+      if (!Number.isNaN(pt) && pt >= 1) form.append("page_to", String(pt));
 
       const res = await fetch(`${AI_AGENT_URL}/extract-pdf`, {
         method: "POST",
@@ -87,16 +89,34 @@ export default function AiPdfExtractModal({
         throw new Error(data.message || "Unexpected response");
       }
 
-      const list = data.entries.map((e) => {
-        const w = String(e.word || "").toLowerCase();
-        const p = String(e.pos || "").toLowerCase();
-        const key = p ? `${w}|${p}` : w;
-        return {
-          ...e,
-          section: e.section || section,
-          alreadyExists: existing.has(key),
-        };
-      });
+      // Merge rows with same word into one display item for review
+      const byWord = new Map();
+      for (const e of data.entries) {
+        const w = String(e.word || "").trim();
+        if (!w) continue;
+        const k = w.toLowerCase();
+        if (!byWord.has(k)) {
+          byWord.set(k, {
+            ...e,
+            word: w,
+            section: e.section || section,
+            alreadyExists: existing.has(k),
+            _meanings: [],
+          });
+        }
+        const row = byWord.get(k);
+        const meaning = String(e.meaning || "").trim();
+        if (meaning) row._meanings.push({ pos: e.pos || "", meaning });
+        if (Array.isArray(e.senses)) {
+          for (const s of e.senses) {
+            if (s?.meaning) row._meanings.push({ pos: s.pos || e.pos || "", meaning: s.meaning });
+          }
+        }
+      }
+      const list = [...byWord.values()].map((e) => ({
+        ...e,
+        meaning: e._meanings.map((m) => m.meaning).filter(Boolean).join(" · ") || e.meaning,
+      }));
 
       setExtracted(list);
       // pre-select all new words (key = word|pos so same word different POS are independent)
@@ -117,9 +137,7 @@ export default function AiPdfExtractModal({
   }
 
   function entryKey(e) {
-    const w = String(e.word || "");
-    const p = String(e.pos || "");
-    return p ? `${w}|${p}` : w;
+    return String(e.word || "");
   }
 
   function toggle(key) {
@@ -263,6 +281,54 @@ export default function AiPdfExtractModal({
                 />
               </label>
 
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: INK, marginBottom: 8 }}>
+                  {tr(isAr, "Page range (optional)", "نطاق الصفحات (اختياري)")}
+                </div>
+                <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted)", lineHeight: 1.4 }}>
+                  {tr(
+                    isAr,
+                    "For large books, extract a unit at a time. Recommended: up to 50 pages. Leave empty = all pages.",
+                    "للكتب الكبيرة استخرج وحدة وحدة. المستحسن: لحد 50 صفحة. فاضي = كل الصفحات."
+                  )}
+                </p>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder={tr(isAr, "From", "من")}
+                    value={pageFrom}
+                    onChange={(e) => setPageFrom(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid rgba(var(--border-rgb),0.2)",
+                      background: "var(--input-bg)",
+                      color: "var(--ink)",
+                      fontSize: 14,
+                    }}
+                  />
+                  <span style={{ color: "var(--muted)", fontWeight: 700 }}>→</span>
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder={tr(isAr, "To", "إلى")}
+                    value={pageTo}
+                    onChange={(e) => setPageTo(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid rgba(var(--border-rgb),0.2)",
+                      background: "var(--input-bg)",
+                      color: "var(--ink)",
+                      fontSize: 14,
+                    }}
+                  />
+                </div>
+              </div>
+
               {error && (
                 <div
                   style={{
@@ -299,7 +365,7 @@ export default function AiPdfExtractModal({
               <LoaderIcon size={32} />
               <p style={{ marginTop: 16, fontWeight: 700, color: INK }}>{progressMsg}</p>
               <p style={{ marginTop: 6, fontSize: 13, color: "var(--muted)" }}>
-                {tr(isAr, "This may take 20–60 seconds…", "ممكن ياخد من 20 لـ 60 ثانية…")}
+                {tr(isAr, "This may take up to 2–3 minutes for scanned books…", "ممكن ياخد لحد 2–3 دقايق لو الكتاب صور ممسوحة…")}
               </p>
             </div>
           )}

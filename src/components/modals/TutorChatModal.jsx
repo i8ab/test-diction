@@ -15,6 +15,9 @@ const MAX_HISTORY = 6;
 /**
  * Small live summary of the user's progress (numbers + short samples only).
  */
+/**
+ * Small live summary across ALL sections (not only the open tab).
+ */
 export function buildUserContext({
   name,
   entries = [],
@@ -28,15 +31,58 @@ export function buildUserContext({
       ? studiedIds
       : new Set(Array.isArray(studiedIds) ? studiedIds : []);
 
-  const totalWords = studiedSet.size || 0;
+  const SECTION_KEYS = ["academic", "en-ar", "ar-ar"];
+  const SECTION_LABELS = {
+    academic: "Academic",
+    "en-ar": "EN→AR",
+    "ar-ar": "AR→AR",
+  };
+
+  // Per-section buckets
+  const bySection = {};
+  for (const key of SECTION_KEYS) {
+    bySection[key] = {
+      label: SECTION_LABELS[key],
+      in_dictionary: 0,
+      studied: 0,
+      not_studied: 0,
+      mastered: 0,
+      weak: 0,
+      weak_words: [],
+    };
+  }
+
   let mastered = 0;
   let learning = 0;
-  const weakCandidates = [];
+  const weakCandidates = []; // { word, score, section }
 
   for (const e of entries || []) {
-    if (!e || !studiedSet.has(e.id)) continue;
+    if (!e) continue;
+    const sec = e.section || "en-ar";
+    if (!bySection[sec]) {
+      bySection[sec] = {
+        label: sec,
+        in_dictionary: 0,
+        studied: 0,
+        not_studied: 0,
+        mastered: 0,
+        weak: 0,
+        weak_words: [],
+      };
+    }
+    const bucket = bySection[sec];
+    bucket.in_dictionary += 1;
+
+    const isStudied = studiedSet.has(e.id);
+    if (!isStudied) {
+      bucket.not_studied += 1;
+      continue;
+    }
+    bucket.studied += 1;
+
     const word = String(e.word || e.term || "").trim();
     if (!word) continue;
+
     const stats = srsStats[e.id] || { correct: 0, total: 0 };
     const level = srsLevelFromStats(stats);
     const total = stats.total || 0;
@@ -45,10 +91,13 @@ export function buildUserContext({
 
     if (level >= 5 || (total >= 6 && ratio >= 0.9)) {
       mastered += 1;
+      bucket.mastered += 1;
     } else if (total >= 2 && ratio < 0.85) {
       learning += 1;
+      bucket.weak += 1;
       const score = level + ratio * 0.5 + Math.min(total, 20) * 0.01;
-      weakCandidates.push({ word, score });
+      weakCandidates.push({ word, score, section: sec });
+      bucket.weak_words.push({ word, score });
     } else {
       learning += 1;
     }
@@ -56,6 +105,13 @@ export function buildUserContext({
 
   weakCandidates.sort((a, b) => a.score - b.score);
   const weakWords = weakCandidates.slice(0, MAX_WEAK_SAMPLE).map((w) => w.word);
+
+  // Cap weak samples per section
+  for (const key of Object.keys(bySection)) {
+    const list = bySection[key].weak_words || [];
+    list.sort((a, b) => a.score - b.score);
+    bySection[key].weak_words = list.slice(0, 8).map((w) => w.word);
+  }
 
   const recent = Object.entries(studiedAt || {})
     .filter(([id]) => studiedSet.has(id))
@@ -80,9 +136,31 @@ export function buildUserContext({
     level = (info && info.level) || 1;
   } catch (_) {}
 
+  const totalInDict = (entries || []).length;
+  const totalStudied = studiedSet.size || 0;
+  const totalNotStudied = Math.max(0, totalInDict - totalStudied);
+
+  // Compact sections object for the prompt (only non-empty)
+  const sections = {};
+  for (const key of Object.keys(bySection)) {
+    const b = bySection[key];
+    if (b.in_dictionary === 0) continue;
+    sections[key] = {
+      label: b.label,
+      in_dictionary: b.in_dictionary,
+      studied: b.studied,
+      not_studied: b.not_studied,
+      mastered: b.mastered,
+      weak: b.weak,
+      weak_words: b.weak_words,
+    };
+  }
+
   return {
     name: name || undefined,
-    total_words: totalWords,
+    total_in_dictionary: totalInDict,
+    total_words: totalStudied,
+    not_studied: totalNotStudied,
     mastered,
     learning,
     weak: weakCandidates.length,
@@ -91,6 +169,7 @@ export function buildUserContext({
     today_studied: todayStudied,
     streak: computeStreak(studiedAt || {}),
     level,
+    sections,
   };
 }
 

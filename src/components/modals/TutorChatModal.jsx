@@ -89,10 +89,17 @@ export function buildUserContext({
     const correct = stats.correct || 0;
     const ratio = total > 0 ? correct / total : 0;
 
+    // Same rules as WeaknessReviewModal in the app
+    const isWeak =
+      total >= 2 &&
+      ratio < 0.9 &&
+      !(ratio >= 0.85 && total >= 6) &&
+      (level <= 2 || ratio < 0.75);
+
     if (level >= 5 || (total >= 6 && ratio >= 0.9)) {
       mastered += 1;
       bucket.mastered += 1;
-    } else if (total >= 2 && ratio < 0.85) {
+    } else if (isWeak) {
       learning += 1;
       bucket.weak += 1;
       const score = level + ratio * 0.5 + Math.min(total, 20) * 0.01;
@@ -184,7 +191,7 @@ function cleanAnswerText(text) {
 
 function actionLabel(action, isAr) {
   const map = {
-    quiz_weak: isAr ? "فتح اختبار الكلمات الضعيفة" : "Open weak-words quiz",
+    quiz_weak: isAr ? "فتح مراجعة الضعف" : "Open weakness review",
     quiz_all: isAr ? "فتح اختبار" : "Open quiz",
     flashcards_weak: isAr ? "فتح بطاقات الكلمات الضعيفة" : "Open weak-words flashcards",
     flashcards_all: isAr ? "فتح البطاقات" : "Open flashcards",
@@ -352,8 +359,8 @@ export default function TutorChatModal({
       {
         role: "assistant",
         content: isAr
-          ? `أهلاً${name ? ` ${name}` : ""}.\nاكتب أي سؤال عن مذاكرتك أو تقدمك — هجاوب من بياناتك الحالية.`
-          : `Hi${name ? ` ${name}` : ""}.\nType any question about your study progress — I'll answer from your current data.`,
+          ? `أهلاً${name ? ` يا ${name}` : ""} 👋\nقولّي عايز تعرف إيه عن مذاكرتك — هقولك من بياناتك دلوقتي.`
+          : `Hi${name ? ` ${name}` : ""} 👋\nAsk me anything about your study progress — I'll answer from your current data.`,
       },
     ]);
     setTimeout(() => inputRef.current?.focus(), 150);

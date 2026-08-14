@@ -370,7 +370,12 @@ export default function MainViewOverlays(p) {
               onOpenQuiz={({ weakOnly, dueOnly } = {}) => {
                 setShowTutorChat(false);
                 setTimeout(() => {
-                  if (weakOnly || dueOnly) {
+                  if (weakOnly) {
+                    // Same screen as Tools → Weakness review
+                    try { setShowWeaknessReview(true); } catch (_) {}
+                    return;
+                  }
+                  if (dueOnly) {
                     try { setQuizDueOnly(true); } catch (_) {}
                   }
                   setShowQuiz(true);

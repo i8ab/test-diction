@@ -15,7 +15,7 @@ export default function AiPdfExtractModal({
   entries = [],
   isAr,
   onClose,
-  onAddEntries, // async (entries[], unitId?) => void
+  onAddEntries, // async (entries[], unitId?, targetSection?) => void
   showToast,
   academicUnits = [],
   activeUnitId = null,
@@ -28,16 +28,20 @@ export default function AiPdfExtractModal({
   const [selected, setSelected] = useState(() => new Set());
   const [error, setError] = useState("");
   const [progressMsg, setProgressMsg] = useState("");
-  const isAcademic = section === "academic";
+  // Destination dictionary: EN→AR, Academic, or AR→AR (independent of current tab)
+  const [targetSection, setTargetSection] = useState(
+    () => (section === "academic" || section === "ar-ar" || section === "en-ar" ? section : "en-ar")
+  );
+  const isAcademic = targetSection === "academic";
   const [targetUnitId, setTargetUnitId] = useState(
     () => activeUnitId || academicUnits[0]?.id || null
   );
 
-  // existing words in this section (one card per English word); academic scoped by unit
+  // existing words in the chosen destination; academic scoped by unit
   const existing = new Set(
     (entries || [])
       .filter((e) => {
-        if (e.section !== section) return false;
+        if (e.section !== targetSection) return false;
         if (!isAcademic) return true;
         return (e.unitId || null) === (targetUnitId || null);
       })
@@ -76,6 +80,7 @@ export default function AiPdfExtractModal({
     try {
       const form = new FormData();
       form.append("file", file);
+      form.append("section", targetSection || "en-ar");
       const pf = parseInt(pageFrom, 10);
       const pt = parseInt(pageTo, 10);
       if (!Number.isNaN(pf) && pf >= 1) form.append("page_from", String(pf));
@@ -109,7 +114,7 @@ export default function AiPdfExtractModal({
           byWord.set(k, {
             ...e,
             word: w,
-            section: e.section || section,
+            section: targetSection || e.section || "en-ar",
             alreadyExists: existing.has(k),
             _meanings: [],
           });
@@ -176,7 +181,9 @@ export default function AiPdfExtractModal({
 
     setPhase("saving");
     try {
-      await onAddEntries(toAdd, isAcademic ? targetUnitId : null);
+      // Tag every entry with the chosen destination section
+      const tagged = toAdd.map((e) => ({ ...e, section: targetSection }));
+      await onAddEntries(tagged, isAcademic ? targetUnitId : null, targetSection);
       showToast?.(
         tr(
           isAr,
@@ -339,6 +346,48 @@ export default function AiPdfExtractModal({
                 </div>
               </div>
 
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-strong)", marginBottom: 6, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  {tr(isAr, "Save words to dictionary", "حفظ الكلمات في القاموس")}
+                </label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {[
+                    { key: "en-ar", en: "English → Arabic", ar: "إنجليزي ← عربي" },
+                    { key: "academic", en: "Academic", ar: "أكاديمي" },
+                    { key: "ar-ar", en: "Arabic → Arabic", ar: "عربي ← عربي" },
+                  ].map((opt) => {
+                    const active = targetSection === opt.key;
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => setTargetSection(opt.key)}
+                        style={{
+                          flex: "1 1 120px",
+                          padding: "10px 12px",
+                          borderRadius: 12,
+                          fontSize: 13,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.2)",
+                          background: active ? "var(--accent-1-soft)" : "var(--input-bg)",
+                          color: active ? "var(--accent-1)" : "var(--muted-strong)",
+                        }}
+                      >
+                        {isAr ? opt.ar : opt.en}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p style={{ margin: "8px 0 0", fontSize: 12, color: "var(--icon-muted)", lineHeight: 1.4 }}>
+                  {targetSection === "en-ar"
+                    ? tr(isAr, "Words go into the general English → Arabic dictionary (not Academic units).", "الكلمات هتنزل في قاموس الإنجليزي ← عربي العام (مش وحدات الأكاديمي).")
+                    : targetSection === "academic"
+                      ? tr(isAr, "Words go into Academic — pick a unit below.", "الكلمات هتنزل في الأكاديمي — اختار الوحدة تحت.")
+                      : tr(isAr, "Words go into the Arabic → Arabic dictionary.", "الكلمات هتنزل في قاموس عربي ← عربي.")}
+                </p>
+              </div>
+
               {isAcademic && (
                 <div style={{ marginBottom: 14 }}>
                   <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-strong)", marginBottom: 6, letterSpacing: "0.04em", textTransform: "uppercase" }}>
@@ -365,8 +414,8 @@ export default function AiPdfExtractModal({
                   <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--icon-muted)" }}>
                     {tr(
                       isAr,
-                      "Words go only into Academic → this unit (not general English).",
-                      "الكلمات هتنزل بس في الأكاديميك ← الوحدة دي (مش الإنجليزي العام)."
+                      "Words go only into Academic → this unit.",
+                      "الكلمات هتنزل بس في الأكاديميك ← الوحدة دي."
                     )}
                   </p>
                 </div>

@@ -424,17 +424,19 @@ export default function MainViewOverlays(p) {
               activeUnitId={p.activeUnitId || null}
               onClose={() => setShowAiPdfExtract(false)}
               showToast={showToast}
-              onAddEntries={(aiEntries, unitId) =>
+              onAddEntries={(aiEntries, unitId, targetSection) =>
                 importWordsFromAi({
                   aiEntries,
-                  section,
+                  section: targetSection || section,
                   entries,
                   accountCode,
                   name,
                   appIsAr,
                   persistEntries,
                   showToast,
-                  unitId: unitId || p.activeUnitId || null,
+                  unitId: (targetSection || section) === "academic"
+                    ? (unitId || p.activeUnitId || null)
+                    : null,
                 })
               }
             />

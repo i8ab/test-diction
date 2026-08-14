@@ -193,6 +193,48 @@ function actionLabel(action, isAr) {
   return map[action] || null;
 }
 
+
+/** Detect dominant script so mixed AR/EN doesn't flip the whole bubble wrongly. */
+function detectTextDir(text) {
+  const s = String(text || "");
+  let ar = 0;
+  let en = 0;
+  for (const ch of s) {
+    const c = ch.codePointAt(0);
+    if (c >= 0x0600 && c <= 0x06ff) ar += 1;
+    else if ((c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a)) en += 1;
+  }
+  if (ar === 0 && en === 0) return "auto";
+  return ar >= en ? "rtl" : "ltr";
+}
+
+
+/** Infer tool action from user question and/or model reply (backup if server omits action). */
+function inferActionFromText(question, answer) {
+  const q = String(question || "").toLowerCase();
+  const a = String(answer || "").toLowerCase();
+  const blob = q + "\n" + a;
+
+  // Explicit ACTION line in answer
+  const m = String(answer || "").match(/(?:→\s*)?ACTION:\s*([a-z0-9_]+)/i);
+  if (m) {
+    const act = m[1].toLowerCase();
+    if (/^(quiz|flashcards)_/.test(act)) return act;
+  }
+
+  const wantsQuiz = /كويز|اختبار|quiz|test/.test(blob);
+  const wantsFlash = /فلاش\s*كارد|بطاقات|flash\s*cards?|flashcards/.test(blob);
+  const wantsWeak = /ضعيف|الضعف|weak/.test(blob);
+  const wantsRecent = /حديث|أخيرة|recent/.test(blob);
+
+  if (wantsQuiz) return wantsWeak ? "quiz_weak" : "quiz_all";
+  if (wantsFlash) {
+    if (wantsRecent) return "flashcards_recent";
+    return wantsWeak ? "flashcards_weak" : "flashcards_all";
+  }
+  return null;
+}
+
 function ChatBubble({ role, text, action, isAr, onAction }) {
   const isUser = role === "user";
   const label = action ? actionLabel(action, isAr) : null;
@@ -207,6 +249,7 @@ function ChatBubble({ role, text, action, isAr, onAction }) {
     >
       <div style={{ maxWidth: "92%" }}>
         <div
+          dir={detectTextDir(text)}
           style={{
             padding: "11px 14px",
             borderRadius: isUser ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
@@ -215,10 +258,14 @@ function ChatBubble({ role, text, action, isAr, onAction }) {
               : "rgba(var(--border-rgb), 0.12)",
             color: isUser ? "#fff" : "var(--ink, #e8eaed)",
             fontSize: 14,
-            lineHeight: 1.55,
+            lineHeight: 1.6,
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
+            overflowWrap: "anywhere",
             border: isUser ? "none" : "1px solid rgba(var(--border-rgb), 0.16)",
+            // Isolate bidi so English words inside Arabic (and vice versa) don't reverse neighbors
+            unicodeBidi: "plaintext",
+            textAlign: "start",
           }}
         >
           {text}
@@ -315,14 +362,26 @@ export default function TutorChatModal({
   const runAction = useCallback(
     (action) => {
       if (!action) return;
-      if (action.startsWith("quiz")) {
-        onOpenQuiz?.({ weakOnly: action === "quiz_weak" });
-      } else if (action.startsWith("flashcards")) {
-        onOpenFlashcards?.({
-          weakOnly: action === "flashcards_weak",
-          recentOnly: action === "flashcards_recent",
-        });
-      }
+      const act = String(action).toLowerCase().trim();
+      // Parent closes this modal then opens the tool — small delay avoids race with overlay state
+      const go = () => {
+        try {
+          if (act.startsWith("quiz")) {
+            if (typeof onOpenQuiz === "function") {
+              onOpenQuiz({ weakOnly: act === "quiz_weak", dueOnly: act === "quiz_weak" });
+            }
+          } else if (act.startsWith("flashcards") || act.startsWith("flash")) {
+            if (typeof onOpenFlashcards === "function") {
+              onOpenFlashcards({
+                weakOnly: act === "flashcards_weak",
+                recentOnly: act === "flashcards_recent",
+              });
+            }
+          }
+        } catch (_) {}
+      };
+      // Let the click finish, then navigate
+      setTimeout(go, 50);
     },
     [onOpenQuiz, onOpenFlashcards]
   );
@@ -358,38 +417,51 @@ export default function TutorChatModal({
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(
+        const detail =
           typeof data.detail === "string"
             ? data.detail
-            : data.message || `Error ${res.status}`
-        );
+            : data.message || `Error ${res.status}`;
+        const isRate =
+          res.status === 429 ||
+          /rate limit|tokens per day|429|استهلاك الحد/i.test(String(detail));
+        if (isRate) {
+          throw new Error(
+            isAr
+              ? "الخدمة مشغولة حاليًا (تم استهلاك الحد اليومي للذكاء الاصطناعي). جرّب بعد شوية."
+              : "AI is busy right now (daily rate limit). Please try again in a bit."
+          );
+        }
+        throw new Error(detail);
       }
 
       const rawAnswer = data.answer || (isAr ? "مفيش رد." : "No answer.");
+      const resolvedAction =
+        data.action ||
+        inferActionFromText(question, rawAnswer) ||
+        null;
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
           content: cleanAnswerText(rawAnswer),
-          action: data.action || null,
+          action: resolvedAction,
         },
       ]);
       // Do NOT auto-navigate. User taps the optional button if they want.
     } catch (err) {
+      const raw = err?.message || "";
       const msg =
-        err?.message ||
+        raw ||
         (isAr ? "حصل خطأ في الاتصال بالمساعد." : "Failed to reach the tutor.");
       setError(msg);
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: isAr
-            ? `مش قادر أوصل للسيرفر دلوقتي.\n${msg}`
-            : `Couldn't reach the server right now.\n${msg}`,
+          content: msg,
         },
       ]);
-    } finally {
+    } finally {} finally {
       setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 40);
     }
@@ -594,6 +666,7 @@ export default function TutorChatModal({
               placeholder={tr(isAr, "Type your question…", "اكتب سؤالك…")}
               disabled={loading}
               autoComplete="off"
+              dir="auto"
               style={{
                 flex: 1,
                 width: "100%",
@@ -608,6 +681,8 @@ export default function TutorChatModal({
                 padding: 0,
                 margin: 0,
                 boxShadow: "none",
+                unicodeBidi: "plaintext",
+                textAlign: "start",
               }}
             />
           </div>

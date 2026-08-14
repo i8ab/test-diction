@@ -367,16 +367,20 @@ export default function MainViewOverlays(p) {
               isAr={appIsAr}
               onClose={() => setShowTutorChat(false)}
               showToast={showToast}
-              onOpenQuiz={({ weakOnly } = {}) => {
+              onOpenQuiz={({ weakOnly, dueOnly } = {}) => {
                 setShowTutorChat(false);
-                if (weakOnly) {
-                  setQuizDueOnly?.(true);
-                }
-                setShowQuiz(true);
+                setTimeout(() => {
+                  if (weakOnly || dueOnly) {
+                    try { setQuizDueOnly(true); } catch (_) {}
+                  }
+                  setShowQuiz(true);
+                }, 80);
               }}
               onOpenFlashcards={() => {
                 setShowTutorChat(false);
-                setShowFlashcards(true);
+                setTimeout(() => {
+                  setShowFlashcards(true);
+                }, 80);
               }}
             />
           </Suspense>

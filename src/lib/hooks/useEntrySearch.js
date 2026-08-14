@@ -8,8 +8,10 @@ import {
 
 /**
  * Search box UX: suggestions index, history, keyboard navigation.
+ * Optional onSelectEntry(entry) is called after a suggestion is chosen
+ * (e.g. to open zoom / scroll to the word).
  */
-export function useEntrySearch({ section, query, setQuery, suggestions }) {
+export function useEntrySearch({ section, query, setQuery, suggestions, onSelectEntry }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [showHistory, setShowHistory] = useState(false);
@@ -38,8 +40,12 @@ export function useEntrySearch({ section, query, setQuery, suggestions }) {
       setShowHistory(false);
       setActiveIndex(-1);
       commitSearchTerm(entry.word);
+      if (typeof onSelectEntry === "function" && entry) {
+        // Defer so the query filter can settle; parent can open zoom / scroll
+        requestAnimationFrame(() => onSelectEntry(entry));
+      }
     },
-    [setQuery, commitSearchTerm]
+    [setQuery, commitSearchTerm, onSelectEntry]
   );
 
   const selectHistoryTerm = useCallback(

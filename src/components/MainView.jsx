@@ -347,6 +347,9 @@ export default function MainView({
     [query, sectionEntries, section]
   );
 
+  // Ref so useEntrySearch can call the latest "go to entry" without reordering hooks
+  const onSelectEntryRef = useRef(null);
+
   const {
     showSuggestions, setShowSuggestions,
     activeIndex, setActiveIndex,
@@ -354,7 +357,13 @@ export default function MainView({
     searchHistory,
     commitSearchTerm, selectSuggestion, selectHistoryTerm,
     handleRemoveHistoryTerm, handleClearHistory, handleSearchKeyDown,
-  } = useEntrySearch({ section, query, setQuery, suggestions });
+  } = useEntrySearch({
+    section,
+    query,
+    setQuery,
+    suggestions,
+    onSelectEntry: (entry) => onSelectEntryRef.current?.(entry),
+  });
 
   const filtered = useMemo(
     () =>
@@ -459,6 +468,27 @@ export default function MainView({
       setZoomEntry(target);
     }
   }, [entries]);
+
+  // When user picks a search suggestion → open that word (zoom) + scroll list to it
+  onSelectEntryRef.current = (entry) => {
+    if (!entry?.id) return;
+    setZoomAlreadyExists(false);
+    setZoomEntry(entry);
+    // After filter + possible pagination settle, scroll the card into view
+    const tryScroll = (attempts = 0) => {
+      const el = document.getElementById(`entry-${entry.id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (attempts < 8) {
+        // Expand visible window if the match is further down the list
+        setVisibleCount((c) => Math.max(c, (flatSorted.findIndex((e) => e.id === entry.id) + 1) || c + 30));
+        setTimeout(() => tryScroll(attempts + 1), 50);
+      }
+    };
+    setTimeout(() => tryScroll(0), 80);
+  };
 
   const handleToggleStudiedById = useCallback((id) => { haptic(12); onToggleStudied(id); }, [onToggleStudied]);
   const handleToggleFavoriteById = useCallback((id) => { onToggleFavorite(id); }, [onToggleFavorite]);

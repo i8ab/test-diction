@@ -172,6 +172,8 @@ export default function WordListPanel({
                 return (
                   <div
                     key={e.id}
+                    id={`entry-${e.id}`}
+                    data-entry-id={e.id}
                     className={isFirstOfLetter ? "letter-section-anchor" : undefined}
                     ref={
                       isFirstOfLetter

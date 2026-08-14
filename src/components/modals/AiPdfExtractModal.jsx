@@ -25,11 +25,15 @@ export default function AiPdfExtractModal({
   const [error, setError] = useState("");
   const [progressMsg, setProgressMsg] = useState("");
 
-  // existing words in this section (to mark already-present ones)
+  // existing words in this section (word + POS = unique)
   const existing = new Set(
     (entries || [])
       .filter((e) => e.section === section)
-      .map((e) => String(e.word || "").toLowerCase())
+      .map((e) => {
+        const w = String(e.word || "").toLowerCase();
+        const p = String(e.pos || "").toLowerCase();
+        return p ? `${w}|${p}` : w;
+      })
   );
 
   useEffect(() => {
@@ -47,8 +51,8 @@ export default function AiPdfExtractModal({
       setError(tr(isAr, "Only PDF files are allowed", "مسموح بملفات PDF فقط"));
       return;
     }
-    if (f.size > 25 * 1024 * 1024) {
-      setError(tr(isAr, "File is too large (max 25 MB)", "الملف كبير أوي (الحد 25 ميجا)"));
+    if (f.size > 100 * 1024 * 1024) {
+      setError(tr(isAr, "File is too large (max 100 MB)", "الملف كبير أوي (الحد 100 ميجا)"));
       return;
     }
     setFile(f);
@@ -83,15 +87,25 @@ export default function AiPdfExtractModal({
         throw new Error(data.message || "Unexpected response");
       }
 
-      const list = data.entries.map((e) => ({
-        ...e,
-        section: e.section || section,
-        alreadyExists: existing.has(String(e.word || "").toLowerCase()),
-      }));
+      const list = data.entries.map((e) => {
+        const w = String(e.word || "").toLowerCase();
+        const p = String(e.pos || "").toLowerCase();
+        const key = p ? `${w}|${p}` : w;
+        return {
+          ...e,
+          section: e.section || section,
+          alreadyExists: existing.has(key),
+        };
+      });
 
       setExtracted(list);
-      // pre-select all new words
-      setSelected(new Set(list.filter((e) => !e.alreadyExists).map((e) => e.word)));
+      // pre-select all new words (key = word|pos so same word different POS are independent)
+      const entryKey = (e) => {
+        const w = String(e.word || "");
+        const p = String(e.pos || "");
+        return p ? `${w}|${p}` : w;
+      };
+      setSelected(new Set(list.filter((e) => !e.alreadyExists).map(entryKey)));
       setPhase("review");
       setProgressMsg("");
     } catch (err) {
@@ -102,17 +116,23 @@ export default function AiPdfExtractModal({
     }
   }
 
-  function toggle(word) {
+  function entryKey(e) {
+    const w = String(e.word || "");
+    const p = String(e.pos || "");
+    return p ? `${w}|${p}` : w;
+  }
+
+  function toggle(key) {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(word)) next.delete(word);
-      else next.add(word);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }
 
   function selectAllNew() {
-    setSelected(new Set(extracted.filter((e) => !e.alreadyExists).map((e) => e.word)));
+    setSelected(new Set(extracted.filter((e) => !e.alreadyExists).map(entryKey)));
   }
 
   function deselectAll() {
@@ -120,7 +140,7 @@ export default function AiPdfExtractModal({
   }
 
   async function handleConfirm() {
-    const toAdd = extracted.filter((e) => selected.has(e.word) && !e.alreadyExists);
+    const toAdd = extracted.filter((e) => selected.has(entryKey(e)) && !e.alreadyExists);
     if (!toAdd.length) {
       showToast?.(tr(isAr, "No new words selected", "مفيش كلمات جديدة محددة"));
       return;
@@ -233,7 +253,7 @@ export default function AiPdfExtractModal({
                   {file ? file.name : tr(isAr, "Choose PDF file", "اختر ملف PDF")}
                 </span>
                 <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                  {tr(isAr, "Max 25 MB", "الحد الأقصى 25 ميجا")}
+                  {tr(isAr, "Max 100 MB", "الحد الأقصى 100 ميجا")}
                 </span>
                 <input
                   type="file"
@@ -343,11 +363,12 @@ export default function AiPdfExtractModal({
                 }}
               >
                 {extracted.map((e) => {
-                  const isSelected = selected.has(e.word);
+                  const key = entryKey(e);
+                  const isSelected = selected.has(key);
                   const isDup = e.alreadyExists;
                   return (
                     <label
-                      key={e.id || e.word}
+                      key={e.id || key}
                       style={{
                         display: "flex",
                         gap: 12,
@@ -369,7 +390,7 @@ export default function AiPdfExtractModal({
                         type="checkbox"
                         checked={isSelected}
                         disabled={isDup}
-                        onChange={() => !isDup && toggle(e.word)}
+                        onChange={() => !isDup && toggle(key)}
                         style={{ marginTop: 3, width: 16, height: 16 }}
                       />
                       <div style={{ flex: 1, minWidth: 0 }}>

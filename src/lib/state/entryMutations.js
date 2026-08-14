@@ -460,40 +460,54 @@ export async function importWordsFromAi({
 }) {
   if (!aiEntries || !aiEntries.length) return;
 
+  // Same word + same POS = duplicate. Different POS (e.g. bow verb vs bow noun) = allowed as separate entries.
   const existing = new Set(
     (entries || [])
       .filter((e) => e.section === section)
-      .map((e) => (e.word || "").trim().toLowerCase())
+      .map((e) => {
+        const w = (e.word || "").trim().toLowerCase();
+        const p = (e.pos || "").trim().toLowerCase();
+        return p ? `${w}|${p}` : w;
+      })
   );
 
   const newEntries = [];
   for (const e of aiEntries) {
-    const key = (e.word || "").trim().toLowerCase();
-    if (!key || existing.has(key)) continue;
+    const word = (e.word || "").trim();
+    if (!word) continue;
+    const pos = (e.pos || "").trim();
+    const key = pos ? `${word.toLowerCase()}|${pos.toLowerCase()}` : word.toLowerCase();
+    if (existing.has(key)) continue;
     existing.add(key);
 
-    // normalize synonyms / antonyms to simple string arrays
-    const normList = (arr) => {
+    // Synonyms/antonyms must be objects { word } so EntryCard chips render correctly
+    const toPairList = (arr) => {
       if (!Array.isArray(arr)) return [];
       return arr
-        .map((item) => (typeof item === "string" ? item : item?.word || ""))
+        .map((item) => {
+          if (typeof item === "string") {
+            const w = item.trim();
+            return w ? { word: w, meaning: "" } : null;
+          }
+          const w = (item?.word || item?.text || "").trim();
+          return w ? { word: w, meaning: (item?.meaning || "").trim() } : null;
+        })
         .filter(Boolean);
     };
 
     newEntries.push({
       id: e.id || uid(),
       section: e.section || section,
-      word: e.word,
+      word,
       meaning: e.meaning || "",
       definition: e.definition || "",
       example: e.example || "",
       examples: Array.isArray(e.examples) ? e.examples : [],
-      pos: e.pos || "",
-      synonyms: normList(e.synonyms),
-      antonyms: normList(e.antonyms),
+      pos: pos || "",
+      synonyms: toPairList(e.synonyms),
+      antonyms: toPairList(e.antonyms),
       addedBy: accountCode || e.addedBy || "ai-agent",
       addedAt: e.addedAt || Date.now(),
-      // extra metadata
       source_book: e.source_book || null,
       unit: e.unit || null,
       page: e.page || null,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import { XIcon, SunIcon, MoonIcon, PlusIcon, GlobeIcon, CheckIcon, ChevronIcon } from "../common/Icons";
@@ -19,6 +19,92 @@ import {
   saveAccent,
   applyAccentTheme,
 } from "../../lib/state/storage";
+
+const sectionHeaderStyle = {
+  width: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+  padding: "12px 14px",
+  border: "none",
+  borderRadius: 12,
+  background: "var(--input-bg)",
+  color: "var(--ink)",
+  cursor: "pointer",
+  fontFamily: "inherit",
+  textAlign: "start",
+};
+
+/** Stable accordion row — must live outside the modal so React does not
+ *  remount every section on each parent render (that was resetting scroll). */
+function AppearanceSection({
+  id,
+  title,
+  summary,
+  children,
+  isOpen,
+  onToggle,
+  lang,
+  sectionRef,
+}) {
+  return (
+    <div
+      ref={sectionRef}
+      data-section-id={id}
+      style={{
+        marginBottom: 8,
+        borderRadius: 14,
+        border: isOpen ? "1px solid rgba(var(--border-rgb),0.18)" : "1px solid transparent",
+        background: isOpen ? "color-mix(in srgb, var(--card) 92%, var(--input-bg))" : "transparent",
+        overflow: "hidden",
+      }}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        className="touch-target"
+        aria-expanded={isOpen}
+        style={{
+          ...sectionHeaderStyle,
+          background: isOpen ? "color-mix(in srgb, var(--accent-1) 8%, var(--input-bg))" : "var(--input-bg)",
+          borderRadius: isOpen ? "12px 12px 0 0" : 12,
+        }}
+      >
+        <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+          <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.02em" }}>{title}</span>
+          {summary && !isOpen && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {summary}
+            </span>
+          )}
+        </span>
+        <span
+          style={{
+            flexShrink: 0,
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "var(--card)",
+            color: "var(--icon-muted)",
+            transform: isOpen ? "rotate(90deg)" : (lang === "ar" ? "rotate(180deg)" : "none"),
+            transition: "transform 0.15s ease",
+          }}
+        >
+          <ChevronIcon size={16} />
+        </span>
+      </button>
+      {isOpen && (
+        <div style={{ padding: "12px 14px 14px" }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Appearance settings with collapsible sections (accordion).
@@ -76,140 +162,33 @@ export default function AppearanceModal({
   const scrollRef = useRef(null);
   const sectionRefs = useRef({});
 
-  // When a section *opens*, nudge scroll only if it's clipped out of view.
-  // Never force scroll-to-top on close (that was jumping the list upward).
-  const prevOpenSectionRef = useRef(null);
-  useEffect(() => {
-    if (!open) {
-      prevOpenSectionRef.current = null;
-      return;
-    }
-    const prev = prevOpenSectionRef.current;
-    prevOpenSectionRef.current = openSection;
-
-    // Closing or unchanged: keep current scroll position
-    if (!openSection || openSection === prev) return;
-
-    let cancelled = false;
-    const run = () => {
-      if (cancelled) return;
-      const el = sectionRefs.current[openSection];
-      const container = scrollRef.current;
-      if (!el || !container) return;
-      try {
-        const cRect = container.getBoundingClientRect();
-        const eRect = el.getBoundingClientRect();
-        const pad = 10;
-        const clippedBottom = eRect.bottom > cRect.bottom - pad;
-        const clippedTop = eRect.top < cRect.top + pad;
-        if (!clippedBottom && !clippedTop) return;
-
-        if (clippedBottom) {
-          // Minimal scroll so the expanded content becomes visible below
-          const delta = eRect.bottom - cRect.bottom + pad;
-          container.scrollTo({
-            top: container.scrollTop + delta,
-            behavior: "smooth",
-          });
-        } else if (clippedTop) {
-          const delta = eRect.top - cRect.top - pad;
-          container.scrollTo({
-            top: container.scrollTop + delta,
-            behavior: "smooth",
-          });
+  // Preserve scroll when expanding/collapsing (height change must not jump to top).
+  const toggle = (id) => {
+    const container = scrollRef.current;
+    const y = container ? container.scrollTop : 0;
+    setOpenSection((cur) => (cur === id ? null : id));
+    // Restore after React commits the new height
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = y;
         }
-      } catch (_) {}
-    };
-    const id1 = requestAnimationFrame(() => {
-      requestAnimationFrame(run);
+      });
     });
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(id1);
-    };
-  }, [openSection, open]);
+  };
 
   if (!open || typeof document === "undefined") return null;
   const lang = appLang || (isAr ? "ar" : "en");
   const T = (en, ar, de, fr) => tr(lang, en, ar, de, fr);
 
-  const toggle = (id) => setOpenSection((cur) => (cur === id ? null : id));
-
-  const sectionHeaderStyle = {
-    width: "100%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-    padding: "12px 14px",
-    border: "none",
-    borderRadius: 12,
-    background: "var(--input-bg)",
-    color: "var(--ink)",
-    cursor: "pointer",
-    fontFamily: "inherit",
-    textAlign: "start",
-  };
-
-  const Section = ({ id, title, summary, children }) => {
-    const isOpen = openSection === id;
-    return (
-      <div
-        ref={(node) => { sectionRefs.current[id] = node; }}
-        data-section-id={id}
-        style={{
-          marginBottom: 8,
-          borderRadius: 14,
-          border: isOpen ? "1px solid rgba(var(--border-rgb),0.18)" : "1px solid transparent",
-          background: isOpen ? "color-mix(in srgb, var(--card) 92%, var(--input-bg))" : "transparent",
-          overflow: "hidden",
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => toggle(id)}
-          className="touch-target"
-          aria-expanded={isOpen}
-          style={{
-            ...sectionHeaderStyle,
-            background: isOpen ? "color-mix(in srgb, var(--accent-1) 8%, var(--input-bg))" : "var(--input-bg)",
-            borderRadius: isOpen ? "12px 12px 0 0" : 12,
-          }}
-        >
-          <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-            <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.02em" }}>{title}</span>
-            {summary && !isOpen && (
-              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {summary}
-              </span>
-            )}
-          </span>
-          <span
-            style={{
-              flexShrink: 0,
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "var(--card)",
-              color: "var(--icon-muted)",
-              transform: isOpen ? "rotate(90deg)" : (lang === "ar" ? "rotate(180deg)" : "none"),
-              transition: "transform 0.2s ease",
-            }}
-          >
-            <ChevronIcon size={16} />
-          </span>
-        </button>
-        {isOpen && (
-          <div style={{ padding: "12px 14px 14px" }}>
-            {children}
-          </div>
-        )}
-      </div>
-    );
-  };
+  // Shared props for stable AppearanceSection (must not be an inner component).
+  const sp = (id) => ({
+    id,
+    isOpen: openSection === id,
+    onToggle: () => toggle(id),
+    lang,
+    sectionRef: (node) => { sectionRefs.current[id] = node; },
+  });
 
   // Summaries when collapsed
   const brandList = Array.isArray(BRAND_PRESETS) ? BRAND_PRESETS : [];
@@ -296,7 +275,7 @@ export default function AppearanceModal({
           </p>
 
           {/* ── Logo ── */}
-          <Section id="logo" title={T("Logo mark", "شعار الموقع")} summary={logoSummary}>
+          <AppearanceSection {...sp("logo")} title={T("Logo mark", "شعار الموقع")} summary={logoSummary}>
             <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
               {T("Pick a mark for the site header. Same animation for all options.", "اختار شكل الشعار في الهيدر. نفس الحركة لكل الخيارات.")}
             </p>
@@ -405,10 +384,10 @@ export default function AppearanceModal({
                 </form>
               )}
             </div>
-          </Section>
+          </AppearanceSection>
 
           {/* ── Mode ── */}
-          <Section id="mode" title={T("Mode", "الوضع")} summary={modeSummary}>
+          <AppearanceSection {...sp("mode")} title={T("Mode", "الوضع")} summary={modeSummary}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <button type="button" onClick={() => onChangeTheme ? onChangeTheme("light") : onToggleTheme()} className="touch-target"
                 style={{
@@ -439,11 +418,11 @@ export default function AppearanceModal({
                 <GlobeIcon size={16} /> {T("System", "النظام")}
               </button>
             </div>
-          </Section>
+          </AppearanceSection>
 
           {/* ── Mood / Template ── */}
           {onChangeSkin && (
-            <Section id="mood" title={T("Mood / Template", "المزاج / القالب")} summary={skinSummary}>
+            <AppearanceSection {...sp("mood")} title={T("Mood / Template", "المزاج / القالب")} summary={skinSummary}>
               <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
                 {T("Change the whole look to fight boredom during long study sessions.", "غيّر الشكل كامل عشان تقلل الملل في جلسات المذاكرة الطويلة.")}
               </p>
@@ -489,11 +468,11 @@ export default function AppearanceModal({
                   );
                 })}
               </div>
-            </Section>
+            </AppearanceSection>
           )}
 
           {/* ── Layout (density + card height + scale) ── */}
-          <Section id="layout" title={T("Layout & size", "التخطيط والحجم")} summary={layoutSummary}>
+          <AppearanceSection {...sp("layout")} title={T("Layout & size", "التخطيط والحجم")} summary={layoutSummary}>
             <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 6 }}>
               {T("List density", "كثافة القائمة")}
             </div>
@@ -573,11 +552,10 @@ export default function AppearanceModal({
                 </div>
               </>
             )}
-          </Section>
+          </AppearanceSection>
 
           {/* ── Modal corners ── */}
-          <Section
-            id="corners"
+          <AppearanceSection {...sp("corners")}
             title={T("Modal corners", "دائرية النوافذ")}
             summary={
               uiRadius === "sharp" ? T("Sharp", "حادّة") :
@@ -620,11 +598,11 @@ export default function AppearanceModal({
                 );
               })}
             </div>
-          </Section>
+          </AppearanceSection>
 
           {/* ── Accent color ── */}
           {onChangeAccent && (
-            <Section id="accent" title={T("Color theme", "لون الواجهة")} summary={accentLabel}>
+            <AppearanceSection {...sp("accent")} title={T("Color theme", "لون الواجهة")} summary={accentLabel}>
               <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
                 {T("Pick a vibrant palette, or choose any custom color.", "اختار لوحة ألوان زاهية، أو لون مخصص بالكامل.")}
               </p>
@@ -673,13 +651,12 @@ export default function AppearanceModal({
                   aria-label={T("Pick custom color", "اختيار لون مخصص")}
                 />
               </div>
-            </Section>
+            </AppearanceSection>
           )}
 
           {/* ── Fonts ── */}
           {(onChangeLatinFont || onChangeArabicFont) && (
-            <Section
-              id="fonts"
+            <AppearanceSection {...sp("fonts")}
               title={T("Fonts", "الخطوط")}
               summary={[
                 LATIN_FONTS[latinFont]?.label ? T(LATIN_FONTS[latinFont].label.en, LATIN_FONTS[latinFont].label.ar) : latinFont,
@@ -747,13 +724,12 @@ export default function AppearanceModal({
                   </div>
                 </>
               )}
-            </Section>
+            </AppearanceSection>
           )}
 
           {/* ── Motion speed ── */}
           {typeof onChangeMotionSpeed === "function" && (
-            <Section
-              id="motion"
+            <AppearanceSection {...sp("motion")}
               title={T("Animation speed", "سرعة الحركة")}
               summary={MOTION_SPEEDS[motionSpeed] ? T(MOTION_SPEEDS[motionSpeed].label.en, MOTION_SPEEDS[motionSpeed].label.ar) : motionSpeed}
             >
@@ -782,13 +758,12 @@ export default function AppearanceModal({
                   );
                 })}
               </div>
-            </Section>
+            </AppearanceSection>
           )}
 
           {/* ── Sounds ── */}
           {typeof onChangeUiSounds === "function" && (
-            <Section
-              id="sounds"
+            <AppearanceSection {...sp("sounds")}
               title={T("Sounds", "الأصوات")}
               summary={uiSounds ? T("On", "تشغيل") : T("Off", "إيقاف")}
             >
@@ -820,13 +795,12 @@ export default function AppearanceModal({
                   }} />
                 </span>
               </button>
-            </Section>
+            </AppearanceSection>
           )}
 
           {/* ── Direction ── */}
           {typeof onChangeDirOverride === "function" && (
-            <Section
-              id="direction"
+            <AppearanceSection {...sp("direction")}
               title={T("Layout direction", "اتجاه الواجهة")}
               summary={
                 dirOverride === "rtl" ? "RTL" :
@@ -862,13 +836,12 @@ export default function AppearanceModal({
                   );
                 })}
               </div>
-            </Section>
+            </AppearanceSection>
           )}
 
           {/* ── Card surface ── */}
           {typeof onChangeCardSurface === "function" && (
-            <Section
-              id="cardsurface"
+            <AppearanceSection {...sp("cardsurface")}
               title={T("Card background", "خلفية الكروت")}
               summary={CARD_SURFACES[cardSurface] ? T(CARD_SURFACES[cardSurface].label.en, CARD_SURFACES[cardSurface].label.ar) : cardSurface}
             >
@@ -894,13 +867,12 @@ export default function AppearanceModal({
                   );
                 })}
               </div>
-            </Section>
+            </AppearanceSection>
           )}
 
           {/* ── Icon style ── */}
           {typeof onChangeIconStyle === "function" && (
-            <Section
-              id="icons"
+            <AppearanceSection {...sp("icons")}
               title={T("Icon style", "شكل الأيقونات")}
               summary={iconStyle === "filled" ? T("Filled", "ممتلئة") : T("Outline", "خطية")}
             >
@@ -928,13 +900,12 @@ export default function AppearanceModal({
                   );
                 })}
               </div>
-            </Section>
+            </AppearanceSection>
           )}
 
           {/* ── Exam visual ── */}
           {typeof onChangeExamVisual === "function" && (
-            <Section
-              id="examvisual"
+            <AppearanceSection {...sp("examvisual")}
               title={T("Exam visual mode", "وضع الامتحان البصري")}
               summary={examVisual ? T("On", "تشغيل") : T("Off", "إيقاف")}
             >
@@ -966,7 +937,7 @@ export default function AppearanceModal({
                   }} />
                 </span>
               </button>
-            </Section>
+            </AppearanceSection>
           )}
         </div>
       </div>

@@ -11,20 +11,21 @@ import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 function ReviewRow({ item, isAr }) {
+  const row = item || {};
   return (
     <div style={{ padding: "10px 12px", border: "1px solid rgba(var(--border-rgb),0.15)", borderRadius: 4, marginBottom: 8 }}>
-      <div dir={item.wordDir} style={{ fontFamily: item.wordFont, fontSize: 16, fontWeight: 700, color: INK, marginBottom: 4 }}>
-        {item.word}
-        {item.pos ? (
-          <span style={{ marginInlineStart: 8, fontSize: 11, fontWeight: 700, color: "var(--muted-strong)", fontFamily: "'Source Sans 3', sans-serif" }}>
-            ({item.pos})
+      <div dir={row.wordDir || "auto"} style={{ fontFamily: row.wordFont || "inherit", fontSize: 16, fontWeight: 700, color: INK, marginBottom: 4 }}>
+        {row.word || "—"}
+        {row.pos ? (
+          <span style={{ marginInlineStart: 8, fontSize: 11, fontWeight: 700, color: "var(--muted-strong)", fontFamily: "var(--font-latin), sans-serif" }}>
+            ({row.pos})
           </span>
         ) : null}
       </div>
       <p style={{ fontSize: 13, color: "var(--muted-strong)", margin: 0 }}>
         {tr(isAr,
-          `You said "${item.selectedAnswer}" — the correct one is "${item.correctAnswer}".`,
-          `انت غلطت، قلت معناها "${item.selectedAnswer}"، وهي فعلاً "${item.correctAnswer}".`)}
+          `You said "${row.selectedAnswer || "—"}" — the correct one is "${row.correctAnswer || "—"}".`,
+          `انت غلطت، قلت معناها "${row.selectedAnswer || "—"}"، وهي فعلاً "${row.correctAnswer || "—"}".`)}
       </p>
     </div>
   );
@@ -98,7 +99,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
   }, [unitFilteredEntries, studiedIds, studiedAt, rangeStart, dueOnly, srsDueAt]);
 
   function startQuiz() {
-    const built = buildQuiz(matchingEntries, unitFilteredEntries, mode);
+    const built = buildQuiz(matchingEntries, unitFilteredEntries, mode) || [];
     if (!built.length) {
       setStartError(tr(isAr,
         "Not enough words yet to build a quiz from this selection — add a few more words to the dictionary or pick a wider time range.",
@@ -117,9 +118,9 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
 
   const currentAnswer = answers[index] || null;
   const isAnswered = !!(currentAnswer && !currentAnswer.partial);
-  const answeredCount = answers.filter((a) => a && !a.partial).length;
-  const allAnswered = questions.length > 0 && answeredCount === questions.length;
-  const score = answers.filter((a) => a && a.correct && !a.partial).length;
+  const answeredCount = (answers || []).filter((a) => a && !a.partial).length;
+  const allAnswered = (questions || []).length > 0 && answeredCount === questions.length;
+  const score = (answers || []).filter((a) => a && a.correct && !a.partial).length;
   const isPractice = quizMode === "practice";
   // In practice mode, lock after a full answer so feedback stays. In exam mode, allow changing until finish.
   const isLocked = isPractice && isAnswered;
@@ -311,8 +312,8 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
   // Every wrong question, grouped by type (meaning / synonym / antonym).
   const mistakesByCategory = useMemo(() => {
     const map = { meaning: [], synonym: [], antonym: [] };
-    for (const r of answers) {
-      if (!r || r.correct) continue;
+    for (const r of (answers || [])) {
+      if (!r || r.correct || r.partial) continue;
       const cat = (r.type === "synonym" || r.type === "antonym") ? r.type : "meaning";
       map[cat].push(r);
     }
@@ -322,7 +323,11 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
   // Flat list of every mistake — meaning first, then synonyms, then
   // antonyms — all shown at once in the review.
   const mistakesFlat = useMemo(
-    () => [...mistakesByCategory.meaning, ...mistakesByCategory.synonym, ...mistakesByCategory.antonym],
+    () => [
+      ...((mistakesByCategory && mistakesByCategory.meaning) || []),
+      ...((mistakesByCategory && mistakesByCategory.synonym) || []),
+      ...((mistakesByCategory && mistakesByCategory.antonym) || []),
+    ],
     [mistakesByCategory]
   );
 
@@ -801,21 +806,25 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                 </p>
               </div>
 
-              {mistakesFlat.length > 0 ? (
+              {(mistakesFlat || []).length > 0 ? (
                 <div style={{ textAlign: "start", marginBottom: 10 }}>
                   <p style={{ fontSize: 13, fontWeight: 700, color: INK, margin: "0 0 10px" }}>
                     {tr(isAr, "Words to review", "كلمات للمراجعة")}
                   </p>
-                  {QUIZ_RESULT_CATEGORIES.map((cat) => {
-                    const items = mistakesByCategory[cat.key];
+                  {[
+                    { key: "meaning", label: "Meaning", labelAr: "المعنى" },
+                    { key: "synonym", label: "Synonym", labelAr: "المرادف" },
+                    { key: "antonym", label: "Antonym", labelAr: "المضاد" },
+                  ].map((cat) => {
+                    const items = (mistakesByCategory && mistakesByCategory[cat.key]) || [];
                     if (!items.length) return null;
                     return (
                       <div key={cat.key} style={{ marginBottom: 14 }}>
                         <p style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-strong)", textTransform: "uppercase", letterSpacing: "0.04em", margin: "0 0 6px" }}>
                           {tr(isAr, cat.label, cat.labelAr)}
                         </p>
-                        {items.map((item) => (
-                          <ReviewRow key={item.id} item={item} isAr={isAr} />
+                        {items.map((item, idx) => (
+                          <ReviewRow key={(item && item.id) || idx} item={item || {}} isAr={isAr} />
                         ))}
                       </div>
                     );

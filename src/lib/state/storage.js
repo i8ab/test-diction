@@ -92,18 +92,18 @@ export const SKIN_PRESETS = {
   paper: {
     id: "paper",
     label: { en: "Paper", ar: "ورق", de: "Papier", fr: "Papier" },
-    desc:  { en: "Warm notebook", ar: "دفتر دافئ" },
+    desc:  { en: "Study notebook", ar: "دفتر مذاكرة" },
     light: {
-      paper: "#F5F0E6", card: "#FFFEF7", ink: "#3D3226",
-      muted: "#9A8B78", "muted-strong": "#6B5C4A", "icon-muted": "#8A7B68",
-      "input-bg": "#EFE8DA", "border-rgb": "120,100,70", meaning: "#5C4A32",
+      paper: "#F3EBD8", card: "#FFFBF2", ink: "#2C2418",
+      muted: "#9A8B72", "muted-strong": "#5C4E3A", "icon-muted": "#7A6B54",
+      "input-bg": "#EDE4D0", "border-rgb": "140,118,80", meaning: "#4A3C28",
     },
     dark: {
-      paper: "#1A1610", card: "#241F18", ink: "#EDE4D4",
-      muted: "#A89880", "muted-strong": "#C4B49A", "icon-muted": "#B0A088",
-      "input-bg": "#2C261E", "border-rgb": "160,140,100", meaning: "#D4C4A8",
+      paper: "#16120C", card: "#221C14", ink: "#F0E6D4",
+      muted: "#A89878", "muted-strong": "#C8B898", "icon-muted": "#B0A080",
+      "input-bg": "#2A2218", "border-rgb": "150,130,90", meaning: "#D8C8A8",
     },
-    preview: { paper: "#F5F0E6", card: "#FFFEF7", ink: "#3D3226", accent: "#C9A227" },
+    preview: { paper: "#F3EBD8", card: "#FFFBF2", ink: "#2C2418", accent: "#C9A227" },
   },
   midnight: {
     id: "midnight",
@@ -542,12 +542,14 @@ export function applyDirOverride(override, appLang) {
   } catch (_) {}
 }
 
-// ── Card surface: solid | gradient | paper ─────────────────────────────
+// ── Card surface: solid | gradient | ruled | grid | parchment ──────────
 
 export const CARD_SURFACES = {
   solid: { id: "solid", label: { en: "Solid", ar: "سادة" } },
   gradient: { id: "gradient", label: { en: "Gradient", ar: "تدرج" } },
-  paper: { id: "paper", label: { en: "Paper", ar: "ورق" } },
+  paper: { id: "paper", label: { en: "Ruled", ar: "مسطّر" } },
+  grid: { id: "grid", label: { en: "Grid", ar: "شبكي" } },
+  parchment: { id: "parchment", label: { en: "Parchment", ar: "رقّ / مرقط" } },
 };
 
 export function loadCardSurface() {

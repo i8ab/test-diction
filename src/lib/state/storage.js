@@ -2,6 +2,7 @@
 
 export const THEME_KEY = "twoTongues.theme";
 const ACCENT_KEY = "twoTongues.accent";
+const SKIN_KEY = "twoTongues.skin";
 const OFFLINE_KEY = "twoTongues.offlineCache";
 const CODE_KEY = "twoTongues.personalCode";
 const SESSION_KEY = "twoTongues.sessionId";
@@ -61,6 +62,135 @@ export const ACCENT_THEMES = {
     label: { en: "Sky", ar: "سماوي" },
     light: { a1: "#0ea5e9", a2: "#38bdf8", soft1: "rgba(14,165,233,0.14)", soft2: "rgba(56,189,248,0.12)", focus: "14,165,233", meaning: "#0284c7" },
     dark:  { a1: "#38bdf8", a2: "#7dd3fc", soft1: "rgba(56,189,248,0.18)", soft2: "rgba(125,211,252,0.14)", focus: "56,189,248", meaning: "#bae6fd" },
+  },
+};
+
+/**
+ * Full mood / skin templates. Each skin overrides base surface colors
+ * (paper, card, ink, muted…) while accent colors stay independent.
+ * Designed to reduce visual fatigue during long study sessions.
+ */
+export const SKIN_PRESETS = {
+  classic: {
+    id: "classic",
+    label: { en: "Classic", ar: "كلاسيك", de: "Klassisch", fr: "Classique" },
+    desc:  { en: "Clean default", ar: "الافتراضي النظيف" },
+    // empty = use CSS :root / data-theme defaults
+    light: null,
+    dark: null,
+    preview: { paper: "#FAFDFE", card: "#FFFFFF", ink: "#146C94", accent: "#19A7CE" },
+  },
+  paper: {
+    id: "paper",
+    label: { en: "Paper", ar: "ورق", de: "Papier", fr: "Papier" },
+    desc:  { en: "Warm notebook", ar: "دفتر دافئ" },
+    light: {
+      paper: "#F5F0E6", card: "#FFFEF7", ink: "#3D3226",
+      muted: "#9A8B78", "muted-strong": "#6B5C4A", "icon-muted": "#8A7B68",
+      "input-bg": "#EFE8DA", "border-rgb": "120,100,70", meaning: "#5C4A32",
+    },
+    dark: {
+      paper: "#1A1610", card: "#241F18", ink: "#EDE4D4",
+      muted: "#A89880", "muted-strong": "#C4B49A", "icon-muted": "#B0A088",
+      "input-bg": "#2C261E", "border-rgb": "160,140,100", meaning: "#D4C4A8",
+    },
+    preview: { paper: "#F5F0E6", card: "#FFFEF7", ink: "#3D3226", accent: "#C9A227" },
+  },
+  midnight: {
+    id: "midnight",
+    label: { en: "Midnight", ar: "منتصف الليل", de: "Mitternacht", fr: "Minuit" },
+    desc:  { en: "True black focus", ar: "أسود عميق للتركيز" },
+    light: {
+      paper: "#E8EAEF", card: "#F4F5F8", ink: "#1A1D26",
+      muted: "#7A8294", "muted-strong": "#4A5266", "icon-muted": "#6A7284",
+      "input-bg": "#DEE1E8", "border-rgb": "60,70,90", meaning: "#2A3448",
+    },
+    dark: {
+      paper: "#050608", card: "#0E1014", ink: "#E8ECF4",
+      muted: "#7A8498", "muted-strong": "#A0AABC", "icon-muted": "#8A94A8",
+      "input-bg": "#141820", "border-rgb": "50,60,80", meaning: "#B0BACC",
+    },
+    preview: { paper: "#050608", card: "#0E1014", ink: "#E8ECF4", accent: "#6BAFD1" },
+  },
+  forest: {
+    id: "forest",
+    label: { en: "Forest", ar: "غابة", de: "Wald", fr: "Forêt" },
+    desc:  { en: "Calm green", ar: "أخضر هادئ" },
+    light: {
+      paper: "#F0F5F0", card: "#F8FBF8", ink: "#1E3A2A",
+      muted: "#7A9A82", "muted-strong": "#4A6A52", "icon-muted": "#6A8A72",
+      "input-bg": "#E4EDE4", "border-rgb": "60,110,70", meaning: "#2A5A3A",
+    },
+    dark: {
+      paper: "#0C1610", card: "#14201A", ink: "#E0F0E4",
+      muted: "#7AAA88", "muted-strong": "#A0C4A8", "icon-muted": "#8AB898",
+      "input-bg": "#1A2A20", "border-rgb": "70,130,90", meaning: "#B0D4B8",
+    },
+    preview: { paper: "#F0F5F0", card: "#F8FBF8", ink: "#1E3A2A", accent: "#2ecc71" },
+  },
+  rose: {
+    id: "rose",
+    label: { en: "Rose", ar: "وردي", de: "Rose", fr: "Rose" },
+    desc:  { en: "Soft blush", ar: "وردي ناعم" },
+    light: {
+      paper: "#FDF6F7", card: "#FFFCFC", ink: "#4A2A32",
+      muted: "#B08A92", "muted-strong": "#8A5A66", "icon-muted": "#A07A84",
+      "input-bg": "#F5E8EA", "border-rgb": "160,100,110", meaning: "#6A3A48",
+    },
+    dark: {
+      paper: "#181012", card: "#22181A", ink: "#F4E4E8",
+      muted: "#B09098", "muted-strong": "#D0B0B8", "icon-muted": "#C0A0A8",
+      "input-bg": "#2A1E22", "border-rgb": "150,100,110", meaning: "#E0C0C8",
+    },
+    preview: { paper: "#FDF6F7", card: "#FFFCFC", ink: "#4A2A32", accent: "#e11d48" },
+  },
+  slate: {
+    id: "slate",
+    label: { en: "Slate", ar: "أردواز", de: "Schiefer", fr: "Ardoise" },
+    desc:  { en: "Cool professional", ar: "رمادي احترافي" },
+    light: {
+      paper: "#F2F4F6", card: "#FAFBFC", ink: "#1E2A32",
+      muted: "#7A8A96", "muted-strong": "#4A5A66", "icon-muted": "#6A7A86",
+      "input-bg": "#E6EAEE", "border-rgb": "80,100,120", meaning: "#2A3A48",
+    },
+    dark: {
+      paper: "#0E1216", card: "#161C22", ink: "#E4EAF0",
+      muted: "#7A8A98", "muted-strong": "#A0B0BE", "icon-muted": "#8A9AA8",
+      "input-bg": "#1A2228", "border-rgb": "70,90,110", meaning: "#B0C0CE",
+    },
+    preview: { paper: "#F2F4F6", card: "#FAFBFC", ink: "#1E2A32", accent: "#64748b" },
+  },
+  warm: {
+    id: "warm",
+    label: { en: "Warm", ar: "دافئ", de: "Warm", fr: "Chaud" },
+    desc:  { en: "Coffee & cream", ar: "قهوة وكريمة" },
+    light: {
+      paper: "#F7F0E6", card: "#FFF9F0", ink: "#3A2A1A",
+      muted: "#A08A70", "muted-strong": "#6A5438", "icon-muted": "#8A7458",
+      "input-bg": "#EFE4D4", "border-rgb": "140,110,70", meaning: "#5A4028",
+    },
+    dark: {
+      paper: "#16120E", card: "#221C16", ink: "#F0E6D8",
+      muted: "#A89880", "muted-strong": "#C8B8A0", "icon-muted": "#B0A088",
+      "input-bg": "#2A221A", "border-rgb": "140,120,90", meaning: "#D8C8B0",
+    },
+    preview: { paper: "#F7F0E6", card: "#FFF9F0", ink: "#3A2A1A", accent: "#C9A227" },
+  },
+  contrast: {
+    id: "contrast",
+    label: { en: "High Contrast", ar: "تباين عالي", de: "Hoher Kontrast", fr: "Contraste élevé" },
+    desc:  { en: "Max readability", ar: "أقصى وضوح" },
+    light: {
+      paper: "#FFFFFF", card: "#FFFFFF", ink: "#000000",
+      muted: "#555555", "muted-strong": "#222222", "icon-muted": "#333333",
+      "input-bg": "#F0F0F0", "border-rgb": "0,0,0", meaning: "#000000",
+    },
+    dark: {
+      paper: "#000000", card: "#0A0A0A", ink: "#FFFFFF",
+      muted: "#AAAAAA", "muted-strong": "#DDDDDD", "icon-muted": "#CCCCCC",
+      "input-bg": "#1A1A1A", "border-rgb": "255,255,255", meaning: "#FFFFFF",
+    },
+    preview: { paper: "#000000", card: "#0A0A0A", ink: "#FFFFFF", accent: "#FFFFFF" },
   },
 };
 
@@ -178,6 +308,53 @@ export function applyAccentTheme(id, mode, customHex) {
     root.style.setProperty("--accent-2-soft", colors.soft2);
     root.style.setProperty("--focus-rgb", colors.focus);
     if (colors.meaning) root.style.setProperty("--meaning", colors.meaning);
+  } catch (_) {}
+}
+
+// ── Skin / Mood templates ──────────────────────────────────────────────
+
+const BASE_SURFACE_VARS = [
+  "paper", "card", "ink", "muted", "muted-strong", "icon-muted",
+  "input-bg", "border-rgb", "meaning",
+];
+
+export function loadSavedSkin() {
+  try {
+    const id = localStorage.getItem(SKIN_KEY) || "classic";
+    return SKIN_PRESETS[id] ? id : "classic";
+  } catch (_) {
+    return "classic";
+  }
+}
+
+export function saveSkin(id) {
+  try {
+    localStorage.setItem(SKIN_KEY, id || "classic");
+  } catch (_) {}
+}
+
+/**
+ * Apply a mood skin. Sets data-skin attribute and overrides surface CSS vars.
+ * Pass mode ("light"|"dark") so the correct palette is chosen.
+ * When skin is "classic", clears overrides so CSS defaults take over.
+ */
+export function applySkinTheme(id, mode) {
+  const skin = SKIN_PRESETS[id] || SKIN_PRESETS.classic;
+  const isDark = mode === "dark" || (typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "dark");
+  const palette = isDark ? skin.dark : skin.light;
+
+  try {
+    const root = document.documentElement;
+    root.setAttribute("data-skin", skin.id);
+
+    // Clear previous skin overrides first
+    BASE_SURFACE_VARS.forEach((v) => root.style.removeProperty(`--${v}`));
+
+    if (palette) {
+      Object.entries(palette).forEach(([key, val]) => {
+        root.style.setProperty(`--${key}`, val);
+      });
+    }
   } catch (_) {}
 }
 

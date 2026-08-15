@@ -16,6 +16,9 @@ import {
   saveDeviceMode,
   applyDeviceModeToDom,
   guessDeviceMode,
+  loadSavedSkin,
+  saveSkin,
+  applySkinTheme,
 } from "../state/storage";
 
 /**
@@ -128,6 +131,19 @@ export function useAppPreferences() {
     saveAccent(accentTheme);
   }, [accentTheme, theme]);
 
+  // --- Skin / Mood template ---
+  const [skin, setSkinState] = useState(loadSavedSkin);
+
+  const setSkin = useCallback((id) => {
+    if (!id) return;
+    setSkinState(id);
+    saveSkin(id);
+  }, []);
+
+  useEffect(() => {
+    applySkinTheme(skin, resolveTheme(theme));
+  }, [skin, theme]);
+
   // --- UI scale ---
   const [uiScale, setUiScaleState] = useState(() => loadUiScale());
 
@@ -160,5 +176,7 @@ export function useAppPreferences() {
     setAccentTheme,
     uiScale,
     setUiScale,
+    skin,
+    setSkin,
   };
 }

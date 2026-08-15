@@ -55,6 +55,7 @@ export default function MainView({
   academicUnits = [], activeUnitId = null, onChangeActiveUnitId, onPersistAcademicUnits,
   showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount, onApproveRequest, onRejectRequest,
   toast, showToast, theme, onToggleTheme, onChangeTheme, accentTheme, onChangeAccent,
+  skin = "classic", onChangeSkin = null,
   appIsAr, appLang = "en", onToggleAppLang, onChangeAppLang,
   deviceMode = null, onChangeDeviceMode, uiScale = 1, onChangeUiScale,
   sessionStart,
@@ -594,6 +595,7 @@ export default function MainView({
                 onUnlinkVaultAccount={onUnlinkVaultAccount} onLogoutAll={onLogoutAll} onLinkAccount={onLinkAccount}
                 appLang={appLang} onChangeAppLang={onChangeAppLang} deviceMode={deviceMode} onChangeDeviceMode={onChangeDeviceMode} uiScale={uiScale} onChangeUiScale={onChangeUiScale}
                 accentTheme={accentTheme} onChangeAccent={onChangeAccent}
+                skin={skin} onChangeSkin={onChangeSkin}
                 remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={onEnableReminders} onDisableReminders={onDisableReminders} onTestReminder={onTestReminder}
                 reminderTitle={reminderTitle} onChangeReminderTitle={onChangeReminderTitle}
                 reminderMessage={reminderMessage} onChangeReminderMessage={onChangeReminderMessage}

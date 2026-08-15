@@ -20,6 +20,7 @@ export default function HeaderMenu({
   appLang = "en", onChangeAppLang,
   deviceMode = null, onChangeDeviceMode = null, uiScale = 1, onChangeUiScale = null,
   accentTheme, onChangeAccent,
+  skin = "classic", onChangeSkin = null,
   remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
   reminderTitle, onChangeReminderTitle,
   reminderMessage, onChangeReminderMessage,
@@ -352,6 +353,8 @@ export default function HeaderMenu({
         setCardHeight={setCardHeight}
         accentTheme={accentTheme}
         onChangeAccent={onChangeAccent}
+        skin={skin}
+        onChangeSkin={onChangeSkin}
       />
 
     </div>

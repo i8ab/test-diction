@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
-import { XIcon, SunIcon, MoonIcon, PlusIcon, GlobeIcon } from "../common/Icons";
+import { XIcon, SunIcon, MoonIcon, PlusIcon, GlobeIcon, CheckIcon, ChevronIcon } from "../common/Icons";
 import {
   BRAND_PRESETS,
   savePresetId,
@@ -8,6 +9,7 @@ import {
 } from "../common/BrandMark";
 import {
   ACCENT_THEMES,
+  SKIN_PRESETS,
   loadCustomAccentHex,
   saveCustomAccentHex,
   saveAccent,
@@ -15,7 +17,8 @@ import {
 } from "../../lib/state/storage";
 
 /**
- * Appearance settings: theme, brand mark, density, radius, card height, UI scale.
+ * Appearance settings with collapsible sections (accordion).
+ * Logo is collapsed by default; only one section open at a time.
  */
 export default function AppearanceModal({
   open,
@@ -43,27 +46,172 @@ export default function AppearanceModal({
   setCardHeight,
   accentTheme = null,
   onChangeAccent = null,
+  skin = "classic",
+  onChangeSkin = null,
 }) {
+  // Only one section open at a time. Logo starts closed.
+  const [openSection, setOpenSection] = useState("mode");
+
   if (!open || typeof document === "undefined") return null;
   const lang = appLang || (isAr ? "ar" : "en");
   const T = (en, ar, de, fr) => tr(lang, en, ar, de, fr);
 
+  const toggle = (id) => setOpenSection((cur) => (cur === id ? null : id));
+
+  const sectionHeaderStyle = {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: "12px 14px",
+    border: "none",
+    borderRadius: 12,
+    background: "var(--input-bg)",
+    color: "var(--ink)",
+    cursor: "pointer",
+    fontFamily: "inherit",
+    textAlign: "start",
+  };
+
+  const Section = ({ id, title, summary, children }) => {
+    const isOpen = openSection === id;
+    return (
+      <div
+        style={{
+          marginBottom: 8,
+          borderRadius: 14,
+          border: isOpen ? "1px solid rgba(var(--border-rgb),0.18)" : "1px solid transparent",
+          background: isOpen ? "color-mix(in srgb, var(--card) 92%, var(--input-bg))" : "transparent",
+          overflow: "hidden",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => toggle(id)}
+          className="touch-target"
+          aria-expanded={isOpen}
+          style={{
+            ...sectionHeaderStyle,
+            background: isOpen ? "color-mix(in srgb, var(--accent-1) 8%, var(--input-bg))" : "var(--input-bg)",
+            borderRadius: isOpen ? "12px 12px 0 0" : 12,
+          }}
+        >
+          <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+            <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.02em" }}>{title}</span>
+            {summary && !isOpen && (
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {summary}
+              </span>
+            )}
+          </span>
+          <span
+            style={{
+              flexShrink: 0,
+              width: 28,
+              height: 28,
+              borderRadius: 8,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "var(--card)",
+              color: "var(--icon-muted)",
+              transform: isOpen ? "rotate(90deg)" : (lang === "ar" ? "rotate(180deg)" : "none"),
+              transition: "transform 0.2s ease",
+            }}
+          >
+            <ChevronIcon size={16} />
+          </span>
+        </button>
+        {isOpen && (
+          <div style={{ padding: "12px 14px 14px" }}>
+            {children}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Summaries when collapsed
+  const logoSummary = brandPresetId === "custom"
+    ? T(`Custom: ${brandCustomGlyph}`, `مخصص: ${brandCustomGlyph}`)
+    : (BRAND_PRESETS.find((p) => p.id === brandPresetId)
+        ? T(BRAND_PRESETS.find((p) => p.id === brandPresetId).en, BRAND_PRESETS.find((p) => p.id === brandPresetId).ar)
+        : "—");
+
+  const modeSummary =
+    theme === "light" ? T("Light", "فاتح") :
+    theme === "dark" ? T("Dark", "داكن") :
+    T("System", "النظام");
+
+  const skinSummary = SKIN_PRESETS[skin]
+    ? T(SKIN_PRESETS[skin].label.en, SKIN_PRESETS[skin].label.ar, SKIN_PRESETS[skin].label.de, SKIN_PRESETS[skin].label.fr)
+    : "Classic";
+
+  const layoutSummary = [
+    uiDensity === "compact" ? T("Compact", "مضغوط") : T("Comfortable", "مريح"),
+    cardHeight === "compact" ? T("Thin", "رفيع") : cardHeight === "comfortable" ? T("Tall", "مرتفع") : T("Normal", "عادي"),
+  ].join(" · ");
+
+  const accentLabel = accentTheme === "custom"
+    ? T("Custom", "مخصص")
+    : (ACCENT_THEMES[accentTheme]?.label
+        ? T(ACCENT_THEMES[accentTheme].label.en, ACCENT_THEMES[accentTheme].label.ar)
+        : accentTheme || "—");
+
   return createPortal(
-        <div onClick={() => { /* Stay open unless X */ }} className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 3600, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="appearance-modal-title" className="modal-card" style={{ width: "100%", maxWidth: 400, maxHeight: "min(90dvh, 820px)", overflow: "hidden", display: "flex", flexDirection: "column", background: "var(--card)", color: "var(--ink)", borderRadius: 18, padding: 20, boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexShrink: 0 }}>
-              <h2 id="appearance-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>{T("Appearance", "المظهر")}</h2>
-              <button type="button" onClick={() => onClose()} aria-label={T("Close", "إغلاق")} style={{ border: "none", background: "var(--input-bg)", borderRadius: 10, width: 36, height: 36, cursor: "pointer", color: "var(--icon-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}><XIcon size={18} /></button>
-            </div>
+    <div
+      onClick={() => { /* Stay open unless X */ }}
+      className="modal-backdrop"
+      style={{
+        position: "fixed", inset: 0, zIndex: 3600,
+        background: "rgba(0,0,0,0.5)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="appearance-modal-title"
+        className="modal-card"
+        style={{
+          width: "100%", maxWidth: 400,
+          maxHeight: "min(90dvh, 820px)",
+          overflow: "hidden",
+          display: "flex", flexDirection: "column",
+          background: "var(--card)", color: "var(--ink)",
+          borderRadius: 18, padding: 16,
+          boxShadow: "0 24px 50px -12px rgba(0,0,0,0.45)",
+          border: "1px solid rgba(var(--border-rgb),0.12)",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexShrink: 0 }}>
+          <h2 id="appearance-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>
+            {T("Appearance", "المظهر")}
+          </h2>
+          <button
+            type="button"
+            onClick={() => onClose()}
+            aria-label={T("Close", "إغلاق")}
+            style={{
+              border: "none", background: "var(--input-bg)", borderRadius: 10,
+              width: 36, height: 36, cursor: "pointer", color: "var(--icon-muted)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <XIcon size={18} />
+          </button>
+        </div>
 
-            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
-            <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.45 }}>
-              {T("Customize logo, light/dark mode, and the accent color of the interface.", "خصّص الشعار والوضع الفاتح/الداكن ولون الواجهة.")}
-            </p>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+          <p style={{ margin: "0 0 12px", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.45 }}>
+            {T("Tap a section to expand. Only one stays open at a time.", "اضغط على قسم لفتحه. قسم واحد فقط مفتوح في نفس الوقت.")}
+          </p>
 
-            <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
-              {T("Logo mark", "شعار الموقع")}
-            </div>
+          {/* ── Logo ── */}
+          <Section id="logo" title={T("Logo mark", "شعار الموقع")} summary={logoSummary}>
             <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
               {T("Pick a mark for the site header. Same animation for all options.", "اختار شكل الشعار في الهيدر. نفس الحركة لكل الخيارات.")}
             </p>
@@ -82,31 +230,21 @@ export default function AppearanceModal({
                     title={T(p.en, p.ar)}
                     className="touch-target"
                     style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: 4,
-                      padding: "8px 4px",
-                      borderRadius: 12,
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                      padding: "8px 4px", borderRadius: 12,
                       border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.12)",
                       background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
-                      cursor: "pointer",
-                      fontFamily: "inherit",
+                      cursor: "pointer", fontFamily: "inherit",
                     }}
                   >
                     <span
                       className="brand-mark-badge"
                       style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 10,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
+                        width: 36, height: 36, borderRadius: 10,
+                        display: "flex", alignItems: "center", justifyContent: "center",
                         background: "linear-gradient(145deg, var(--accent-1), var(--accent-2))",
                         boxShadow: "0 4px 12px -4px color-mix(in srgb, var(--accent-1) 50%, transparent)",
-                        position: "relative",
-                        fontSize: 16,
+                        position: "relative", fontSize: 16,
                       }}
                     >
                       <span className="brand-mark-badge-shine" style={{ position: "absolute", inset: 0, borderRadius: "inherit", overflow: "hidden" }} />
@@ -119,27 +257,19 @@ export default function AppearanceModal({
                 );
               })}
             </div>
-            <div style={{ marginBottom: 18 }}>
+            <div>
               {!brandAddMode ? (
                 <button
                   type="button"
                   onClick={() => setBrandAddMode(true)}
                   className="touch-target"
                   style={{
-                    width: "100%",
-                    minHeight: 44,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
+                    width: "100%", minHeight: 44,
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                     borderRadius: 12,
                     border: brandPresetId === "custom" ? "2px solid var(--accent-1)" : "1px dashed rgba(var(--border-rgb),0.35)",
                     background: brandPresetId === "custom" ? "color-mix(in srgb, var(--accent-1) 10%, var(--card))" : "transparent",
-                    color: "var(--ink)",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
+                    color: "var(--ink)", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit",
                   }}
                 >
                   <PlusIcon size={16} />
@@ -168,31 +298,19 @@ export default function AppearanceModal({
                     placeholder={T("Emoji or letter", "إيموجي أو حرف")}
                     autoFocus
                     style={{
-                      flex: 1,
-                      minHeight: 42,
-                      borderRadius: 10,
+                      flex: 1, minHeight: 42, borderRadius: 10,
                       border: "1px solid rgba(var(--border-rgb),0.2)",
-                      background: "var(--input-bg)",
-                      color: "var(--ink)",
-                      padding: "8px 12px",
-                      fontSize: 16,
-                      fontFamily: "inherit",
+                      background: "var(--input-bg)", color: "var(--ink)",
+                      padding: "8px 12px", fontSize: 16, fontFamily: "inherit",
                     }}
                   />
                   <button
                     type="submit"
                     style={{
-                      minHeight: 42,
-                      padding: "0 14px",
-                      borderRadius: 10,
-                      border: "none",
+                      minHeight: 42, padding: "0 14px", borderRadius: 10, border: "none",
                       background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-                      color: "#fff",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
+                      color: "#fff", fontWeight: 700, cursor: "pointer",
+                      display: "flex", alignItems: "center", gap: 6,
                     }}
                   >
                     <CheckIcon size={14} />
@@ -201,11 +319,11 @@ export default function AppearanceModal({
                 </form>
               )}
             </div>
+          </Section>
 
-            <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
-              {T("Mode", "الوضع")}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
+          {/* ── Mode ── */}
+          <Section id="mode" title={T("Mode", "الوضع")} summary={modeSummary}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <button type="button" onClick={() => onChangeTheme ? onChangeTheme("light") : onToggleTheme()} className="touch-target"
                 style={{
                   minHeight: 48, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
@@ -230,18 +348,72 @@ export default function AppearanceModal({
                   border: theme === "system" ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
                   background: theme === "system" ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
                   color: "var(--ink)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  gridColumn: "1 / -1",
                 }}>
                 <GlobeIcon size={16} /> {T("System", "النظام")}
               </button>
             </div>
+          </Section>
 
-            <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8, marginTop: 4 }}>
+          {/* ── Mood / Template ── */}
+          {onChangeSkin && (
+            <Section id="mood" title={T("Mood / Template", "المزاج / القالب")} summary={skinSummary}>
+              <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
+                {T("Change the whole look to fight boredom during long study sessions.", "غيّر الشكل كامل عشان تقلل الملل في جلسات المذاكرة الطويلة.")}
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                {Object.values(SKIN_PRESETS).map((s) => {
+                  const active = skin === s.id;
+                  const pv = s.preview || { paper: "#FAFDFE", card: "#fff", ink: "#146C94", accent: "#19A7CE" };
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => onChangeSkin(s.id)}
+                      className="touch-target"
+                      title={T(s.desc?.en || s.label.en, s.desc?.ar || s.label.ar)}
+                      style={{
+                        minHeight: 72, borderRadius: 12, cursor: "pointer",
+                        border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.18)",
+                        background: active ? "color-mix(in srgb, var(--accent-1) 10%, var(--card))" : "var(--input-bg)",
+                        padding: 6,
+                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: "100%", height: 28, borderRadius: 7,
+                          background: `linear-gradient(135deg, ${pv.paper} 40%, ${pv.card} 40%)`,
+                          border: `1px solid ${pv.ink}33`,
+                          position: "relative", overflow: "hidden",
+                        }}
+                      >
+                        <span
+                          style={{
+                            position: "absolute", bottom: 4, left: 4, right: 4, height: 8, borderRadius: 3,
+                            background: pv.accent || pv.ink, opacity: 0.85,
+                          }}
+                        />
+                      </span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--ink)", textAlign: "center", lineHeight: 1.2 }}>
+                        {T(s.label.en, s.label.ar, s.label.de, s.label.fr)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
+
+          {/* ── Layout (density + card height + scale) ── */}
+          <Section id="layout" title={T("Layout & size", "التخطيط والحجم")} summary={layoutSummary}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 6 }}>
               {T("List density", "كثافة القائمة")}
             </div>
             <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
               {T("Comfortable = more space. Compact = tighter cards and lists.", "مريح = مسافات أكبر. مضغوط = كروت وقوائم أضيق.")}
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
               <button type="button" onClick={() => setUiDensity("comfortable")} className="touch-target"
                 style={{
                   minHeight: 44, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
@@ -262,13 +434,13 @@ export default function AppearanceModal({
               </button>
             </div>
 
-            <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 6 }}>
               {T("Card height", "ارتفاع الكارت")}
             </div>
             <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
               {T("How tall word cards look (top–bottom padding).", "قد إيه ارتفاع كروت الكلمات (من فوق لتحت).")}
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 18 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 14 }}>
               {[
                 { id: "compact", en: "Thin", ar: "رفيع" },
                 { id: "normal", en: "Normal", ar: "عادي" },
@@ -296,10 +468,10 @@ export default function AppearanceModal({
 
             {typeof onChangeUiScale === "function" && (
               <>
-                <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted-strong)", margin: "14px 0 8px" }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 6 }}>
                   {T("Text size", "حجم الخط")}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                   {[0.9, 1, 1.1, 1.2].map((s) => (
                     <button key={s} type="button" onClick={() => onChangeUiScale(s)} className="touch-target"
                       style={{
@@ -314,14 +486,22 @@ export default function AppearanceModal({
                 </div>
               </>
             )}
+          </Section>
 
-            <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
-              {T("Modal corners", "دائرية النوافذ")}
-            </div>
+          {/* ── Modal corners ── */}
+          <Section
+            id="corners"
+            title={T("Modal corners", "دائرية النوافذ")}
+            summary={
+              uiRadius === "sharp" ? T("Sharp", "حادّة") :
+              uiRadius === "round" ? T("Round", "دائرية") :
+              T("Soft", "ناعمة")
+            }
+          >
             <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
               {T("How rounded the dialog windows look.", "قد إيه زوايا نوافذ الحوار تكون مدوّرة.")}
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 18 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
               {[
                 { id: "sharp", en: "Sharp", ar: "حادّة", r: 6 },
                 { id: "soft", en: "Soft", ar: "ناعمة", r: 16 },
@@ -353,64 +533,62 @@ export default function AppearanceModal({
                 );
               })}
             </div>
+          </Section>
 
-            {onChangeAccent && (
-              <>
-                <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
-                  {T("Color theme", "لون الواجهة")}
-                </div>
-                <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
-                  {T("Pick a vibrant palette, or choose any custom color.", "اختار لوحة ألوان زاهية، أو لون مخصص بالكامل.")}
-                </p>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-                  {Object.entries(ACCENT_THEMES).map(([key, th]) => {
-                    const swatch = (th[theme] || th.light).a1;
-                    const active = key === accentTheme;
-                    const lab = th.label && typeof th.label === "object" ? T(th.label.en, th.label.ar) : (th.label || key);
-                    return (
-                      <button key={key} type="button" onClick={() => onChangeAccent(key)}
-                        title={lab} aria-label={lab}
-                        className="header-menu-swatch touch-target"
-                        style={{
-                          width: 36, height: 36, borderRadius: "50%", background: swatch, cursor: "pointer", padding: 0,
-                          border: active ? "2px solid var(--ink)" : "1px solid rgba(var(--border-rgb),0.3)",
-                          boxShadow: active ? `0 0 0 3px var(--card), 0 0 0 5px ${swatch}66` : "none",
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
-                  padding: "10px 12px", borderRadius: 12, background: "var(--input-bg)",
-                  border: accentTheme === "custom" ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.12)",
-                }}>
-                  <label style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", flex: 1 }}>
-                    {T("Custom color", "لون مخصص")}
-                  </label>
-                  <input
-                    type="color"
-                    defaultValue={typeof loadCustomAccentHex === "function" ? loadCustomAccentHex() : "#19A7CE"}
-                    onChange={(e) => {
-                      const hex = e.target.value;
-                      try { saveCustomAccentHex(hex); } catch (_) {}
-                      try { saveAccent("custom"); } catch (_) {}
-                      if (onChangeAccent) onChangeAccent("custom");
-                      try { applyAccentTheme("custom", theme, hex); } catch (_) {}
-                    }}
-                    style={{
-                      width: 44, height: 36, border: "1px solid rgba(var(--border-rgb),0.25)",
-                      borderRadius: 8, padding: 2, cursor: "pointer", background: "var(--card)",
-                    }}
-                    aria-label={T("Pick custom color", "اختيار لون مخصص")}
-                  />
-                </div>
-              </>
-            )}
-            </div>
-          </div>
+          {/* ── Accent color ── */}
+          {onChangeAccent && (
+            <Section id="accent" title={T("Color theme", "لون الواجهة")} summary={accentLabel}>
+              <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
+                {T("Pick a vibrant palette, or choose any custom color.", "اختار لوحة ألوان زاهية، أو لون مخصص بالكامل.")}
+              </p>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+                {Object.entries(ACCENT_THEMES).map(([key, th]) => {
+                  const swatch = (th[theme] || th.light).a1;
+                  const active = key === accentTheme;
+                  const lab = th.label && typeof th.label === "object" ? T(th.label.en, th.label.ar) : (th.label || key);
+                  return (
+                    <button key={key} type="button" onClick={() => onChangeAccent(key)}
+                      title={lab} aria-label={lab}
+                      className="header-menu-swatch touch-target"
+                      style={{
+                        width: 36, height: 36, borderRadius: "50%", background: swatch, cursor: "pointer", padding: 0,
+                        border: active ? "2px solid var(--ink)" : "1px solid rgba(var(--border-rgb),0.3)",
+                        boxShadow: active ? `0 0 0 3px var(--card), 0 0 0 5px ${swatch}66` : "none",
+                      }}
+                    />
+                  );
+                })}
+              </div>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+                padding: "10px 12px", borderRadius: 12, background: "var(--input-bg)",
+                border: accentTheme === "custom" ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.12)",
+              }}>
+                <label style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", flex: 1 }}>
+                  {T("Custom color", "لون مخصص")}
+                </label>
+                <input
+                  type="color"
+                  defaultValue={typeof loadCustomAccentHex === "function" ? loadCustomAccentHex() : "#19A7CE"}
+                  onChange={(e) => {
+                    const hex = e.target.value;
+                    try { saveCustomAccentHex(hex); } catch (_) {}
+                    try { saveAccent("custom"); } catch (_) {}
+                    if (onChangeAccent) onChangeAccent("custom");
+                    try { applyAccentTheme("custom", theme, hex); } catch (_) {}
+                  }}
+                  style={{
+                    width: 44, height: 36, border: "1px solid rgba(var(--border-rgb),0.25)",
+                    borderRadius: 8, padding: 2, cursor: "pointer", background: "var(--card)",
+                  }}
+                  aria-label={T("Pick custom color", "اختيار لون مخصص")}
+                />
+              </div>
+            </Section>
+          )}
         </div>
-    ,
+      </div>
+    </div>,
     document.body
   );
 }

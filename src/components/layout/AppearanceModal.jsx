@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import { XIcon, SunIcon, MoonIcon, PlusIcon, GlobeIcon, CheckIcon, ChevronIcon } from "../common/Icons";
@@ -12,6 +12,8 @@ import {
   SKIN_PRESETS,
   LATIN_FONTS,
   ARABIC_FONTS,
+  CARD_SURFACES,
+  MOTION_SPEEDS,
   loadCustomAccentHex,
   saveCustomAccentHex,
   saveAccent,
@@ -56,9 +58,60 @@ export default function AppearanceModal({
   onChangeArabicFont = null,
   reducedMotion = false,
   onChangeReducedMotion = null,
+  uiSounds = false,
+  onChangeUiSounds = null,
+  dirOverride = "auto",
+  onChangeDirOverride = null,
+  cardSurface = "solid",
+  onChangeCardSurface = null,
+  iconStyle = "outline",
+  onChangeIconStyle = null,
+  motionSpeed = "normal",
+  onChangeMotionSpeed = null,
+  examVisual = false,
+  onChangeExamVisual = null,
 }) {
   // Only one section open at a time. Logo starts closed.
   const [openSection, setOpenSection] = useState("mode");
+  const scrollRef = useRef(null);
+  const sectionRefs = useRef({});
+
+  // When a section opens, keep it in view inside the modal scroll area.
+  useEffect(() => {
+    if (!open || !openSection) return;
+    let cancelled = false;
+    const run = () => {
+      if (cancelled) return;
+      const el = sectionRefs.current[openSection];
+      const container = scrollRef.current;
+      if (!el || !container) return;
+      try {
+        const elTop = el.offsetTop;
+        const elH = el.offsetHeight;
+        const elBottom = elTop + elH;
+        const viewTop = container.scrollTop;
+        const viewH = container.clientHeight;
+        const viewBottom = viewTop + viewH;
+        // Prefer keeping the whole section visible; if taller than viewport,
+        // pin the header near the top so content opens downward into view.
+        if (elH + 16 >= viewH) {
+          container.scrollTo({ top: Math.max(0, elTop - 6), behavior: "smooth" });
+        } else if (elBottom > viewBottom - 10) {
+          container.scrollTo({ top: Math.max(0, elBottom - viewH + 10), behavior: "smooth" });
+        } else if (elTop < viewTop + 6) {
+          container.scrollTo({ top: Math.max(0, elTop - 6), behavior: "smooth" });
+        }
+      } catch (_) {}
+    };
+    // Two frames: first for open state paint, second after children layout
+    const id1 = requestAnimationFrame(() => {
+      requestAnimationFrame(run);
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id1);
+    };
+  }, [openSection, open]);
 
   if (!open || typeof document === "undefined") return null;
   const lang = appLang || (isAr ? "ar" : "en");
@@ -86,6 +139,8 @@ export default function AppearanceModal({
     const isOpen = openSection === id;
     return (
       <div
+        ref={(node) => { sectionRefs.current[id] = node; }}
+        data-section-id={id}
         style={{
           marginBottom: 8,
           borderRadius: 14,
@@ -213,7 +268,7 @@ export default function AppearanceModal({
           </button>
         </div>
 
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+        <div ref={scrollRef} style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
           <p style={{ margin: "0 0 12px", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.45 }}>
             {T("Tap a section to expand. Only one stays open at a time.", "اضغط على قسم لفتحه. قسم واحد فقط مفتوح في نفس الوقت.")}
           </p>
@@ -667,39 +722,216 @@ export default function AppearanceModal({
             </Section>
           )}
 
-          {/* ── Comfort / reduced motion ── */}
-          {typeof onChangeReducedMotion === "function" && (
+          {/* ── Motion speed ── */}
+          {typeof onChangeMotionSpeed === "function" && (
             <Section
-              id="comfort"
-              title={T("Comfort", "الراحة")}
-              summary={reducedMotion ? T("Reduced motion", "حركة أقل") : T("Full motion", "حركة كاملة")}
+              id="motion"
+              title={T("Animation speed", "سرعة الحركة")}
+              summary={MOTION_SPEEDS[motionSpeed] ? T(MOTION_SPEEDS[motionSpeed].label.en, MOTION_SPEEDS[motionSpeed].label.ar) : motionSpeed}
             >
               <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
-                {T("Reduce animations and transitions — easier on the eyes during long study sessions.", "قلّل الحركات والانتقالات — أريح للعين في جلسات المذاكرة الطويلة.")}
+                {T("Control how fast transitions and animations play.", "تحكم في سرعة الانتقالات والحركات.")}
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                {Object.values(MOTION_SPEEDS).map((m) => {
+                  const active = motionSpeed === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => onChangeMotionSpeed(m.id)}
+                      className="touch-target"
+                      style={{
+                        minHeight: 44, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 12,
+                        border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                        background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                        color: "var(--ink)",
+                      }}
+                    >
+                      {T(m.label.en, m.label.ar)}
+                    </button>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
+
+          {/* ── Sounds ── */}
+          {typeof onChangeUiSounds === "function" && (
+            <Section
+              id="sounds"
+              title={T("Sounds", "الأصوات")}
+              summary={uiSounds ? T("On", "تشغيل") : T("Off", "إيقاف")}
+            >
+              <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
+                {T("Soft feedback sounds on correct / wrong quiz answers.", "أصوات خفيفة عند الإجابة صح أو غلط في الاختبارات.")}
               </p>
               <button
                 type="button"
-                onClick={() => onChangeReducedMotion(!reducedMotion)}
+                onClick={() => onChangeUiSounds(!uiSounds)}
                 className="touch-target"
                 style={{
                   width: "100%", minHeight: 48, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
-                  border: reducedMotion ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
-                  background: reducedMotion ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                  border: uiSounds ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                  background: uiSounds ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
                   color: "var(--ink)",
                   display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 14px",
                 }}
               >
-                <span>{T("Reduced motion", "تقليل الحركة")}</span>
+                <span>{T("Quiz feedback sounds", "أصوات نتيجة الاختبار")}</span>
                 <span style={{
                   width: 40, height: 24, borderRadius: 12,
-                  background: reducedMotion ? "var(--accent-1)" : "rgba(var(--border-rgb),0.25)",
-                  position: "relative", transition: "background 0.2s",
+                  background: uiSounds ? "var(--accent-1)" : "rgba(var(--border-rgb),0.25)",
+                  position: "relative",
                 }}>
                   <span style={{
                     position: "absolute", top: 3, width: 18, height: 18, borderRadius: "50%",
-                    background: "#fff",
-                    left: reducedMotion ? 19 : 3,
-                    transition: "left 0.2s",
+                    background: "#fff", left: uiSounds ? 19 : 3,
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+                  }} />
+                </span>
+              </button>
+            </Section>
+          )}
+
+          {/* ── Direction ── */}
+          {typeof onChangeDirOverride === "function" && (
+            <Section
+              id="direction"
+              title={T("Layout direction", "اتجاه الواجهة")}
+              summary={
+                dirOverride === "rtl" ? "RTL" :
+                dirOverride === "ltr" ? "LTR" :
+                T("Auto", "تلقائي")
+              }
+            >
+              <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
+                {T("Force left-to-right or right-to-left, or follow the UI language.", "أجبر الاتجاه يمين أو شمال، أو اتبع لغة الواجهة.")}
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                {[
+                  { id: "auto", en: "Auto", ar: "تلقائي" },
+                  { id: "ltr", en: "LTR", ar: "يسار→يمين" },
+                  { id: "rtl", en: "RTL", ar: "يمين→يسار" },
+                ].map((opt) => {
+                  const active = dirOverride === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => onChangeDirOverride(opt.id)}
+                      className="touch-target"
+                      style={{
+                        minHeight: 44, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 12,
+                        border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                        background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                        color: "var(--ink)",
+                      }}
+                    >
+                      {T(opt.en, opt.ar)}
+                    </button>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
+
+          {/* ── Card surface ── */}
+          {typeof onChangeCardSurface === "function" && (
+            <Section
+              id="cardsurface"
+              title={T("Card background", "خلفية الكروت")}
+              summary={CARD_SURFACES[cardSurface] ? T(CARD_SURFACES[cardSurface].label.en, CARD_SURFACES[cardSurface].label.ar) : cardSurface}
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                {Object.values(CARD_SURFACES).map((s) => {
+                  const active = cardSurface === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => onChangeCardSurface(s.id)}
+                      className="touch-target"
+                      style={{
+                        minHeight: 56, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 12,
+                        border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                        background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                        color: "var(--ink)",
+                      }}
+                    >
+                      {T(s.label.en, s.label.ar)}
+                    </button>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
+
+          {/* ── Icon style ── */}
+          {typeof onChangeIconStyle === "function" && (
+            <Section
+              id="icons"
+              title={T("Icon style", "شكل الأيقونات")}
+              summary={iconStyle === "filled" ? T("Filled", "ممتلئة") : T("Outline", "خطية")}
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {[
+                  { id: "outline", en: "Outline", ar: "خطية" },
+                  { id: "filled", en: "Filled", ar: "ممتلئة" },
+                ].map((opt) => {
+                  const active = iconStyle === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => onChangeIconStyle(opt.id)}
+                      className="touch-target"
+                      style={{
+                        minHeight: 48, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
+                        border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                        background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                        color: "var(--ink)",
+                      }}
+                    >
+                      {T(opt.en, opt.ar)}
+                    </button>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
+
+          {/* ── Exam visual ── */}
+          {typeof onChangeExamVisual === "function" && (
+            <Section
+              id="examvisual"
+              title={T("Exam visual mode", "وضع الامتحان البصري")}
+              summary={examVisual ? T("On", "تشغيل") : T("Off", "إيقاف")}
+            >
+              <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
+                {T("Strict black & white interface — no accent colors, fewer distractions.", "واجهة أبيض وأسود صارمة — بدون ألوان تمييز، تشتيت أقل.")}
+              </p>
+              <button
+                type="button"
+                onClick={() => onChangeExamVisual(!examVisual)}
+                className="touch-target"
+                style={{
+                  width: "100%", minHeight: 48, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
+                  border: examVisual ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                  background: examVisual ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                  color: "var(--ink)",
+                  display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 14px",
+                }}
+              >
+                <span>{T("Strict B&W mode", "وضع أبيض وأسود")}</span>
+                <span style={{
+                  width: 40, height: 24, borderRadius: 12,
+                  background: examVisual ? "var(--accent-1)" : "rgba(var(--border-rgb),0.25)",
+                  position: "relative",
+                }}>
+                  <span style={{
+                    position: "absolute", top: 3, width: 18, height: 18, borderRadius: "50%",
+                    background: "#fff", left: examVisual ? 19 : 3,
                     boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
                   }} />
                 </span>

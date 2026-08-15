@@ -6,6 +6,12 @@ const SKIN_KEY = "twoTongues.skin";
 const LATIN_FONT_KEY = "twoTongues.latinFont";
 const ARABIC_FONT_KEY = "twoTongues.arabicFont";
 const REDUCED_MOTION_KEY = "twoTongues.reducedMotion";
+const UI_SOUNDS_KEY = "twoTongues.uiSounds";
+const DIR_OVERRIDE_KEY = "twoTongues.dirOverride";
+const CARD_SURFACE_KEY = "twoTongues.cardSurface";
+const ICON_STYLE_KEY = "twoTongues.iconStyle";
+const MOTION_SPEED_KEY = "twoTongues.motionSpeed";
+const EXAM_VISUAL_KEY = "twoTongues.examVisual";
 const OFFLINE_KEY = "twoTongues.offlineCache";
 const CODE_KEY = "twoTongues.personalCode";
 const SESSION_KEY = "twoTongues.sessionId";
@@ -488,6 +494,161 @@ export function saveReducedMotion(on) {
 export function applyReducedMotion(on) {
   try {
     document.documentElement.setAttribute("data-reduced-motion", on ? "1" : "0");
+  } catch (_) {}
+}
+
+// ── UI sounds ──────────────────────────────────────────────────────────
+
+export function loadUiSounds() {
+  try {
+    return localStorage.getItem(UI_SOUNDS_KEY) === "1";
+  } catch (_) {
+    return false;
+  }
+}
+
+export function saveUiSounds(on) {
+  try {
+    localStorage.setItem(UI_SOUNDS_KEY, on ? "1" : "0");
+  } catch (_) {}
+}
+
+// ── Direction override: auto | ltr | rtl ────────────────────────────────
+
+export function loadDirOverride() {
+  try {
+    const v = localStorage.getItem(DIR_OVERRIDE_KEY);
+    if (v === "ltr" || v === "rtl" || v === "auto") return v;
+  } catch (_) {}
+  return "auto";
+}
+
+export function saveDirOverride(v) {
+  try {
+    localStorage.setItem(DIR_OVERRIDE_KEY, v || "auto");
+  } catch (_) {}
+}
+
+/** Apply dir. When auto, uses appLang (ar → rtl). */
+export function applyDirOverride(override, appLang) {
+  try {
+    const root = document.documentElement;
+    let dir = "ltr";
+    if (override === "rtl") dir = "rtl";
+    else if (override === "ltr") dir = "ltr";
+    else dir = appLang === "ar" ? "rtl" : "ltr";
+    root.setAttribute("dir", dir);
+    root.setAttribute("data-dir-override", override || "auto");
+  } catch (_) {}
+}
+
+// ── Card surface: solid | gradient | paper ─────────────────────────────
+
+export const CARD_SURFACES = {
+  solid: { id: "solid", label: { en: "Solid", ar: "سادة" } },
+  gradient: { id: "gradient", label: { en: "Gradient", ar: "تدرج" } },
+  paper: { id: "paper", label: { en: "Paper", ar: "ورق" } },
+};
+
+export function loadCardSurface() {
+  try {
+    const v = localStorage.getItem(CARD_SURFACE_KEY) || "solid";
+    return CARD_SURFACES[v] ? v : "solid";
+  } catch (_) {
+    return "solid";
+  }
+}
+
+export function saveCardSurface(id) {
+  try {
+    localStorage.setItem(CARD_SURFACE_KEY, id || "solid");
+  } catch (_) {}
+}
+
+export function applyCardSurface(id) {
+  try {
+    document.documentElement.setAttribute("data-card-surface", id || "solid");
+  } catch (_) {}
+}
+
+// ── Icon style: outline | filled ───────────────────────────────────────
+
+export function loadIconStyle() {
+  try {
+    const v = localStorage.getItem(ICON_STYLE_KEY);
+    if (v === "outline" || v === "filled") return v;
+  } catch (_) {}
+  return "outline";
+}
+
+export function saveIconStyle(id) {
+  try {
+    localStorage.setItem(ICON_STYLE_KEY, id || "outline");
+  } catch (_) {}
+}
+
+export function applyIconStyle(id) {
+  try {
+    document.documentElement.setAttribute("data-icon-style", id || "outline");
+  } catch (_) {}
+}
+
+// ── Motion speed: off | slow | normal | fast ───────────────────────────
+
+export const MOTION_SPEEDS = {
+  off: { id: "off", scale: 0, label: { en: "Off", ar: "إيقاف" } },
+  slow: { id: "slow", scale: 0.5, label: { en: "Slow", ar: "بطيء" } },
+  normal: { id: "normal", scale: 1, label: { en: "Normal", ar: "عادي" } },
+  fast: { id: "fast", scale: 0.55, label: { en: "Fast", ar: "سريع" } },
+};
+
+export function loadMotionSpeed() {
+  try {
+    const v = localStorage.getItem(MOTION_SPEED_KEY) || "normal";
+    return MOTION_SPEEDS[v] ? v : "normal";
+  } catch (_) {
+    return "normal";
+  }
+}
+
+export function saveMotionSpeed(id) {
+  try {
+    localStorage.setItem(MOTION_SPEED_KEY, id || "normal");
+  } catch (_) {}
+}
+
+export function applyMotionSpeed(id) {
+  const spec = MOTION_SPEEDS[id] || MOTION_SPEEDS.normal;
+  try {
+    const root = document.documentElement;
+    root.setAttribute("data-motion-speed", spec.id);
+    root.style.setProperty("--motion-scale", String(spec.scale));
+    // Keep legacy reduced-motion flag in sync when speed is off
+    if (spec.id === "off") {
+      root.setAttribute("data-reduced-motion", "1");
+    }
+  } catch (_) {}
+}
+
+// ── Exam visual mode (strict B&W) ──────────────────────────────────────
+
+export function loadExamVisual() {
+  try {
+    return localStorage.getItem(EXAM_VISUAL_KEY) === "1";
+  } catch (_) {
+    return false;
+  }
+}
+
+export function saveExamVisual(on) {
+  try {
+    localStorage.setItem(EXAM_VISUAL_KEY, on ? "1" : "0");
+  } catch (_) {}
+}
+
+export function applyExamVisual(on) {
+  try {
+    document.documentElement.setAttribute("data-exam-visual", on ? "1" : "0");
   } catch (_) {}
 }
 

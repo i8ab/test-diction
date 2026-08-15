@@ -109,6 +109,18 @@ export default function DictionaryApp() {
     setArabicFont,
     reducedMotion,
     setReducedMotion,
+    uiSounds,
+    setUiSounds,
+    dirOverride,
+    setDirOverride,
+    cardSurface,
+    setCardSurface,
+    iconStyle,
+    setIconStyle,
+    motionSpeed,
+    setMotionSpeed,
+    examVisual,
+    setExamVisual,
   } = useAppPreferences();
 
   const [entries, setEntries] = useState([]);
@@ -1152,6 +1164,10 @@ export default function DictionaryApp() {
   }
 
   async function handleRecordSrsAnswer(entryId, correct, qualityOverride) {
+    try {
+      const { playUiSound } = await import("./lib/utils/uiSounds");
+      playUiSound(correct ? "correct" : "wrong");
+    } catch (_) {}
     await recordSrsAnswer({ entryId, correct, qualityOverride, accountCode, persistAccounts });
   }
 
@@ -1559,6 +1575,12 @@ export default function DictionaryApp() {
       latinFont={latinFont} onChangeLatinFont={setLatinFont}
       arabicFont={arabicFont} onChangeArabicFont={setArabicFont}
       reducedMotion={reducedMotion} onChangeReducedMotion={setReducedMotion}
+      uiSounds={uiSounds} onChangeUiSounds={setUiSounds}
+      dirOverride={dirOverride} onChangeDirOverride={setDirOverride}
+      cardSurface={cardSurface} onChangeCardSurface={setCardSurface}
+      iconStyle={iconStyle} onChangeIconStyle={setIconStyle}
+      motionSpeed={motionSpeed} onChangeMotionSpeed={setMotionSpeed}
+      examVisual={examVisual} onChangeExamVisual={setExamVisual}
       appIsAr={appIsAr} appLang={appLang} onToggleAppLang={toggleAppLang} onChangeAppLang={setAppLang}
       sessionStart={sessionStartRef.current}
       remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={enableReminders} onDisableReminders={disableReminders} onTestReminder={testReminderPush}

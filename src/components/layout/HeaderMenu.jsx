@@ -24,6 +24,12 @@ export default function HeaderMenu({
   latinFont = "source-sans", onChangeLatinFont = null,
   arabicFont = "amiri", onChangeArabicFont = null,
   reducedMotion = false, onChangeReducedMotion = null,
+  uiSounds = false, onChangeUiSounds = null,
+  dirOverride = "auto", onChangeDirOverride = null,
+  cardSurface = "solid", onChangeCardSurface = null,
+  iconStyle = "outline", onChangeIconStyle = null,
+  motionSpeed = "normal", onChangeMotionSpeed = null,
+  examVisual = false, onChangeExamVisual = null,
   remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
   reminderTitle, onChangeReminderTitle,
   reminderMessage, onChangeReminderMessage,
@@ -364,6 +370,18 @@ export default function HeaderMenu({
         onChangeArabicFont={onChangeArabicFont}
         reducedMotion={reducedMotion}
         onChangeReducedMotion={onChangeReducedMotion}
+        uiSounds={uiSounds}
+        onChangeUiSounds={onChangeUiSounds}
+        dirOverride={dirOverride}
+        onChangeDirOverride={onChangeDirOverride}
+        cardSurface={cardSurface}
+        onChangeCardSurface={onChangeCardSurface}
+        iconStyle={iconStyle}
+        onChangeIconStyle={onChangeIconStyle}
+        motionSpeed={motionSpeed}
+        onChangeMotionSpeed={onChangeMotionSpeed}
+        examVisual={examVisual}
+        onChangeExamVisual={onChangeExamVisual}
       />
 
     </div>

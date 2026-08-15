@@ -27,6 +27,23 @@ import {
   loadReducedMotion,
   saveReducedMotion,
   applyReducedMotion,
+  loadUiSounds,
+  saveUiSounds,
+  loadDirOverride,
+  saveDirOverride,
+  applyDirOverride,
+  loadCardSurface,
+  saveCardSurface,
+  applyCardSurface,
+  loadIconStyle,
+  saveIconStyle,
+  applyIconStyle,
+  loadMotionSpeed,
+  saveMotionSpeed,
+  applyMotionSpeed,
+  loadExamVisual,
+  saveExamVisual,
+  applyExamVisual,
 } from "../state/storage";
 
 /**
@@ -49,7 +66,6 @@ export function useAppPreferences() {
     saveAppLang(lang);
     try {
       document.documentElement.lang = lang;
-      document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
     } catch (_) {}
   }, []);
 
@@ -58,11 +74,10 @@ export function useAppPreferences() {
     setAppLang(appLang === "ar" ? "en" : "ar");
   }, [appLang, setAppLang]);
 
-  // Keep <html lang/dir> in sync on mount + change
+  // Keep <html lang> in sync (dir is handled by dirOverride effect)
   useEffect(() => {
     try {
       document.documentElement.lang = appLang;
-      document.documentElement.dir = appLang === "ar" ? "rtl" : "ltr";
     } catch (_) {}
   }, [appLang]);
 
@@ -203,6 +218,67 @@ export function useAppPreferences() {
     applyReducedMotion(reducedMotion);
   }, [reducedMotion]);
 
+  // --- UI sounds ---
+  const [uiSounds, setUiSoundsState] = useState(loadUiSounds);
+  const setUiSounds = useCallback((on) => {
+    const v = !!on;
+    setUiSoundsState(v);
+    saveUiSounds(v);
+  }, []);
+
+  // --- Direction override ---
+  const [dirOverride, setDirOverrideState] = useState(loadDirOverride);
+  const setDirOverride = useCallback((v) => {
+    if (v !== "auto" && v !== "ltr" && v !== "rtl") return;
+    setDirOverrideState(v);
+    saveDirOverride(v);
+  }, []);
+
+  useEffect(() => {
+    applyDirOverride(dirOverride, appLang);
+  }, [dirOverride, appLang]);
+
+  // --- Card surface ---
+  const [cardSurface, setCardSurfaceState] = useState(loadCardSurface);
+  const setCardSurface = useCallback((id) => {
+    setCardSurfaceState(id);
+    saveCardSurface(id);
+    applyCardSurface(id);
+  }, []);
+  useEffect(() => { applyCardSurface(cardSurface); }, [cardSurface]);
+
+  // --- Icon style ---
+  const [iconStyle, setIconStyleState] = useState(loadIconStyle);
+  const setIconStyle = useCallback((id) => {
+    setIconStyleState(id);
+    saveIconStyle(id);
+    applyIconStyle(id);
+  }, []);
+  useEffect(() => { applyIconStyle(iconStyle); }, [iconStyle]);
+
+  // --- Motion speed ---
+  const [motionSpeed, setMotionSpeedState] = useState(loadMotionSpeed);
+  const setMotionSpeed = useCallback((id) => {
+    setMotionSpeedState(id);
+    saveMotionSpeed(id);
+    applyMotionSpeed(id);
+    if (id === "off") {
+      setReducedMotionState(true);
+      saveReducedMotion(true);
+    }
+  }, []);
+  useEffect(() => { applyMotionSpeed(motionSpeed); }, [motionSpeed]);
+
+  // --- Exam visual ---
+  const [examVisual, setExamVisualState] = useState(loadExamVisual);
+  const setExamVisual = useCallback((on) => {
+    const v = !!on;
+    setExamVisualState(v);
+    saveExamVisual(v);
+    applyExamVisual(v);
+  }, []);
+  useEffect(() => { applyExamVisual(examVisual); }, [examVisual]);
+
   return {
     appLang,
     setAppLang,
@@ -226,5 +302,17 @@ export function useAppPreferences() {
     setArabicFont,
     reducedMotion,
     setReducedMotion,
+    uiSounds,
+    setUiSounds,
+    dirOverride,
+    setDirOverride,
+    cardSurface,
+    setCardSurface,
+    iconStyle,
+    setIconStyle,
+    motionSpeed,
+    setMotionSpeed,
+    examVisual,
+    setExamVisual,
   };
 }

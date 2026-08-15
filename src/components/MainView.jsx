@@ -59,6 +59,12 @@ export default function MainView({
   latinFont = "source-sans", onChangeLatinFont = null,
   arabicFont = "amiri", onChangeArabicFont = null,
   reducedMotion = false, onChangeReducedMotion = null,
+  uiSounds = false, onChangeUiSounds = null,
+  dirOverride = "auto", onChangeDirOverride = null,
+  cardSurface = "solid", onChangeCardSurface = null,
+  iconStyle = "outline", onChangeIconStyle = null,
+  motionSpeed = "normal", onChangeMotionSpeed = null,
+  examVisual = false, onChangeExamVisual = null,
   appIsAr, appLang = "en", onToggleAppLang, onChangeAppLang,
   deviceMode = null, onChangeDeviceMode, uiScale = 1, onChangeUiScale,
   sessionStart,
@@ -602,6 +608,12 @@ export default function MainView({
                 latinFont={latinFont} onChangeLatinFont={onChangeLatinFont}
                 arabicFont={arabicFont} onChangeArabicFont={onChangeArabicFont}
                 reducedMotion={reducedMotion} onChangeReducedMotion={onChangeReducedMotion}
+                uiSounds={uiSounds} onChangeUiSounds={onChangeUiSounds}
+                dirOverride={dirOverride} onChangeDirOverride={onChangeDirOverride}
+                cardSurface={cardSurface} onChangeCardSurface={onChangeCardSurface}
+                iconStyle={iconStyle} onChangeIconStyle={onChangeIconStyle}
+                motionSpeed={motionSpeed} onChangeMotionSpeed={onChangeMotionSpeed}
+                examVisual={examVisual} onChangeExamVisual={onChangeExamVisual}
                 remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={onEnableReminders} onDisableReminders={onDisableReminders} onTestReminder={onTestReminder}
                 reminderTitle={reminderTitle} onChangeReminderTitle={onChangeReminderTitle}
                 reminderMessage={reminderMessage} onChangeReminderMessage={onChangeReminderMessage}

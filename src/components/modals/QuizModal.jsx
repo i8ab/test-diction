@@ -9,6 +9,7 @@ import { SpeakButton, XIcon, CheckIcon, EyeIcon, QuizIcon } from "../common/Icon
 import NumberStepper from "../common/NumberStepper";
 import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
+import { playUiSound } from "../../lib/utils/uiSounds";
 
 function ReviewRow({ item, isAr }) {
   const row = item || {};
@@ -131,6 +132,10 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
     const q = questions[idx];
     if (!q) return;
     const wasEmpty = !answers[idx];
+    // Always play feedback on first full answer (correct + wrong)
+    if (wasEmpty) {
+      try { playUiSound(correct ? "correct" : "wrong"); } catch (_) {}
+    }
     setAnswers((prev) => {
       const next = [...prev];
       next[idx] = {
@@ -148,6 +153,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
       return next;
     });
     // Feed SRS only the first time this question is answered
+    // (sound already played above — App handler may also play; duplicate is fine)
     if (wasEmpty && onRecordSrsAnswer) {
       onRecordSrsAnswer(q.entryId, correct);
     }
@@ -203,9 +209,12 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
 
     // Full selection: check both answers
     const ok = nextList.length === need && nextList.every((x) => corrects.includes(x));
+    const firstCommit = !answers[index] || answers[index].partial;
+    if (firstCommit) {
+      try { playUiSound(ok ? "correct" : "wrong"); } catch (_) {}
+    }
     setAnswers((old) => {
       const copy = [...old];
-      const wasEmpty = !old[index] || old[index].partial;
       copy[index] = {
         selected: nextList.join(" | "),
         selectedList: nextList,
@@ -222,8 +231,8 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
       };
       return copy;
     });
-    if ((!answers[index] || answers[index].partial) && onRecordSrsAnswer) {
-      onRecordSrsAnswer(q.entryId, nextList.length === need && nextList.every((x) => corrects.includes(x)));
+    if (firstCommit && onRecordSrsAnswer) {
+      onRecordSrsAnswer(q.entryId, ok);
     }
   }
 

@@ -426,11 +426,17 @@ export default function AppearanceModal({
               <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
                 {T("Change the whole look to fight boredom during long study sessions.", "غيّر الشكل كامل عشان تقلل الملل في جلسات المذاكرة الطويلة.")}
               </p>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
                 {Object.values(SKIN_PRESETS || {}).map((s) => {
                   if (!s || !s.id) return null;
                   const active = skin === s.id;
                   const pv = s.preview || { paper: "#FAFDFE", card: "#fff", ink: "#146C94", accent: "#19A7CE" };
+                  const overlay = (s.bg && (s.bg.light || s.bg.dark))
+                    ? (s.bg.light || s.bg.dark)
+                    : `linear-gradient(135deg, ${pv.paper} 0%, ${pv.card} 100%)`;
+                  const previewBg = s.bgImage
+                    ? `${overlay}, url("${s.bgImage}")`
+                    : overlay;
                   return (
                     <button
                       key={s.id}
@@ -439,29 +445,41 @@ export default function AppearanceModal({
                       className="touch-target"
                       title={T(s.desc?.en || s.label.en, s.desc?.ar || s.label.ar)}
                       style={{
-                        minHeight: 72, borderRadius: 12, cursor: "pointer",
+                        minHeight: 84, borderRadius: 14, cursor: "pointer",
                         border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.18)",
                         background: active ? "color-mix(in srgb, var(--accent-1) 10%, var(--card))" : "var(--input-bg)",
-                        padding: 6,
-                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5,
+                        padding: 7,
+                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6,
+                        boxShadow: active ? "0 0 0 1px rgba(var(--focus-rgb),0.25)" : "none",
                       }}
                     >
                       <span
                         style={{
-                          width: "100%", height: 28, borderRadius: 7,
-                          background: `linear-gradient(135deg, ${pv.paper} 40%, ${pv.card} 40%)`,
-                          border: `1px solid ${pv.ink}33`,
+                          width: "100%", height: 36, borderRadius: 9,
+                          backgroundImage: previewBg,
+                          backgroundSize: "cover, cover",
+                          backgroundPosition: "center, center",
+                          backgroundColor: pv.paper,
+                          border: `1px solid ${pv.ink}28`,
                           position: "relative", overflow: "hidden",
+                          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
                         }}
                       >
                         <span
                           style={{
-                            position: "absolute", bottom: 4, left: 4, right: 4, height: 8, borderRadius: 3,
-                            background: pv.accent || pv.ink, opacity: 0.85,
+                            position: "absolute", bottom: 5, left: 5, right: "38%", height: 10, borderRadius: 4,
+                            background: pv.card || "#fff",
+                            boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+                          }}
+                        />
+                        <span
+                          style={{
+                            position: "absolute", bottom: 6, right: 5, width: 18, height: 8, borderRadius: 4,
+                            background: pv.accent || pv.ink, opacity: 0.95,
                           }}
                         />
                       </span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--ink)", textAlign: "center", lineHeight: 1.2 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--ink)", textAlign: "center", lineHeight: 1.2 }}>
                         {T(s.label.en, s.label.ar, s.label.de, s.label.fr)}
                       </span>
                     </button>

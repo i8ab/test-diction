@@ -72,123 +72,307 @@ export const ACCENT_THEMES = {
     light: { a1: "#0ea5e9", a2: "#38bdf8", soft1: "rgba(14,165,233,0.14)", soft2: "rgba(56,189,248,0.12)", focus: "14,165,233", meaning: "#0284c7" },
     dark:  { a1: "#38bdf8", a2: "#7dd3fc", soft1: "rgba(56,189,248,0.18)", soft2: "rgba(125,211,252,0.14)", focus: "56,189,248", meaning: "#bae6fd" },
   },
+  amber: {
+    label: { en: "Amber", ar: "كهرماني" },
+    light: { a1: "#d97706", a2: "#b45309", soft1: "rgba(217,119,6,0.14)", soft2: "rgba(180,83,9,0.12)", focus: "217,119,6", meaning: "#92400e" },
+    dark:  { a1: "#fbbf24", a2: "#f59e0b", soft1: "rgba(251,191,36,0.18)", soft2: "rgba(245,158,11,0.14)", focus: "251,191,36", meaning: "#fcd34d" },
+  },
+  indigo: {
+    label: { en: "Indigo", ar: "نيلي" },
+    light: { a1: "#4f46e5", a2: "#3730a3", soft1: "rgba(79,70,229,0.14)", soft2: "rgba(55,48,163,0.12)", focus: "79,70,229", meaning: "#3730a3" },
+    dark:  { a1: "#818cf8", a2: "#a5b4fc", soft1: "rgba(129,140,248,0.18)", soft2: "rgba(165,180,252,0.14)", focus: "129,140,248", meaning: "#c7d2fe" },
+  },
+  jade: {
+    label: { en: "Jade", ar: "يشم" },
+    light: { a1: "#0d9488", a2: "#0f766e", soft1: "rgba(13,148,136,0.14)", soft2: "rgba(15,118,110,0.12)", focus: "13,148,136", meaning: "#0f766e" },
+    dark:  { a1: "#2dd4bf", a2: "#5eead4", soft1: "rgba(45,212,191,0.18)", soft2: "rgba(94,234,212,0.14)", focus: "45,212,191", meaning: "#99f6e4" },
+  },
 };
 
 /**
  * Full mood / skin templates. Each skin overrides base surface colors
  * (paper, card, ink, muted…) while accent colors stay independent.
  * Designed to reduce visual fatigue during long study sessions.
+ *
+ * Optional fields:
+ * - bg: { light, dark } → overlay gradients/patterns (drawn above the image)
+ * - bgImage: path under /public (e.g. "/backgrounds/forest.jpg") — real photo behind overlay
+ * - cardShadow: soft elevation for cards/buttons under this mood
+ * - btnStyle: "soft" | "lift" | "flat" | "glow" → hint for primary button feel
  */
 export const SKIN_PRESETS = {
   classic: {
     id: "classic",
     label: { en: "Classic", ar: "كلاسيك", de: "Klassisch", fr: "Classique" },
-    desc:  { en: "Clean default", ar: "الافتراضي النظيف" },
-    // empty = use CSS :root / data-theme defaults
+    desc:  { en: "Clean default with soft aqua wash", ar: "الافتراضي النظيف مع لمسة مائية" },
     light: null,
     dark: null,
+    bgImage: "/backgrounds/classic.jpg",
+    bg: {
+      light: "linear-gradient(180deg, rgba(250,253,254,0.88) 0%, rgba(243,248,250,0.82) 100%), radial-gradient(1200px 600px at 10% -10%, rgba(25,167,206,0.18), transparent 55%)",
+      dark: "linear-gradient(180deg, rgba(14,26,32,0.90) 0%, rgba(11,21,26,0.88) 100%), radial-gradient(1000px 500px at 15% -5%, rgba(63,193,232,0.14), transparent 50%)",
+    },
+    cardShadow: "0 8px 28px -16px rgba(20,108,148,0.28)",
+    btnStyle: "lift",
     preview: { paper: "#FAFDFE", card: "#FFFFFF", ink: "#146C94", accent: "#19A7CE" },
   },
   paper: {
     id: "paper",
     label: { en: "Paper", ar: "ورق", de: "Papier", fr: "Papier" },
-    desc:  { en: "Study notebook", ar: "دفتر مذاكرة" },
+    desc:  { en: "Warm notebook with ruled feel", ar: "دفتر مذاكرة دافئ بملمس الورق" },
     light: {
-      paper: "#F3EBD8", card: "#FFFBF2", ink: "#2C2418",
+      paper: "#F4ECD9", card: "#FFFCF5", ink: "#2A2218",
       muted: "#9A8B72", "muted-strong": "#5C4E3A", "icon-muted": "#7A6B54",
       "input-bg": "#EDE4D0", "border-rgb": "140,118,80", meaning: "#4A3C28",
     },
     dark: {
-      paper: "#16120C", card: "#221C14", ink: "#F0E6D4",
+      paper: "#14100B", card: "#1F1A13", ink: "#F2E8D6",
       muted: "#A89878", "muted-strong": "#C8B898", "icon-muted": "#B0A080",
       "input-bg": "#2A2218", "border-rgb": "150,130,90", meaning: "#D8C8A8",
     },
-    preview: { paper: "#F3EBD8", card: "#FFFBF2", ink: "#2C2418", accent: "#C9A227" },
+    bgImage: "/backgrounds/paper.jpg",
+    bg: {
+      light: "repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(140,118,80,0.08) 27px, rgba(140,118,80,0.08) 28px), linear-gradient(165deg, rgba(247,240,224,0.86) 0%, rgba(235,225,203,0.80) 100%)",
+      dark: "repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(180,150,100,0.07) 27px, rgba(180,150,100,0.07) 28px), linear-gradient(165deg, rgba(22,18,12,0.90) 0%, rgba(18,16,12,0.88) 100%)",
+    },
+    cardShadow: "0 6px 22px -12px rgba(80,60,30,0.35)",
+    btnStyle: "soft",
+    preview: { paper: "#F4ECD9", card: "#FFFCF5", ink: "#2A2218", accent: "#C9A227" },
   },
   midnight: {
     id: "midnight",
     label: { en: "Midnight", ar: "منتصف الليل", de: "Mitternacht", fr: "Minuit" },
-    desc:  { en: "True black focus", ar: "أسود عميق للتركيز" },
+    desc:  { en: "Deep night sky focus", ar: "سماء ليل عميقة للتركيز" },
     light: {
-      paper: "#E8EAEF", card: "#F4F5F8", ink: "#1A1D26",
+      paper: "#E6E8EF", card: "#F3F4F8", ink: "#161922",
       muted: "#7A8294", "muted-strong": "#4A5266", "icon-muted": "#6A7284",
-      "input-bg": "#DEE1E8", "border-rgb": "60,70,90", meaning: "#2A3448",
+      "input-bg": "#DCDFE8", "border-rgb": "60,70,90", meaning: "#2A3448",
     },
     dark: {
-      paper: "#050608", card: "#0E1014", ink: "#E8ECF4",
+      paper: "#04050A", card: "#0C0E14", ink: "#E6EAF4",
       muted: "#7A8498", "muted-strong": "#A0AABC", "icon-muted": "#8A94A8",
-      "input-bg": "#141820", "border-rgb": "50,60,80", meaning: "#B0BACC",
+      "input-bg": "#12151C", "border-rgb": "50,60,80", meaning: "#B0BACC",
     },
-    preview: { paper: "#050608", card: "#0E1014", ink: "#E8ECF4", accent: "#6BAFD1" },
+    bgImage: "/backgrounds/midnight.jpg",
+    bg: {
+      light: "linear-gradient(180deg, rgba(232,234,239,0.90) 0%, rgba(221,225,234,0.86) 100%)",
+      dark: "linear-gradient(180deg, rgba(5,6,10,0.82) 0%, rgba(8,10,16,0.88) 100%), radial-gradient(900px 500px at 20% -10%, rgba(80,100,180,0.18), transparent 50%)",
+    },
+    cardShadow: "0 10px 32px -14px rgba(0,0,0,0.55)",
+    btnStyle: "glow",
+    preview: { paper: "#04050A", card: "#0C0E14", ink: "#E6EAF4", accent: "#6BAFD1" },
   },
   forest: {
     id: "forest",
     label: { en: "Forest", ar: "غابة", de: "Wald", fr: "Forêt" },
-    desc:  { en: "Calm green", ar: "أخضر هادئ" },
+    desc:  { en: "Calm canopy greens", ar: "أخضر هادئ مثل الغابة" },
     light: {
-      paper: "#F0F5F0", card: "#F8FBF8", ink: "#1E3A2A",
-      muted: "#7A9A82", "muted-strong": "#4A6A52", "icon-muted": "#6A8A72",
-      "input-bg": "#E4EDE4", "border-rgb": "60,110,70", meaning: "#2A5A3A",
+      paper: "#EEF5EF", card: "#F7FBF7", ink: "#1A3324",
+      muted: "#6F9478", "muted-strong": "#3F6348", "icon-muted": "#5F8468",
+      "input-bg": "#E0EBE2", "border-rgb": "55,105,70", meaning: "#245A38",
     },
     dark: {
-      paper: "#0C1610", card: "#14201A", ink: "#E0F0E4",
-      muted: "#7AAA88", "muted-strong": "#A0C4A8", "icon-muted": "#8AB898",
-      "input-bg": "#1A2A20", "border-rgb": "70,130,90", meaning: "#B0D4B8",
+      paper: "#0A140E", card: "#121C16", ink: "#DCF0E2",
+      muted: "#6FA880", "muted-strong": "#98C4A4", "icon-muted": "#80B894",
+      "input-bg": "#16241C", "border-rgb": "65,125,85", meaning: "#A8D4B4",
     },
-    preview: { paper: "#F0F5F0", card: "#F8FBF8", ink: "#1E3A2A", accent: "#2ecc71" },
+    bgImage: "/backgrounds/forest.jpg",
+    bg: {
+      light: "linear-gradient(160deg, rgba(242,248,242,0.86) 0%, rgba(232,242,234,0.80) 100%), radial-gradient(1000px 500px at 0% 0%, rgba(46,204,113,0.16), transparent 55%)",
+      dark: "linear-gradient(180deg, rgba(10,20,14,0.86) 0%, rgba(12,24,16,0.90) 100%), radial-gradient(900px 480px at 10% 0%, rgba(46,204,113,0.14), transparent 50%)",
+    },
+    cardShadow: "0 8px 26px -14px rgba(30,100,50,0.35)",
+    btnStyle: "soft",
+    preview: { paper: "#EEF5EF", card: "#F7FBF7", ink: "#1A3324", accent: "#2ecc71" },
   },
   rose: {
     id: "rose",
     label: { en: "Rose", ar: "وردي", de: "Rose", fr: "Rose" },
-    desc:  { en: "Soft blush", ar: "وردي ناعم" },
+    desc:  { en: "Soft blush petals", ar: "وردي ناعم كبتلات الورد" },
     light: {
-      paper: "#FDF6F7", card: "#FFFCFC", ink: "#4A2A32",
+      paper: "#FDF5F7", card: "#FFFBFC", ink: "#422830",
       muted: "#B08A92", "muted-strong": "#8A5A66", "icon-muted": "#A07A84",
-      "input-bg": "#F5E8EA", "border-rgb": "160,100,110", meaning: "#6A3A48",
+      "input-bg": "#F5E6EA", "border-rgb": "160,100,110", meaning: "#6A3A48",
     },
     dark: {
-      paper: "#181012", card: "#22181A", ink: "#F4E4E8",
+      paper: "#160E10", card: "#201618", ink: "#F4E2E6",
       muted: "#B09098", "muted-strong": "#D0B0B8", "icon-muted": "#C0A0A8",
-      "input-bg": "#2A1E22", "border-rgb": "150,100,110", meaning: "#E0C0C8",
+      "input-bg": "#2A1C20", "border-rgb": "150,100,110", meaning: "#E0C0C8",
     },
-    preview: { paper: "#FDF6F7", card: "#FFFCFC", ink: "#4A2A32", accent: "#e11d48" },
+    bgImage: "/backgrounds/rose.jpg",
+    bg: {
+      light: "linear-gradient(155deg, rgba(253,246,248,0.88) 0%, rgba(248,236,239,0.82) 100%), radial-gradient(900px 500px at 85% 5%, rgba(225,29,72,0.14), transparent 50%)",
+      dark: "linear-gradient(180deg, rgba(22,14,16,0.88) 0%, rgba(26,16,20,0.90) 100%), radial-gradient(800px 450px at 90% 0%, rgba(225,29,72,0.16), transparent 48%)",
+    },
+    cardShadow: "0 8px 26px -14px rgba(160,60,90,0.30)",
+    btnStyle: "lift",
+    preview: { paper: "#FDF5F7", card: "#FFFBFC", ink: "#422830", accent: "#e11d48" },
   },
   slate: {
     id: "slate",
     label: { en: "Slate", ar: "أردواز", de: "Schiefer", fr: "Ardoise" },
-    desc:  { en: "Cool professional", ar: "رمادي احترافي" },
+    desc:  { en: "Cool professional steel", ar: "رمادي احترافي بارد" },
     light: {
-      paper: "#F2F4F6", card: "#FAFBFC", ink: "#1E2A32",
-      muted: "#7A8A96", "muted-strong": "#4A5A66", "icon-muted": "#6A7A86",
-      "input-bg": "#E6EAEE", "border-rgb": "80,100,120", meaning: "#2A3A48",
+      paper: "#F0F3F6", card: "#F8FAFC", ink: "#1A2630",
+      muted: "#72828E", "muted-strong": "#445460", "icon-muted": "#627280",
+      "input-bg": "#E2E8EE", "border-rgb": "75,95,115", meaning: "#283848",
     },
     dark: {
-      paper: "#0E1216", card: "#161C22", ink: "#E4EAF0",
+      paper: "#0C1014", card: "#141A20", ink: "#E2E8F0",
       muted: "#7A8A98", "muted-strong": "#A0B0BE", "icon-muted": "#8A9AA8",
       "input-bg": "#1A2228", "border-rgb": "70,90,110", meaning: "#B0C0CE",
     },
-    preview: { paper: "#F2F4F6", card: "#FAFBFC", ink: "#1E2A32", accent: "#64748b" },
+    bgImage: "/backgrounds/slate.jpg",
+    bg: {
+      light: "linear-gradient(145deg, rgba(242,245,248,0.90) 0%, rgba(228,234,240,0.86) 100%)",
+      dark: "linear-gradient(180deg, rgba(12,16,20,0.90) 0%, rgba(14,20,26,0.92) 100%), radial-gradient(1000px 500px at 50% -20%, rgba(100,130,160,0.14), transparent 55%)",
+    },
+    cardShadow: "0 6px 24px -14px rgba(30,50,70,0.40)",
+    btnStyle: "flat",
+    preview: { paper: "#F0F3F6", card: "#F8FAFC", ink: "#1A2630", accent: "#64748b" },
   },
   warm: {
     id: "warm",
     label: { en: "Warm", ar: "دافئ", de: "Warm", fr: "Chaud" },
-    desc:  { en: "Coffee & cream", ar: "قهوة وكريمة" },
+    desc:  { en: "Coffee & cream café", ar: "قهوة وكريمة دافئة" },
     light: {
-      paper: "#F7F0E6", card: "#FFF9F0", ink: "#3A2A1A",
+      paper: "#F6EFE4", card: "#FFF8EF", ink: "#352818",
       muted: "#A08A70", "muted-strong": "#6A5438", "icon-muted": "#8A7458",
-      "input-bg": "#EFE4D4", "border-rgb": "140,110,70", meaning: "#5A4028",
+      "input-bg": "#EDE2D2", "border-rgb": "140,110,70", meaning: "#5A4028",
     },
     dark: {
-      paper: "#16120E", card: "#221C16", ink: "#F0E6D8",
+      paper: "#14100C", card: "#1E1812", ink: "#F0E4D6",
       muted: "#A89880", "muted-strong": "#C8B8A0", "icon-muted": "#B0A088",
-      "input-bg": "#2A221A", "border-rgb": "140,120,90", meaning: "#D8C8B0",
+      "input-bg": "#282018", "border-rgb": "140,120,90", meaning: "#D8C8B0",
     },
-    preview: { paper: "#F7F0E6", card: "#FFF9F0", ink: "#3A2A1A", accent: "#C9A227" },
+    bgImage: "/backgrounds/warm.jpg",
+    bg: {
+      light: "linear-gradient(160deg, rgba(248,241,230,0.86) 0%, rgba(240,230,214,0.80) 100%), radial-gradient(900px 480px at 15% 0%, rgba(201,162,39,0.16), transparent 50%)",
+      dark: "linear-gradient(180deg, rgba(20,16,12,0.88) 0%, rgba(24,20,14,0.90) 100%), radial-gradient(800px 450px at 10% 0%, rgba(201,162,39,0.12), transparent 48%)",
+    },
+    cardShadow: "0 8px 26px -12px rgba(100,70,30,0.35)",
+    btnStyle: "soft",
+    preview: { paper: "#F6EFE4", card: "#FFF8EF", ink: "#352818", accent: "#C9A227" },
+  },
+  aurora: {
+    id: "aurora",
+    label: { en: "Aurora", ar: "شفق", de: "Aurora", fr: "Aurore" },
+    desc:  { en: "Northern lights wash", ar: "تدرجات الشفق القطبي" },
+    light: {
+      paper: "#F2F4FC", card: "#FBFCFF", ink: "#1E2040",
+      muted: "#7A7EA8", "muted-strong": "#4A4E78", "icon-muted": "#6A6E98",
+      "input-bg": "#E6E8F6", "border-rgb": "90,100,160", meaning: "#2A2E60",
+    },
+    dark: {
+      paper: "#0A0C18", card: "#121428", ink: "#E4E6F8",
+      muted: "#8A8EB8", "muted-strong": "#B0B4D8", "icon-muted": "#9A9EC8",
+      "input-bg": "#1A1C30", "border-rgb": "80,90,150", meaning: "#C0C4E8",
+    },
+    bgImage: "/backgrounds/aurora.jpg",
+    bg: {
+      light: "linear-gradient(165deg, rgba(244,246,253,0.84) 0%, rgba(238,240,250,0.78) 100%), radial-gradient(900px 500px at 20% 0%, rgba(124,58,237,0.16), transparent 50%), radial-gradient(800px 450px at 90% 20%, rgba(45,212,191,0.14), transparent 48%)",
+      dark: "linear-gradient(180deg, rgba(8,10,22,0.82) 0%, rgba(12,14,28,0.88) 100%), radial-gradient(900px 500px at 15% 0%, rgba(124,58,237,0.24), transparent 48%), radial-gradient(800px 450px at 85% 15%, rgba(45,212,191,0.16), transparent 45%)",
+    },
+    cardShadow: "0 10px 30px -14px rgba(80,60,160,0.35)",
+    btnStyle: "glow",
+    preview: { paper: "#F2F4FC", card: "#FBFCFF", ink: "#1E2040", accent: "#7c3aed" },
+  },
+  dusk: {
+    id: "dusk",
+    label: { en: "Dusk", ar: "غروب", de: "Dämmerung", fr: "Crépuscule" },
+    desc:  { en: "Warm evening sky", ar: "سماء المساء الدافئة" },
+    light: {
+      paper: "#FBF3EC", card: "#FFF9F4", ink: "#3A2820",
+      muted: "#A88878", "muted-strong": "#785848", "icon-muted": "#987868",
+      "input-bg": "#F2E6DC", "border-rgb": "160,110,80", meaning: "#5A3C28",
+    },
+    dark: {
+      paper: "#140E0C", card: "#1E1612", ink: "#F4E6DC",
+      muted: "#B09888", "muted-strong": "#D0B8A8", "icon-muted": "#C0A898",
+      "input-bg": "#2A201A", "border-rgb": "150,110,80", meaning: "#E0C8B8",
+    },
+    bgImage: "/backgrounds/dusk.jpg",
+    bg: {
+      light: "linear-gradient(160deg, rgba(252,245,238,0.84) 0%, rgba(246,232,220,0.78) 100%), radial-gradient(1000px 500px at 90% 0%, rgba(255,107,53,0.18), transparent 50%)",
+      dark: "linear-gradient(180deg, rgba(18,14,10,0.82) 0%, rgba(24,18,14,0.88) 100%), radial-gradient(900px 480px at 85% 0%, rgba(255,107,53,0.20), transparent 48%)",
+    },
+    cardShadow: "0 8px 28px -12px rgba(160,80,40,0.32)",
+    btnStyle: "lift",
+    preview: { paper: "#FBF3EC", card: "#FFF9F4", ink: "#3A2820", accent: "#ff6b35" },
+  },
+  mist: {
+    id: "mist",
+    label: { en: "Mist", ar: "ضباب", de: "Nebel", fr: "Brume" },
+    desc:  { en: "Soft foggy calm", ar: "هدوء ضبابي ناعم" },
+    light: {
+      paper: "#F0F4F6", card: "#F8FBFC", ink: "#243038",
+      muted: "#7A9098", "muted-strong": "#4A6068", "icon-muted": "#6A8088",
+      "input-bg": "#E4EAEE", "border-rgb": "90,120,130", meaning: "#2A4048",
+    },
+    dark: {
+      paper: "#0C1216", card: "#141C22", ink: "#E0EAF0",
+      muted: "#7A949C", "muted-strong": "#A0B8C0", "icon-muted": "#8AA4AC",
+      "input-bg": "#1A242A", "border-rgb": "80,110,120", meaning: "#B0C8D0",
+    },
+    bgImage: "/backgrounds/mist.jpg",
+    bg: {
+      light: "linear-gradient(180deg, rgba(242,246,248,0.86) 0%, rgba(232,238,242,0.80) 100%), radial-gradient(1100px 600px at 50% 0%, rgba(14,165,233,0.12), transparent 55%)",
+      dark: "linear-gradient(180deg, rgba(10,16,20,0.86) 0%, rgba(14,22,26,0.90) 100%), radial-gradient(1000px 550px at 40% -10%, rgba(56,189,248,0.12), transparent 50%)",
+    },
+    cardShadow: "0 6px 24px -14px rgba(40,70,90,0.30)",
+    btnStyle: "soft",
+    preview: { paper: "#F0F4F6", card: "#F8FBFC", ink: "#243038", accent: "#0ea5e9" },
+  },
+  lavender: {
+    id: "lavender",
+    label: { en: "Lavender", ar: "لافندر", de: "Lavendel", fr: "Lavande" },
+    desc:  { en: "Soft purple calm", ar: "بنفسجي هادئ ومريح" },
+    light: {
+      paper: "#F6F2FA", card: "#FCFAFE", ink: "#2E2440",
+      muted: "#8A7AA0", "muted-strong": "#5A4A70", "icon-muted": "#7A6A90",
+      "input-bg": "#EBE4F2", "border-rgb": "120,100,160", meaning: "#3E3458",
+    },
+    dark: {
+      paper: "#100E18", card: "#1A1624", ink: "#ECE4F6",
+      muted: "#9A8AB0", "muted-strong": "#C0B0D0", "icon-muted": "#B0A0C0",
+      "input-bg": "#221C30", "border-rgb": "110,90,150", meaning: "#D0C0E0",
+    },
+    bgImage: "/backgrounds/lavender.jpg",
+    bg: {
+      light: "linear-gradient(160deg, rgba(247,243,251,0.86) 0%, rgba(240,234,246,0.80) 100%), radial-gradient(900px 500px at 80% 0%, rgba(167,139,250,0.18), transparent 50%)",
+      dark: "linear-gradient(180deg, rgba(14,12,22,0.86) 0%, rgba(20,16,30,0.90) 100%), radial-gradient(850px 480px at 75% 0%, rgba(124,58,237,0.20), transparent 48%)",
+    },
+    cardShadow: "0 8px 28px -14px rgba(100,70,160,0.32)",
+    btnStyle: "lift",
+    preview: { paper: "#F6F2FA", card: "#FCFAFE", ink: "#2E2440", accent: "#a78bfa" },
+  },
+  sand: {
+    id: "sand",
+    label: { en: "Sand", ar: "رمل", de: "Sand", fr: "Sable" },
+    desc:  { en: "Desert light & dunes", ar: "ضوء الصحراء والكثبان" },
+    light: {
+      paper: "#F7F0E2", card: "#FFFBF2", ink: "#3A3020",
+      muted: "#A09070", "muted-strong": "#6A5A3A", "icon-muted": "#8A7A58",
+      "input-bg": "#EEE4D0", "border-rgb": "150,130,90", meaning: "#5A4A28",
+    },
+    dark: {
+      paper: "#14110C", card: "#1E1A14", ink: "#F0E6D4",
+      muted: "#A89878", "muted-strong": "#C8B898", "icon-muted": "#B0A080",
+      "input-bg": "#282218", "border-rgb": "140,120,80", meaning: "#D8C8A8",
+    },
+    bgImage: "/backgrounds/sand.jpg",
+    bg: {
+      light: "linear-gradient(175deg, rgba(249,242,228,0.86) 0%, rgba(235,224,200,0.80) 100%), radial-gradient(1000px 400px at 50% 100%, rgba(212,160,23,0.14), transparent 55%)",
+      dark: "linear-gradient(180deg, rgba(18,16,11,0.88) 0%, rgba(24,20,14,0.90) 100%), radial-gradient(900px 400px at 50% 100%, rgba(180,140,40,0.12), transparent 50%)",
+    },
+    cardShadow: "0 6px 22px -12px rgba(120,90,40,0.30)",
+    btnStyle: "soft",
+    preview: { paper: "#F7F0E2", card: "#FFFBF2", ink: "#3A3020", accent: "#D4A017" },
   },
   contrast: {
     id: "contrast",
     label: { en: "High Contrast", ar: "تباين عالي", de: "Hoher Kontrast", fr: "Contraste élevé" },
-    desc:  { en: "Max readability", ar: "أقصى وضوح" },
+    desc:  { en: "Max readability, flat surfaces", ar: "أقصى وضوح بدون زخرفة" },
     light: {
       paper: "#FFFFFF", card: "#FFFFFF", ink: "#000000",
       muted: "#555555", "muted-strong": "#222222", "icon-muted": "#333333",
@@ -199,6 +383,13 @@ export const SKIN_PRESETS = {
       muted: "#AAAAAA", "muted-strong": "#DDDDDD", "icon-muted": "#CCCCCC",
       "input-bg": "#1A1A1A", "border-rgb": "255,255,255", meaning: "#FFFFFF",
     },
+    // no photo — pure solid for maximum readability
+    bg: {
+      light: "#FFFFFF",
+      dark: "#000000",
+    },
+    cardShadow: "none",
+    btnStyle: "flat",
     preview: { paper: "#000000", card: "#0A0A0A", ink: "#FFFFFF", accent: "#FFFFFF" },
   },
 };
@@ -345,24 +536,47 @@ export function saveSkin(id) {
 /**
  * Apply a mood skin. Sets data-skin attribute and overrides surface CSS vars.
  * Pass mode ("light"|"dark") so the correct palette is chosen.
- * When skin is "classic", clears overrides so CSS defaults take over.
+ * When skin is "classic", clears color overrides so CSS :root defaults take over,
+ * but still applies optional full-page background (bg) and button mood hints.
  */
 export function applySkinTheme(id, mode) {
   const skin = SKIN_PRESETS[id] || SKIN_PRESETS.classic;
   const isDark = mode === "dark" || (typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "dark");
   const palette = isDark ? skin.dark : skin.light;
+  const bg = skin.bg ? (isDark ? skin.bg.dark : skin.bg.light) : null;
+  const bgImage = skin.bgImage || null;
 
   try {
     const root = document.documentElement;
     root.setAttribute("data-skin", skin.id);
+    root.setAttribute("data-btn-style", skin.btnStyle || "soft");
+    if (bgImage) root.setAttribute("data-has-bg-image", "1");
+    else root.removeAttribute("data-has-bg-image");
 
     // Clear previous skin overrides first
     BASE_SURFACE_VARS.forEach((v) => root.style.removeProperty(`--${v}`));
+    root.style.removeProperty("--app-bg");
+    root.style.removeProperty("--app-bg-image");
+    root.style.removeProperty("--skin-card-shadow");
 
     if (palette) {
       Object.entries(palette).forEach(([key, val]) => {
         root.style.setProperty(`--${key}`, val);
       });
+    }
+
+    // Overlay gradients/patterns (above the photo)
+    if (bg) {
+      root.style.setProperty("--app-bg", bg);
+    }
+
+    // Real background photo (under the overlay)
+    if (bgImage) {
+      root.style.setProperty("--app-bg-image", `url("${bgImage}")`);
+    }
+
+    if (skin.cardShadow && skin.cardShadow !== "none") {
+      root.style.setProperty("--skin-card-shadow", skin.cardShadow);
     }
   } catch (_) {}
 }

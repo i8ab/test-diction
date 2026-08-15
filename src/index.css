@@ -1,8 +1,19 @@
   html, body {
     margin: 0;
     padding: 0;
-    background: var(--paper);
+    /* Photo underneath + gradient/pattern overlay on top (both optional) */
+    background-color: var(--paper);
+    background-image: var(--app-bg, none), var(--app-bg-image, none);
+    background-size: cover, cover;
+    background-position: center center, center center;
+    background-repeat: no-repeat, no-repeat;
+    background-attachment: scroll, scroll;
     font-family: var(--font-latin);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    html, body {
+      background-attachment: fixed, fixed;
+    }
   }
   * { box-sizing: border-box; }
 
@@ -73,7 +84,40 @@
     --focus-rgb: 63,193,232;
     --meaning: #6FCCEE;
   }
-  body { transition: background 0.25s; }
+  body { transition: background 0.35s ease, background-color 0.35s ease; }
+
+  /* Skin-driven card elevation (optional) */
+  .entry-card,
+  .word-card,
+  .lift-hover.entry-card {
+    box-shadow: var(--skin-card-shadow, none);
+  }
+
+  /* Button mood hints from data-btn-style (set by applySkinTheme) */
+  html[data-btn-style="lift"] .btn-shine:not(:disabled) {
+    box-shadow: 0 4px 14px -8px rgba(var(--focus-rgb), 0.40);
+  }
+  html[data-btn-style="lift"] .btn-shine:hover:not(:disabled) {
+    box-shadow: 0 8px 20px -8px rgba(var(--focus-rgb), 0.50);
+    transform: translateY(-1px);
+  }
+  html[data-btn-style="glow"] .btn-shine:not(:disabled) {
+    box-shadow: 0 0 0 1px rgba(var(--focus-rgb), 0.25), 0 6px 18px -8px rgba(var(--focus-rgb), 0.45);
+  }
+  html[data-btn-style="glow"] .btn-shine:hover:not(:disabled) {
+    box-shadow: 0 0 0 1px rgba(var(--focus-rgb), 0.35), 0 8px 22px -6px rgba(var(--focus-rgb), 0.55);
+  }
+  html[data-btn-style="flat"] .btn-shine:not(:disabled) {
+    box-shadow: none;
+  }
+  html[data-btn-style="flat"] .btn-shine:hover:not(:disabled) {
+    box-shadow: none;
+    filter: brightness(1.05);
+  }
+  html[data-btn-style="soft"] .btn-shine:not(:disabled) {
+    box-shadow: 0 2px 10px -6px rgba(var(--focus-rgb), 0.28);
+  }
+
   .spin { animation: spin 0.9s linear infinite; }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   .voice-mic-active { animation: micPulse 1s ease-in-out infinite; }

@@ -851,8 +851,8 @@ export default function MainView({
               role="combobox" aria-autocomplete="list" aria-expanded={showSuggestions && suggestions.length > 0}
               aria-controls="search-suggestions" aria-activedescendant={activeIndex >= 0 ? `search-suggestion-${activeIndex}` : undefined}
               autoComplete="off"
-              className="toolbar-search-input"
-              style={{ width: "100%", padding: "11px 12px", paddingInlineStart: 36, paddingInlineEnd: (query.trim() ? 68 : 0) + (speechSupported ? 38 : 12), fontSize: 15, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 12, background: "var(--input-bg)", color: INK }} />
+              className="toolbar-search-input app-chrome-search"
+              style={{ width: "100%", padding: "11px 12px", paddingInlineStart: 36, paddingInlineEnd: (query.trim() ? 68 : 0) + (speechSupported ? 38 : 12), fontSize: 15, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 12, color: INK }} />
             {!!query.trim() && (
               <button
                 type="button"
@@ -953,7 +953,7 @@ export default function MainView({
             {isAdmin && <BackupReminderBanner isAr={appIsAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
           </div>
         )}
-        <div style={{ marginTop: 12, background: CARD, border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 10, padding: "12px 14px" }}>
+        <div className="app-stats-bar" style={{ marginTop: 12, border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 10, padding: "12px 14px" }}>
           <div dir={isAr ? "rtl" : "ltr"} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 700, color: INK }}>
               <BookIcon size={14} color={cfg.accent} />

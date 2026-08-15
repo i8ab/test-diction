@@ -2490,15 +2490,15 @@ html[data-header-style="solid"] .app-top-header {
 }
 html[data-header-style="glass"] .app-top-header,
 html:not([data-header-style]) .app-top-header {
-  background: color-mix(in srgb, var(--paper) 72%, transparent) !important;
-  backdrop-filter: blur(14px) saturate(1.2) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(1.2) !important;
+  background: color-mix(in srgb, var(--paper) 78%, transparent) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
 }
 html[data-header-style="clear"] .app-top-header {
-  background: color-mix(in srgb, var(--paper) 28%, transparent) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  border-bottom-color: transparent !important;
+  background: color-mix(in srgb, var(--paper) 52%, transparent) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  border-bottom-color: rgba(var(--border-rgb), 0.12) !important;
 }
 
 /* ── Modals: glass panels that sit in the theme world ── */
@@ -2682,7 +2682,7 @@ html[data-card-clarity="opaque"] .entry-card,
 html[data-card-clarity="opaque"] .word-card,
 html:not([data-card-clarity]) .entry-card,
 html:not([data-card-clarity]) .word-card {
-  background: var(--card) !important;
+  background-color: var(--card) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -2690,23 +2690,24 @@ html:not([data-card-clarity]) .word-card {
 /* Cards — glass */
 html[data-card-clarity="glass"] .entry-card,
 html[data-card-clarity="glass"] .word-card {
-  background: color-mix(in srgb, var(--card) 55%, transparent) !important;
-  backdrop-filter: blur(12px) saturate(1.15) !important;
-  -webkit-backdrop-filter: blur(12px) saturate(1.15) !important;
+  background-color: color-mix(in srgb, var(--card) 72%, transparent) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
   box-shadow:
-    inset 0 0 0 1px rgba(var(--border-rgb), 0.16),
-    0 8px 24px -14px rgba(0, 0, 0, 0.28) !important;
+    inset 0 0 0 1px rgba(var(--border-rgb), 0.22),
+    0 6px 18px -12px rgba(0, 0, 0, 0.22) !important;
 }
 
 /* Cards — clear / fully see-through */
 html[data-card-clarity="clear"] .entry-card,
 html[data-card-clarity="clear"] .word-card {
-  background: color-mix(in srgb, var(--card) 18%, transparent) !important;
-  backdrop-filter: blur(4px) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
+  /* readable transparent — background-color only so ruled lines survive */
+  background-color: color-mix(in srgb, var(--card) 48%, transparent) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   box-shadow:
-    inset 0 0 0 1px rgba(var(--border-rgb), 0.22),
-    0 4px 16px -10px rgba(0, 0, 0, 0.2) !important;
+    inset 0 0 0 1.5px rgba(var(--border-rgb), 0.32),
+    0 4px 14px -10px rgba(0, 0, 0, 0.18) !important;
 }
 
 /* Modals — solid */
@@ -2724,9 +2725,9 @@ html[data-modal-style="solid"] .modal-backdrop {
 /* Modals — glass (default) */
 html[data-modal-style="glass"] .modal-card,
 html:not([data-modal-style]) .modal-card {
-  background: color-mix(in srgb, var(--card) 78%, transparent) !important;
-  backdrop-filter: blur(20px) saturate(1.2) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(1.2) !important;
+  background: color-mix(in srgb, var(--card) 85%, transparent) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
 }
 html[data-modal-style="glass"] .modal-backdrop,
 html:not([data-modal-style]) .modal-backdrop {
@@ -2737,12 +2738,12 @@ html:not([data-modal-style]) .modal-backdrop {
 
 /* Modals — clear */
 html[data-modal-style="clear"] .modal-card {
-  background: color-mix(in srgb, var(--card) 35%, transparent) !important;
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
+  background: color-mix(in srgb, var(--card) 58%, transparent) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
   box-shadow:
-    0 0 0 1px rgba(var(--border-rgb), 0.2),
-    0 20px 50px -16px rgba(0, 0, 0, 0.35) !important;
+    0 0 0 1.5px rgba(var(--border-rgb), 0.28),
+    0 16px 40px -14px rgba(0, 0, 0, 0.28) !important;
 }
 html[data-modal-style="clear"] .modal-backdrop {
   background: rgba(0, 0, 0, 0.28) !important;
@@ -2835,4 +2836,135 @@ html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
       color-mix(in srgb, var(--ink) 11%, transparent) 27px,
       color-mix(in srgb, var(--ink) 11%, transparent) 28px
     ) !important;
+}
+
+
+/* ── Chrome trio: header style also drives search + stats bar ── */
+.app-chrome-search {
+  background: var(--input-bg) !important;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.app-stats-bar {
+  background: var(--card);
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+html[data-header-style="solid"] .app-chrome-search {
+  background: var(--input-bg) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html[data-header-style="solid"] .app-stats-bar {
+  background: var(--card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html[data-header-style="glass"] .app-chrome-search,
+html:not([data-header-style]) .app-chrome-search {
+  background: color-mix(in srgb, var(--input-bg) 70%, transparent) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border-color: rgba(var(--border-rgb), 0.28) !important;
+}
+html[data-header-style="glass"] .app-stats-bar,
+html:not([data-header-style]) .app-stats-bar {
+  background: color-mix(in srgb, var(--card) 72%, transparent) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border-color: rgba(var(--border-rgb), 0.22) !important;
+}
+
+html[data-header-style="clear"] .app-chrome-search {
+  background: color-mix(in srgb, var(--input-bg) 50%, transparent) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: rgba(var(--border-rgb), 0.35) !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--border-rgb), 0.12);
+}
+html[data-header-style="clear"] .app-stats-bar {
+  background: color-mix(in srgb, var(--card) 50%, transparent) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: rgba(var(--border-rgb), 0.30) !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--border-rgb), 0.14);
+}
+
+/* Keep focus readable on transparent search */
+.app-chrome-search:focus {
+  background: color-mix(in srgb, var(--card) 88%, transparent) !important;
+  border-color: var(--accent-1) !important;
+  box-shadow: 0 0 0 3px rgba(var(--focus-rgb), 0.2) !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   Ruled notebook (paper surface) — keeps lines even with clear/glass
+   Uses background-image only; clarity only sets background-color
+   Rhythm ~26px matches word/meaning row heights + card padding
+   ═══════════════════════════════════════════════════════════════ */
+html[data-card-surface="paper"] .entry-card,
+html[data-card-surface="paper"] .word-card,
+html[data-card-surface="paper"] .lift-hover.entry-card {
+  /* transparent base so clarity color shows; lines drawn on top */
+  background-color: color-mix(in srgb, var(--card) 92%, var(--paper)) !important;
+  background-image:
+    /* margin guide (after the 4px accent border) */
+    linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 18px,
+      color-mix(in srgb, #c45c5c 45%, transparent) 18px,
+      color-mix(in srgb, #c45c5c 45%, transparent) 19.5px,
+      transparent 19.5px
+    ),
+    /* horizontal rules */
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 25px,
+      color-mix(in srgb, var(--ink) 12%, transparent) 25px,
+      color-mix(in srgb, var(--ink) 12%, transparent) 26px
+    ) !important;
+  background-size: 100% 100%, 100% 26px !important;
+  /* first rule sits under the word baseline (~pad-top 10–14 + half line) */
+  background-position: 0 0, 0 12px !important;
+  background-repeat: no-repeat, repeat !important;
+  background-clip: padding-box !important;
+}
+
+/* When clarity is glass/clear, still keep the lines, just lighter paper wash */
+html[data-card-surface="paper"][data-card-clarity="glass"] .entry-card,
+html[data-card-surface="paper"][data-card-clarity="glass"] .word-card {
+  background-color: color-mix(in srgb, var(--card) 68%, transparent) !important;
+}
+html[data-card-surface="paper"][data-card-clarity="clear"] .entry-card,
+html[data-card-surface="paper"][data-card-clarity="clear"] .word-card {
+  background-color: color-mix(in srgb, var(--card) 42%, transparent) !important;
+}
+
+/* RTL: margin guide on the inline-start side (right in RTL) */
+html[dir="rtl"][data-card-surface="paper"] .entry-card,
+html[dir="rtl"][data-card-surface="paper"] .word-card,
+html[data-dir-override="rtl"][data-card-surface="paper"] .entry-card,
+html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
+  background-image:
+    linear-gradient(
+      270deg,
+      transparent 0,
+      transparent 18px,
+      color-mix(in srgb, #c45c5c 45%, transparent) 18px,
+      color-mix(in srgb, #c45c5c 45%, transparent) 19.5px,
+      transparent 19.5px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 25px,
+      color-mix(in srgb, var(--ink) 12%, transparent) 25px,
+      color-mix(in srgb, var(--ink) 12%, transparent) 26px
+    ) !important;
+  background-size: 100% 100%, 100% 26px !important;
+  background-position: 0 0, 0 12px !important;
+  background-repeat: no-repeat, repeat !important;
 }

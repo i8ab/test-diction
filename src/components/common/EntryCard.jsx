@@ -199,7 +199,8 @@ function EntryCard({
       }
       dir={cfg.dir}
       style={{
-        background: CARD,
+        /* background owned by CSS (card surface + clarity) */
+        background: "var(--card)",
         border: "1px solid rgba(var(--border-rgb),0.12)",
         borderInlineStart: `4px solid ${isStudied ? "var(--success)" : cfg.accent}`,
         borderRadius: touchy ? 16 : 12,

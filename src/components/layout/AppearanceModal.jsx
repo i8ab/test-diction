@@ -873,7 +873,7 @@ export default function AppearanceModal({
               summary={HEADER_STYLES[headerStyle] ? T(HEADER_STYLES[headerStyle].label.en, HEADER_STYLES[headerStyle].label.ar) : headerStyle}
             >
               <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.45 }}>
-                {T("Solid = opaque. Glass = blurred background. Clear = almost invisible.", "صلب = معتم. زجاجي = خلفية ضبابية. شفاف = شبه مختفي.")}
+                {T("Applies to header, search bar, and word-count strip. Solid = opaque. Glass = light frost. Clear = see-through but readable.", "ينطبق على الهيدر وشريط البحث وشريط عدد الكلمات. صلب = معتم. زجاجي = ضباب خفيف. شفاف = يبين اللي وراه مع بقاء النص واضح.")}
               </p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                 {Object.values(HEADER_STYLES || {}).map((s) => {
@@ -908,7 +908,7 @@ export default function AppearanceModal({
               summary={CARD_CLARITIES[cardClarity] ? T(CARD_CLARITIES[cardClarity].label.en, CARD_CLARITIES[cardClarity].label.ar) : cardClarity}
             >
               <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.45 }}>
-                {T("Opaque / glass / clear — how much background shows through word cards.", "معتم / زجاجي / شفاف — قد إيه الخلفية تبين من ورا كروت الكلمات.")}
+                {T("Opaque / glass / clear. Clear stays readable — not foggy.", "معتم / زجاجي / شفاف. الشفاف يفضل مقروء ومش متغيم.")}
               </p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                 {Object.values(CARD_CLARITIES || {}).map((s) => {
@@ -943,7 +943,7 @@ export default function AppearanceModal({
               summary={MODAL_STYLES[modalStyle] ? T(MODAL_STYLES[modalStyle].label.en, MODAL_STYLES[modalStyle].label.ar) : modalStyle}
             >
               <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.45 }}>
-                {T("Applies to every modal in the app (Appearance, Add word, Account…).", "ينطبق على كل مودال في التطبيق (المظهر، إضافة كلمة، الحساب…).")}
+                {T("Every modal (Appearance, Add word, Account…). Clear = see-through but text stays sharp.", "كل مودال (المظهر، إضافة كلمة، الحساب…). شفاف = يبين اللي وراه والنص يفضل واضح.")}
               </p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                 {Object.values(MODAL_STYLES || {}).map((s) => {

@@ -103,6 +103,12 @@ export default function DictionaryApp() {
     setUiScale,
     skin,
     setSkin,
+    latinFont,
+    setLatinFont,
+    arabicFont,
+    setArabicFont,
+    reducedMotion,
+    setReducedMotion,
   } = useAppPreferences();
 
   const [entries, setEntries] = useState([]);
@@ -1550,6 +1556,9 @@ export default function DictionaryApp() {
       theme={theme} onToggleTheme={toggleTheme} onChangeTheme={setTheme}
       accentTheme={accentTheme} onChangeAccent={setAccentTheme}
       skin={skin} onChangeSkin={setSkin}
+      latinFont={latinFont} onChangeLatinFont={setLatinFont}
+      arabicFont={arabicFont} onChangeArabicFont={setArabicFont}
+      reducedMotion={reducedMotion} onChangeReducedMotion={setReducedMotion}
       appIsAr={appIsAr} appLang={appLang} onToggleAppLang={toggleAppLang} onChangeAppLang={setAppLang}
       sessionStart={sessionStartRef.current}
       remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={enableReminders} onDisableReminders={disableReminders} onTestReminder={testReminderPush}

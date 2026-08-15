@@ -3,6 +3,9 @@
 export const THEME_KEY = "twoTongues.theme";
 const ACCENT_KEY = "twoTongues.accent";
 const SKIN_KEY = "twoTongues.skin";
+const LATIN_FONT_KEY = "twoTongues.latinFont";
+const ARABIC_FONT_KEY = "twoTongues.arabicFont";
+const REDUCED_MOTION_KEY = "twoTongues.reducedMotion";
 const OFFLINE_KEY = "twoTongues.offlineCache";
 const CODE_KEY = "twoTongues.personalCode";
 const SESSION_KEY = "twoTongues.sessionId";
@@ -355,6 +358,136 @@ export function applySkinTheme(id, mode) {
         root.style.setProperty(`--${key}`, val);
       });
     }
+  } catch (_) {}
+}
+
+// ── Fonts (Latin UI + Arabic) ──────────────────────────────────────────
+
+/** Latin / UI body fonts */
+export const LATIN_FONTS = {
+  "source-sans": {
+    id: "source-sans",
+    family: '"Source Sans 3", system-ui, sans-serif',
+    label: { en: "Source Sans", ar: "سورس سانس" },
+  },
+  inter: {
+    id: "inter",
+    family: '"Inter", system-ui, sans-serif',
+    label: { en: "Inter", ar: "إنتر" },
+  },
+  nunito: {
+    id: "nunito",
+    family: '"Nunito", system-ui, sans-serif',
+    label: { en: "Nunito", ar: "نونيتو" },
+  },
+  "ibm-plex": {
+    id: "ibm-plex",
+    family: '"IBM Plex Sans", system-ui, sans-serif',
+    label: { en: "IBM Plex", ar: "آي بي إم بليكس" },
+  },
+  georgia: {
+    id: "georgia",
+    family: 'Georgia, "Times New Roman", serif',
+    label: { en: "Georgia", ar: "جورجيا" },
+  },
+  system: {
+    id: "system",
+    family: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+    label: { en: "System", ar: "نظام الجهاز" },
+  },
+};
+
+/** Arabic display / content fonts */
+export const ARABIC_FONTS = {
+  amiri: {
+    id: "amiri",
+    family: '"Amiri", "Times New Roman", serif',
+    label: { en: "Amiri", ar: "أميري" },
+  },
+  cairo: {
+    id: "cairo",
+    family: '"Cairo", "Segoe UI", sans-serif',
+    label: { en: "Cairo", ar: "القاهرة" },
+  },
+  tajawal: {
+    id: "tajawal",
+    family: '"Tajawal", "Segoe UI", sans-serif',
+    label: { en: "Tajawal", ar: "تجوّل" },
+  },
+  "noto-naskh": {
+    id: "noto-naskh",
+    family: '"Noto Naskh Arabic", "Times New Roman", serif',
+    label: { en: "Noto Naskh", ar: "نوتو نسخ" },
+  },
+  "ibm-plex-ar": {
+    id: "ibm-plex-ar",
+    family: '"IBM Plex Sans Arabic", "Segoe UI", sans-serif',
+    label: { en: "IBM Plex Arabic", ar: "آي بي إم عربي" },
+  },
+  almarai: {
+    id: "almarai",
+    family: '"Almarai", "Segoe UI", sans-serif',
+    label: { en: "Almarai", ar: "المراعي" },
+  },
+};
+
+export function loadLatinFont() {
+  try {
+    const id = localStorage.getItem(LATIN_FONT_KEY) || "source-sans";
+    return LATIN_FONTS[id] ? id : "source-sans";
+  } catch (_) {
+    return "source-sans";
+  }
+}
+
+export function loadArabicFont() {
+  try {
+    const id = localStorage.getItem(ARABIC_FONT_KEY) || "amiri";
+    return ARABIC_FONTS[id] ? id : "amiri";
+  } catch (_) {
+    return "amiri";
+  }
+}
+
+export function saveLatinFont(id) {
+  try { localStorage.setItem(LATIN_FONT_KEY, id || "source-sans"); } catch (_) {}
+}
+
+export function saveArabicFont(id) {
+  try { localStorage.setItem(ARABIC_FONT_KEY, id || "amiri"); } catch (_) {}
+}
+
+export function applyFonts(latinId, arabicId) {
+  const latin = LATIN_FONTS[latinId] || LATIN_FONTS["source-sans"];
+  const arabic = ARABIC_FONTS[arabicId] || ARABIC_FONTS.amiri;
+  try {
+    const root = document.documentElement;
+    root.style.setProperty("--font-latin", latin.family);
+    root.style.setProperty("--font-arabic", arabic.family);
+    root.setAttribute("data-latin-font", latin.id);
+    root.setAttribute("data-arabic-font", arabic.id);
+  } catch (_) {}
+}
+
+// ── Reduced motion ─────────────────────────────────────────────────────
+
+export function loadReducedMotion() {
+  try {
+    return localStorage.getItem(REDUCED_MOTION_KEY) === "1";
+  } catch (_) {
+    return false;
+  }
+}
+
+export function saveReducedMotion(on) {
+  try {
+    localStorage.setItem(REDUCED_MOTION_KEY, on ? "1" : "0");
+  } catch (_) {}
+}
+
+export function applyReducedMotion(on) {
+  try {
+    document.documentElement.setAttribute("data-reduced-motion", on ? "1" : "0");
   } catch (_) {}
 }
 

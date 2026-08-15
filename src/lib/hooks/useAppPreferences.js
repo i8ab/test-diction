@@ -19,6 +19,14 @@ import {
   loadSavedSkin,
   saveSkin,
   applySkinTheme,
+  loadLatinFont,
+  loadArabicFont,
+  saveLatinFont,
+  saveArabicFont,
+  applyFonts,
+  loadReducedMotion,
+  saveReducedMotion,
+  applyReducedMotion,
 } from "../state/storage";
 
 /**
@@ -161,6 +169,40 @@ export function useAppPreferences() {
     } catch (_) {}
   }, [uiScale]);
 
+  // --- Fonts ---
+  const [latinFont, setLatinFontState] = useState(loadLatinFont);
+  const [arabicFont, setArabicFontState] = useState(loadArabicFont);
+
+  const setLatinFont = useCallback((id) => {
+    if (!id) return;
+    setLatinFontState(id);
+    saveLatinFont(id);
+  }, []);
+
+  const setArabicFont = useCallback((id) => {
+    if (!id) return;
+    setArabicFontState(id);
+    saveArabicFont(id);
+  }, []);
+
+  useEffect(() => {
+    applyFonts(latinFont, arabicFont);
+  }, [latinFont, arabicFont]);
+
+  // --- Reduced motion ---
+  const [reducedMotion, setReducedMotionState] = useState(loadReducedMotion);
+
+  const setReducedMotion = useCallback((on) => {
+    const v = !!on;
+    setReducedMotionState(v);
+    saveReducedMotion(v);
+    applyReducedMotion(v);
+  }, []);
+
+  useEffect(() => {
+    applyReducedMotion(reducedMotion);
+  }, [reducedMotion]);
+
   return {
     appLang,
     setAppLang,
@@ -178,5 +220,11 @@ export function useAppPreferences() {
     setUiScale,
     skin,
     setSkin,
+    latinFont,
+    setLatinFont,
+    arabicFont,
+    setArabicFont,
+    reducedMotion,
+    setReducedMotion,
   };
 }

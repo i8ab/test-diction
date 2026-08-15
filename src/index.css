@@ -1,4 +1,9 @@
-  html, body { margin: 0; padding: 0; background: var(--paper); }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    font-family: var(--font-latin);
+  }
   * { box-sizing: border-box; }
 
   /* Global: kill blue/teal mobile tap highlight everywhere */
@@ -43,6 +48,8 @@
     --danger-border: #E3B9B4;
     --focus-rgb: 25,167,206;
     --meaning: #1F7A9E;
+    --font-latin: "Source Sans 3", system-ui, sans-serif;
+    --font-arabic: "Amiri", "Times New Roman", serif;
   }
   html[data-theme="dark"] {
     --paper: #0E1A20;
@@ -1189,7 +1196,7 @@ html[data-theme="dark"] .letter-rail {
   line-height: 1;
   font-size: 14px;
   font-weight: 600;
-  font-family: "Source Sans 3", system-ui, sans-serif;
+  font-family: var(--font-latin);
   letter-spacing: 0.02em;
   text-align: center;
   border: none;
@@ -1212,7 +1219,7 @@ html[data-theme="dark"] .letter-rail {
 
 /* Arabic section — clearer, more present Amiri */
 .letter-rail[data-section="ar-ar"] .letter-rail-btn {
-  font-family: "Amiri", "Source Sans 3", serif;
+  font-family: var(--font-arabic);
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0;
@@ -1519,7 +1526,7 @@ html[data-device="desktop"] .fab-glow--goals {
   font-size: 10.5px;
   font-weight: 700;
   cursor: pointer;
-  font-family: "Source Sans 3", sans-serif;
+  font-family: var(--font-latin);
   padding: 6px 2px;
   -webkit-tap-highlight-color: transparent !important;
   outline: none;
@@ -2188,4 +2195,15 @@ html[data-night-study="1"] body {
 }
 html[data-night-study="1"] ::selection {
   background: rgba(80, 120, 180, 0.35);
+}
+
+/* Reduced motion preference */
+html[data-reduced-motion="1"],
+html[data-reduced-motion="1"] *,
+html[data-reduced-motion="1"] *::before,
+html[data-reduced-motion="1"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }

@@ -10,6 +10,8 @@ import {
 import {
   ACCENT_THEMES,
   SKIN_PRESETS,
+  LATIN_FONTS,
+  ARABIC_FONTS,
   loadCustomAccentHex,
   saveCustomAccentHex,
   saveAccent,
@@ -48,6 +50,12 @@ export default function AppearanceModal({
   onChangeAccent = null,
   skin = "classic",
   onChangeSkin = null,
+  latinFont = "source-sans",
+  onChangeLatinFont = null,
+  arabicFont = "amiri",
+  onChangeArabicFont = null,
+  reducedMotion = false,
+  onChangeReducedMotion = null,
 }) {
   // Only one section open at a time. Logo starts closed.
   const [openSection, setOpenSection] = useState("mode");
@@ -584,6 +592,118 @@ export default function AppearanceModal({
                   aria-label={T("Pick custom color", "اختيار لون مخصص")}
                 />
               </div>
+            </Section>
+          )}
+
+          {/* ── Fonts ── */}
+          {(onChangeLatinFont || onChangeArabicFont) && (
+            <Section
+              id="fonts"
+              title={T("Fonts", "الخطوط")}
+              summary={[
+                LATIN_FONTS[latinFont]?.label ? T(LATIN_FONTS[latinFont].label.en, LATIN_FONTS[latinFont].label.ar) : latinFont,
+                ARABIC_FONTS[arabicFont]?.label ? T(ARABIC_FONTS[arabicFont].label.en, ARABIC_FONTS[arabicFont].label.ar) : arabicFont,
+              ].join(" · ")}
+            >
+              {onChangeLatinFont && (
+                <>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 6 }}>
+                    {T("English / UI font", "خط الإنجليزي / الواجهة")}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+                    {Object.values(LATIN_FONTS).map((f) => {
+                      const active = latinFont === f.id;
+                      return (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => onChangeLatinFont(f.id)}
+                          className="touch-target"
+                          style={{
+                            minHeight: 48, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
+                            border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                            background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                            color: "var(--ink)",
+                            fontFamily: f.family,
+                          }}
+                        >
+                          {T(f.label.en, f.label.ar)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+              {onChangeArabicFont && (
+                <>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 6 }}>
+                    {T("Arabic font", "الخط العربي")}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    {Object.values(ARABIC_FONTS).map((f) => {
+                      const active = arabicFont === f.id;
+                      return (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => onChangeArabicFont(f.id)}
+                          className="touch-target"
+                          style={{
+                            minHeight: 52, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15,
+                            border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                            background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                            color: "var(--ink)",
+                            fontFamily: f.family,
+                            direction: "rtl",
+                          }}
+                        >
+                          {T(f.label.en, f.label.ar)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </Section>
+          )}
+
+          {/* ── Comfort / reduced motion ── */}
+          {typeof onChangeReducedMotion === "function" && (
+            <Section
+              id="comfort"
+              title={T("Comfort", "الراحة")}
+              summary={reducedMotion ? T("Reduced motion", "حركة أقل") : T("Full motion", "حركة كاملة")}
+            >
+              <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
+                {T("Reduce animations and transitions — easier on the eyes during long study sessions.", "قلّل الحركات والانتقالات — أريح للعين في جلسات المذاكرة الطويلة.")}
+              </p>
+              <button
+                type="button"
+                onClick={() => onChangeReducedMotion(!reducedMotion)}
+                className="touch-target"
+                style={{
+                  width: "100%", minHeight: 48, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
+                  border: reducedMotion ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                  background: reducedMotion ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                  color: "var(--ink)",
+                  display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 14px",
+                }}
+              >
+                <span>{T("Reduced motion", "تقليل الحركة")}</span>
+                <span style={{
+                  width: 40, height: 24, borderRadius: 12,
+                  background: reducedMotion ? "var(--accent-1)" : "rgba(var(--border-rgb),0.25)",
+                  position: "relative", transition: "background 0.2s",
+                }}>
+                  <span style={{
+                    position: "absolute", top: 3, width: 18, height: 18, borderRadius: "50%",
+                    background: "#fff",
+                    left: reducedMotion ? 19 : 3,
+                    transition: "left 0.2s",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+                  }} />
+                </span>
+              </button>
             </Section>
           )}
         </div>

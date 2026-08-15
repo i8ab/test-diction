@@ -56,6 +56,9 @@ export default function MainView({
   showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount, onApproveRequest, onRejectRequest,
   toast, showToast, theme, onToggleTheme, onChangeTheme, accentTheme, onChangeAccent,
   skin = "classic", onChangeSkin = null,
+  latinFont = "source-sans", onChangeLatinFont = null,
+  arabicFont = "amiri", onChangeArabicFont = null,
+  reducedMotion = false, onChangeReducedMotion = null,
   appIsAr, appLang = "en", onToggleAppLang, onChangeAppLang,
   deviceMode = null, onChangeDeviceMode, uiScale = 1, onChangeUiScale,
   sessionStart,
@@ -596,6 +599,9 @@ export default function MainView({
                 appLang={appLang} onChangeAppLang={onChangeAppLang} deviceMode={deviceMode} onChangeDeviceMode={onChangeDeviceMode} uiScale={uiScale} onChangeUiScale={onChangeUiScale}
                 accentTheme={accentTheme} onChangeAccent={onChangeAccent}
                 skin={skin} onChangeSkin={onChangeSkin}
+                latinFont={latinFont} onChangeLatinFont={onChangeLatinFont}
+                arabicFont={arabicFont} onChangeArabicFont={onChangeArabicFont}
+                reducedMotion={reducedMotion} onChangeReducedMotion={onChangeReducedMotion}
                 remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={onEnableReminders} onDisableReminders={onDisableReminders} onTestReminder={onTestReminder}
                 reminderTitle={reminderTitle} onChangeReminderTitle={onChangeReminderTitle}
                 reminderMessage={reminderMessage} onChangeReminderMessage={onChangeReminderMessage}

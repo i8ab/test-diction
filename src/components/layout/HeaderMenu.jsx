@@ -21,6 +21,9 @@ export default function HeaderMenu({
   deviceMode = null, onChangeDeviceMode = null, uiScale = 1, onChangeUiScale = null,
   accentTheme, onChangeAccent,
   skin = "classic", onChangeSkin = null,
+  latinFont = "source-sans", onChangeLatinFont = null,
+  arabicFont = "amiri", onChangeArabicFont = null,
+  reducedMotion = false, onChangeReducedMotion = null,
   remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
   reminderTitle, onChangeReminderTitle,
   reminderMessage, onChangeReminderMessage,
@@ -355,6 +358,12 @@ export default function HeaderMenu({
         onChangeAccent={onChangeAccent}
         skin={skin}
         onChangeSkin={onChangeSkin}
+        latinFont={latinFont}
+        onChangeLatinFont={onChangeLatinFont}
+        arabicFont={arabicFont}
+        onChangeArabicFont={onChangeArabicFont}
+        reducedMotion={reducedMotion}
+        onChangeReducedMotion={onChangeReducedMotion}
       />
 
     </div>

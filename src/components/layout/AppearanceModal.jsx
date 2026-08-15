@@ -13,6 +13,7 @@ import {
   LATIN_FONTS,
   ARABIC_FONTS,
   CARD_SURFACES,
+  HEADER_STYLES,
   MOTION_SPEEDS,
   loadCustomAccentHex,
   saveCustomAccentHex,
@@ -150,6 +151,8 @@ export default function AppearanceModal({
   onChangeDirOverride = null,
   cardSurface = "solid",
   onChangeCardSurface = null,
+  headerStyle = "glass",
+  onChangeHeaderStyle = null,
   iconStyle = "outline",
   onChangeIconStyle = null,
   motionSpeed = "normal",
@@ -857,12 +860,50 @@ export default function AppearanceModal({
             </AppearanceSection>
           )}
 
+          {/* ── Header style ── */}
+          {typeof onChangeHeaderStyle === "function" && (
+            <AppearanceSection {...sp("header")}
+              title={T("Header bar", "شريط الهيدر")}
+              summary={HEADER_STYLES[headerStyle] ? T(HEADER_STYLES[headerStyle].label.en, HEADER_STYLES[headerStyle].label.ar) : headerStyle}
+            >
+              <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.45 }}>
+                {T("Solid = opaque. Glass = blurred background. Clear = almost invisible.", "صلب = معتم. زجاجي = خلفية ضبابية. شفاف = شبه مختفي.")}
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                {Object.values(HEADER_STYLES || {}).map((s) => {
+                  if (!s || !s.id) return null;
+                  const active = headerStyle === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => onChangeHeaderStyle(s.id)}
+                      className="touch-target"
+                      title={T(s.desc?.en || "", s.desc?.ar || "")}
+                      style={{
+                        minHeight: 56, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 12,
+                        border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                        background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                        color: "var(--ink)",
+                      }}
+                    >
+                      {T(s.label.en, s.label.ar)}
+                    </button>
+                  );
+                })}
+              </div>
+            </AppearanceSection>
+          )}
+
           {/* ── Card surface ── */}
           {typeof onChangeCardSurface === "function" && (
             <AppearanceSection {...sp("cardsurface")}
               title={T("Card background", "خلفية الكروت")}
               summary={CARD_SURFACES[cardSurface] ? T(CARD_SURFACES[cardSurface].label.en, CARD_SURFACES[cardSurface].label.ar) : cardSurface}
             >
+              <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.45 }}>
+                {T("Ruled / grid adapt to reading direction (EN or AR).", "المسطّر والشبكي بيتأقلموا مع اتجاه القراءة (إنجليزي أو عربي).")}
+              </p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                 {Object.values(CARD_SURFACES || {}).map((s) => {
                   if (!s || !s.id) return null;

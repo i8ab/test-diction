@@ -2473,3 +2473,202 @@ html[data-exam-visual="1"][data-theme="dark"] {
   --danger: #eee !important;
   --danger-bg: #222 !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Theme character system — header / modals / cards / chips / FABs
+   Driven by data-skin + data-header-style + data-card-surface
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Header styles ── */
+.app-top-header {
+  transition: background 0.25s ease, backdrop-filter 0.25s ease, border-color 0.25s ease;
+}
+html[data-header-style="solid"] .app-top-header {
+  background: var(--paper) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html[data-header-style="glass"] .app-top-header,
+html:not([data-header-style]) .app-top-header {
+  background: color-mix(in srgb, var(--paper) 72%, transparent) !important;
+  backdrop-filter: blur(14px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(1.2) !important;
+}
+html[data-header-style="clear"] .app-top-header {
+  background: color-mix(in srgb, var(--paper) 28%, transparent) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border-bottom-color: transparent !important;
+}
+
+/* ── Modals: glass panels that sit in the theme world ── */
+.modal-card {
+  background: color-mix(in srgb, var(--card) 92%, transparent) !important;
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  box-shadow:
+    0 0 0 1px rgba(var(--border-rgb), 0.14),
+    0 24px 60px -20px rgba(0, 0, 0, 0.35),
+    var(--skin-card-shadow, none) !important;
+}
+.modal-backdrop {
+  background: color-mix(in srgb, var(--paper) 35%, rgba(0, 0, 0, 0.45)) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* ── Filter chips / pills pick up skin radius ── */
+html[data-skin="forest"] button.touch-target {
+  border-radius: 999px;
+}
+html[data-skin="paper"] button.touch-target {
+  border-radius: 6px;
+}
+html[data-skin="slate"] button.touch-target {
+  border-radius: 4px;
+}
+html[data-skin="rose"] button.touch-target {
+  border-radius: 16px;
+}
+html[data-skin="aurora"] button.touch-target {
+  border-radius: 14px;
+}
+html[data-skin="midnight"] button.touch-target {
+  border-radius: 10px;
+}
+html[data-skin="sand"] button.touch-target,
+html[data-skin="warm"] button.touch-target {
+  border-radius: 8px;
+}
+html[data-skin="lavender"] button.touch-target {
+  border-radius: 14px;
+}
+html[data-skin="dusk"] button.touch-target {
+  border-radius: 12px;
+}
+html[data-skin="mist"] button.touch-target {
+  border-radius: 12px;
+}
+html[data-skin="contrast"] button.touch-target {
+  border-radius: 2px;
+}
+
+/* ── Search bar theme character ── */
+html[data-skin] .toolbar-search-input,
+html[data-skin] input[type="search"] {
+  background: color-mix(in srgb, var(--card) 88%, transparent) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ── Entry cards: soft glass so photo peeks around edges ── */
+html[data-has-bg-image="1"] .entry-card,
+html[data-has-bg-image="1"] .word-card {
+  background: color-mix(in srgb, var(--card) 94%, transparent) !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* ── Ruled notebook: LTR (English) margin line on the left ── */
+html[data-card-surface="paper"] .entry-card,
+html[data-card-surface="paper"] .word-card {
+  background-color: color-mix(in srgb, var(--card) 96%, var(--paper)) !important;
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 26px,
+      color-mix(in srgb, #c45c5c 35%, transparent) 26px,
+      color-mix(in srgb, #c45c5c 35%, transparent) 27.5px,
+      transparent 27.5px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 27px,
+      color-mix(in srgb, var(--ink) 10%, transparent) 27px,
+      color-mix(in srgb, var(--ink) 10%, transparent) 28px
+    ) !important;
+  background-size: 100% 100%, 100% 28px !important;
+  background-position: 0 0, 0 10px !important;
+  background-repeat: no-repeat, repeat !important;
+  border-radius: 10px;
+}
+
+/* Ruled notebook: RTL (Arabic) margin line on the right */
+html[dir="rtl"][data-card-surface="paper"] .entry-card,
+html[dir="rtl"][data-card-surface="paper"] .word-card,
+html[data-dir-override="rtl"][data-card-surface="paper"] .entry-card,
+html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
+  background-image:
+    linear-gradient(
+      270deg,
+      transparent 0,
+      transparent 26px,
+      color-mix(in srgb, #c45c5c 35%, transparent) 26px,
+      color-mix(in srgb, #c45c5c 35%, transparent) 27.5px,
+      transparent 27.5px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 27px,
+      color-mix(in srgb, var(--ink) 10%, transparent) 27px,
+      color-mix(in srgb, var(--ink) 10%, transparent) 28px
+    ) !important;
+}
+
+/* Forest skin cards: leaf-tinted edge */
+html[data-skin="forest"] .entry-card,
+html[data-skin="forest"] .word-card {
+  box-shadow:
+    inset 0 0 0 1px rgba(46, 204, 113, 0.16),
+    0 8px 24px -14px rgba(20, 90, 40, 0.35);
+}
+
+/* Midnight cards: subtle glow edge */
+html[data-skin="midnight"] .entry-card,
+html[data-skin="midnight"] .word-card {
+  box-shadow:
+    inset 0 0 0 1px rgba(120, 160, 220, 0.12),
+    0 10px 28px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* Aurora cards: dual-tone edge */
+html[data-skin="aurora"] .entry-card,
+html[data-skin="aurora"] .word-card {
+  box-shadow:
+    inset 0 0 0 1px rgba(124, 58, 237, 0.18),
+    0 0 20px -10px rgba(45, 212, 191, 0.25),
+    0 10px 28px -14px rgba(80, 40, 160, 0.3);
+}
+
+/* Dusk / sand / warm: soft warm lift */
+html[data-skin="dusk"] .entry-card,
+html[data-skin="sand"] .entry-card,
+html[data-skin="warm"] .entry-card,
+html[data-skin="dusk"] .word-card,
+html[data-skin="sand"] .word-card,
+html[data-skin="warm"] .word-card {
+  box-shadow:
+    inset 0 0 0 1px rgba(180, 120, 60, 0.12),
+    0 8px 22px -12px rgba(120, 70, 30, 0.28);
+}
+
+/* Floating action buttons inherit skin mood */
+html[data-skin="forest"] .mobile-fab-add,
+html[data-skin="forest"] [class*="fab"] {
+  border-radius: 999px !important;
+}
+html[data-skin="paper"] .mobile-fab-add {
+  border-radius: 8px !important;
+}
+html[data-skin="aurora"] .mobile-fab-add {
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.45) !important;
+}
+
+/* Progress / stats bars: slight glass */
+html[data-has-bg-image="1"] [style*="325 words"],
+html[data-has-bg-image="1"] .stats-bar {
+  background: color-mix(in srgb, var(--card) 90%, transparent);
+}

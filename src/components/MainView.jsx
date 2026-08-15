@@ -62,6 +62,7 @@ export default function MainView({
   uiSounds = false, onChangeUiSounds = null,
   dirOverride = "auto", onChangeDirOverride = null,
   cardSurface = "solid", onChangeCardSurface = null,
+  headerStyle = "glass", onChangeHeaderStyle = null,
   iconStyle = "outline", onChangeIconStyle = null,
   motionSpeed = "normal", onChangeMotionSpeed = null,
   examVisual = false, onChangeExamVisual = null,
@@ -572,7 +573,7 @@ export default function MainView({
       aria-hidden={toolFullscreen ? true : undefined}
     >
       {!focusMode && <SiteBanner banner={siteBanner} isAr={appIsAr} />}
-      <header style={{ borderBottom: "1px solid rgba(var(--border-rgb),0.15)", background: "color-mix(in srgb, var(--paper) 88%, transparent)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", position: "sticky", top: 0, zIndex: 1000 }}>
+      <header className="app-top-header" style={{ borderBottom: "1px solid rgba(var(--border-rgb),0.15)", position: "sticky", top: 0, zIndex: 1000 }}>
         <div className="app-container" style={{ margin: "0 auto", padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px) 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
@@ -618,6 +619,7 @@ export default function MainView({
                 uiSounds={uiSounds} onChangeUiSounds={onChangeUiSounds}
                 dirOverride={dirOverride} onChangeDirOverride={onChangeDirOverride}
                 cardSurface={cardSurface} onChangeCardSurface={onChangeCardSurface}
+                headerStyle={headerStyle} onChangeHeaderStyle={onChangeHeaderStyle}
                 iconStyle={iconStyle} onChangeIconStyle={onChangeIconStyle}
                 motionSpeed={motionSpeed} onChangeMotionSpeed={onChangeMotionSpeed}
                 examVisual={examVisual} onChangeExamVisual={onChangeExamVisual}

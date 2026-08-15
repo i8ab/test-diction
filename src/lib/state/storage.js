@@ -787,6 +787,48 @@ export function applyCardSurface(id) {
   } catch (_) {}
 }
 
+// ── Header style: solid | glass | clear ────────────────────────────────
+const HEADER_STYLE_KEY = "twoTongues.headerStyle";
+
+export const HEADER_STYLES = {
+  solid: {
+    id: "solid",
+    label: { en: "Solid", ar: "صلب" },
+    desc: { en: "Opaque bar for max contrast", ar: "شريط معتم لأعلى وضوح" },
+  },
+  glass: {
+    id: "glass",
+    label: { en: "Glass", ar: "زجاجي" },
+    desc: { en: "Blurred so the background peeks through", ar: "ضبابي والخلفية تظهر من وراه" },
+  },
+  clear: {
+    id: "clear",
+    label: { en: "Clear", ar: "شفاف" },
+    desc: { en: "Almost invisible — full background", ar: "شبه شفاف — الخلفية كاملة" },
+  },
+};
+
+export function loadHeaderStyle() {
+  try {
+    const v = localStorage.getItem(HEADER_STYLE_KEY) || "glass";
+    return HEADER_STYLES[v] ? v : "glass";
+  } catch (_) {
+    return "glass";
+  }
+}
+
+export function saveHeaderStyle(id) {
+  try {
+    localStorage.setItem(HEADER_STYLE_KEY, id || "glass");
+  } catch (_) {}
+}
+
+export function applyHeaderStyle(id) {
+  try {
+    document.documentElement.setAttribute("data-header-style", id || "glass");
+  } catch (_) {}
+}
+
 // ── Icon style: outline | filled ───────────────────────────────────────
 
 export function loadIconStyle() {

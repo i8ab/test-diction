@@ -35,6 +35,9 @@ import {
   loadCardSurface,
   saveCardSurface,
   applyCardSurface,
+  loadHeaderStyle,
+  saveHeaderStyle,
+  applyHeaderStyle,
   loadIconStyle,
   saveIconStyle,
   applyIconStyle,
@@ -247,6 +250,15 @@ export function useAppPreferences() {
   }, []);
   useEffect(() => { applyCardSurface(cardSurface); }, [cardSurface]);
 
+  // --- Header style (solid / glass / clear) ---
+  const [headerStyle, setHeaderStyleState] = useState(loadHeaderStyle);
+  const setHeaderStyle = useCallback((id) => {
+    setHeaderStyleState(id);
+    saveHeaderStyle(id);
+    applyHeaderStyle(id);
+  }, []);
+  useEffect(() => { applyHeaderStyle(headerStyle); }, [headerStyle]);
+
   // --- Icon style ---
   const [iconStyle, setIconStyleState] = useState(loadIconStyle);
   const setIconStyle = useCallback((id) => {
@@ -308,6 +320,8 @@ export function useAppPreferences() {
     setDirOverride,
     cardSurface,
     setCardSurface,
+    headerStyle,
+    setHeaderStyle,
     iconStyle,
     setIconStyle,
     motionSpeed,

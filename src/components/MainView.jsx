@@ -562,7 +562,8 @@ export default function MainView({
       dir={cfg.dir}
       style={{
         minHeight: "100dvh",
-        background: PAPER,
+        /* Transparent so body skin photo + overlay show through */
+        background: "transparent",
         fontFamily: "'Source Sans 3', sans-serif",
         /* لا نضع overflow هنا — overflow-x:hidden على عنصر وسيط يكسر position:sticky لقائمة الحروف */
         maxWidth: "100%",
@@ -571,7 +572,7 @@ export default function MainView({
       aria-hidden={toolFullscreen ? true : undefined}
     >
       {!focusMode && <SiteBanner banner={siteBanner} isAr={appIsAr} />}
-      <header style={{ borderBottom: "1px solid rgba(var(--border-rgb),0.15)", background: PAPER, position: "sticky", top: 0, zIndex: 1000 }}>
+      <header style={{ borderBottom: "1px solid rgba(var(--border-rgb),0.15)", background: "color-mix(in srgb, var(--paper) 88%, transparent)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", position: "sticky", top: 0, zIndex: 1000 }}>
         <div className="app-container" style={{ margin: "0 auto", padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px) 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>

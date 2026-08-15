@@ -2252,42 +2252,89 @@ html[data-reduced-motion="1"] *::after {
   scroll-behavior: auto !important;
 }
 
-/* ── Notebook / paper atmosphere (full app when Paper skin is on) ── */
-html[data-skin="paper"] body {
-  background-color: var(--paper);
-  background-image:
-    /* soft fiber grain */
-    radial-gradient(ellipse at 20% 30%, rgba(120, 90, 50, 0.045) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 70%, rgba(90, 70, 40, 0.04) 0%, transparent 45%),
-    radial-gradient(ellipse at 50% 50%, rgba(140, 110, 60, 0.03) 0%, transparent 60%),
-    /* subtle horizontal paper fibers */
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 3px,
-      rgba(90, 70, 40, 0.015) 3px,
-      rgba(90, 70, 40, 0.015) 4px
-    );
-  background-attachment: fixed;
-}
-html[data-skin="paper"][data-theme="dark"] body {
-  background-image:
-    radial-gradient(ellipse at 20% 30%, rgba(200, 170, 120, 0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 70%, rgba(180, 150, 100, 0.035) 0%, transparent 45%),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 3px,
-      rgba(200, 170, 120, 0.02) 3px,
-      rgba(200, 170, 120, 0.02) 4px
-    );
-}
+/* Paper skin: extra card depth only — page photo comes from --app-bg-image */
 html[data-skin="paper"] .modal-card,
 html[data-skin="paper"] .entry-card,
 html[data-skin="paper"] .word-card {
   box-shadow:
     0 1px 0 rgba(80, 60, 30, 0.06),
     0 8px 24px -12px rgba(60, 40, 20, 0.18);
+}
+
+/* ── Per-skin button shape language (visible, not just color) ── */
+html[data-skin="forest"] .btn-shine,
+html[data-skin="forest"] button.touch-target.btn-shine {
+  border-radius: 999px !important;
+  box-shadow: 0 4px 14px -6px rgba(30, 120, 60, 0.45);
+}
+html[data-skin="forest"] .entry-card,
+html[data-skin="forest"] .word-card {
+  border-radius: 18px;
+  border: 1px solid rgba(46, 204, 113, 0.18);
+}
+
+html[data-skin="paper"] .btn-shine {
+  border-radius: 6px !important;
+  box-shadow: 0 2px 0 rgba(80, 60, 30, 0.12), 0 4px 12px -8px rgba(80, 60, 30, 0.25);
+}
+html[data-skin="paper"] .entry-card,
+html[data-skin="paper"] .word-card {
+  border-radius: 8px;
+}
+
+html[data-skin="midnight"] .btn-shine {
+  border-radius: 10px !important;
+  box-shadow: 0 0 0 1px rgba(100, 140, 200, 0.35), 0 8px 22px -8px rgba(40, 80, 160, 0.5);
+}
+html[data-skin="midnight"] .entry-card,
+html[data-skin="midnight"] .word-card {
+  border-radius: 12px;
+  border: 1px solid rgba(100, 140, 200, 0.15);
+}
+
+html[data-skin="aurora"] .btn-shine {
+  border-radius: 14px !important;
+  box-shadow: 0 0 16px -4px rgba(124, 58, 237, 0.45), 0 6px 18px -8px rgba(45, 212, 191, 0.35);
+}
+html[data-skin="aurora"] .entry-card,
+html[data-skin="aurora"] .word-card {
+  border-radius: 16px;
+  border: 1px solid rgba(124, 58, 237, 0.18);
+}
+
+html[data-skin="dusk"] .btn-shine {
+  border-radius: 12px !important;
+  box-shadow: 0 6px 18px -8px rgba(255, 107, 53, 0.45);
+}
+html[data-skin="dusk"] .entry-card,
+html[data-skin="dusk"] .word-card {
+  border-radius: 14px;
+}
+
+html[data-skin="sand"] .btn-shine {
+  border-radius: 8px !important;
+}
+html[data-skin="lavender"] .btn-shine {
+  border-radius: 16px !important;
+}
+html[data-skin="rose"] .btn-shine {
+  border-radius: 20px !important;
+}
+html[data-skin="mist"] .btn-shine {
+  border-radius: 12px !important;
+  box-shadow: 0 4px 16px -8px rgba(14, 165, 233, 0.35);
+}
+html[data-skin="slate"] .btn-shine {
+  border-radius: 4px !important;
+  box-shadow: none;
+}
+html[data-skin="warm"] .btn-shine {
+  border-radius: 10px !important;
+}
+html[data-skin="contrast"] .btn-shine {
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  border: 2px solid currentColor;
 }
 
 /* ── Card surface styles ── */

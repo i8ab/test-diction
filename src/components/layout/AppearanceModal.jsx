@@ -76,9 +76,20 @@ export default function AppearanceModal({
   const scrollRef = useRef(null);
   const sectionRefs = useRef({});
 
-  // When a section opens, keep it in view inside the modal scroll area.
+  // When a section *opens*, nudge scroll only if it's clipped out of view.
+  // Never force scroll-to-top on close (that was jumping the list upward).
+  const prevOpenSectionRef = useRef(null);
   useEffect(() => {
-    if (!open || !openSection) return;
+    if (!open) {
+      prevOpenSectionRef.current = null;
+      return;
+    }
+    const prev = prevOpenSectionRef.current;
+    prevOpenSectionRef.current = openSection;
+
+    // Closing or unchanged: keep current scroll position
+    if (!openSection || openSection === prev) return;
+
     let cancelled = false;
     const run = () => {
       if (cancelled) return;
@@ -86,24 +97,29 @@ export default function AppearanceModal({
       const container = scrollRef.current;
       if (!el || !container) return;
       try {
-        const elTop = el.offsetTop;
-        const elH = el.offsetHeight;
-        const elBottom = elTop + elH;
-        const viewTop = container.scrollTop;
-        const viewH = container.clientHeight;
-        const viewBottom = viewTop + viewH;
-        // Prefer keeping the whole section visible; if taller than viewport,
-        // pin the header near the top so content opens downward into view.
-        if (elH + 16 >= viewH) {
-          container.scrollTo({ top: Math.max(0, elTop - 6), behavior: "smooth" });
-        } else if (elBottom > viewBottom - 10) {
-          container.scrollTo({ top: Math.max(0, elBottom - viewH + 10), behavior: "smooth" });
-        } else if (elTop < viewTop + 6) {
-          container.scrollTo({ top: Math.max(0, elTop - 6), behavior: "smooth" });
+        const cRect = container.getBoundingClientRect();
+        const eRect = el.getBoundingClientRect();
+        const pad = 10;
+        const clippedBottom = eRect.bottom > cRect.bottom - pad;
+        const clippedTop = eRect.top < cRect.top + pad;
+        if (!clippedBottom && !clippedTop) return;
+
+        if (clippedBottom) {
+          // Minimal scroll so the expanded content becomes visible below
+          const delta = eRect.bottom - cRect.bottom + pad;
+          container.scrollTo({
+            top: container.scrollTop + delta,
+            behavior: "smooth",
+          });
+        } else if (clippedTop) {
+          const delta = eRect.top - cRect.top - pad;
+          container.scrollTo({
+            top: container.scrollTop + delta,
+            behavior: "smooth",
+          });
         }
       } catch (_) {}
     };
-    // Two frames: first for open state paint, second after children layout
     const id1 = requestAnimationFrame(() => {
       requestAnimationFrame(run);
     });

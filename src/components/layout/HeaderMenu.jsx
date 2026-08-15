@@ -28,6 +28,8 @@ export default function HeaderMenu({
   dirOverride = "auto", onChangeDirOverride = null,
   cardSurface = "solid", onChangeCardSurface = null,
   headerStyle = "glass", onChangeHeaderStyle = null,
+  cardClarity = "opaque", onChangeCardClarity = null,
+  modalStyle = "glass", onChangeModalStyle = null,
   iconStyle = "outline", onChangeIconStyle = null,
   motionSpeed = "normal", onChangeMotionSpeed = null,
   examVisual = false, onChangeExamVisual = null,
@@ -379,6 +381,10 @@ export default function HeaderMenu({
         onChangeCardSurface={onChangeCardSurface}
         headerStyle={headerStyle}
         onChangeHeaderStyle={onChangeHeaderStyle}
+        cardClarity={cardClarity}
+        onChangeCardClarity={onChangeCardClarity}
+        modalStyle={modalStyle}
+        onChangeModalStyle={onChangeModalStyle}
         iconStyle={iconStyle}
         onChangeIconStyle={onChangeIconStyle}
         motionSpeed={motionSpeed}

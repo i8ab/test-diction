@@ -117,6 +117,10 @@ export default function DictionaryApp() {
     setCardSurface,
     headerStyle,
     setHeaderStyle,
+    cardClarity,
+    setCardClarity,
+    modalStyle,
+    setModalStyle,
     iconStyle,
     setIconStyle,
     motionSpeed,
@@ -1581,6 +1585,8 @@ export default function DictionaryApp() {
       dirOverride={dirOverride} onChangeDirOverride={setDirOverride}
       cardSurface={cardSurface} onChangeCardSurface={setCardSurface}
       headerStyle={headerStyle} onChangeHeaderStyle={setHeaderStyle}
+      cardClarity={cardClarity} onChangeCardClarity={setCardClarity}
+      modalStyle={modalStyle} onChangeModalStyle={setModalStyle}
       iconStyle={iconStyle} onChangeIconStyle={setIconStyle}
       motionSpeed={motionSpeed} onChangeMotionSpeed={setMotionSpeed}
       examVisual={examVisual} onChangeExamVisual={setExamVisual}

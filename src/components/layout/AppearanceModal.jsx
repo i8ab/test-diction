@@ -14,6 +14,8 @@ import {
   ARABIC_FONTS,
   CARD_SURFACES,
   HEADER_STYLES,
+  CARD_CLARITIES,
+  MODAL_STYLES,
   MOTION_SPEEDS,
   loadCustomAccentHex,
   saveCustomAccentHex,
@@ -153,6 +155,10 @@ export default function AppearanceModal({
   onChangeCardSurface = null,
   headerStyle = "glass",
   onChangeHeaderStyle = null,
+  cardClarity = "opaque",
+  onChangeCardClarity = null,
+  modalStyle = "glass",
+  onChangeModalStyle = null,
   iconStyle = "outline",
   onChangeIconStyle = null,
   motionSpeed = "normal",
@@ -878,6 +884,76 @@ export default function AppearanceModal({
                       key={s.id}
                       type="button"
                       onClick={() => onChangeHeaderStyle(s.id)}
+                      className="touch-target"
+                      title={T(s.desc?.en || "", s.desc?.ar || "")}
+                      style={{
+                        minHeight: 56, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 12,
+                        border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                        background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                        color: "var(--ink)",
+                      }}
+                    >
+                      {T(s.label.en, s.label.ar)}
+                    </button>
+                  );
+                })}
+              </div>
+            </AppearanceSection>
+          )}
+
+          {/* ── Card clarity ── */}
+          {typeof onChangeCardClarity === "function" && (
+            <AppearanceSection {...sp("cardclarity")}
+              title={T("Card transparency", "شفافية الكروت")}
+              summary={CARD_CLARITIES[cardClarity] ? T(CARD_CLARITIES[cardClarity].label.en, CARD_CLARITIES[cardClarity].label.ar) : cardClarity}
+            >
+              <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.45 }}>
+                {T("Opaque / glass / clear — how much background shows through word cards.", "معتم / زجاجي / شفاف — قد إيه الخلفية تبين من ورا كروت الكلمات.")}
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                {Object.values(CARD_CLARITIES || {}).map((s) => {
+                  if (!s || !s.id) return null;
+                  const active = cardClarity === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => onChangeCardClarity(s.id)}
+                      className="touch-target"
+                      title={T(s.desc?.en || "", s.desc?.ar || "")}
+                      style={{
+                        minHeight: 56, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 12,
+                        border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
+                        background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
+                        color: "var(--ink)",
+                      }}
+                    >
+                      {T(s.label.en, s.label.ar)}
+                    </button>
+                  );
+                })}
+              </div>
+            </AppearanceSection>
+          )}
+
+          {/* ── Modal style ── */}
+          {typeof onChangeModalStyle === "function" && (
+            <AppearanceSection {...sp("modalstyle")}
+              title={T("Modal panels", "لوحات النوافذ")}
+              summary={MODAL_STYLES[modalStyle] ? T(MODAL_STYLES[modalStyle].label.en, MODAL_STYLES[modalStyle].label.ar) : modalStyle}
+            >
+              <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.45 }}>
+                {T("Applies to every modal in the app (Appearance, Add word, Account…).", "ينطبق على كل مودال في التطبيق (المظهر، إضافة كلمة، الحساب…).")}
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                {Object.values(MODAL_STYLES || {}).map((s) => {
+                  if (!s || !s.id) return null;
+                  const active = modalStyle === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => onChangeModalStyle(s.id)}
                       className="touch-target"
                       title={T(s.desc?.en || "", s.desc?.ar || "")}
                       style={{

@@ -829,6 +829,90 @@ export function applyHeaderStyle(id) {
   } catch (_) {}
 }
 
+// ── Card clarity: opaque | glass | clear ───────────────────────────────
+const CARD_CLARITY_KEY = "twoTongues.cardClarity";
+
+export const CARD_CLARITIES = {
+  opaque: {
+    id: "opaque",
+    label: { en: "Opaque", ar: "معتم" },
+    desc: { en: "Solid cards, max readability", ar: "كروت صلبة لأعلى وضوح" },
+  },
+  glass: {
+    id: "glass",
+    label: { en: "Glass", ar: "زجاجي" },
+    desc: { en: "Frosted — background peeks through", ar: "ضبابي والخلفية تظهر من وراه" },
+  },
+  clear: {
+    id: "clear",
+    label: { en: "Clear", ar: "شفاف" },
+    desc: { en: "Almost transparent cards", ar: "كروت شبه شفافة تماماً" },
+  },
+};
+
+export function loadCardClarity() {
+  try {
+    const v = localStorage.getItem(CARD_CLARITY_KEY) || "opaque";
+    return CARD_CLARITIES[v] ? v : "opaque";
+  } catch (_) {
+    return "opaque";
+  }
+}
+
+export function saveCardClarity(id) {
+  try {
+    localStorage.setItem(CARD_CLARITY_KEY, id || "opaque");
+  } catch (_) {}
+}
+
+export function applyCardClarity(id) {
+  try {
+    document.documentElement.setAttribute("data-card-clarity", id || "opaque");
+  } catch (_) {}
+}
+
+// ── Modal style: solid | glass | clear (every modal) ───────────────────
+const MODAL_STYLE_KEY = "twoTongues.modalStyle";
+
+export const MODAL_STYLES = {
+  solid: {
+    id: "solid",
+    label: { en: "Solid", ar: "صلب" },
+    desc: { en: "Classic opaque panels", ar: "لوحات معتمة كلاسيك" },
+  },
+  glass: {
+    id: "glass",
+    label: { en: "Glass", ar: "زجاجي" },
+    desc: { en: "Blurred glass over the page", ar: "زجاج ضبابي فوق الصفحة" },
+  },
+  clear: {
+    id: "clear",
+    label: { en: "Clear", ar: "شفاف" },
+    desc: { en: "Very transparent — scene stays visible", ar: "شفاف جداً — المشهد يفضل باين" },
+  },
+};
+
+export function loadModalStyle() {
+  try {
+    const v = localStorage.getItem(MODAL_STYLE_KEY) || "glass";
+    return MODAL_STYLES[v] ? v : "glass";
+  } catch (_) {
+    return "glass";
+  }
+}
+
+export function saveModalStyle(id) {
+  try {
+    localStorage.setItem(MODAL_STYLE_KEY, id || "glass");
+  } catch (_) {}
+}
+
+export function applyModalStyle(id) {
+  try {
+    document.documentElement.setAttribute("data-modal-style", id || "glass");
+  } catch (_) {}
+}
+
 // ── Icon style: outline | filled ───────────────────────────────────────
 
 export function loadIconStyle() {

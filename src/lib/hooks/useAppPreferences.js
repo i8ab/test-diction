@@ -38,6 +38,12 @@ import {
   loadHeaderStyle,
   saveHeaderStyle,
   applyHeaderStyle,
+  loadCardClarity,
+  saveCardClarity,
+  applyCardClarity,
+  loadModalStyle,
+  saveModalStyle,
+  applyModalStyle,
   loadIconStyle,
   saveIconStyle,
   applyIconStyle,
@@ -259,6 +265,24 @@ export function useAppPreferences() {
   }, []);
   useEffect(() => { applyHeaderStyle(headerStyle); }, [headerStyle]);
 
+  // --- Card clarity ---
+  const [cardClarity, setCardClarityState] = useState(loadCardClarity);
+  const setCardClarity = useCallback((id) => {
+    setCardClarityState(id);
+    saveCardClarity(id);
+    applyCardClarity(id);
+  }, []);
+  useEffect(() => { applyCardClarity(cardClarity); }, [cardClarity]);
+
+  // --- Modal style ---
+  const [modalStyle, setModalStyleState] = useState(loadModalStyle);
+  const setModalStyle = useCallback((id) => {
+    setModalStyleState(id);
+    saveModalStyle(id);
+    applyModalStyle(id);
+  }, []);
+  useEffect(() => { applyModalStyle(modalStyle); }, [modalStyle]);
+
   // --- Icon style ---
   const [iconStyle, setIconStyleState] = useState(loadIconStyle);
   const setIconStyle = useCallback((id) => {
@@ -322,6 +346,10 @@ export function useAppPreferences() {
     setCardSurface,
     headerStyle,
     setHeaderStyle,
+    cardClarity,
+    setCardClarity,
+    modalStyle,
+    setModalStyle,
     iconStyle,
     setIconStyle,
     motionSpeed,

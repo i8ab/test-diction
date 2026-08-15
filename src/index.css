@@ -2672,3 +2672,167 @@ html[data-has-bg-image="1"] [style*="325 words"],
 html[data-has-bg-image="1"] .stats-bar {
   background: color-mix(in srgb, var(--card) 90%, transparent);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Card clarity + Modal style (user-controlled transparency)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Cards — opaque (default) */
+html[data-card-clarity="opaque"] .entry-card,
+html[data-card-clarity="opaque"] .word-card,
+html:not([data-card-clarity]) .entry-card,
+html:not([data-card-clarity]) .word-card {
+  background: var(--card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Cards — glass */
+html[data-card-clarity="glass"] .entry-card,
+html[data-card-clarity="glass"] .word-card {
+  background: color-mix(in srgb, var(--card) 55%, transparent) !important;
+  backdrop-filter: blur(12px) saturate(1.15) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.15) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--border-rgb), 0.16),
+    0 8px 24px -14px rgba(0, 0, 0, 0.28) !important;
+}
+
+/* Cards — clear / fully see-through */
+html[data-card-clarity="clear"] .entry-card,
+html[data-card-clarity="clear"] .word-card {
+  background: color-mix(in srgb, var(--card) 18%, transparent) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--border-rgb), 0.22),
+    0 4px 16px -10px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Modals — solid */
+html[data-modal-style="solid"] .modal-card {
+  background: var(--card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html[data-modal-style="solid"] .modal-backdrop {
+  background: rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Modals — glass (default) */
+html[data-modal-style="glass"] .modal-card,
+html:not([data-modal-style]) .modal-card {
+  background: color-mix(in srgb, var(--card) 78%, transparent) !important;
+  backdrop-filter: blur(20px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.2) !important;
+}
+html[data-modal-style="glass"] .modal-backdrop,
+html:not([data-modal-style]) .modal-backdrop {
+  background: color-mix(in srgb, var(--paper) 25%, rgba(0, 0, 0, 0.4)) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+
+/* Modals — clear */
+html[data-modal-style="clear"] .modal-card {
+  background: color-mix(in srgb, var(--card) 35%, transparent) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  box-shadow:
+    0 0 0 1px rgba(var(--border-rgb), 0.2),
+    0 20px 50px -16px rgba(0, 0, 0, 0.35) !important;
+}
+html[data-modal-style="clear"] .modal-backdrop {
+  background: rgba(0, 0, 0, 0.28) !important;
+  backdrop-filter: blur(3px) !important;
+  -webkit-backdrop-filter: blur(3px) !important;
+}
+
+/* ── Stronger, unmistakable button shape per skin ── */
+html[data-skin="forest"] .btn-shine,
+html[data-skin="forest"] button.btn-shine,
+html[data-skin="forest"] .mobile-fab-add {
+  border-radius: 999px !important;
+}
+html[data-skin="forest"] button.touch-target {
+  border-radius: 999px !important;
+}
+
+html[data-skin="paper"] .btn-shine,
+html[data-skin="paper"] button.touch-target {
+  border-radius: 4px !important;
+}
+
+html[data-skin="slate"] .btn-shine,
+html[data-skin="slate"] button.touch-target {
+  border-radius: 2px !important;
+}
+
+html[data-skin="rose"] .btn-shine,
+html[data-skin="rose"] button.touch-target {
+  border-radius: 22px !important;
+}
+
+html[data-skin="aurora"] .btn-shine,
+html[data-skin="aurora"] button.touch-target {
+  border-radius: 16px !important;
+}
+
+html[data-skin="midnight"] .btn-shine,
+html[data-skin="midnight"] button.touch-target {
+  border-radius: 8px !important;
+}
+
+html[data-skin="contrast"] .btn-shine,
+html[data-skin="contrast"] button.touch-target {
+  border-radius: 0 !important;
+}
+
+/* ── Ruled lines tuned to word + meaning rows (~28px rhythm) ── */
+html[data-card-surface="paper"] .entry-card,
+html[data-card-surface="paper"] .word-card {
+  /* top padding ~12–16 aligns first text baseline to first rule */
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 22px,
+      color-mix(in srgb, #c45c5c 40%, transparent) 22px,
+      color-mix(in srgb, #c45c5c 40%, transparent) 23.5px,
+      transparent 23.5px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 27px,
+      color-mix(in srgb, var(--ink) 11%, transparent) 27px,
+      color-mix(in srgb, var(--ink) 11%, transparent) 28px
+    ) !important;
+  background-size: 100% 100%, 100% 28px !important;
+  background-position: 0 0, 0 14px !important;
+  background-repeat: no-repeat, repeat !important;
+}
+
+html[dir="rtl"][data-card-surface="paper"] .entry-card,
+html[dir="rtl"][data-card-surface="paper"] .word-card,
+html[data-dir-override="rtl"][data-card-surface="paper"] .entry-card,
+html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
+  background-image:
+    linear-gradient(
+      270deg,
+      transparent 0,
+      transparent 22px,
+      color-mix(in srgb, #c45c5c 40%, transparent) 22px,
+      color-mix(in srgb, #c45c5c 40%, transparent) 23.5px,
+      transparent 23.5px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 27px,
+      color-mix(in srgb, var(--ink) 11%, transparent) 27px,
+      color-mix(in srgb, var(--ink) 11%, transparent) 28px
+    ) !important;
+}

@@ -63,6 +63,8 @@ export default function MainView({
   dirOverride = "auto", onChangeDirOverride = null,
   cardSurface = "solid", onChangeCardSurface = null,
   headerStyle = "glass", onChangeHeaderStyle = null,
+  cardClarity = "opaque", onChangeCardClarity = null,
+  modalStyle = "glass", onChangeModalStyle = null,
   iconStyle = "outline", onChangeIconStyle = null,
   motionSpeed = "normal", onChangeMotionSpeed = null,
   examVisual = false, onChangeExamVisual = null,
@@ -620,6 +622,8 @@ export default function MainView({
                 dirOverride={dirOverride} onChangeDirOverride={onChangeDirOverride}
                 cardSurface={cardSurface} onChangeCardSurface={onChangeCardSurface}
                 headerStyle={headerStyle} onChangeHeaderStyle={onChangeHeaderStyle}
+                cardClarity={cardClarity} onChangeCardClarity={onChangeCardClarity}
+                modalStyle={modalStyle} onChangeModalStyle={onChangeModalStyle}
                 iconStyle={iconStyle} onChangeIconStyle={onChangeIconStyle}
                 motionSpeed={motionSpeed} onChangeMotionSpeed={onChangeMotionSpeed}
                 examVisual={examVisual} onChangeExamVisual={onChangeExamVisual}

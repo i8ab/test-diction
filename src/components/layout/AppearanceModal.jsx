@@ -212,19 +212,25 @@ export default function AppearanceModal({
   };
 
   // Summaries when collapsed
+  const brandList = Array.isArray(BRAND_PRESETS) ? BRAND_PRESETS : [];
+  const activeBrand = brandList.find((p) => p && p.id === brandPresetId);
   const logoSummary = brandPresetId === "custom"
-    ? T(`Custom: ${brandCustomGlyph}`, `مخصص: ${brandCustomGlyph}`)
-    : (BRAND_PRESETS.find((p) => p.id === brandPresetId)
-        ? T(BRAND_PRESETS.find((p) => p.id === brandPresetId).en, BRAND_PRESETS.find((p) => p.id === brandPresetId).ar)
+    ? T(`Custom: ${brandCustomGlyph || ""}`, `مخصص: ${brandCustomGlyph || ""}`)
+    : (activeBrand
+        ? T(activeBrand.en || activeBrand.id, activeBrand.ar || activeBrand.en || activeBrand.id)
         : "—");
+
+  // Accent swatches need concrete light/dark (not "system")
+  const accentMode = theme === "dark" ? "dark" : "light";
 
   const modeSummary =
     theme === "light" ? T("Light", "فاتح") :
     theme === "dark" ? T("Dark", "داكن") :
     T("System", "النظام");
 
-  const skinSummary = SKIN_PRESETS[skin]
-    ? T(SKIN_PRESETS[skin].label.en, SKIN_PRESETS[skin].label.ar, SKIN_PRESETS[skin].label.de, SKIN_PRESETS[skin].label.fr)
+  const skinMeta = SKIN_PRESETS && SKIN_PRESETS[skin];
+  const skinSummary = skinMeta && skinMeta.label
+    ? T(skinMeta.label.en, skinMeta.label.ar, skinMeta.label.de, skinMeta.label.fr)
     : "Classic";
 
   const layoutSummary = [
@@ -295,16 +301,17 @@ export default function AppearanceModal({
               {T("Pick a mark for the site header. Same animation for all options.", "اختار شكل الشعار في الهيدر. نفس الحركة لكل الخيارات.")}
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 10 }}>
-              {BRAND_PRESETS.map((p) => {
+              {brandList.map((p) => {
+                if (!p || !p.id) return null;
                 const active = brandPresetId === p.id;
                 return (
                   <button
                     key={p.id}
                     type="button"
                     onClick={() => {
-                      setBrandPresetId(p.id);
-                      savePresetId(p.id);
-                      setBrandAddMode(false);
+                      if (typeof setBrandPresetId === "function") setBrandPresetId(p.id);
+                      try { savePresetId(p.id); } catch (_) {}
+                      if (typeof setBrandAddMode === "function") setBrandAddMode(false);
                     }}
                     title={T(p.en, p.ar)}
                     className="touch-target"
@@ -441,7 +448,8 @@ export default function AppearanceModal({
                 {T("Change the whole look to fight boredom during long study sessions.", "غيّر الشكل كامل عشان تقلل الملل في جلسات المذاكرة الطويلة.")}
               </p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                {Object.values(SKIN_PRESETS).map((s) => {
+                {Object.values(SKIN_PRESETS || {}).map((s) => {
+                  if (!s || !s.id) return null;
                   const active = skin === s.id;
                   const pv = s.preview || { paper: "#FAFDFE", card: "#fff", ink: "#146C94", accent: "#19A7CE" };
                   return (
@@ -621,8 +629,10 @@ export default function AppearanceModal({
                 {T("Pick a vibrant palette, or choose any custom color.", "اختار لوحة ألوان زاهية، أو لون مخصص بالكامل.")}
               </p>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-                {Object.entries(ACCENT_THEMES).map(([key, th]) => {
-                  const swatch = (th[theme] || th.light).a1;
+                {Object.entries(ACCENT_THEMES || {}).map(([key, th]) => {
+                  if (!th) return null;
+                  const palette = th[accentMode] || th.light || th.dark || {};
+                  const swatch = palette.a1 || "#19A7CE";
                   const active = key === accentTheme;
                   const lab = th.label && typeof th.label === "object" ? T(th.label.en, th.label.ar) : (th.label || key);
                   return (
@@ -682,7 +692,8 @@ export default function AppearanceModal({
                     {T("English / UI font", "خط الإنجليزي / الواجهة")}
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
-                    {Object.values(LATIN_FONTS).map((f) => {
+                    {Object.values(LATIN_FONTS || {}).map((f) => {
+                      if (!f || !f.id) return null;
                       const active = latinFont === f.id;
                       return (
                         <button
@@ -711,7 +722,8 @@ export default function AppearanceModal({
                     {T("Arabic font", "الخط العربي")}
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    {Object.values(ARABIC_FONTS).map((f) => {
+                    {Object.values(ARABIC_FONTS || {}).map((f) => {
+                      if (!f || !f.id) return null;
                       const active = arabicFont === f.id;
                       return (
                         <button
@@ -749,7 +761,8 @@ export default function AppearanceModal({
                 {T("Control how fast transitions and animations play.", "تحكم في سرعة الانتقالات والحركات.")}
               </p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                {Object.values(MOTION_SPEEDS).map((m) => {
+                {Object.values(MOTION_SPEEDS || {}).map((m) => {
+                  if (!m || !m.id) return null;
                   const active = motionSpeed === m.id;
                   return (
                     <button
@@ -860,7 +873,8 @@ export default function AppearanceModal({
               summary={CARD_SURFACES[cardSurface] ? T(CARD_SURFACES[cardSurface].label.en, CARD_SURFACES[cardSurface].label.ar) : cardSurface}
             >
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                {Object.values(CARD_SURFACES).map((s) => {
+                {Object.values(CARD_SURFACES || {}).map((s) => {
+                  if (!s || !s.id) return null;
                   const active = cardSurface === s.id;
                   return (
                     <button

@@ -85,7 +85,7 @@ export default function MainView({
     return list[0]?.id || null;
   }, [isAcademic, activeUnitId, academicUnits]);
   const sectionEntries = useMemo(() => {
-    const base = entries.filter((e) => e.section === section);
+    const base = (entries || []).filter((e) => e.section === section);
     if (!isAcademic) return base;
     if (!resolvedUnitId) return base;
     // Show words tagged for this unit OR legacy words with no unitId yet
@@ -95,7 +95,7 @@ export default function MainView({
     });
   }, [entries, section, isAcademic, resolvedUnitId]);
   const allAcademicEntries = useMemo(
-    () => (isAcademic ? entries.filter((e) => e.section === "academic") : []),
+    () => (isAcademic ? (entries || []).filter((e) => e.section === "academic") : []),
     [entries, isAcademic]
   );
   // Keep activeUnitId in sync when Academic is open
@@ -106,15 +106,21 @@ export default function MainView({
       onChangeActiveUnitId(resolvedUnitId);
     }
   }, [isAcademic, resolvedUnitId, activeUnitId, onChangeActiveUnitId]);
-  const studiedCount = useMemo(() => sectionEntries.filter((e) => studiedIds.has(e.id)).length, [sectionEntries, studiedIds]);
-  const notStudiedCount = sectionEntries.length - studiedCount;
+  const studiedCount = useMemo(
+    () => (sectionEntries || []).filter((e) => studiedIds && typeof studiedIds.has === "function" && studiedIds.has(e.id)).length,
+    [sectionEntries, studiedIds]
+  );
+  const notStudiedCount = (sectionEntries || []).length - studiedCount;
   const dueCountMobile = useMemo(
-    () => sectionEntries.filter((e) => studiedIds.has(e.id) && isSrsDue(e.id, srsDueAt)).length,
+    () => (sectionEntries || []).filter((e) => studiedIds && typeof studiedIds.has === "function" && studiedIds.has(e.id) && isSrsDue(e.id, srsDueAt)).length,
     [sectionEntries, studiedIds, srsDueAt]
   );
-  const studiedPct = sectionEntries.length ? (studiedCount / sectionEntries.length) * 100 : 0;
+  const studiedPct = (sectionEntries || []).length ? (studiedCount / sectionEntries.length) * 100 : 0;
   const notStudiedPct = 100 - studiedPct;
-  const accountNameByCode = useMemo(() => Object.fromEntries(accounts.map((a) => [a.code, a.name])), [accounts]);
+  const accountNameByCode = useMemo(
+    () => Object.fromEntries((accounts || []).map((a) => [a.code, a.name])),
+    [accounts]
+  );
   // "preparing": button pressed but the mic isn't armed yet (permission /
   // hardware startup can take a noticeable beat) — talking during this
   // window is silently lost. "listening": recognition's own onstart fired,

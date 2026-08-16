@@ -15,12 +15,27 @@
       background-attachment: fixed, fixed;
     }
   }
-  /* Mobile: never stretch/deform the photo — keep cover + top position, no fixed */
-  html[data-device="mobile"] html,
+  /* Mobile: photo must stay sharp — no stretch, no fixed, and no heavy skin wash */
+  html[data-device="mobile"],
   html[data-device="mobile"] body {
     background-attachment: scroll !important;
     background-size: cover !important;
     background-position: center top !important;
+  }
+  /* On mobile the skin gradient overlays are too opaque and melt the photo into
+     a flat muddy wash. Keep a light paper tint only so the real image shows. */
+  html[data-device="mobile"][data-has-bg-image="1"] body {
+    background-image:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--paper) 28%, transparent) 0%,
+        color-mix(in srgb, var(--paper) 42%, transparent) 100%
+      ),
+      var(--app-bg-image, none) !important;
+    background-size: cover, cover !important;
+    background-position: center top, center top !important;
+    background-repeat: no-repeat, no-repeat !important;
+    background-attachment: scroll, scroll !important;
   }
   * { box-sizing: border-box; }
 
@@ -2612,12 +2627,20 @@ html[data-skin] input[type="search"] {
   outline: none !important;
 }
 
-/* ── Entry cards: soft glass so photo peeks around edges ── */
+/* ── Entry cards: soft glass so photo peeks around edges (desktop/tablet) ──
+   Use background-COLOR only so card-surface patterns (grid/paper/ruled) survive. */
 html[data-has-bg-image="1"] .entry-card,
 html[data-has-bg-image="1"] .word-card {
-  background: color-mix(in srgb, var(--card) 94%, transparent) !important;
+  background-color: color-mix(in srgb, var(--card) 94%, transparent) !important;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+}
+/* Mobile: cards more solid so page photo stays a real background, not a melted soup */
+html[data-device="mobile"][data-has-bg-image="1"] .entry-card,
+html[data-device="mobile"][data-has-bg-image="1"] .word-card {
+  background-color: color-mix(in srgb, var(--card) 97%, transparent) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 /* ── Ruled notebook: LTR (English) margin line on the left ── */

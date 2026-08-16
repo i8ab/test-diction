@@ -14,12 +14,17 @@
     z-index: 0;
     min-height: 100dvh;
   }
-  /* Fixed background layer — same in every section, never scrolls away
-     (fixes EN→AR looking flat while Academic/AR→AR looked fine) */
+  /* Fixed background layer — locked size so mobile URL bar show/hide
+     does NOT rescale the photo (cover recalculating on dvh change).
+     100lvh = large viewport (URL bar hidden); stays constant either way. */
   body::before {
     content: "";
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100lvh;
+    min-height: 100%;
     z-index: -1;
     pointer-events: none;
     background-color: var(--paper);
@@ -27,6 +32,9 @@
     background-size: cover, cover;
     background-position: center top, center top;
     background-repeat: no-repeat, no-repeat;
+    /* prevent any visual shift when browser chrome toggles */
+    transform: translateZ(0);
+    will-change: auto;
   }
   /* Mobile: lighter overlay so the photo stays clear (heavy skin washes look muddy) */
   html[data-device="mobile"][data-has-bg-image="1"] body::before {
@@ -40,6 +48,8 @@
     background-size: cover, cover;
     background-position: center top, center top;
     background-repeat: no-repeat, no-repeat;
+    height: 100lvh;
+    min-height: 100%;
   }
   * { box-sizing: border-box; }
 

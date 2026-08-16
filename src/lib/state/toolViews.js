@@ -1,6 +1,9 @@
 /**
  * Persist open/bubble state for study tools (timer, calendar, todo, goals).
- * Used by MainView so these views survive refresh.
+ *
+ * Timer UI open state uses sessionStorage for "reopen after refresh" so a
+ * normal visit to the site does NOT force the timer fullscreen open.
+ * Timer *time* (remaining/running) lives separately in twoTongues.timerState.
  */
 
 const KEYS = {
@@ -9,6 +12,9 @@ const KEYS = {
   todo: "twoTongues.todoView",
   goals: "twoTongues.goalsView",
 };
+
+/** session-only flag: timer UI was open when this tab refreshed */
+const TIMER_SESSION_OPEN_KEY = "twoTongues.timerUiOpen";
 
 function loadView(key) {
   try {
@@ -28,11 +34,29 @@ function saveView(key, open, bubble) {
   } catch (_) {}
 }
 
+/**
+ * Reopen timer UI only after a same-tab refresh, not on a fresh site visit.
+ * Time continuity is handled by TimerPage via twoTongues.timerState.
+ */
 export function loadTimerView() {
-  return loadView(KEYS.timer);
+  try {
+    const sessionOpen = sessionStorage.getItem(TIMER_SESSION_OPEN_KEY) === "1";
+    if (!sessionOpen) return { open: false, bubble: false };
+    // consume so a later full navigation doesn't keep forcing it
+    sessionStorage.removeItem(TIMER_SESSION_OPEN_KEY);
+    const stored = loadView(KEYS.timer);
+    return { open: true, bubble: !!stored.bubble };
+  } catch (_) {
+    return { open: false, bubble: false };
+  }
 }
+
 export function saveTimerView(open, bubble) {
   saveView(KEYS.timer, open, bubble);
+  try {
+    if (open) sessionStorage.setItem(TIMER_SESSION_OPEN_KEY, "1");
+    else sessionStorage.removeItem(TIMER_SESSION_OPEN_KEY);
+  } catch (_) {}
 }
 
 export function loadCalendarView() {

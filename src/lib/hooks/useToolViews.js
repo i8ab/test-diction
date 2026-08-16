@@ -14,8 +14,20 @@ import {
  * Open / bubble state for timer, calendar, todo, goals — persisted in localStorage.
  */
 export function useToolViews() {
-  const [showTimer, setShowTimer] = useState(() => loadTimerView().open);
-  const [timerBubble, setTimerBubble] = useState(() => loadTimerView().bubble);
+  const [showTimer, setShowTimer] = useState(() => {
+    try {
+      return !!loadTimerView().open;
+    } catch (_) {
+      return false;
+    }
+  });
+  const [timerBubble, setTimerBubble] = useState(() => {
+    try {
+      return !!loadTimerView().bubble;
+    } catch (_) {
+      return false;
+    }
+  });
   const [showCalendar, setShowCalendar] = useState(() => loadCalendarView().open);
   const [calendarBubble, setCalendarBubble] = useState(() => loadCalendarView().bubble);
   const [showTodo, setShowTodo] = useState(() => loadTodoView().open);
@@ -25,6 +37,21 @@ export function useToolViews() {
 
   useEffect(() => {
     saveTimerView(showTimer, timerBubble);
+  }, [showTimer, timerBubble]);
+
+  // Ensure open state is written before the tab is discarded on refresh.
+  useEffect(() => {
+    function flush() {
+      try {
+        saveTimerView(showTimer, timerBubble);
+      } catch (_) {}
+    }
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+    };
   }, [showTimer, timerBubble]);
 
   useEffect(() => {

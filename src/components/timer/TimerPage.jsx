@@ -56,6 +56,7 @@ const DEFAULT_PREFS = {
   ambientId: "off",
   alarmVolume: 0.7,
   ambientVolume: 0.25,
+  flipDigits: false, // optional flip-clock style digits
   // Pomodoro
   pomoWorkMin: 25,
   pomoBreakMin: 5,
@@ -677,22 +678,35 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
   }, []);
 
   // On desktop only: try a real floating window when the tab is hidden.
-  // On phones, window.open becomes a full blank tab (see screenshot) — so we
-  // never auto-open there; the in-app bubble is the mobile path instead.
+  // On phones, window.open becomes a full blank tab — so we never auto-open
+  // there; the in-app bubble is the mobile path instead.
+  // IMPORTANT: skip minimize when the page is unloading (refresh / close),
+  // otherwise refresh flips the timer into bubble mode and it looks like
+  // the user was sent back to the home dictionary view.
   useEffect(() => {
+    let unloading = false;
+    function markUnload() {
+      unloading = true;
+    }
     function onVis() {
       if (document.visibilityState !== "hidden") return;
+      if (unloading) return;
       if (!runningRef.current) return;
       // Minimize to bubble so timer UI remains when user comes back.
       controlsRef.current.goBubble && controlsRef.current.goBubble();
       if (!isMobileLike()) {
-        // Desktop: try always-on-top PiP over other windows.
         const fn = controlsRef.current.openDesktopPip;
         if (fn) fn().catch(() => {});
       }
     }
+    window.addEventListener("pagehide", markUnload);
+    window.addEventListener("beforeunload", markUnload);
     document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", markUnload);
+      window.removeEventListener("beforeunload", markUnload);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, []);
 
   // Keep the screen awake while the timer is running (helps on phones).
@@ -1346,12 +1360,28 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
             transition: "font-size 0.2s ease, color 0.2s ease",
           }}
         >
-          <FlipClock
-            text={displayText}
-            color={prefs.textColor}
-            fontFamily={fontCss}
-            fontSize={`clamp(42px, ${Math.max(8, prefs.fontSize * 0.12)}vw, ${prefs.fontSize}px)`}
-          />
+          {prefs.flipDigits ? (
+            <FlipClock
+              text={displayText}
+              color={prefs.textColor}
+              fontFamily={fontCss}
+              fontSize={`clamp(42px, ${Math.max(8, prefs.fontSize * 0.12)}vw, ${prefs.fontSize}px)`}
+            />
+          ) : (
+            <div
+              style={{
+                fontFamily: fontCss,
+                fontSize: `clamp(42px, ${Math.max(8, prefs.fontSize * 0.12)}vw, ${prefs.fontSize}px)`,
+                fontWeight: 700,
+                letterSpacing: "0.03em",
+                fontVariantNumeric: "tabular-nums",
+                lineHeight: 1,
+                textShadow: isLightBg ? "none" : "0 4px 40px rgba(0,0,0,0.35)",
+              }}
+            >
+              {displayText}
+            </div>
+          )}
         </div>
 
         {doneFlash && !pomoAwaiting && (
@@ -1774,6 +1804,33 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
                     {f.label}
                   </button>
                 ))}
+              </div>
+            </section>
+
+            {/* Digit style: plain vs flip cards */}
+            <section>
+              <Label muted={muted}>{tr(isAr, "Digit style", "شكل الأرقام")}</Label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => updatePref({ flipDigits: false })}
+                  style={{
+                    ...btnGhost,
+                    outline: !prefs.flipDigits ? `2px solid ${prefs.textColor}` : "none",
+                  }}
+                >
+                  {tr(isAr, "Normal", "عادي")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updatePref({ flipDigits: true })}
+                  style={{
+                    ...btnGhost,
+                    outline: prefs.flipDigits ? `2px solid ${prefs.textColor}` : "none",
+                  }}
+                >
+                  {tr(isAr, "Flip cards", "كروت قلّابة")}
+                </button>
               </div>
             </section>
 

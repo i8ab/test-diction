@@ -2971,26 +2971,27 @@ html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
   background-repeat: no-repeat, repeat !important;
 }
 
-/* ── Flip-clock digits (timer) ── */
+/* ── Flip-clock digits (timer) — optional style ── */
 .flip-clock {
   display: inline-flex;
   align-items: center;
-  gap: 0.12em;
+  gap: 0.14em;
   direction: ltr;
   font-variant-numeric: tabular-nums;
   user-select: none;
 }
 .flip-clock-sep {
   font-weight: 700;
-  opacity: 0.85;
-  padding: 0 0.04em;
-  line-height: 1;
+  opacity: 0.9;
+  padding: 0 0.02em;
+  line-height: 1.2em;
+  align-self: center;
 }
 .flip-digit {
   position: relative;
-  width: 0.68em;
-  height: 1.15em;
-  perspective: 400px;
+  width: 0.72em;
+  height: 1.2em;
+  perspective: 600px;
   font-weight: 700;
   line-height: 1;
 }
@@ -2998,13 +2999,13 @@ html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 0.12em;
-  background: rgba(0, 0, 0, 0.28);
+  border-radius: 0.14em;
+  background: rgba(0, 0, 0, 0.32);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 4px 14px -4px rgba(0, 0, 0, 0.45);
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 6px 16px -6px rgba(0, 0, 0, 0.5);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 .flip-digit-half {
   position: absolute;
@@ -3012,28 +3013,37 @@ html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
   width: 100%;
   height: 50%;
   overflow: hidden;
-  display: flex;
-  justify-content: center;
 }
 .flip-digit-half.top {
   top: 0;
-  align-items: flex-start;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 0.12em 0.12em 0 0;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.14em 0.14em 0 0;
 }
 .flip-digit-half.bottom {
   bottom: 0;
-  align-items: flex-end;
-  background: rgba(0, 0, 0, 0.12);
-  border-radius: 0 0 0.12em 0.12em;
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 0 0 0.14em 0.14em;
 }
 .flip-digit-half span {
-  display: block;
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2em; /* 2 × half-card height (0.6em * 2 in relative terms via parent) */
   height: 200%;
-  line-height: 1.15em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-weight: 700;
+  line-height: 1;
+  text-align: center;
+}
+.flip-digit-half.top span {
+  top: 0;
 }
 .flip-digit-half.bottom span {
+  bottom: 0;
+  /* shift so the lower half of the glyph sits in the bottom panel */
+  top: auto;
   transform: translateY(-50%);
 }
 .flip-digit-hinge {
@@ -3042,10 +3052,11 @@ html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
   right: 0;
   top: 50%;
   height: 1px;
-  background: rgba(0, 0, 0, 0.35);
+  margin-top: -0.5px;
+  background: rgba(0, 0, 0, 0.45);
   z-index: 3;
   pointer-events: none;
-  box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.06);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 .flip-digit-flap {
   position: absolute;
@@ -3056,35 +3067,39 @@ html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
   transform-origin: bottom center;
   transform-style: preserve-3d;
   backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   z-index: 4;
-  border-radius: 0.12em 0.12em 0 0;
-  background: rgba(20, 24, 32, 0.92);
+  border-radius: 0.14em 0.14em 0 0;
+  background: rgba(18, 22, 30, 0.96);
   overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
 }
 .flip-digit-flap span {
-  display: block;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
   height: 200%;
-  line-height: 1.15em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-weight: 700;
+  line-height: 1;
 }
 .flip-digit-flap.animating {
-  animation: flipDigitDown 0.45s ease-in forwards;
+  animation: flipDigitDown 0.4s ease-in forwards;
 }
 @keyframes flipDigitDown {
-  0% { transform: rotateX(0deg); }
-  100% { transform: rotateX(-90deg); }
+  0% { transform: rotateX(0deg); opacity: 1; }
+  100% { transform: rotateX(-90deg); opacity: 0.85; }
 }
 html[data-theme="light"] .flip-digit-card {
-  background: rgba(0, 0, 0, 0.08);
-  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.07);
+  border-color: rgba(0, 0, 0, 0.12);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 3px 10px -3px rgba(0, 0, 0, 0.15);
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 4px 12px -4px rgba(0, 0, 0, 0.18);
 }
 html[data-theme="light"] .flip-digit-flap {
-  background: rgba(245, 242, 235, 0.95);
+  background: rgba(248, 245, 238, 0.98);
 }

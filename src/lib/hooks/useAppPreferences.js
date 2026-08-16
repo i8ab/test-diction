@@ -235,17 +235,15 @@ export function useAppPreferences() {
     saveUiSounds(v);
   }, []);
 
-  // --- Direction override ---
-  const [dirOverride, setDirOverrideState] = useState(loadDirOverride);
-  const setDirOverride = useCallback((v) => {
-    if (v !== "auto" && v !== "ltr" && v !== "rtl") return;
-    setDirOverrideState(v);
-    saveDirOverride(v);
+  // --- Direction: always auto from language (EN→LTR, AR→RTL). Choice removed. ---
+  const dirOverride = "auto";
+  const setDirOverride = useCallback(() => {
+    saveDirOverride("auto");
   }, []);
 
   useEffect(() => {
-    applyDirOverride(dirOverride, appLang);
-  }, [dirOverride, appLang]);
+    applyDirOverride("auto", appLang);
+  }, [appLang]);
 
   // --- Card surface ---
   const [cardSurface, setCardSurfaceState] = useState(loadCardSurface);
@@ -265,14 +263,13 @@ export function useAppPreferences() {
   }, []);
   useEffect(() => { applyHeaderStyle(headerStyle); }, [headerStyle]);
 
-  // --- Card clarity ---
-  const [cardClarity, setCardClarityState] = useState(loadCardClarity);
-  const setCardClarity = useCallback((id) => {
-    setCardClarityState(id);
-    saveCardClarity(id);
-    applyCardClarity(id);
+  // --- Card clarity: fixed to Clear (high transparency). Choice removed. ---
+  const cardClarity = "clear";
+  const setCardClarity = useCallback(() => {
+    saveCardClarity("clear");
+    applyCardClarity("clear");
   }, []);
-  useEffect(() => { applyCardClarity(cardClarity); }, [cardClarity]);
+  useEffect(() => { applyCardClarity("clear"); }, []);
 
   // --- Modal style ---
   const [modalStyle, setModalStyleState] = useState(loadModalStyle);
@@ -292,18 +289,13 @@ export function useAppPreferences() {
   }, []);
   useEffect(() => { applyIconStyle(iconStyle); }, [iconStyle]);
 
-  // --- Motion speed ---
-  const [motionSpeed, setMotionSpeedState] = useState(loadMotionSpeed);
-  const setMotionSpeed = useCallback((id) => {
-    setMotionSpeedState(id);
-    saveMotionSpeed(id);
-    applyMotionSpeed(id);
-    if (id === "off") {
-      setReducedMotionState(true);
-      saveReducedMotion(true);
-    }
+  // --- Motion speed: fixed to normal. Setting removed. ---
+  const motionSpeed = "normal";
+  const setMotionSpeed = useCallback(() => {
+    saveMotionSpeed("normal");
+    applyMotionSpeed("normal");
   }, []);
-  useEffect(() => { applyMotionSpeed(motionSpeed); }, [motionSpeed]);
+  useEffect(() => { applyMotionSpeed("normal"); }, []);
 
   // --- Exam visual ---
   const [examVisual, setExamVisualState] = useState(loadExamVisual);

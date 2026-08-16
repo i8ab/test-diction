@@ -41,8 +41,6 @@ export default function SettingsModal({
   siteBanner = null,
   remindersOn = false,
   pendingCount = 0,
-  focusMode = false,
-  onToggleFocus = null,
   onOpenLang,
   onOpenDevice,
   onOpenAccent,

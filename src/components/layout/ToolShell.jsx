@@ -15,7 +15,6 @@ export default function ToolShell({
   entries,
   studiedAt,
   quizHistory,
-  focusMode,
   deviceMode,
   showTimer, timerBubble, closeTimer, setTimerBubble,
   showCalendar, calendarBubble, closeCalendar, setCalendarBubble,
@@ -79,7 +78,7 @@ export default function ToolShell({
         </Suspense>
       )}
 
-      {!showGoals && !focusMode && deviceMode !== "mobile" && deviceMode !== "tablet" && (
+{!showGoals && deviceMode !== "mobile" && deviceMode !== "tablet" && (
         <button
           type="button"
           className="fab-glow fab-glow--goals"
@@ -110,7 +109,7 @@ export default function ToolShell({
         </button>
       )}
 
-      {!showTodo && !focusMode && deviceMode !== "mobile" && deviceMode !== "tablet" && (
+{!showTodo && deviceMode !== "mobile" && deviceMode !== "tablet" && (
         <button
           type="button"
           className="fab-glow fab-glow--todo"

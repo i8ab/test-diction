@@ -125,15 +125,13 @@ export const INFO_SECTION_DEFS = [
     titleEn: "More",
     titleAr: "المزيد",
     bodyEn: [
-      "More ⋯ → Focus mode (or F): hides banners for distraction-free study.",
-      "Shortcuts: / search · N add · Q quiz · R review · T to-do · F focus.",
+      "Shortcuts: / search · N add · Q quiz · R review · T to-do.",
       "Gear (⚙) opens Settings: Appearance, language, device layout, accent, reminders.",
       "More ⋯ holds study tools: Quiz, Flashcards, Random word, Leaderboard, CSV/Anki export, etc.",
       "Notifications: optional study reminders when the browser allows (inside Settings).",
     ],
     bodyAr: [
-      "المزيد ⋯ → وضع التركيز (أو F): يخفي البنرات للمذاكرة من غير تشتيت.",
-      "اختصارات: / بحث · N إضافة · Q اختبار · R مراجعة · T مهام · F تركيز.",
+      "اختصارات: / بحث · N إضافة · Q اختبار · R مراجعة · T مهام.",
       "الترس (⚙) بيفتح الإعدادات: المظهر، اللغة، واجهة الجهاز، اللهجة، التذكيرات.",
       "المزيد ⋯ فيه أدوات المذاكرة: اختبار، بطاقات، كلمة عشوائية، ترتيب، تصدير CSV/Anki، إلخ.",
       "الإشعارات: تذكيرات مذاكرة اختيارية حسب دعم المتصفح (جوه الإعدادات).",

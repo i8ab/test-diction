@@ -103,8 +103,8 @@ export const ACCENT_THEMES = {
 export const SKIN_PRESETS = {
   classic: {
     id: "classic",
-    label: { en: "Classic", ar: "كلاسيك", de: "Klassisch", fr: "Classique" },
-    desc:  { en: "Clean default with soft aqua wash", ar: "الافتراضي النظيف مع لمسة مائية" },
+    label: { en: "Simple", ar: "بسيط", de: "Einfach", fr: "Simple" },
+    desc:  { en: "Calm clean default — soft colors, no clutter", ar: "افتراضي هادئ ونظيف — ألوان هادية بدون تعقيد" },
     light: null,
     dark: null,
     bgImage: "/backgrounds/classic.jpg",
@@ -730,29 +730,23 @@ export function saveUiSounds(on) {
 // ── Direction override: auto | ltr | rtl ────────────────────────────────
 
 export function loadDirOverride() {
-  try {
-    const v = localStorage.getItem(DIR_OVERRIDE_KEY);
-    if (v === "ltr" || v === "rtl" || v === "auto") return v;
-  } catch (_) {}
+  // Direction choice removed — always auto from language.
   return "auto";
 }
 
 export function saveDirOverride(v) {
   try {
-    localStorage.setItem(DIR_OVERRIDE_KEY, v || "auto");
+    localStorage.setItem(DIR_OVERRIDE_KEY, "auto");
   } catch (_) {}
 }
 
-/** Apply dir. When auto, uses appLang (ar → rtl). */
+/** Apply dir from language only (EN → LTR, AR → RTL). Manual override removed. */
 export function applyDirOverride(override, appLang) {
   try {
     const root = document.documentElement;
-    let dir = "ltr";
-    if (override === "rtl") dir = "rtl";
-    else if (override === "ltr") dir = "ltr";
-    else dir = appLang === "ar" ? "rtl" : "ltr";
+    const dir = appLang === "ar" ? "rtl" : "ltr";
     root.setAttribute("dir", dir);
-    root.setAttribute("data-dir-override", override || "auto");
+    root.setAttribute("data-dir-override", "auto");
   } catch (_) {}
 }
 
@@ -851,23 +845,25 @@ export const CARD_CLARITIES = {
 };
 
 export function loadCardClarity() {
+  // Fixed to Clear only (high transparency). No other options.
   try {
-    const v = localStorage.getItem(CARD_CLARITY_KEY) || "opaque";
-    return CARD_CLARITIES[v] ? v : "opaque";
+    const v = localStorage.getItem(CARD_CLARITY_KEY) || "clear";
+    return CARD_CLARITIES[v] ? "clear" : "clear";
   } catch (_) {
-    return "opaque";
+    return "clear";
   }
 }
 
 export function saveCardClarity(id) {
   try {
-    localStorage.setItem(CARD_CLARITY_KEY, id || "opaque");
+    // Always persist clear — choice UI removed.
+    localStorage.setItem(CARD_CLARITY_KEY, "clear");
   } catch (_) {}
 }
 
 export function applyCardClarity(id) {
   try {
-    document.documentElement.setAttribute("data-card-clarity", id || "opaque");
+    document.documentElement.setAttribute("data-card-clarity", "clear");
   } catch (_) {}
 }
 
@@ -945,30 +941,23 @@ export const MOTION_SPEEDS = {
 };
 
 export function loadMotionSpeed() {
-  try {
-    const v = localStorage.getItem(MOTION_SPEED_KEY) || "normal";
-    return MOTION_SPEEDS[v] ? v : "normal";
-  } catch (_) {
-    return "normal";
-  }
+  // Animation speed setting removed — always normal.
+  return "normal";
 }
 
 export function saveMotionSpeed(id) {
   try {
-    localStorage.setItem(MOTION_SPEED_KEY, id || "normal");
+    localStorage.setItem(MOTION_SPEED_KEY, "normal");
   } catch (_) {}
 }
 
 export function applyMotionSpeed(id) {
-  const spec = MOTION_SPEEDS[id] || MOTION_SPEEDS.normal;
+  const spec = MOTION_SPEEDS.normal;
   try {
     const root = document.documentElement;
-    root.setAttribute("data-motion-speed", spec.id);
+    root.setAttribute("data-motion-speed", "normal");
     root.style.setProperty("--motion-scale", String(spec.scale));
-    // Keep legacy reduced-motion flag in sync when speed is off
-    if (spec.id === "off") {
-      root.setAttribute("data-reduced-motion", "1");
-    }
+    root.removeAttribute("data-reduced-motion");
   } catch (_) {}
 }
 

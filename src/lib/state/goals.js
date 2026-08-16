@@ -2,7 +2,6 @@
 
 const GOALS_KEY = "twoTongues.goals";
 const CHALLENGE_KEY = "twoTongues.weeklyChallenge";
-const FOCUS_KEY = "twoTongues.focusMode";
 
 export function loadGoals() {
   try {
@@ -305,17 +304,3 @@ function hashStr(s) {
   return h;
 }
 
-export function loadFocusMode() {
-  try {
-    return localStorage.getItem(FOCUS_KEY) === "1";
-  } catch (_) {
-    return false;
-  }
-}
-
-export function saveFocusMode(on) {
-  try {
-    if (on) localStorage.setItem(FOCUS_KEY, "1");
-    else localStorage.removeItem(FOCUS_KEY);
-  } catch (_) {}
-}

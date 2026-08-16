@@ -35,7 +35,6 @@ import AccountRequestsModal, { AccountRequestsButton } from "./layout/AccountReq
 import MobileBottomNav from "./layout/MobileBottomNav";
 import MainViewOverlays from "./layout/MainViewOverlays";
 import ToolShell from "./layout/ToolShell";
-import { loadFocusMode, saveFocusMode } from "../lib/state/goals";
 import { loadXp, snapshotProgress } from "../lib/state/xp";
 import { loadWordNotes } from "../lib/state/wordNotes";
 
@@ -197,7 +196,6 @@ export default function MainView({
     showGoals, setShowGoals, goalsBubble, setGoalsBubble, openGoals, closeGoals,
     toolFullscreen,
   } = useToolViews();
-  const [focusMode, setFocusMode] = useState(() => loadFocusMode());
   const [nightStudy, setNightStudy] = useState(() => {
     try { return localStorage.getItem("twoTongues.nightStudy") === "1"; } catch (_) { return false; }
   });
@@ -262,7 +260,6 @@ export default function MainView({
   const searchInputRef = useRef(null);
 
   useEffect(() => { setWordNotes(loadWordNotes(accountCode)); }, [accountCode]);
-  useEffect(() => { saveFocusMode(focusMode); }, [focusMode]);
 
   // Level-up celebration: queue while a focus activity is open, show after it closes.
   useEffect(() => {
@@ -337,9 +334,6 @@ export default function MainView({
 
   const showLevelUpNow = pendingLevelUp && !blockingActivity;
   useEffect(() => {
-    try { document.documentElement.setAttribute("data-focus-mode", focusMode ? "1" : "0"); } catch (_) {}
-  }, [focusMode]);
-  useEffect(() => {
     try {
       localStorage.setItem("twoTongues.nightStudy", nightStudy ? "1" : "0");
       document.documentElement.setAttribute("data-night-study", nightStudy ? "1" : "0");
@@ -349,8 +343,6 @@ export default function MainView({
   useStudyShortcuts({
     showQuickReview,
     setShowQuickReview,
-    focusMode,
-    setFocusMode,
     onOpenAdd,
     searchInputRef,
     setShowQuiz,
@@ -576,7 +568,7 @@ export default function MainView({
       }}
       aria-hidden={toolFullscreen ? true : undefined}
     >
-      {!focusMode && <SiteBanner banner={siteBanner} isAr={appIsAr} />}
+      <SiteBanner banner={siteBanner} isAr={appIsAr} />
       <header className="app-top-header" style={{ borderBottom: "1px solid rgba(var(--border-rgb),0.15)", position: "sticky", top: 0, zIndex: 1000 }}>
         <div className="app-container" style={{ margin: "0 auto", padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px) 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
@@ -640,8 +632,6 @@ export default function MainView({
                 onOpenExamSettings={isAdmin ? () => setShowExamSettings(true) : undefined}
                 myAccountCode={accountCode}
               
-                focusMode={focusMode}
-                onToggleFocus={() => setFocusMode((v) => !v)}
                 onOpenInfo={() => setShowInfoGuide(true)}
                 onOpenAchievements={() => setShowAchievements(true)}
               />
@@ -678,8 +668,6 @@ export default function MainView({
               onDashboard={() => setShowDashboard(true)}
               onWordLists={() => setShowWordLists(true)}
               onChallenges={() => setShowChallenges(true)}
-              focusMode={focusMode}
-              onToggleFocus={() => setFocusMode((v) => !v)}
               onSmartCards={() => setShowSmartCards(true)}
               onConversation={() => setShowConversation(true)}
               onTutorChat={() => setShowTutorChat(true)}
@@ -816,8 +804,7 @@ export default function MainView({
             )}
           </div>
         )}
-        {!focusMode && (
-          <div className="exam-banner-slot" style={{ marginBottom: 14 }}>
+        <div className="exam-banner-slot" style={{ marginBottom: 14 }}>
             <ExamBanner
               examConfig={examConfig}
               entries={sectionEntries}
@@ -831,7 +818,6 @@ export default function MainView({
               onOpenExamSettings={isAdmin ? () => setShowExamSettings(true) : undefined}
             />
           </div>
-        )}
         <div className="toolbar-row mobile-sticky-search" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", position: "relative", zIndex: 50, marginBottom: 4 }}>
           <div className="toolbar-anim toolbar-search-wrap" style={{ position: "relative", flex: "1 1 240px", animationDelay: "0.02s", zIndex: 50 }}>
             <SearchIcon size={16} color="var(--icon-muted)" style={{ position: "absolute", insetInlineStart: 12, top: "50%", transform: "translateY(-50%)" }} />
@@ -950,12 +936,10 @@ export default function MainView({
             </button>
           </div>
         )}
-        {!focusMode && (
-          <div className="mobile-banners-stack">
+        <div className="mobile-banners-stack">
             <ReminderBanner studiedAt={studiedAt} isAr={appIsAr} cfg={cfg} remindersOn={remindersOn} reminderTitle={reminderTitle} reminderMessage={reminderMessage} onOpenQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }} />
             {isAdmin && <BackupReminderBanner isAr={appIsAr} cfg={cfg} onOpenBackup={onOpenAdmin} />}
           </div>
-        )}
         <div className="app-stats-bar" style={{ marginTop: 12, border: "1px solid rgba(var(--border-rgb),0.12)", borderRadius: 10, padding: "12px 14px" }}>
           <div dir={isAr ? "rtl" : "ltr"} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 700, color: INK }}>
@@ -1263,7 +1247,6 @@ export default function MainView({
       entries={entries}
       studiedAt={studiedAt}
       quizHistory={quizHistory}
-      focusMode={focusMode}
       deviceMode={deviceMode}
       showTimer={showTimer}
       timerBubble={timerBubble}
@@ -1285,7 +1268,7 @@ export default function MainView({
       openGoals={openGoals}
     />
 
-    {deviceMode === "mobile" && !focusMode && (
+    {deviceMode === "mobile" && (
       <button
         type="button"
         className="mobile-fab-add"
@@ -1300,7 +1283,7 @@ export default function MainView({
 
     {/* Tablet side dock removed — tablet uses header/menu like desktop; phone keeps bottom nav + FAB */}
 
-    {deviceMode === "mobile" && !focusMode && (
+    {deviceMode === "mobile" && (
       <MobileBottomNav
         isAr={appIsAr}
         mobileNavTab={mobileNavTab}
@@ -1317,7 +1300,6 @@ export default function MainView({
       />
     )}
 
-/* Focus mode exit chip removed */
     </>
   );
 }

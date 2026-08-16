@@ -56,8 +56,6 @@ export default function ToolsMenu({
   onWordLists,
   onChallenges,
   onExamMode,
-  focusMode = false,
-  onToggleFocus = null,
   onSmartCards = null,
   onConversation = null,
   onTutorChat = null,
@@ -197,17 +195,6 @@ export default function ToolsMenu({
           : []),
         ...(typeof onTextExtract === "function"
           ? [{ key: "extract", icon: <WandIcon size={18} />, tint: "#ff2d55", label: tr(isAr, "Extract from text", "استخراج من نص"), onClick: onTextExtract }]
-          : []),
-        ...(typeof onToggleFocus === "function"
-          ? [{
-              key: "focus",
-              icon: <LayersIcon size={18} />,
-              tint: focusMode ? "#6366f1" : "#6366f1",
-              label: focusMode
-                ? tr(isAr, "Exit focus mode", "إغلاق وضع التركيز")
-                : tr(isAr, "Focus mode", "وضع التركيز"),
-              onClick: onToggleFocus,
-            }]
           : []),
         ...(typeof onToggleNightStudy === "function"
           ? [{

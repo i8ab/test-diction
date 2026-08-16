@@ -3,12 +3,11 @@ import { useEffect } from "react";
 /**
  * Desktop keyboard shortcuts for the dictionary main view.
  * Ignored while focus is inside inputs / contentEditable.
+ * Focus Mode removed — no "f" toggle / Escape exit.
  */
 export function useStudyShortcuts({
   showQuickReview,
   setShowQuickReview,
-  focusMode,
-  setFocusMode,
   onOpenAdd,
   searchInputRef,
   setShowQuiz,
@@ -23,10 +22,6 @@ export function useStudyShortcuts({
       if (e.key === "Escape") {
         if (showQuickReview) {
           setShowQuickReview(false);
-          return;
-        }
-        if (focusMode) {
-          setFocusMode(false);
           return;
         }
       }
@@ -47,19 +42,14 @@ export function useStudyShortcuts({
         e.preventDefault();
         setTodoBubble(false);
         setShowTodo(true);
-      } else if (e.key === "f" && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        setFocusMode((v) => !v);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [
     showQuickReview,
-    focusMode,
-    onOpenAdd,
     setShowQuickReview,
-    setFocusMode,
+    onOpenAdd,
     searchInputRef,
     setShowQuiz,
     setShowTodo,

@@ -44,8 +44,6 @@ export default function HeaderMenu({
   onPersistSiteBanner = null,
   onOpenExamSettings = null,
   myAccountCode = null,
-  focusMode = false,
-  onToggleFocus = null,
   onOpenInfo = null,
   onOpenAchievements = null,
   vaultAccounts = [],
@@ -69,9 +67,8 @@ export default function HeaderMenu({
   const [deviceModalOpen, setDeviceModalOpen] = useState(false);
   const [accentModalOpen, setAccentModalOpen] = useState(false);
   const [appearanceModalOpen, setAppearanceModalOpen] = useState(false);
-  const [uiDensity, setUiDensity] = useState(() => {
-    try { return localStorage.getItem("tt_ui_density") || "comfortable"; } catch (_) { return "comfortable"; }
-  });
+  // Density fixed to Comfortable — Compact option removed.
+  const [uiDensity, setUiDensity] = useState("comfortable");
   const [uiRadius, setUiRadius] = useState(() => {
     try {
       const v = localStorage.getItem("tt_ui_radius");
@@ -91,10 +88,10 @@ export default function HeaderMenu({
 
   useEffect(() => {
     try {
-      document.documentElement.dataset.density = uiDensity;
-      localStorage.setItem("tt_ui_density", uiDensity);
+      document.documentElement.dataset.density = "comfortable";
+      localStorage.setItem("tt_ui_density", "comfortable");
     } catch (_) {}
-  }, [uiDensity]);
+  }, []);
 
   useEffect(() => {
     try {
@@ -250,8 +247,6 @@ export default function HeaderMenu({
         siteBanner={siteBanner}
         remindersOn={remindersOn}
         pendingCount={pendingCount}
-        focusMode={focusMode}
-        onToggleFocus={onToggleFocus}
         onOpenLang={() => setLangModalOpen(true)}
         onOpenDevice={() => setDeviceModalOpen(true)}
         onOpenAccent={() => setAccentModalOpen(true)}

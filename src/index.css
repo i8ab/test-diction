@@ -1892,11 +1892,6 @@ html[data-device="mobile"] .mobile-sticky-search {
   line-height: 1;
 }
 
-/* Focus mode: hide mobile chrome */
-html[data-device="mobile"] body:has([data-focus-mode="1"]) .mobile-bottom-nav,
-html[data-device="mobile"] body:has([data-focus-mode="1"]) .mobile-fab-add {
-  display: none !important;
-}
 
 /* Entry card gentle appear */
 @keyframes entryPop {
@@ -2101,11 +2096,6 @@ html[data-device="tablet"] .toolbar-search-wrap [role="listbox"],
 html[data-device="tablet"] #search-suggestions {
   max-height: min(40vh, 280px) !important;
   z-index: 90 !important;
-}
-/* Focus mode hides tablet dock */
-html[data-device="tablet"][data-focus-mode="1"] .tablet-side-dock {
-  display: none !important;
-  display: none !important;
 }
 .tablet-dock-btn.is-active {
   background: var(--accent-1-soft) !important;

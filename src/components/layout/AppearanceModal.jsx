@@ -222,7 +222,7 @@ export default function AppearanceModal({
     : "Classic";
 
   const layoutSummary = [
-    uiDensity === "compact" ? T("Compact", "مضغوط") : T("Comfortable", "مريح"),
+    T("Comfortable", "مريح"),
     cardHeight === "compact" ? T("Thin", "رفيع") : cardHeight === "comfortable" ? T("Tall", "مرتفع") : T("Normal", "عادي"),
   ].join(" · ");
 
@@ -500,33 +500,7 @@ export default function AppearanceModal({
 
           {/* ── Layout (density + card height + scale) ── */}
           <AppearanceSection {...sp("layout")} title={T("Layout & size", "التخطيط والحجم")} summary={layoutSummary}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 6 }}>
-              {T("List density", "كثافة القائمة")}
-            </div>
-            <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
-              {T("Comfortable = more space. Compact = tighter cards and lists.", "مريح = مسافات أكبر. مضغوط = كروت وقوائم أضيق.")}
-            </p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
-              <button type="button" onClick={() => setUiDensity("comfortable")} className="touch-target"
-                style={{
-                  minHeight: 44, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
-                  border: uiDensity === "comfortable" ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
-                  background: uiDensity === "comfortable" ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
-                  color: "var(--ink)",
-                }}>
-                {T("Comfortable", "مريح")}
-              </button>
-              <button type="button" onClick={() => setUiDensity("compact")} className="touch-target"
-                style={{
-                  minHeight: 44, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
-                  border: uiDensity === "compact" ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
-                  background: uiDensity === "compact" ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
-                  color: "var(--ink)",
-                }}>
-                {T("Compact", "مضغوط")}
-              </button>
-            </div>
-
+            {/* List density fixed to Comfortable — Compact option removed. */}
             <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 6 }}>
               {T("Card height", "ارتفاع الكارت")}
             </div>
@@ -754,117 +728,9 @@ export default function AppearanceModal({
             </AppearanceSection>
           )}
 
-          {/* ── Motion speed ── */}
-          {typeof onChangeMotionSpeed === "function" && (
-            <AppearanceSection {...sp("motion")}
-              title={T("Animation speed", "سرعة الحركة")}
-              summary={MOTION_SPEEDS[motionSpeed] ? T(MOTION_SPEEDS[motionSpeed].label.en, MOTION_SPEEDS[motionSpeed].label.ar) : motionSpeed}
-            >
-              <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
-                {T("Control how fast transitions and animations play.", "تحكم في سرعة الانتقالات والحركات.")}
-              </p>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                {Object.values(MOTION_SPEEDS || {}).map((m) => {
-                  if (!m || !m.id) return null;
-                  const active = motionSpeed === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => onChangeMotionSpeed(m.id)}
-                      className="touch-target"
-                      style={{
-                        minHeight: 44, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 12,
-                        border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
-                        background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
-                        color: "var(--ink)",
-                      }}
-                    >
-                      {T(m.label.en, m.label.ar)}
-                    </button>
-                  );
-                })}
-              </div>
-            </AppearanceSection>
-          )}
+          {/* Animation speed fixed to normal — setting removed. */}
 
-          {/* ── Sounds ── */}
-          {typeof onChangeUiSounds === "function" && (
-            <AppearanceSection {...sp("sounds")}
-              title={T("Sounds", "الأصوات")}
-              summary={uiSounds ? T("On", "تشغيل") : T("Off", "إيقاف")}
-            >
-              <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
-                {T("Soft feedback sounds on correct / wrong quiz answers.", "أصوات خفيفة عند الإجابة صح أو غلط في الاختبارات.")}
-              </p>
-              <button
-                type="button"
-                onClick={() => onChangeUiSounds(!uiSounds)}
-                className="touch-target"
-                style={{
-                  width: "100%", minHeight: 48, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
-                  border: uiSounds ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
-                  background: uiSounds ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
-                  color: "var(--ink)",
-                  display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 14px",
-                }}
-              >
-                <span>{T("Quiz feedback sounds", "أصوات نتيجة الاختبار")}</span>
-                <span style={{
-                  width: 40, height: 24, borderRadius: 12,
-                  background: uiSounds ? "var(--accent-1)" : "rgba(var(--border-rgb),0.25)",
-                  position: "relative",
-                }}>
-                  <span style={{
-                    position: "absolute", top: 3, width: 18, height: 18, borderRadius: "50%",
-                    background: "#fff", left: uiSounds ? 19 : 3,
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
-                  }} />
-                </span>
-              </button>
-            </AppearanceSection>
-          )}
-
-          {/* ── Direction ── */}
-          {typeof onChangeDirOverride === "function" && (
-            <AppearanceSection {...sp("direction")}
-              title={T("Layout direction", "اتجاه الواجهة")}
-              summary={
-                dirOverride === "rtl" ? "RTL" :
-                dirOverride === "ltr" ? "LTR" :
-                T("Auto", "تلقائي")
-              }
-            >
-              <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
-                {T("Force left-to-right or right-to-left, or follow the UI language.", "أجبر الاتجاه يمين أو شمال، أو اتبع لغة الواجهة.")}
-              </p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                {[
-                  { id: "auto", en: "Auto", ar: "تلقائي" },
-                  { id: "ltr", en: "LTR", ar: "يسار→يمين" },
-                  { id: "rtl", en: "RTL", ar: "يمين→يسار" },
-                ].map((opt) => {
-                  const active = dirOverride === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => onChangeDirOverride(opt.id)}
-                      className="touch-target"
-                      style={{
-                        minHeight: 44, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 12,
-                        border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
-                        background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
-                        color: "var(--ink)",
-                      }}
-                    >
-                      {T(opt.en, opt.ar)}
-                    </button>
-                  );
-                })}
-              </div>
-            </AppearanceSection>
-          )}
+          {/* Layout direction fixed to auto by language (EN→LTR, AR→RTL). */}
 
           {/* ── Header style ── */}
           {typeof onChangeHeaderStyle === "function" && (
@@ -901,40 +767,7 @@ export default function AppearanceModal({
             </AppearanceSection>
           )}
 
-          {/* ── Card clarity ── */}
-          {typeof onChangeCardClarity === "function" && (
-            <AppearanceSection {...sp("cardclarity")}
-              title={T("Card transparency", "شفافية الكروت")}
-              summary={CARD_CLARITIES[cardClarity] ? T(CARD_CLARITIES[cardClarity].label.en, CARD_CLARITIES[cardClarity].label.ar) : cardClarity}
-            >
-              <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.45 }}>
-                {T("Opaque / glass / clear. Clear stays readable — not foggy.", "معتم / زجاجي / شفاف. الشفاف يفضل مقروء ومش متغيم.")}
-              </p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                {Object.values(CARD_CLARITIES || {}).map((s) => {
-                  if (!s || !s.id) return null;
-                  const active = cardClarity === s.id;
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => onChangeCardClarity(s.id)}
-                      className="touch-target"
-                      title={T(s.desc?.en || "", s.desc?.ar || "")}
-                      style={{
-                        minHeight: 56, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 12,
-                        border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
-                        background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
-                        color: "var(--ink)",
-                      }}
-                    >
-                      {T(s.label.en, s.label.ar)}
-                    </button>
-                  );
-                })}
-              </div>
-            </AppearanceSection>
-          )}
+          {/* Card transparency fixed to Clear only. */}
 
           {/* ── Modal style ── */}
           {typeof onChangeModalStyle === "function" && (

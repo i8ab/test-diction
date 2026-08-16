@@ -149,6 +149,75 @@ function formatMs(ms) {
   return `${pad(m)}:${pad(s)}`;
 }
 
+/** Single flip-card digit — animates when the value changes. */
+function FlipDigit({ value, color }) {
+  const [current, setCurrent] = useState(value);
+  const [previous, setPrevious] = useState(value);
+  const [flipping, setFlipping] = useState(false);
+
+  useEffect(() => {
+    if (value === current) return;
+    setPrevious(current);
+    setCurrent(value);
+    setFlipping(true);
+    const t = setTimeout(() => setFlipping(false), 450);
+    return () => clearTimeout(t);
+  }, [value, current]);
+
+  const style = { color: color || "inherit" };
+
+  return (
+    <div className="flip-digit" style={style} aria-hidden>
+      <div className="flip-digit-card">
+        <div className="flip-digit-half top">
+          <span>{current}</span>
+        </div>
+        <div className="flip-digit-half bottom">
+          <span>{current}</span>
+        </div>
+        <div className="flip-digit-hinge" />
+        {flipping && (
+          <div className="flip-digit-flap animating">
+            <span>{previous}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Renders a time string (e.g. "12:34" or "01:02:03") as flip cards. */
+function FlipClock({ text, color, fontFamily, fontSize }) {
+  const chars = String(text || "00:00").split("");
+  const n = chars.length;
+  return (
+    <div
+      className="flip-clock"
+      role="timer"
+      aria-live="off"
+      aria-label={text}
+      style={{
+        fontFamily: fontFamily || "inherit",
+        fontSize: fontSize || "inherit",
+        color: color || "inherit",
+      }}
+    >
+      {chars.map((ch, i) => {
+        // Stable keys from the right so MM:SS ↔ HH:MM:SS doesn't reshuffle digits
+        const fromEnd = n - 1 - i;
+        if (ch === ":") {
+          return (
+            <span key={`sep-${fromEnd}`} className="flip-clock-sep">
+              :
+            </span>
+          );
+        }
+        return <FlipDigit key={`d-${fromEnd}`} value={ch} color={color} />;
+      })}
+    </div>
+  );
+}
+
 function parseHms(h, m, s) {
   const hh = Math.max(0, Math.min(999, Number(h) || 0));
   const mm = Math.max(0, Math.min(59, Number(m) || 0));
@@ -1273,18 +1342,16 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
 
         <div
           style={{
-            fontFamily: fontCss,
-            fontSize: `clamp(42px, ${Math.max(8, prefs.fontSize * 0.12)}vw, ${prefs.fontSize}px)`,
-            fontWeight: 700,
-            letterSpacing: "0.03em",
-            fontVariantNumeric: "tabular-nums",
-            lineHeight: 1,
-            textShadow: isLightBg ? "none" : "0 4px 40px rgba(0,0,0,0.35)",
             animation: doneFlash ? "timerPulse 0.6s ease 3" : undefined,
             transition: "font-size 0.2s ease, color 0.2s ease",
           }}
         >
-          {displayText}
+          <FlipClock
+            text={displayText}
+            color={prefs.textColor}
+            fontFamily={fontCss}
+            fontSize={`clamp(42px, ${Math.max(8, prefs.fontSize * 0.12)}vw, ${prefs.fontSize}px)`}
+          />
         </div>
 
         {doneFlash && !pomoAwaiting && (

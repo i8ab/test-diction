@@ -34,6 +34,9 @@ export default function SentencePracticeModal({
     selectAllUnits,
   } = useUnitScope(academicUnits, activeUnitId, entries);
 
+  // Snapshot the practice list once (and when units/scope change).
+  // Do NOT depend on srsStats — recording an answer must not reshuffle
+  // the list mid-session (that was keeping the old sentence on a new word).
   const list = useMemo(() => {
     const base = (unitFilteredEntries || []).filter((e) => studiedIds.has(e.id));
     const scored = base.map((e) => {
@@ -44,7 +47,8 @@ export default function SentencePracticeModal({
     });
     scored.sort((a, b) => a.score - b.score);
     return shuffleArray(scored.map((x) => x.e).slice(0, Math.min(limit * 2, scored.length))).slice(0, limit);
-  }, [unitFilteredEntries, studiedIds, srsStats, srsDueAt, limit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unitFilteredEntries, studiedIds, limit]);
 
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState("write"); // write | review | done
@@ -59,7 +63,7 @@ export default function SentencePracticeModal({
   const word = entry?.word || entry?.term || "";
   const total = list.length;
 
-  // Always reset write state when moving to a new word
+  // Reset write state whenever we move to a different word index
   useEffect(() => {
     setSentence("");
     setUsedWord(null);
@@ -110,8 +114,10 @@ export default function SentencePracticeModal({
 
   function next() {
     if (idx < total - 1) {
+      setSentence("");
+      setUsedWord(null);
+      setPhase("write");
       setIdx((i) => i + 1);
-      // sentence / usedWord / phase are reset by the idx effect above
     } else {
       setPhase("done");
     }

@@ -2490,15 +2490,16 @@ html[data-header-style="solid"] .app-top-header {
 }
 html[data-header-style="glass"] .app-top-header,
 html:not([data-header-style]) .app-top-header {
-  background: color-mix(in srgb, var(--paper) 78%, transparent) !important;
-  backdrop-filter: blur(10px) !important;
-  -webkit-backdrop-filter: blur(10px) !important;
+  /* no backdrop-filter — avoids milky white haze on all themes */
+  background: color-mix(in srgb, var(--paper) 90%, transparent) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 html[data-header-style="clear"] .app-top-header {
-  background: color-mix(in srgb, var(--paper) 52%, transparent) !important;
-  backdrop-filter: blur(6px) !important;
-  -webkit-backdrop-filter: blur(6px) !important;
-  border-bottom-color: rgba(var(--border-rgb), 0.12) !important;
+  background: color-mix(in srgb, var(--paper) 72%, transparent) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom-color: rgba(var(--border-rgb), 0.14) !important;
 }
 
 /* ── Modals: glass panels that sit in the theme world ── */
@@ -2862,28 +2863,28 @@ html[data-header-style="solid"] .app-stats-bar {
 
 html[data-header-style="glass"] .app-chrome-search,
 html:not([data-header-style]) .app-chrome-search {
-  background: color-mix(in srgb, var(--input-bg) 70%, transparent) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
+  background: color-mix(in srgb, var(--input-bg) 82%, transparent) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   border-color: rgba(var(--border-rgb), 0.28) !important;
 }
 html[data-header-style="glass"] .app-stats-bar,
 html:not([data-header-style]) .app-stats-bar {
-  background: color-mix(in srgb, var(--card) 72%, transparent) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
+  background: color-mix(in srgb, var(--card) 84%, transparent) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   border-color: rgba(var(--border-rgb), 0.22) !important;
 }
 
 html[data-header-style="clear"] .app-chrome-search {
-  background: color-mix(in srgb, var(--input-bg) 50%, transparent) !important;
+  background: color-mix(in srgb, var(--input-bg) 62%, transparent) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   border-color: rgba(var(--border-rgb), 0.35) !important;
   box-shadow: inset 0 0 0 1px rgba(var(--border-rgb), 0.12);
 }
 html[data-header-style="clear"] .app-stats-bar {
-  background: color-mix(in srgb, var(--card) 50%, transparent) !important;
+  background: color-mix(in srgb, var(--card) 62%, transparent) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   border-color: rgba(var(--border-rgb), 0.30) !important;

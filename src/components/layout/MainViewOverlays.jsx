@@ -36,6 +36,7 @@ import {
   ListeningLoopModal,
   SentencePracticeModal,
   WeeklyReportModal,
+  MotivationalQuoteModal,
 } from "../modals/lazyModals";
 
 /** Lightweight shell while a lazy modal chunk downloads. */
@@ -115,6 +116,7 @@ export default function MainViewOverlays(p) {
     showDictation, setShowDictation, onDictationRoundFinished,
     showAchievements, setShowAchievements,
     showRandomWord, setShowRandomWord,
+    showMotivation, setShowMotivation,
     showQuickReview, setShowQuickReview,
     showWeaknessReview, setShowWeaknessReview,
     showListeningLoop, setShowListeningLoop,
@@ -689,6 +691,14 @@ export default function MainViewOverlays(p) {
       </Suspense>
     )}
 
+    {showMotivation && (
+      <Suspense fallback={null}>
+        <MotivationalQuoteModal
+          isAr={appIsAr}
+          onClose={() => setShowMotivation(false)}
+        />
+      </Suspense>
+    )}
 
     </>
   );

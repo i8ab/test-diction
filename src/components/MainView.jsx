@@ -234,6 +234,7 @@ export default function MainView({
   useHistoryBackClose(showSentencePractice, () => setShowSentencePractice(false));
   useHistoryBackClose(showWeeklyReport, () => setShowWeeklyReport(false));
   useHistoryBackClose(showTutorChat, () => setShowTutorChat(false));
+  useHistoryBackClose(showMotivation, () => setShowMotivation(false));
 
   // Welcome onboarding: once per account, or forced via sessionStorage for testing
   useEffect(() => {
@@ -254,6 +255,7 @@ export default function MainView({
   const [showDictation, setShowDictation] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [showRandomWord, setShowRandomWord] = useState(false);
+  const [showMotivation, setShowMotivation] = useState(false);
   /** Pending level-up celebration; deferred while quiz/exam/dictation/etc. is open. */
   const [pendingLevelUp, setPendingLevelUp] = useState(null);
   const [wordNotes, setWordNotes] = useState(() => loadWordNotes(accountCode));
@@ -662,6 +664,7 @@ export default function MainView({
               onDictation={() => setShowDictation(true)}
               onAchievements={() => setShowAchievements(true)}
               onRandomWord={() => setShowRandomWord(true)}
+              onMotivation={() => setShowMotivation(true)}
               onExport={() => {
                 const list = filtered.length ? filtered : sectionEntries;
                 const csv = exportEntriesAsCsv(list);
@@ -1148,6 +1151,8 @@ export default function MainView({
         setShowAchievements={setShowAchievements}
         showRandomWord={showRandomWord}
         setShowRandomWord={setShowRandomWord}
+        showMotivation={showMotivation}
+        setShowMotivation={setShowMotivation}
         showQuickReview={showQuickReview}
         setShowQuickReview={setShowQuickReview}
         showWeaknessReview={showWeaknessReview}

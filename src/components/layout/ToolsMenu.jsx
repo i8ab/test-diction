@@ -70,6 +70,7 @@ export default function ToolsMenu({
   onSentencePractice = null,
   nightStudy = false,
   onToggleNightStudy = null,
+  onMotivation = null,
 }) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState(null);
@@ -150,6 +151,9 @@ export default function ToolsMenu({
         { key: "exam", icon: <FlameIcon size={18} />, tint: "#e85d04", label: tr(isAr, "Exam Mode", "وضع الامتحان"), onClick: onExamMode },
         // اكتشاف
         { key: "random", icon: <WandIcon size={18} />, tint: "#7b2cbf", label: tr(isAr, "Random word", "كلمة عشوائية"), onClick: onRandomWord },
+        ...(typeof onMotivation === "function"
+          ? [{ key: "motivation", icon: <StarIcon size={18} />, tint: "#ff6b6b", label: tr(isAr, "Motivation", "تحفيز"), onClick: onMotivation }]
+          : []),
         { key: "morning", icon: <StarIcon size={18} />, tint: "#ffcc00", label: tr(isAr, "Morning review", "مراجعة الصباح"), onClick: onQuickReview },
         ...(typeof onWeaknessReview === "function"
           ? [{ key: "night", icon: <StarIcon size={18} />, tint: "#5856d6", label: tr(isAr, "Night review", "مراجعة قبل النوم"), onClick: onWeaknessReview }]

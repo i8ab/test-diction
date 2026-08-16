@@ -1312,31 +1312,7 @@ export default function MainView({
       />
     )}
 
-    {/* Focus mode exit chip */}
-    {focusMode && (
-      <button
-        type="button"
-        onClick={() => setFocusMode(false)}
-        style={{
-          position: "fixed",
-          top: "calc(12px + env(safe-area-inset-top, 0px))",
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 60,
-          padding: "8px 14px",
-          borderRadius: 20,
-          border: "none",
-          background: "var(--ink)",
-          color: "var(--paper)",
-          fontSize: 12,
-          fontWeight: 700,
-          cursor: "pointer",
-          boxShadow: "0 8px 20px -8px rgba(0,0,0,0.4)",
-        }}
-      >
-        {tr(isAr, "Exit focus mode (F)", "خروج من وضع التركيز (F)")}
-      </button>
-    )}
+/* Focus mode exit chip removed per request */
     </>
   );
 }

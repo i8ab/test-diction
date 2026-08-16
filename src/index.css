@@ -1786,12 +1786,22 @@ html[data-device="mobile"] .toolbar-search-input {
 
 /* Sticky search on mobile */
 html[data-device="mobile"] .mobile-sticky-search {
+  /* Was a flat opaque --paper strip, which sat directly behind the
+     now-transparent .app-chrome-search input and hid its glass look
+     whenever this row stuck to the top while scrolling. Tinted/blurred
+     the same way as the header (skin --app-bg wash + blur) so the two
+     stay visually consistent and the search bar's transparency is
+     still visible once it's stuck. */
   position: sticky;
   top: 0;
   z-index: 70;
-  background: var(--paper, #faf8f5);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  background-color: color-mix(in srgb, var(--paper, #faf8f5) 82%, transparent);
+  background-image: var(--app-bg, none);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: top center;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   padding-top: 6px;
   padding-bottom: 6px;
   margin-inline: -4px;
@@ -2479,27 +2489,39 @@ html[data-exam-visual="1"][data-theme="dark"] {
    Driven by data-skin + data-header-style + data-card-surface
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Header styles ── */
+/* ── Header styles ──
+   The header now picks up the active skin's wash (--app-bg, set by
+   applySkinTheme) instead of a flat --paper fill, so a gradient skin
+   (aurora, dusk, etc.) shows the same gradient in the header instead of
+   a plain color. --app-bg is optional (skins without one fall back to
+   "none", which is a harmless no-op background-image), so this is safe
+   for every skin, including ones with no bg gradient defined. */
 .app-top-header {
-  transition: background 0.25s ease, backdrop-filter 0.25s ease, border-color 0.25s ease;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: top center;
+  transition: background-color 0.25s ease, backdrop-filter 0.25s ease, border-color 0.25s ease;
 }
 html[data-header-style="solid"] .app-top-header {
-  background: var(--paper) !important;
+  background-color: var(--paper) !important;
+  background-image: var(--app-bg, none) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 html[data-header-style="glass"] .app-top-header,
 html:not([data-header-style]) .app-top-header {
-  /* fully opaque so content never shows through the header */
-  background: var(--paper) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  /* mostly opaque, tinted with the skin's gradient, softly blurred */
+  background-color: color-mix(in srgb, var(--paper) 88%, transparent) !important;
+  background-image: var(--app-bg, none) !important;
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
 }
 html[data-header-style="clear"] .app-top-header {
-  /* mostly opaque to avoid text bleeding through */
-  background: color-mix(in srgb, var(--paper) 96%, transparent) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  /* mostly transparent — skin gradient (and page behind it) shows through */
+  background-color: color-mix(in srgb, var(--paper) 55%, transparent) !important;
+  background-image: var(--app-bg, none) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
   border-bottom-color: rgba(var(--border-rgb), 0.14) !important;
 }
 
@@ -2841,34 +2863,34 @@ html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
 }
 
 
-/* ── Chrome trio: header style also drives search + stats bar ── */
-.app-chrome-search {
-  background: var(--input-bg) !important;
+/* ── Search bar: always glass/transparent, independent of Header Style ──
+   Previously this followed data-header-style (solid/glass/clear), so
+   picking "Solid" for the header made the search bar opaque too. It's
+   now a fixed, always-transparent look that no longer reads or reacts
+   to data-header-style at all. */
+html .app-chrome-search {
+  /* "html " prefix keeps this ahead of the unrelated
+     html[data-skin] .toolbar-search-input rule below on specificity,
+     so this stays the single source of truth for the search bar look. */
+  background: color-mix(in srgb, var(--input-bg) 72%, transparent) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border-color: rgba(var(--border-rgb), 0.30) !important;
   transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
+
+/* ── Stats bar: still driven by Header Style, same as before ── */
 .app-stats-bar {
   background: var(--card);
   transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
-html[data-header-style="solid"] .app-chrome-search {
-  background: var(--input-bg) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
 html[data-header-style="solid"] .app-stats-bar {
   background: var(--card) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
-html[data-header-style="glass"] .app-chrome-search,
-html:not([data-header-style]) .app-chrome-search {
-  background: color-mix(in srgb, var(--input-bg) 82%, transparent) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border-color: rgba(var(--border-rgb), 0.28) !important;
-}
 html[data-header-style="glass"] .app-stats-bar,
 html:not([data-header-style]) .app-stats-bar {
   background: color-mix(in srgb, var(--card) 84%, transparent) !important;
@@ -2877,13 +2899,6 @@ html:not([data-header-style]) .app-stats-bar {
   border-color: rgba(var(--border-rgb), 0.22) !important;
 }
 
-html[data-header-style="clear"] .app-chrome-search {
-  background: color-mix(in srgb, var(--input-bg) 62%, transparent) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border-color: rgba(var(--border-rgb), 0.35) !important;
-  box-shadow: inset 0 0 0 1px rgba(var(--border-rgb), 0.12);
-}
 html[data-header-style="clear"] .app-stats-bar {
   background: color-mix(in srgb, var(--card) 62%, transparent) !important;
   backdrop-filter: none !important;

@@ -150,36 +150,34 @@ function formatMs(ms) {
   return `${pad(m)}:${pad(s)}`;
 }
 
-/** Single flip-card digit — full glyph visible in both halves; flap animates on change. */
+/** Single flip-card digit — flaps on every value change (every second for the seconds digit). */
 function FlipDigit({ value, color }) {
-  const [current, setCurrent] = useState(value);
-  const [previous, setPrevious] = useState(value);
-  const [flipping, setFlipping] = useState(false);
+  const [current, setCurrent] = useState(String(value));
+  const [previous, setPrevious] = useState(String(value));
+  const [animKey, setAnimKey] = useState(0);
 
   useEffect(() => {
-    if (String(value) === String(current)) return undefined;
+    const next = String(value);
+    if (next === current) return undefined;
     setPrevious(current);
-    setCurrent(value);
-    setFlipping(true);
-    const t = setTimeout(() => setFlipping(false), 420);
-    return () => clearTimeout(t);
+    setCurrent(next);
+    // bump key so the CSS animation always restarts, even on rapid 1s ticks
+    setAnimKey((k) => k + 1);
+    return undefined;
   }, [value, current]);
 
   return (
     <div className="flip-digit" style={{ color: color || "inherit" }} aria-hidden>
       <div className="flip-digit-card">
-        {/* Static top half of current digit */}
         <div className="flip-digit-half top">
           <div className="flip-digit-glyph">{current}</div>
         </div>
-        {/* Static bottom half of current digit */}
         <div className="flip-digit-half bottom">
           <div className="flip-digit-glyph">{current}</div>
         </div>
         <div className="flip-digit-hinge" />
-        {/* Animated top flap showing the previous digit while flipping away */}
-        {flipping && (
-          <div className="flip-digit-flap animating">
+        {animKey > 0 && (
+          <div key={animKey} className="flip-digit-flap animating">
             <div className="flip-digit-glyph">{previous}</div>
           </div>
         )}
@@ -627,10 +625,43 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
     };
   }, [running, prefs.mode, broadcastState]);
 
-  // Push state to popup periodically while running
+  // Push state to popup + localStorage whenever display changes
   useEffect(() => {
     broadcastState();
   }, [running, remainingMs, elapsedMs, broadcastState]);
+
+  // Hard backup: write live state every second so refresh never loses time
+  useEffect(() => {
+    const id = setInterval(() => {
+      try {
+        const isRunning = !!runningRef.current;
+        const mode = prefsRef.current?.mode;
+        const left =
+          isRunning && endAtRef.current
+            ? Math.max(0, endAtRef.current - Date.now())
+            : null;
+        const prev = loadLiveState() || {};
+        saveLiveState({
+          ...prev,
+          mode: mode || prev.mode,
+          running: isRunning,
+          remainingMs: left != null ? left : prev.remainingMs,
+          elapsedMs:
+            mode === "stopwatch"
+              ? (accumulatedRef.current || 0) +
+                (startedAtRef.current ? Date.now() - startedAtRef.current : 0)
+              : prev.elapsedMs,
+          endAt: endAtRef.current || prev.endAt || null,
+          startedAt: startedAtRef.current || prev.startedAt || null,
+          accumulated: accumulatedRef.current ?? prev.accumulated,
+          pomoPhase: pomoPhaseRef.current || prev.pomoPhase,
+          pomoCycle: pomoCycleRef.current || prev.pomoCycle,
+          updatedAt: Date.now(),
+        });
+      } catch (_) {}
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // Restore mid-run state if user reopened / refreshed the page.
   // Countdown AND pomodoro both use endAt; stopwatch uses startedAt + accumulated.
@@ -813,11 +844,14 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
     } else if (prefs.mode === "pomodoro") {
       const phase = pomoPhaseRef.current || "work";
       setPomoTip(pickPomoHealthTip(phase === "break" ? "break" : "work"));
-      const total = phase === "break" ? pomoBreakMs() : pomoWorkMs();
+      // Continue from remaining time if any (pause/resume or after refresh)
+      const full = phase === "break" ? pomoBreakMs() : pomoWorkMs();
+      const total = remainingMs > 0 ? remainingMs : full;
       setRemainingMs(total);
       endAtRef.current = Date.now() + total;
       sessionDurationRef.current = total;
     } else {
+      // stopwatch: resume from accumulated if any
       startedAtRef.current = Date.now();
       sessionDurationRef.current = 0;
     }
@@ -825,6 +859,21 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
     setRunning(true);
     setShowSettings(false);
     startAmbient();
+    // Persist immediately so a refresh mid-second keeps the correct endAt
+    try {
+      saveLiveState({
+        mode: prefs.mode,
+        running: true,
+        remainingMs: prefs.mode === "stopwatch" ? undefined : (remainingMs > 0 ? remainingMs : (prefs.mode === "pomodoro" ? (pomoPhaseRef.current === "break" ? pomoBreakMs() : pomoWorkMs()) : remainingMs)),
+        elapsedMs: prefs.mode === "stopwatch" ? elapsedMs : undefined,
+        endAt: endAtRef.current,
+        startedAt: startedAtRef.current,
+        accumulated: accumulatedRef.current,
+        pomoPhase: pomoPhaseRef.current,
+        pomoCycle: pomoCycleRef.current,
+        updatedAt: Date.now(),
+      });
+    } catch (_) {}
   }
 
   /** After a section ends, user confirms starting the next one */

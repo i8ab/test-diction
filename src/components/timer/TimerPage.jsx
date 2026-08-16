@@ -420,31 +420,100 @@ function createAmbientNode(ctx, ambientId, volume) {
 }
 
 /**
+ * Read any in-progress timer from localStorage BEFORE the first paint.
+ * This is the critical path for refresh: useState initializers must not
+ * wait for a useEffect, or the UI flashes 25:00 / Start and feels "reset".
+ */
+function readPersistedTimer() {
+  const live = loadLiveState();
+  const base = {
+    remainingMs: 25 * 60 * 1000,
+    elapsedMs: 0,
+    running: false,
+    endAt: null,
+    startedAt: null,
+    accumulated: 0,
+    pomoPhase: "work",
+    pomoCycle: 1,
+    mode: null,
+    hours: 0,
+    mins: 25,
+    secs: 0,
+  };
+  if (!live) return base;
+
+  if (live.mode) base.mode = live.mode;
+  if (typeof live.pomoPhase === "string") base.pomoPhase = live.pomoPhase;
+  if (typeof live.pomoCycle === "number" && live.pomoCycle > 0) base.pomoCycle = live.pomoCycle;
+
+  const isTimed = live.mode === "countdown" || live.mode === "pomodoro" || !live.mode;
+  if (isTimed && live.endAt && Number(live.endAt) > Date.now()) {
+    // Still running toward an absolute end time — resume automatically
+    const left = Math.max(0, Number(live.endAt) - Date.now());
+    base.remainingMs = left;
+    base.running = true;
+    base.endAt = Number(live.endAt);
+  } else if (live.mode === "stopwatch" && live.running) {
+    const acc = Number(live.accumulated) || 0;
+    const started = Number(live.startedAt) || Date.now();
+    base.accumulated = acc;
+    base.startedAt = started;
+    base.elapsedMs = acc + (Date.now() - started);
+    base.running = true;
+  } else if (typeof live.remainingMs === "number" && live.remainingMs > 0) {
+    // Paused or stopped with time left — keep the value, user presses Start
+    base.remainingMs = live.remainingMs;
+    base.running = false;
+    base.endAt = null;
+  } else if (typeof live.elapsedMs === "number") {
+    base.elapsedMs = live.elapsedMs;
+    base.accumulated = Number(live.accumulated) || live.elapsedMs;
+  }
+
+  const totalSec = Math.floor(base.remainingMs / 1000);
+  base.hours = Math.floor(totalSec / 3600);
+  base.mins = Math.floor((totalSec % 3600) / 60);
+  base.secs = totalSec % 60;
+  return base;
+}
+
+/**
  * Full-page study timer with custom fonts, sizes, colors, preset + custom
  * backgrounds, free duration (no hard limits), and a mini floating window
  * when the user leaves the tab (Document PiP or popup fallback).
  */
 export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, initialBubble = false }) {
-  const [prefs, setPrefs] = useState(loadPrefs);
+  // One synchronous read for all initial state + refs (refresh-safe)
+  const bootRef = useRef(null);
+  if (bootRef.current == null) bootRef.current = readPersistedTimer();
+  const boot = bootRef.current;
+
+  const [prefs, setPrefs] = useState(() => {
+    const p = loadPrefs();
+    if (boot.mode && (boot.mode === "countdown" || boot.mode === "stopwatch" || boot.mode === "pomodoro")) {
+      return { ...p, mode: boot.mode };
+    }
+    return p;
+  });
   const xpTotal = useMemo(() => loadXp(accountCode).total, [accountCode]);
-  const [hours, setHours] = useState(0);
-  const [mins, setMins] = useState(25);
-  const [secs, setSecs] = useState(0);
-  const [running, setRunning] = useState(false);
-  const [remainingMs, setRemainingMs] = useState(25 * 60 * 1000);
-  const [elapsedMs, setElapsedMs] = useState(0);
+  const [hours, setHours] = useState(boot.hours);
+  const [mins, setMins] = useState(boot.mins);
+  const [secs, setSecs] = useState(boot.secs);
+  const [running, setRunning] = useState(!!boot.running);
+  const [remainingMs, setRemainingMs] = useState(boot.remainingMs);
+  const [elapsedMs, setElapsedMs] = useState(boot.elapsedMs);
   const [showSettings, setShowSettings] = useState(false);
   const [doneFlash, setDoneFlash] = useState(false);
   // Pomodoro: phase work | break | idle-between (waiting for user to confirm next section)
-  const [pomoPhase, setPomoPhase] = useState("work"); // work | break
-  const [pomoCycle, setPomoCycle] = useState(1); // 1-based
+  const [pomoPhase, setPomoPhase] = useState(boot.pomoPhase || "work"); // work | break
+  const [pomoCycle, setPomoCycle] = useState(boot.pomoCycle || 1); // 1-based
   const [pomoAwaiting, setPomoAwaiting] = useState(null); // null | "break" | "work" | "done"
-  const [pomoTip, setPomoTip] = useState(() => pickPomoHealthTip("work"));
+  const [pomoTip, setPomoTip] = useState(() => pickPomoHealthTip(boot.pomoPhase === "break" ? "break" : "work"));
   const [sessionLog, setSessionLog] = useState(() => getRecentTimerSessions());
   const [todayTotalMin, setTodayTotalMin] = useState(() => getTodayTimerMinutes());
   const [last24hMin, setLast24hMin] = useState(() => getLast24hTimerMinutes());
-  const pomoPhaseRef = useRef("work");
-  const pomoCycleRef = useRef(1);
+  const pomoPhaseRef = useRef(boot.pomoPhase || "work");
+  const pomoCycleRef = useRef(boot.pomoCycle || 1);
 
   function refreshTimerLog() {
     setSessionLog(getRecentTimerSessions());
@@ -461,15 +530,15 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
 
   useBodyScrollLock(viewMode === "full");
 
-  const endAtRef = useRef(null); // absolute timestamp when countdown ends
-  const startedAtRef = useRef(null); // for stopwatch
-  const accumulatedRef = useRef(0); // pause-accumulated elapsed for stopwatch
+  const endAtRef = useRef(boot.endAt || null); // absolute timestamp when countdown ends
+  const startedAtRef = useRef(boot.startedAt || null); // for stopwatch
+  const accumulatedRef = useRef(boot.accumulated || 0); // pause-accumulated elapsed for stopwatch
+  const runningRef = useRef(!!boot.running);
   const rafRef = useRef(null);
   const channelRef = useRef(null);
   const pipWinRef = useRef(null);
   const fileInputRef = useRef(null);
   const controlsRef = useRef({ start: () => {}, pause: () => {}, reset: () => {}, openMini: () => {} });
-  const runningRef = useRef(false);
   const ambientRef = useRef(null);
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
@@ -663,51 +732,16 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
     return () => clearInterval(id);
   }, []);
 
-  // Restore mid-run state if user reopened / refreshed the page.
-  // Countdown AND pomodoro both use endAt; stopwatch uses startedAt + accumulated.
+  // Boot already restored time/running from localStorage synchronously.
+  // Here we only resume ambient audio + hide settings if we came back mid-run.
   useEffect(() => {
-    const live = loadLiveState();
-    if (!live) return;
-    if (live.mode) setPrefs((p) => ({ ...p, mode: live.mode }));
-    // Restore pomodoro phase/cycle if present
-    if (typeof live.pomoPhase === "string") {
-      pomoPhaseRef.current = live.pomoPhase;
-      setPomoPhase(live.pomoPhase);
-    }
-    if (typeof live.pomoCycle === "number" && live.pomoCycle > 0) {
-      pomoCycleRef.current = live.pomoCycle;
-      setPomoCycle(live.pomoCycle);
-    }
-    const isTimed = live.mode === "countdown" || live.mode === "pomodoro";
-    if (isTimed && live.endAt && live.running) {
-      const left = live.endAt - Date.now();
-      if (left > 0) {
-        endAtRef.current = live.endAt;
-        setRemainingMs(left);
-        runningRef.current = true;
-        setRunning(true);
-        setShowSettings(false);
-      } else {
-        setRemainingMs(0);
-        clearLiveState();
-      }
-    } else if (live.mode === "stopwatch" && live.running) {
-      accumulatedRef.current = live.accumulated || 0;
-      startedAtRef.current = live.startedAt || Date.now();
-      setElapsedMs(accumulatedRef.current + (Date.now() - startedAtRef.current));
-      runningRef.current = true;
-      setRunning(true);
+    if (boot.running) {
       setShowSettings(false);
-    } else if (typeof live.remainingMs === "number") {
-      setRemainingMs(live.remainingMs);
-      const totalSec = Math.floor(live.remainingMs / 1000);
-      setHours(Math.floor(totalSec / 3600));
-      setMins(Math.floor((totalSec % 3600) / 60));
-      setSecs(totalSec % 60);
-    } else if (typeof live.elapsedMs === "number") {
-      setElapsedMs(live.elapsedMs);
-      accumulatedRef.current = live.accumulated || live.elapsedMs;
+      try {
+        startAmbient();
+      } catch (_) {}
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => () => { try { ambientRef.current && ambientRef.current.stop(); } catch {} }, []);

@@ -1808,22 +1808,23 @@ html[data-device="mobile"] .toolbar-search-input {
   font-size: calc(1em * var(--ui-scale, 1));
 }
 
-/* Sticky search on mobile — clean, no dark/black strip.
-   Avoid stacking photo + heavy mix that turned into a muddy black bar
-   over the search input. Use near-solid theme paper + light blur only. */
+/* Sticky search on mobile — same look as desktop: no dark bar, no strip.
+   Transparent so page background shows through; only the input has its own fill. */
 html[data-device="mobile"] .mobile-sticky-search {
   position: sticky;
   top: 0;
   z-index: 70;
-  background-color: color-mix(in srgb, var(--paper) 94%, transparent) !important;
-  background-image: none !important; /* no photo wash here — prevents black band */
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  padding-top: 8px;
-  padding-bottom: 8px;
+  background: transparent !important;
+  background-image: none !important;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  padding-top: 6px;
+  padding-bottom: 6px;
   margin-inline: 0;
   padding-inline: 0;
-  border-bottom: 1px solid rgba(var(--border-rgb), 0.10);
+  border-bottom: none !important;
+  box-shadow: none !important;
 }
 
 /* Bottom nav: no blue/accent highlight on active or press */
@@ -2508,13 +2509,14 @@ html[data-exam-visual="1"][data-theme="dark"] {
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Header styles ──
-   Header takes the REAL theme/skin color (var(--paper) + optional --app-bg
-   wash) so it looks solid and consistent with the rest of the UI, not a
-   washed-out shade. Glass keeps a light blur but stays mostly opaque. */
+   Goal: header is literally a piece of the page background (same photo +
+   same overlay as body). Not a similar shade — the SAME layers.
+   Solid = opaque paper. Glass/Clear/default = true see-through so the
+   mountain/photo continues into the header. */
 .app-top-header {
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: top center;
+  background-repeat: no-repeat, no-repeat;
+  background-size: cover, cover;
+  background-position: center top, center top;
   transition: background-color 0.25s ease, backdrop-filter 0.25s ease, border-color 0.25s ease;
 }
 html[data-header-style="solid"] .app-top-header {
@@ -2523,21 +2525,29 @@ html[data-header-style="solid"] .app-top-header {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+/* Glass + default: transparent so body bg shows through = continuous photo */
 html[data-header-style="glass"] .app-top-header,
 html:not([data-header-style]) .app-top-header {
-  /* near-solid theme color so header feels substantial, light blur only */
-  background-color: color-mix(in srgb, var(--paper) 96%, transparent) !important;
-  background-image: var(--app-bg, none) !important;
-  backdrop-filter: blur(12px) saturate(1.05);
-  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+  background-color: transparent !important;
+  background-image: none !important;
+  backdrop-filter: blur(10px) saturate(1.08);
+  -webkit-backdrop-filter: blur(10px) saturate(1.08);
 }
 html[data-header-style="clear"] .app-top-header {
-  /* lighter — skin / page still visible through */
-  background-color: color-mix(in srgb, var(--paper) 72%, transparent) !important;
-  background-image: var(--app-bg, none) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  border-bottom-color: rgba(var(--border-rgb), 0.14) !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  border-bottom-color: rgba(var(--border-rgb), 0.12) !important;
+}
+/* When body uses fixed bg (desktop), keep header in sync visually */
+@media (hover: hover) and (pointer: fine) {
+  html[data-header-style="glass"] .app-top-header,
+  html:not([data-header-style]) .app-top-header,
+  html[data-header-style="clear"] .app-top-header {
+    /* slight tint only for text readability; photo still fully visible */
+    background-color: color-mix(in srgb, var(--paper) 18%, transparent) !important;
+  }
 }
 
 /* ── Modals: glass panels that sit in the theme world ── */
@@ -2592,12 +2602,14 @@ html[data-skin="contrast"] button.touch-target {
   border-radius: 2px;
 }
 
-/* ── Search bar theme character ── */
+/* ── Search bar theme character (overridden by .app-chrome-search below) ── */
 html[data-skin] .toolbar-search-input,
 html[data-skin] input[type="search"] {
   background: color-mix(in srgb, var(--card) 88%, transparent) !important;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 /* ── Entry cards: soft glass so photo peeks around edges ── */
@@ -2879,21 +2891,22 @@ html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
 
 
 /* ── Search bar: clean glass, independent of Header Style ──
-   Uses a readable mix of input-bg + card so it never collapses into a
-   pure black / muddy strip on dark skins or photo backgrounds. */
-html .app-chrome-search {
-  background: color-mix(in srgb, var(--input-bg) 85%, var(--card)) !important;
+   Same look on desktop and mobile — no dark/black frame or strip. */
+html .app-chrome-search,
+html[data-skin] .app-chrome-search,
+html[data-device="mobile"] .app-chrome-search {
+  background: color-mix(in srgb, var(--card) 82%, var(--input-bg)) !important;
   backdrop-filter: blur(8px) !important;
   -webkit-backdrop-filter: blur(8px) !important;
-  border-color: rgba(var(--border-rgb), 0.28) !important;
+  border: 1px solid rgba(var(--border-rgb), 0.24) !important;
+  box-shadow: none !important;
+  outline: none !important;
   transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
-/* Mobile: slightly stronger so the field stays clear and never looks black */
 html[data-device="mobile"] .app-chrome-search {
-  background: color-mix(in srgb, var(--input-bg) 88%, var(--card)) !important;
-  border-color: rgba(var(--border-rgb), 0.26) !important;
   min-height: 44px;
+  border-radius: 12px !important;
 }
 
 /* ── Stats bar: still driven by Header Style, same as before ── */
@@ -2910,23 +2923,25 @@ html[data-header-style="solid"] .app-stats-bar {
 
 html[data-header-style="glass"] .app-stats-bar,
 html:not([data-header-style]) .app-stats-bar {
-  background: color-mix(in srgb, var(--card) 84%, transparent) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border-color: rgba(var(--border-rgb), 0.22) !important;
+  background: color-mix(in srgb, var(--card) 78%, transparent) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border-color: rgba(var(--border-rgb), 0.20) !important;
 }
 
 html[data-header-style="clear"] .app-stats-bar {
-  background: color-mix(in srgb, var(--card) 62%, transparent) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border-color: rgba(var(--border-rgb), 0.30) !important;
-  box-shadow: inset 0 0 0 1px rgba(var(--border-rgb), 0.14);
+  background: color-mix(in srgb, var(--card) 55%, transparent) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  border-color: rgba(var(--border-rgb), 0.26) !important;
+  box-shadow: none;
 }
 
 /* Keep focus readable on search */
-.app-chrome-search:focus {
-  background: color-mix(in srgb, var(--card) 92%, var(--input-bg)) !important;
+html .app-chrome-search:focus,
+html[data-skin] .app-chrome-search:focus,
+html[data-device="mobile"] .app-chrome-search:focus {
+  background: color-mix(in srgb, var(--card) 90%, var(--input-bg)) !important;
   border-color: var(--accent-1) !important;
   box-shadow: 0 0 0 3px rgba(var(--focus-rgb), 0.2) !important;
 }

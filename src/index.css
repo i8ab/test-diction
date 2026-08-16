@@ -5,7 +5,7 @@
     background-color: var(--paper);
     background-image: var(--app-bg, none), var(--app-bg-image, none);
     background-size: cover, cover;
-    background-position: center center, center center;
+    background-position: center top, center top;
     background-repeat: no-repeat, no-repeat;
     background-attachment: scroll, scroll;
     font-family: var(--font-latin);
@@ -14,6 +14,13 @@
     html, body {
       background-attachment: fixed, fixed;
     }
+  }
+  /* Mobile: never stretch/deform the photo — keep cover + top position, no fixed */
+  html[data-device="mobile"] html,
+  html[data-device="mobile"] body {
+    background-attachment: scroll !important;
+    background-size: cover !important;
+    background-position: center top !important;
   }
   * { box-sizing: border-box; }
 
@@ -317,7 +324,7 @@
   /* ================= Toolbar entrance + search polish ================= */
   .toolbar-anim { animation: fadeInUp 0.4s cubic-bezier(0.22,1,0.36,1) both; }
   .toolbar-search-input { transition: box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease; }
-  .toolbar-search-input:focus { background: var(--card) !important; }
+  .toolbar-search-input:focus { background: color-mix(in srgb, var(--card) 92%, var(--input-bg)) !important; }
 
   /* On narrow / mobile screens, force the search field onto its own full-width
      row so the results dropdown never sits beside (and gets covered by) the
@@ -1440,8 +1447,23 @@ html[data-device="tablet"] .letter-section-anchor {
 /* --- Mobile app-like mode --- */
 html[data-device="mobile"] .app-main-row {
   flex-direction: column !important;
-  gap: 10px !important;
-  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
+  gap: 12px !important;
+  padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)) !important;
+}
+/* Breathing room + prevent elements stacking into each other */
+html[data-device="mobile"] .app-container {
+  padding-left: max(14px, env(safe-area-inset-left, 0px)) !important;
+  padding-right: max(14px, env(safe-area-inset-right, 0px)) !important;
+}
+html[data-device="mobile"] .exam-banner-slot {
+  margin-bottom: 10px !important;
+}
+html[data-device="mobile"] .toolbar-row {
+  margin-bottom: 8px !important;
+}
+html[data-device="mobile"] .section-tabs-row {
+  gap: 6px !important;
+  margin-top: 12px !important;
 }
 html[data-device="mobile"] .letter-rail {
   flex: 0 0 auto !important;
@@ -1458,8 +1480,8 @@ html[data-device="mobile"] .letter-rail {
   justify-content: flex-start !important;
   align-items: center !important;
   align-self: stretch !important;
-  gap: 4px 6px !important;
-  padding: 8px 10px !important;
+  gap: 5px 7px !important;
+  padding: 10px 12px !important;
   border: 1px solid rgba(var(--border-rgb), 0.12) !important;
   border-radius: 14px !important;
   background: var(--card, #ffffff) !important;
@@ -1470,6 +1492,7 @@ html[data-device="mobile"] .letter-rail {
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.04),
     0 4px 14px -4px rgba(0, 0, 0, 0.08) !important;
+  margin-bottom: 4px;
 }
 html[data-device="mobile"] .letter-rail::-webkit-scrollbar {
   display: none !important;
@@ -1598,9 +1621,10 @@ html[data-device="mobile"] .app-main-row {
   display: block !important;
 }
 .entry-card--mobile {
-  padding: 10px 10px !important;
-  gap: 8px !important;
-  border-radius: 12px !important;
+  padding: 12px 12px !important;
+  gap: 10px !important;
+  border-radius: 14px !important;
+  margin-bottom: 2px;
 }
 .entry-card--mobile .entry-card-word-row {
   gap: 6px !important;
@@ -1784,28 +1808,22 @@ html[data-device="mobile"] .toolbar-search-input {
   font-size: calc(1em * var(--ui-scale, 1));
 }
 
-/* Sticky search on mobile */
+/* Sticky search on mobile — clean, no dark/black strip.
+   Avoid stacking photo + heavy mix that turned into a muddy black bar
+   over the search input. Use near-solid theme paper + light blur only. */
 html[data-device="mobile"] .mobile-sticky-search {
-  /* Was a flat opaque --paper strip, which sat directly behind the
-     now-transparent .app-chrome-search input and hid its glass look
-     whenever this row stuck to the top while scrolling. Tinted/blurred
-     the same way as the header (skin --app-bg wash + blur) so the two
-     stay visually consistent and the search bar's transparency is
-     still visible once it's stuck. */
   position: sticky;
   top: 0;
   z-index: 70;
-  background-color: color-mix(in srgb, var(--paper, #faf8f5) 82%, transparent);
-  background-image: var(--app-bg, none);
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: top center;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  padding-top: 6px;
-  padding-bottom: 6px;
-  margin-inline: -4px;
-  padding-inline: 4px;
+  background-color: color-mix(in srgb, var(--paper) 94%, transparent) !important;
+  background-image: none !important; /* no photo wash here — prevents black band */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding-top: 8px;
+  padding-bottom: 8px;
+  margin-inline: 0;
+  padding-inline: 0;
+  border-bottom: 1px solid rgba(var(--border-rgb), 0.10);
 }
 
 /* Bottom nav: no blue/accent highlight on active or press */
@@ -2490,12 +2508,9 @@ html[data-exam-visual="1"][data-theme="dark"] {
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Header styles ──
-   The header now picks up the active skin's wash (--app-bg, set by
-   applySkinTheme) instead of a flat --paper fill, so a gradient skin
-   (aurora, dusk, etc.) shows the same gradient in the header instead of
-   a plain color. --app-bg is optional (skins without one fall back to
-   "none", which is a harmless no-op background-image), so this is safe
-   for every skin, including ones with no bg gradient defined. */
+   Header takes the REAL theme/skin color (var(--paper) + optional --app-bg
+   wash) so it looks solid and consistent with the rest of the UI, not a
+   washed-out shade. Glass keeps a light blur but stays mostly opaque. */
 .app-top-header {
   background-repeat: no-repeat;
   background-size: cover;
@@ -2510,18 +2525,18 @@ html[data-header-style="solid"] .app-top-header {
 }
 html[data-header-style="glass"] .app-top-header,
 html:not([data-header-style]) .app-top-header {
-  /* mostly opaque, tinted with the skin's gradient, softly blurred */
-  background-color: color-mix(in srgb, var(--paper) 88%, transparent) !important;
+  /* near-solid theme color so header feels substantial, light blur only */
+  background-color: color-mix(in srgb, var(--paper) 96%, transparent) !important;
   background-image: var(--app-bg, none) !important;
-  backdrop-filter: blur(14px) saturate(1.1);
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  backdrop-filter: blur(12px) saturate(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.05);
 }
 html[data-header-style="clear"] .app-top-header {
-  /* mostly transparent — skin gradient (and page behind it) shows through */
-  background-color: color-mix(in srgb, var(--paper) 55%, transparent) !important;
+  /* lighter — skin / page still visible through */
+  background-color: color-mix(in srgb, var(--paper) 72%, transparent) !important;
   background-image: var(--app-bg, none) !important;
-  backdrop-filter: blur(6px) !important;
-  -webkit-backdrop-filter: blur(6px) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
   border-bottom-color: rgba(var(--border-rgb), 0.14) !important;
 }
 
@@ -2863,20 +2878,22 @@ html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
 }
 
 
-/* ── Search bar: always glass/transparent, independent of Header Style ──
-   Previously this followed data-header-style (solid/glass/clear), so
-   picking "Solid" for the header made the search bar opaque too. It's
-   now a fixed, always-transparent look that no longer reads or reacts
-   to data-header-style at all. */
+/* ── Search bar: clean glass, independent of Header Style ──
+   Uses a readable mix of input-bg + card so it never collapses into a
+   pure black / muddy strip on dark skins or photo backgrounds. */
 html .app-chrome-search {
-  /* "html " prefix keeps this ahead of the unrelated
-     html[data-skin] .toolbar-search-input rule below on specificity,
-     so this stays the single source of truth for the search bar look. */
-  background: color-mix(in srgb, var(--input-bg) 72%, transparent) !important;
-  backdrop-filter: blur(10px) !important;
-  -webkit-backdrop-filter: blur(10px) !important;
-  border-color: rgba(var(--border-rgb), 0.30) !important;
+  background: color-mix(in srgb, var(--input-bg) 85%, var(--card)) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border-color: rgba(var(--border-rgb), 0.28) !important;
   transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* Mobile: slightly stronger so the field stays clear and never looks black */
+html[data-device="mobile"] .app-chrome-search {
+  background: color-mix(in srgb, var(--input-bg) 88%, var(--card)) !important;
+  border-color: rgba(var(--border-rgb), 0.26) !important;
+  min-height: 44px;
 }
 
 /* ── Stats bar: still driven by Header Style, same as before ── */
@@ -2907,9 +2924,9 @@ html[data-header-style="clear"] .app-stats-bar {
   box-shadow: inset 0 0 0 1px rgba(var(--border-rgb), 0.14);
 }
 
-/* Keep focus readable on transparent search */
+/* Keep focus readable on search */
 .app-chrome-search:focus {
-  background: color-mix(in srgb, var(--card) 88%, transparent) !important;
+  background: color-mix(in srgb, var(--card) 92%, var(--input-bg)) !important;
   border-color: var(--accent-1) !important;
   box-shadow: 0 0 0 3px rgba(var(--focus-rgb), 0.2) !important;
 }

@@ -1312,7 +1312,7 @@ export default function MainView({
       />
     )}
 
-/* Focus mode exit chip removed per request */
+/* Focus mode exit chip removed */
     </>
   );
 }

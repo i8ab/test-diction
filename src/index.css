@@ -1789,9 +1789,9 @@ html[data-device="mobile"] .mobile-sticky-search {
   position: sticky;
   top: 0;
   z-index: 70;
-  background: color-mix(in srgb, var(--paper, #faf8f5) 92%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: var(--paper, #faf8f5);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   padding-top: 6px;
   padding-bottom: 6px;
   margin-inline: -4px;
@@ -2490,13 +2490,14 @@ html[data-header-style="solid"] .app-top-header {
 }
 html[data-header-style="glass"] .app-top-header,
 html:not([data-header-style]) .app-top-header {
-  /* no backdrop-filter — avoids milky white haze on all themes */
-  background: color-mix(in srgb, var(--paper) 90%, transparent) !important;
+  /* fully opaque so content never shows through the header */
+  background: var(--paper) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 html[data-header-style="clear"] .app-top-header {
-  background: color-mix(in srgb, var(--paper) 72%, transparent) !important;
+  /* mostly opaque to avoid text bleeding through */
+  background: color-mix(in srgb, var(--paper) 96%, transparent) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   border-bottom-color: rgba(var(--border-rgb), 0.14) !important;

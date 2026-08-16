@@ -59,6 +59,13 @@ export default function SentencePracticeModal({
   const word = entry?.word || entry?.term || "";
   const total = list.length;
 
+  // Always reset write state when moving to a new word
+  useEffect(() => {
+    setSentence("");
+    setUsedWord(null);
+    setPhase("write");
+  }, [idx]);
+
   useEffect(() => {
     if (phase === "write") {
       setTimeout(() => inputRef.current?.focus(), 80);
@@ -76,8 +83,15 @@ export default function SentencePracticeModal({
   function containsWord(text, target) {
     const t = String(target || "").toLowerCase().trim();
     if (!t) return false;
-    const re = new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
-    return re.test(String(text || ""));
+    const s = String(text || "").toLowerCase();
+    // Word-boundary match (works for Latin); also allow simple includes for short Arabic/other scripts
+    try {
+      const re = new RegExp(`(?:^|[^\\p{L}\\p{N}_])${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:[^\\p{L}\\p{N}_]|$)`, "iu");
+      if (re.test(s)) return true;
+    } catch (_) {}
+    // Fallback: whole-word via spaces / punctuation
+    const padded = ` ${s.replace(/[^\p{L}\p{N}\s]/gu, " ")} `;
+    return padded.includes(` ${t} `);
   }
 
   function goReview() {
@@ -97,9 +111,7 @@ export default function SentencePracticeModal({
   function next() {
     if (idx < total - 1) {
       setIdx((i) => i + 1);
-      setSentence("");
-      setUsedWord(null);
-      setPhase("write");
+      // sentence / usedWord / phase are reset by the idx effect above
     } else {
       setPhase("done");
     }

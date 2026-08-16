@@ -1,41 +1,45 @@
-  html, body {
+  html {
     margin: 0;
     padding: 0;
-    /* Photo underneath + gradient/pattern overlay on top (both optional) */
+    background-color: var(--paper);
+  }
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+    background-image: none;
+    font-family: var(--font-latin);
+    /* stacking context so body::before (z-index:-1) stays visible behind content */
+    position: relative;
+    z-index: 0;
+    min-height: 100dvh;
+  }
+  /* Fixed background layer — same in every section, never scrolls away
+     (fixes EN→AR looking flat while Academic/AR→AR looked fine) */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
     background-color: var(--paper);
     background-image: var(--app-bg, none), var(--app-bg-image, none);
     background-size: cover, cover;
     background-position: center top, center top;
     background-repeat: no-repeat, no-repeat;
-    background-attachment: scroll, scroll;
-    font-family: var(--font-latin);
   }
-  @media (hover: hover) and (pointer: fine) {
-    html, body {
-      background-attachment: fixed, fixed;
-    }
-  }
-  /* Mobile: photo must stay sharp — no stretch, no fixed, and no heavy skin wash */
-  html[data-device="mobile"],
-  html[data-device="mobile"] body {
-    background-attachment: scroll !important;
-    background-size: cover !important;
-    background-position: center top !important;
-  }
-  /* On mobile the skin gradient overlays are too opaque and melt the photo into
-     a flat muddy wash. Keep a light paper tint only so the real image shows. */
-  html[data-device="mobile"][data-has-bg-image="1"] body {
+  /* Mobile: lighter overlay so the photo stays clear (heavy skin washes look muddy) */
+  html[data-device="mobile"][data-has-bg-image="1"] body::before {
     background-image:
       linear-gradient(
         180deg,
         color-mix(in srgb, var(--paper) 28%, transparent) 0%,
         color-mix(in srgb, var(--paper) 42%, transparent) 100%
       ),
-      var(--app-bg-image, none) !important;
-    background-size: cover, cover !important;
-    background-position: center top, center top !important;
-    background-repeat: no-repeat, no-repeat !important;
-    background-attachment: scroll, scroll !important;
+      var(--app-bg-image, none);
+    background-size: cover, cover;
+    background-position: center top, center top;
+    background-repeat: no-repeat, no-repeat;
   }
   * { box-sizing: border-box; }
 

@@ -34,9 +34,10 @@ export default function SentencePracticeModal({
     selectAllUnits,
   } = useUnitScope(academicUnits, activeUnitId, entries);
 
-  // Snapshot the practice list once (and when units/scope change).
-  // Do NOT depend on srsStats — recording an answer must not reshuffle
-  // the list mid-session (that was keeping the old sentence on a new word).
+  // Snapshot the practice list once when the modal opens / units change.
+  // Never re-shuffle when srsStats updates (that caused old sentence to stick on a new word).
+  const listRef = useRef(null);
+  const listKey = `${(unitFilteredEntries || []).length}-${studiedIds?.size || 0}-${limit}-${(selectedUnitIds || []).join(",")}`;
   const list = useMemo(() => {
     const base = (unitFilteredEntries || []).filter((e) => studiedIds.has(e.id));
     const scored = base.map((e) => {
@@ -46,9 +47,11 @@ export default function SentencePracticeModal({
       return { e, score: due * 8 + level };
     });
     scored.sort((a, b) => a.score - b.score);
-    return shuffleArray(scored.map((x) => x.e).slice(0, Math.min(limit * 2, scored.length))).slice(0, limit);
+    const next = shuffleArray(scored.map((x) => x.e).slice(0, Math.min(limit * 2, scored.length))).slice(0, limit);
+    listRef.current = next;
+    return next;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unitFilteredEntries, studiedIds, limit]);
+  }, [listKey]);
 
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState("write"); // write | review | done
@@ -323,13 +326,26 @@ export default function SentencePracticeModal({
                   >
                     {sentence}
                   </div>
-                  {containsWord(sentence, word) ? (
+                  {/* Show auto-check only before the user self-assesses */}
+                  {usedWord == null && (
+                    containsWord(sentence, word) ? (
+                      <div style={{ marginTop: 8, fontSize: 13, color: "#34c759", fontWeight: 600 }}>
+                        ✓ {tr(isAr, "Word appears in your sentence", "الكلمة موجودة في جملتك")}
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: 8, fontSize: 13, color: "var(--danger)", fontWeight: 600 }}>
+                        ✗ {tr(isAr, "Word not found in sentence", "الكلمة مش موجودة في الجملة")}
+                      </div>
+                    )
+                  )}
+                  {usedWord === true && (
                     <div style={{ marginTop: 8, fontSize: 13, color: "#34c759", fontWeight: 600 }}>
-                      ✓ {tr(isAr, "Word appears in your sentence", "الكلمة موجودة في جملتك")}
+                      ✓ {tr(isAr, "Marked as correct", "تم تسجيلها صحيحة")}
                     </div>
-                  ) : (
-                    <div style={{ marginTop: 8, fontSize: 13, color: "var(--danger)", fontWeight: 600 }}>
-                      ✗ {tr(isAr, "Word not found in sentence", "الكلمة مش موجودة في الجملة")}
+                  )}
+                  {usedWord === false && (
+                    <div style={{ marginTop: 8, fontSize: 13, color: "var(--muted-strong)", fontWeight: 600 }}>
+                      {tr(isAr, "Marked as skipped", "تم تخطيها")}
                     </div>
                   )}
                 </div>
@@ -376,6 +392,19 @@ export default function SentencePracticeModal({
                         {tr(isAr, "Yes", "أيوا")}
                       </button>
                     </div>
+                    {!containsWord(sentence, word) && (
+                      <button
+                        type="button"
+                        onClick={() => { setPhase("write"); setUsedWord(null); }}
+                        style={{
+                          width: "100%", marginTop: 10, padding: "10px", borderRadius: 10,
+                          border: "none", background: "transparent", color: "var(--accent-1)",
+                          fontWeight: 600, fontSize: 13, cursor: "pointer", textDecoration: "underline",
+                        }}
+                      >
+                        {tr(isAr, "Edit sentence", "عدّل الجملة")}
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <button

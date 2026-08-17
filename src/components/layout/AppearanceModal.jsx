@@ -221,10 +221,8 @@ export default function AppearanceModal({
     ? T(skinMeta.label.en, skinMeta.label.ar, skinMeta.label.de, skinMeta.label.fr)
     : "Classic";
 
-  const layoutSummary = [
-    T("Comfortable", "مريح"),
-    cardHeight === "compact" ? T("Thin", "رفيع") : cardHeight === "comfortable" ? T("Tall", "مرتفع") : T("Normal", "عادي"),
-  ].join(" · ");
+  const layoutSummary =
+    cardHeight === "compact" ? T("Thin", "رفيع") : cardHeight === "comfortable" ? T("Tall", "مرتفع") : T("Normal", "عادي");
 
   const accentLabel = accentTheme === "custom"
     ? T("Custom", "مخصص")

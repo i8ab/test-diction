@@ -125,42 +125,39 @@ export default function ToolsMenu({
   // قفل تمرير الخلفية لأي حجم شاشة طالما القائمة مفتوحة
   useBodyScrollLock(open);
 
-  // تجميع العناصر في فئات منطقية
+  // تجميع العناصر في فئات أوضح وأقل زحمة
   const categories = [
     {
       id: "practice",
       title: tr(isAr, "Practice", "التدريب"),
       items: [
-        // مراجعة
         { key: "quick", icon: <LayersIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quick review", "مراجعة سريعة"), onClick: onQuickReview },
         ...(typeof onWeaknessReview === "function"
           ? [{ key: "weakness", icon: <FlameIcon size={18} />, tint: "#ff3b30", label: tr(isAr, "Weakness review", "مراجعة الضعف"), onClick: onWeaknessReview }]
           : []),
-        // بطاقات (Smart بدل Flashcards العادية)
         ...(typeof onSmartCards === "function"
           ? [{ key: "smartCards", icon: <LayersIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Smart cards", "بطاقات ذكية"), onClick: onSmartCards }]
           : []),
-        // استماع وكتابة
         { key: "dictation", icon: <MicIcon size={18} />, tint: "#e76f51", label: tr(isAr, "Listening & Dictation", "استماع وإملاء"), onClick: onDictation },
         ...(typeof onSentencePractice === "function"
           ? [{ key: "sentence", icon: <CheckIcon size={18} />, tint: "#32ade6", label: tr(isAr, "Sentence practice", "تمرين الجمل"), onClick: onSentencePractice }]
           : []),
-        // اختبارات
         { key: "quiz", icon: <QuizIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quiz", "اختبار"), onClick: onQuiz },
         { key: "exam", icon: <FlameIcon size={18} />, tint: "#e85d04", label: tr(isAr, "Exam Mode", "وضع الامتحان"), onClick: onExamMode },
-        // اكتشاف
         { key: "random", icon: <WandIcon size={18} />, tint: "#7b2cbf", label: tr(isAr, "Random word", "كلمة عشوائية"), onClick: onRandomWord },
+      ],
+    },
+    {
+      id: "mindset",
+      title: tr(isAr, "Mindset", "تحفيز ودعاء"),
+      items: [
         ...(typeof onMotivation === "function"
           ? [{ key: "motivation", icon: <StarIcon size={18} />, tint: "#ff6b6b", label: tr(isAr, "Motivation", "تحفيز"), onClick: onMotivation }]
           : []),
         ...(typeof onStudyDua === "function"
           ? [{ key: "studyDua", icon: <StarIcon size={18} />, tint: "#7e22ce", label: tr(isAr, "Study Du'as", "أدعية المذاكرة"), onClick: onStudyDua }]
           : []),
-        { key: "morning", icon: <StarIcon size={18} />, tint: "#ffcc00", label: tr(isAr, "Morning review", "مراجعة الصباح"), onClick: onQuickReview },
-        ...(typeof onWeaknessReview === "function"
-          ? [{ key: "night", icon: <StarIcon size={18} />, tint: "#5856d6", label: tr(isAr, "Night review", "مراجعة قبل النوم"), onClick: onWeaknessReview }]
-          : []),
-      ],
+      ].filter(Boolean),
     },
     {
       id: "progress",
@@ -172,8 +169,8 @@ export default function ToolsMenu({
           ? [{ key: "weekly", icon: <StatsIcon size={18} />, tint: "#30d158", label: tr(isAr, "Weekly report", "التقرير الأسبوعي"), onClick: onWeeklyReport }]
           : []),
         { key: "achievements", icon: <StarIcon size={18} />, tint: "#f4a261", label: tr(isAr, "Achievements", "الإنجازات"), onClick: onAchievements },
-        { key: "leaderboard", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Leaderboard", "الترتيب"), onClick: onLeaderboard },
         { key: "goals", icon: <FlameIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Goals", "الأهداف"), onClick: onGoals },
+        { key: "leaderboard", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Leaderboard", "الترتيب"), onClick: onLeaderboard },
         ...(typeof onLevels === "function"
           ? [{ key: "levels", icon: <TrophyIcon size={18} />, tint: "#f5c542", label: tr(isAr, "Levels & XP", "المستويات والنقاط"), onClick: onLevels }]
           : []),
@@ -222,7 +219,7 @@ export default function ToolsMenu({
         { key: "import", icon: importing ? <LoaderIcon size={18} /> : <UploadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Import CSV", "استيراد CSV"), onClick: onImport, disabled: importing },
       ],
     },
-  ];
+  ].filter((cat) => cat.items.length > 0);
 
   function handleItemClick(item) {
     if (item.disabled) return;

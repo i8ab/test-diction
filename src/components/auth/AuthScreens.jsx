@@ -17,6 +17,7 @@ import { Shell, LanguageToggle } from "../layout/Shell";
 import DevicePicker from "../layout/DevicePicker";
 import { GenderPicker } from "../common/GenderUI";
 import { birthDateInputMin, birthDateInputMax } from "../../lib/utils/authUtils";
+import { BAC_TRACKS, BAC_GRADES, getSpecialtyOptions } from "../../lib/config/baccalaureate";
 
 const MAX_AVATAR_BYTES = 180000;
 
@@ -68,6 +69,9 @@ function AuthScreens({
   signupAvatar = "", setSignupAvatar,
   signupGender = "", setSignupGender,
   signupBirthDate = "", setSignupBirthDate,
+  signupBacTrack = "", setSignupBacTrack,
+  signupBacGrade = "", setSignupBacGrade,
+  signupBacSpecialty = "", setSignupBacSpecialty,
   signupError, setSignupError, signupSaving, handleSignup,
   usernameInput, setUsernameInput,
   passwordInput, setPasswordInput,
@@ -375,6 +379,83 @@ function AuthScreens({
                 {atr("You can add or change this later in your account.", "تقدر تضيفه أو تعدّله بعدين من صفحة حسابك.")}
               </div>
             </div>
+
+
+            {/* مسار البكالوريا + الصف + المادة التخصصية */}
+            <div className="auth-field-1" style={{ marginTop: 16, marginBottom: 4 }}>
+              <label style={labelStyle} htmlFor="signup-bac-track">
+                {atr("Baccalaureate track", "مسار البكالوريا")}
+              </label>
+              <select
+                id="signup-bac-track"
+                value={signupBacTrack || ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSignupBacTrack && setSignupBacTrack(v);
+                  setSignupBacSpecialty && setSignupBacSpecialty("");
+                }}
+                style={{ ...authInputStyle, cursor: "pointer" }}
+              >
+                <option value="">{atr("Select track…", "اختَر المسار…")}</option>
+                {BAC_TRACKS.map((tr_) => (
+                  <option key={tr_.id} value={tr_.id}>{appIsAr ? tr_.ar : tr_.en}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="auth-field-1" style={{ marginTop: 14, marginBottom: 4 }}>
+              <label style={labelStyle} htmlFor="signup-bac-grade">
+                {atr("Grade", "الصف")}
+              </label>
+              <select
+                id="signup-bac-grade"
+                value={signupBacGrade || ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSignupBacGrade && setSignupBacGrade(v);
+                  if (v !== "2") setSignupBacSpecialty && setSignupBacSpecialty("");
+                }}
+                style={{ ...authInputStyle, cursor: "pointer" }}
+              >
+                <option value="">{atr("Select grade…", "اختَر الصف…")}</option>
+                {BAC_GRADES.map((g) => (
+                  <option key={g.id} value={g.id}>{appIsAr ? g.ar : g.en}</option>
+                ))}
+              </select>
+            </div>
+
+            {signupBacGrade === "2" && signupBacTrack && (
+              <div className="auth-field-1" style={{ marginTop: 14, marginBottom: 4 }}>
+                <label style={labelStyle} htmlFor="signup-bac-specialty">
+                  {atr("Specialized subject", "المادة التخصصية")}
+                </label>
+                <select
+                  id="signup-bac-specialty"
+                  value={signupBacSpecialty || ""}
+                  onChange={(e) => setSignupBacSpecialty && setSignupBacSpecialty(e.target.value)}
+                  style={{ ...authInputStyle, cursor: "pointer" }}
+                >
+                  <option value="">{atr("Select subject…", "اختَر المادة…")}</option>
+                  {getSpecialtyOptions(signupBacTrack).map((s) => (
+                    <option key={s.id} value={s.id}>{appIsAr ? s.ar : s.en}</option>
+                  ))}
+                </select>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
+                  {atr("Year-2 elective for your track.", "اختيار الصف الثاني حسب مسارك.")}
+                </div>
+              </div>
+            )}
+
+            {signupBacGrade === "3" && signupBacTrack && (() => {
+              const track = BAC_TRACKS.find((x) => x.id === signupBacTrack);
+              if (!track) return null;
+              return (
+                <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 12, background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.12)", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.5 }}>
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>{atr("Year-3 subjects (fixed)", "مواد الصف الثالث (ثابتة)")}</div>
+                  {(track.grade3Subjects || []).map((s) => (appIsAr ? s.ar : s.en)).join(appIsAr ? " · " : " · ")}
+                </div>
+              );
+            })()}
 
             <div className="auth-field-2">
               <label style={labelStyle} htmlFor="signup-username"><UserIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Username", "اسم المستخدم")}</label>

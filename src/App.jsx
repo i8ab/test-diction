@@ -76,6 +76,9 @@ export default function DictionaryApp() {
   const [signupAvatar, setSignupAvatar] = useState("");
   const [signupGender, setSignupGender] = useState(""); // "male" | "female"
   const [signupBirthDate, setSignupBirthDate] = useState(""); // YYYY-MM-DD optional
+  const [signupBacTrack, setSignupBacTrack] = useState("");
+  const [signupBacGrade, setSignupBacGrade] = useState(""); // "2" | "3"
+  const [signupBacSpecialty, setSignupBacSpecialty] = useState("");
   const [authError, setAuthError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
   const [signupError, setSignupError] = useState("");
@@ -1195,6 +1198,9 @@ export default function DictionaryApp() {
       signupAvatar,
       signupGender,
       signupBirthDate,
+      signupBacTrack,
+      signupBacGrade,
+      signupBacSpecialty,
       appIsAr,
       ensureMigratedAccounts,
       commitRecordVersion,
@@ -1205,6 +1211,9 @@ export default function DictionaryApp() {
       setSignupAvatar,
       setSignupGender,
       setSignupBirthDate,
+      setSignupBacTrack,
+      setSignupBacGrade,
+      setSignupBacSpecialty,
       setAccounts,
       setEntries,
       setLogs,
@@ -1526,6 +1535,9 @@ export default function DictionaryApp() {
         signupAvatar={signupAvatar} setSignupAvatar={setSignupAvatar}
         signupGender={signupGender} setSignupGender={setSignupGender}
         signupBirthDate={signupBirthDate} setSignupBirthDate={setSignupBirthDate}
+        signupBacTrack={signupBacTrack} setSignupBacTrack={setSignupBacTrack}
+        signupBacGrade={signupBacGrade} setSignupBacGrade={setSignupBacGrade}
+        signupBacSpecialty={signupBacSpecialty} setSignupBacSpecialty={setSignupBacSpecialty}
         signupError={signupError} setSignupError={setSignupError} signupSaving={signupSaving} handleSignup={handleSignup}
         usernameInput={usernameInput} setUsernameInput={setUsernameInput}
         passwordInput={passwordInput} setPasswordInput={setPasswordInput}

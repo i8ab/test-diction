@@ -1,6 +1,7 @@
 // Modern admin panel: accounts, activity log, invite & backup tools.
 import { useState, useEffect, useMemo } from "react";
 import { tr } from "../../lib/config/i18n";
+import { formatBacSummary } from "../../lib/config/baccalaureate";
 import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { translateAdminError, LOG_ACTION_META, LOG_SECTIONS } from "../../lib/state/logs";
 import { downloadFullBackup } from "../../lib/utils/backupUtils";
@@ -438,6 +439,11 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                         <div style={{ fontSize: 12, color: "var(--muted-strong)", fontFamily: "ui-monospace, monospace", marginTop: 2 }} dir="ltr">
                           @{a.username || "—"}
                         </div>
+                        {formatBacSummary(a, isAr) && (
+                          <div style={{ fontSize: 11.5, color: "var(--muted-strong)", marginTop: 3, lineHeight: 1.35, fontWeight: 600 }}>
+                            {formatBacSummary(a, isAr)}
+                          </div>
+                        )}
                         <div style={{ fontSize: 11.5, fontWeight: 700, color: a.role === "admin" ? BRASS : "var(--muted)", marginTop: 2 }}>
                           {a.role === "admin" ? tr(isAr, "Admin", "مسؤول") : tr(isAr, "User", "مستخدم")}
                         </div>

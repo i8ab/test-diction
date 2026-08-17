@@ -20,6 +20,7 @@ import {
   setMainAccountCode,
 } from "./accountVault";
 import { normalizeExamConfig } from "./exam";
+import { getBacTrack, getSpecialtyOptions } from "../config/baccalaureate";
 
 const MAX_SIGNUP_RETRIES = 8;
 
@@ -37,6 +38,9 @@ export async function performSignup(p) {
     signupAvatar,
     signupGender,
     signupBirthDate,
+    signupBacTrack,
+    signupBacGrade,
+    signupBacSpecialty,
     appIsAr,
     ensureMigratedAccounts,
     commitRecordVersion,
@@ -47,6 +51,9 @@ export async function performSignup(p) {
     setSignupAvatar,
     setSignupGender,
     setSignupBirthDate,
+    setSignupBacTrack,
+    setSignupBacGrade,
+    setSignupBacSpecialty,
     setAccounts,
     setEntries,
     setLogs,
@@ -88,6 +95,25 @@ export async function performSignup(p) {
     return;
   }
 
+  const track = getBacTrack(signupBacTrack);
+  if (!track) {
+    setSignupError(appIsAr ? "اختَر مسار البكالوريا." : "Please select your baccalaureate track.");
+    return;
+  }
+  if (signupBacGrade !== "2" && signupBacGrade !== "3") {
+    setSignupError(appIsAr ? "اختَر الصف (ثاني أو ثالث ثانوي)." : "Please select your grade (2nd or 3rd secondary).");
+    return;
+  }
+  let bacSpecialty = "";
+  if (signupBacGrade === "2") {
+    const opts = getSpecialtyOptions(signupBacTrack);
+    if (!opts.some((o) => o.id === signupBacSpecialty)) {
+      setSignupError(appIsAr ? "اختَر المادة التخصصية." : "Please select your specialized subject.");
+      return;
+    }
+    bacSpecialty = signupBacSpecialty;
+  }
+
   setSignupSaving(true);
   const code = generatePersonalCode();
   let passwordHash;
@@ -110,6 +136,9 @@ export async function performSignup(p) {
     ...(signupAvatar ? { avatar: signupAvatar } : {}),
     gender: signupGender,
     ...(bCheck.birthDate ? { birthDate: bCheck.birthDate } : {}),
+    bacTrack: signupBacTrack,
+    bacGrade: signupBacGrade,
+    ...(bacSpecialty ? { bacSpecialty } : {}),
   };
 
   try {
@@ -162,6 +191,9 @@ export async function performSignup(p) {
         setSignupAvatar("");
         setSignupGender("");
         if (typeof setSignupBirthDate === "function") setSignupBirthDate("");
+        if (typeof setSignupBacTrack === "function") setSignupBacTrack("");
+        if (typeof setSignupBacGrade === "function") setSignupBacGrade("");
+        if (typeof setSignupBacSpecialty === "function") setSignupBacSpecialty("");
         goToStage("pendingShown");
         return;
       } catch (err) {
@@ -229,6 +261,9 @@ export async function performSignup(p) {
         setSignupAvatar("");
         setSignupGender("");
         if (typeof setSignupBirthDate === "function") setSignupBirthDate("");
+        if (typeof setSignupBacTrack === "function") setSignupBacTrack("");
+        if (typeof setSignupBacGrade === "function") setSignupBacGrade("");
+        if (typeof setSignupBacSpecialty === "function") setSignupBacSpecialty("");
         goToStage("pendingShown");
         return;
       } catch (_) {

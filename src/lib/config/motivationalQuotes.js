@@ -410,6 +410,51 @@ export const MOTIVATIONAL_QUOTES = [
     explainAr: "علم يُنتفع به يبقى بعد الموت. ما تتعلمه اليوم قد يعيش بعدك.",
     explainEn: "Knowledge that benefits remains after death. What you learn today may outlive you.",
   },
+
+  // ══════════ أدعية المذاكرة (قبل / أثناء / بعد) ══════════
+  {
+    mood: "study", type: "dua", phase: "before", ref: "دعاء قبل المذاكرة",
+    ar: "اللَّهُمَّ انْفَعْنِي بِمَا عَلَّمْتَنِي، وَعَلِّمْنِي مَا يَنْفَعُنِي، وَزِدْنِي عِلْمًا",
+    en: "O Allah, benefit me with what You have taught me, teach me what benefits me, and increase me in knowledge.",
+    explainAr: "قبل ما تبدأ: اطلب النفع والزيادة. العلم بلا نفع عبء، والنفع بلا علم ناقص.",
+    explainEn: "Before you begin: ask for benefit and increase. Knowledge without benefit is a burden.",
+  },
+  {
+    mood: "study", type: "dua", phase: "before", ref: "دعاء قبل المذاكرة",
+    ar: "رَبِّ اشْرَحْ لِي صَدْرِي وَيَسِّرْ لِي أَمْرِي وَاحْلُلْ عُقْدَةً مِّن لِّسَانِي يَفْقَهُوا قَوْلِي",
+    en: "My Lord, expand for me my breast, ease my task, and untie the knot from my tongue so they may understand my speech.",
+    explainAr: "دعاء موسى عليه السلام. اطلب شرح الصدر وتيسير الأمر قبل الجلسة.",
+    explainEn: "The prayer of Musa. Ask for an expanded chest and ease before the session.",
+  },
+  {
+    mood: "study", type: "dua", phase: "during", ref: "دعاء أثناء المذاكرة",
+    ar: "اللَّهُمَّ لَا سَهْلَ إِلَّا مَا جَعَلْتَهُ سَهْلًا، وَأَنْتَ تَجْعَلُ الْحَزْنَ إِذَا شِئْتَ سَهْلًا",
+    en: "O Allah, nothing is easy except what You make easy, and You make the difficult easy if You will.",
+    explainAr: "لما يتعقد عليك جزء: ذكّر نفسك أن التيسير بيد الله، واستمر.",
+    explainEn: "When a part gets hard: remind yourself ease is from Allah, and keep going.",
+  },
+  {
+    mood: "study", type: "dua", phase: "during", ref: "دعاء أثناء المذاكرة",
+    ar: "يَا مُعَلِّمَ إِبْرَاهِيمَ عَلِّمْنِي، وَيَا مُفَهِّمَ سُلَيْمَانَ فَهِّمْنِي",
+    en: "O Teacher of Ibrahim, teach me; O One who gave understanding to Sulayman, grant me understanding.",
+    explainAr: "دعاء مشهور لطلب الفهم. كرّره لما يقفز المعنى منك أثناء الجلسة.",
+    explainEn: "A well-known dua for understanding. Repeat it when meaning slips during the session.",
+  },
+  {
+    mood: "study", type: "dua", phase: "after", ref: "دعاء بعد المذاكرة",
+    ar: "اللَّهُمَّ إِنِّي أَسْتَوْدِعُكَ مَا قَرَأْتُ وَمَا حَفِظْتُ وَمَا تَعَلَّمْتُ، فَرُدَّهُ عَلَيَّ عِنْدَ حَاجَتِي إِلَيْهِ",
+    en: "O Allah, I entrust to You what I have read, memorized, and learned; return it to me when I need it.",
+    explainAr: "بعد ما تخلّص: استودع ما أخذت عند الله ليرده لك وقت الحاجة (امتحان أو عمل).",
+    explainEn: "After you finish: entrust what you learned to Allah so He returns it when you need it.",
+  },
+  {
+    mood: "study", type: "dua", phase: "after", ref: "دعاء بعد المذاكرة",
+    ar: "الْحَمْدُ لِلَّهِ الَّذِي بِنِعْمَتِهِ تَتِمُّ الصَّالِحَاتُ",
+    en: "Praise be to Allah by whose favor good deeds are completed.",
+    explainAr: "اختم بالحمد. الجلسة نعمة؛ الشكر يثبتها ويفتح لما بعدها.",
+    explainEn: "End with praise. The session is a blessing; gratitude secures it and opens what follows.",
+  },
+
 ];
 
 const SEEN_KEY = "twoTongues.motivQuotesSeen";

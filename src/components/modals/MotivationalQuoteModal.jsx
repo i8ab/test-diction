@@ -60,9 +60,17 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
 
   const colors = mood ? MOOD_COLORS[mood] || MOOD_COLORS.hope : null;
   const isQuran = quote?.type === "quran";
+  const isDua = quote?.type === "dua";
   const typeLabel = isQuran
     ? tr(isAr, "Quran", "قرآن")
-    : tr(isAr, "Hadith", "حديث");
+    : isDua
+      ? tr(isAr, "Du'a", "دعاء")
+      : tr(isAr, "Hadith", "حديث");
+  const PHASE_LABEL = {
+    before: { ar: "قبل المذاكرة", en: "Before study" },
+    during: { ar: "أثناء المذاكرة", en: "During study" },
+    after: { ar: "بعد الجلسة", en: "After session" },
+  };
   const moodMeta = MOODS.find((m) => m.id === mood);
 
   return (
@@ -165,7 +173,7 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
                   transition: "all 0.15s ease",
                 }}
               >
-                {tr(isAr, m.en, m.ar)}
+                {m.ar}
               </button>
             );
           })}
@@ -213,7 +221,7 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
                     fontSize: 11,
                   }}
                 >
-                  {tr(isAr, moodMeta.en, moodMeta.ar)}
+                  {moodMeta.ar}
                 </span>
               )}
               <span
@@ -222,14 +230,30 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
                   borderRadius: 999,
                   background: isQuran
                     ? "rgba(34, 197, 94, 0.16)"
-                    : "rgba(14, 165, 233, 0.16)",
-                  color: isQuran ? "#15803d" : "#0369a1",
+                    : isDua
+                      ? "rgba(168, 85, 247, 0.16)"
+                      : "rgba(14, 165, 233, 0.16)",
+                  color: isQuran ? "#15803d" : isDua ? "#7e22ce" : "#0369a1",
                   fontWeight: 800,
                   fontSize: 11,
                 }}
               >
                 {typeLabel}
               </span>
+              {isDua && quote.phase && PHASE_LABEL[quote.phase] && (
+                <span
+                  style={{
+                    padding: "2px 10px",
+                    borderRadius: 999,
+                    background: "rgba(168, 85, 247, 0.10)",
+                    color: "#7e22ce",
+                    fontWeight: 700,
+                    fontSize: 11,
+                  }}
+                >
+                  {tr(isAr, PHASE_LABEL[quote.phase].en, PHASE_LABEL[quote.phase].ar)}
+                </span>
+              )}
             </div>
 
             {/* Arabic text — always primary */}

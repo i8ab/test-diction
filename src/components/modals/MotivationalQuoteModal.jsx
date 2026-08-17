@@ -33,7 +33,7 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
     setTimeout(() => {
       setQuote(getRandomQuote(exclude, moodId));
       setFade(true);
-    }, 100);
+    }, 160);
   }, []);
 
   const onPickMood = (moodId) => {
@@ -165,7 +165,7 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
                   transition: "all 0.15s ease",
                 }}
               >
-                {m.ar}
+                {isAr ? m.ar : m.en}
               </button>
             );
           })}
@@ -189,7 +189,7 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
               justifyContent: "center",
               gap: 12,
               opacity: fade ? 1 : 0,
-              transition: "opacity 0.12s ease",
+              transition: "opacity 0.2s ease",
             }}
           >
             {/* badges */}
@@ -213,7 +213,7 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
                     fontSize: 11,
                   }}
                 >
-                  {moodMeta.ar}
+                  {isAr ? moodMeta.ar : moodMeta.en}
                 </span>
               )}
               <span

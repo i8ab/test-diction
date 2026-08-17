@@ -6,11 +6,11 @@
 export const DUA_PHASES = [
   { id: "before", ar: "قبل المذاكرة", en: "Before study" },
   { id: "during", ar: "أثناء المذاكرة", en: "During study" },
-  { id: "after", ar: "بعد الجلسة", en: "After session" },
+  { id: "after", ar: "بعد المذاكرة", en: "After study" },
 ];
 
 export const STUDY_DUAS = [
-  // ── قبل المذاكرة (حد أقصى 2) ──
+  // ── قبل المذاكرة ──
   {
     phase: "before",
     ref: "دعاء قبل المذاكرة",
@@ -27,7 +27,23 @@ export const STUDY_DUAS = [
     explainAr: "اطلب شرح الصدر وتيسير الأمر قبل الجلسة.",
     explainEn: "Ask for an expanded chest and ease before the session.",
   },
-  // ── أثناء المذاكرة (حد أقصى 2) ──
+  {
+    phase: "before",
+    ref: "دعاء الاستفتاح",
+    ar: "اللَّهُمَّ إِنِّي أَسْأَلُكَ عِلْمًا نَافِعًا، وَرِزْقًا طَيِّبًا، وَعَمَلًا مُتَقَبَّلًا",
+    en: "O Allah, I ask You for beneficial knowledge, good provision, and accepted deeds.",
+    explainAr: "ابدأ بطلب العلم النافع والرزق الطيب والعمل المقبول؛ هذا يجمع بين الدنيا والآخرة.",
+    explainEn: "Start by asking for beneficial knowledge, pure provision, and accepted deeds.",
+  },
+  {
+    phase: "before",
+    ref: "دعاء التوفيق",
+    ar: "رَبِّ زِدْنِي عِلْمًا، وَوَفِّقْنِي لِمَا تُحِبُّ وَتَرْضَى",
+    en: "My Lord, increase me in knowledge, and grant me success in what You love and are pleased with.",
+    explainAr: "اطلب الزيادة في العلم مع التوفيق لما يحبه الله؛ فالعلم بلا توفيق قد يضل.",
+    explainEn: "Ask for increase in knowledge together with success in what Allah loves.",
+  },
+  // ── أثناء المذاكرة ──
   {
     phase: "during",
     ref: "دعاء التيسير",
@@ -44,7 +60,23 @@ export const STUDY_DUAS = [
     explainAr: "دعاء لطلب الفهم. كرّره لما يقفز المعنى منك أثناء الجلسة.",
     explainEn: "A dua for understanding. Repeat it when meaning slips during the session.",
   },
-  // ── بعد الجلسة (حد أقصى 2) ──
+  {
+    phase: "during",
+    ref: "دعاء التركيز",
+    ar: "اللَّهُمَّ ثَبِّتْ قَلْبِي عَلَى دِينِكَ، وَثَبِّتْ لِسَانِي عَلَى ذِكْرِكَ، وَاجْعَلْنِي مِمَّنْ يَتَفَكَّرُ فِي خَلْقِكَ",
+    en: "O Allah, keep my heart firm upon Your religion, my tongue firm upon Your remembrance, and make me among those who reflect on Your creation.",
+    explainAr: "لما يتشتت الانتباه: اطلب تثبيت القلب واللسان، والتفكر بدل التشتت.",
+    explainEn: "When attention wanders: ask for a firm heart and tongue, and reflection instead of distraction.",
+  },
+  {
+    phase: "during",
+    ref: "دعاء الحفظ",
+    ar: "اللَّهُمَّ إِنِّي أَسْأَلُكَ فَهْمَ النَّبِيِّينَ، وَحِفْظَ الْمُرْسَلِينَ، وَإِلْهَامَ الْمَلَائِكَةِ الْمُقَرَّبِينَ",
+    en: "O Allah, I ask You for the understanding of the prophets, the memorization of the messengers, and the inspiration of the near angels.",
+    explainAr: "اطلب الفهم والحفظ والإلهام أثناء المذاكرة؛ خاصة لما تحفظ أو تراجع.",
+    explainEn: "Ask for understanding, memorization, and inspiration while studying — especially when reviewing or memorizing.",
+  },
+  // ── بعد المذاكرة ──
   {
     phase: "after",
     ref: "دعاء بعد المذاكرة",
@@ -60,6 +92,22 @@ export const STUDY_DUAS = [
     en: "Praise be to Allah by whose favor good deeds are completed.",
     explainAr: "اختم بالحمد. الجلسة نعمة؛ الشكر يثبتها ويفتح لما بعدها.",
     explainEn: "End with praise. The session is a blessing; gratitude secures it and opens what follows.",
+  },
+  {
+    phase: "after",
+    ref: "دعاء البركة",
+    ar: "اللَّهُمَّ بَارِكْ لِي فِيمَا عَلَّمْتَنِي، وَاجْعَلْهُ حُجَّةً لِي لَا عَلَيَّ، وَارْزُقْنِي الْعَمَلَ بِهِ",
+    en: "O Allah, bless me in what You have taught me, make it a proof for me not against me, and grant me the ability to act upon it.",
+    explainAr: "اطلب البركة في العلم، وأن يكون لك لا عليك، مع العمل به. العلم بلا عمل حجة.",
+    explainEn: "Ask for blessing in the knowledge, that it be a proof for you not against you, and the ability to act on it.",
+  },
+  {
+    phase: "after",
+    ref: "دعاء الاستمرار",
+    ar: "رَبِّ أَوْزِعْنِي أَنْ أَشْكُرَ نِعْمَتَكَ الَّتِي أَنْعَمْتَ عَلَيَّ، وَأَنْ أَعْمَلَ صَالِحًا تَرْضَاهُ، وَأَدْخِلْنِي بِرَحْمَتِكَ فِي عِبَادِكَ الصَّالِحِينَ",
+    en: "My Lord, enable me to be grateful for Your favor which You have bestowed upon me, and to do righteousness that You approve, and admit me by Your mercy into the ranks of Your righteous servants.",
+    explainAr: "بعد الجلسة: اشكر النعمة، واطلب الاستمرار على العمل الصالح والانتماء للصالحين.",
+    explainEn: "After the session: thank for the blessing, and ask to continue in righteous deeds and join the righteous.",
   },
 ];
 

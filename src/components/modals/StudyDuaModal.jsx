@@ -25,7 +25,7 @@ export default function StudyDuaModal({ isAr, onClose }) {
     setTimeout(() => {
       setDua(getRandomDua(phaseId, exclude));
       setFade(true);
-    }, 100);
+    }, 160);
   }, []);
 
   const onPickPhase = (phaseId) => {
@@ -123,13 +123,13 @@ export default function StudyDuaModal({ isAr, onClose }) {
           </button>
         </div>
 
-        {/* Phase picker — labels always Arabic as requested for mood-like choices */}
+        {/* Phase picker — labels follow selected language */}
         <div
           style={{
             display: "flex",
             flexWrap: "wrap",
             gap: 8,
-            direction: "rtl",
+            direction: isAr ? "rtl" : "ltr",
           }}
         >
           {DUA_PHASES.map((p) => {
@@ -153,7 +153,7 @@ export default function StudyDuaModal({ isAr, onClose }) {
                   transition: "all 0.15s ease",
                 }}
               >
-                {p.ar}
+                {isAr ? p.ar : p.en}
               </button>
             );
           })}
@@ -177,7 +177,7 @@ export default function StudyDuaModal({ isAr, onClose }) {
               justifyContent: "center",
               gap: 12,
               opacity: fade ? 1 : 0,
-              transition: "opacity 0.12s ease",
+              transition: "opacity 0.2s ease",
             }}
           >
             <div
@@ -200,7 +200,7 @@ export default function StudyDuaModal({ isAr, onClose }) {
                     fontSize: 11,
                   }}
                 >
-                  {phaseMeta.ar}
+                  {isAr ? phaseMeta.ar : phaseMeta.en}
                 </span>
               )}
               <span
@@ -295,10 +295,14 @@ export default function StudyDuaModal({ isAr, onClose }) {
               fontSize: 14,
               fontWeight: 600,
               border: "1px dashed rgba(var(--border-rgb),0.25)",
-              direction: "rtl",
+              direction: isAr ? "rtl" : "ltr",
             }}
           >
-            اختار وقت الدعاء: قبل المذاكرة، أثناءها، أو بعد ما تخلّص الجلسة.
+            {tr(
+              isAr,
+              "Choose when: before study, during, or after you finish.",
+              "اختار وقت الدعاء: قبل المذاكرة، أثناءها، أو بعد ما تخلّص."
+            )}
           </div>
         )}
 

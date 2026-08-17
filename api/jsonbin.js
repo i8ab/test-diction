@@ -90,32 +90,93 @@ function pickBanner(raw) {
 }
 
 
-function pickExamConfig(raw) {
+function normalizeExamTime(t) {
+  if (typeof t !== "string" || !/^\d{1,2}:\d{2}$/.test(t)) return "09:00";
+  const [hh, mm] = t.split(":");
+  return `${String(Number(hh)).padStart(2, "0")}:${mm}`;
+}
+
+function pickExamItem(raw) {
   if (!raw || typeof raw !== "object") return null;
   const date =
     typeof raw.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.date)
       ? raw.date
       : null;
-  let time =
-    typeof raw.time === "string" && /^\d{1,2}:\d{2}$/.test(raw.time)
-      ? raw.time
-      : "09:00";
-  if (time) {
-    const [hh, mm] = time.split(":");
-    time = `${String(Number(hh)).padStart(2, "0")}:${mm}`;
-  }
+  if (!date) return null;
+  const id =
+    typeof raw.id === "string" && raw.id.trim()
+      ? raw.id.trim()
+      : `ex_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
   const color =
     typeof raw.color === "string" && raw.color.trim()
       ? raw.color.trim()
       : "#e85d04";
   return {
-    enabled: raw.enabled === true && !!date,
+    id,
     date,
-    time,
+    time: normalizeExamTime(raw.time),
     color,
     labelEn: typeof raw.labelEn === "string" ? raw.labelEn : "",
     labelAr: typeof raw.labelAr === "string" ? raw.labelAr : "",
   };
+}
+
+/**
+ * Supports both legacy single-exam shape { enabled, date, time, ... }
+ * and the queue shape { enabled, exams: [...] }.
+ * Always persists the full exams array so every client sees the next exam
+ * when the current one passes (not only the device that saved it).
+ */
+function pickExamConfig(raw) {
+  if (!raw || typeof raw !== "object") return null;
+
+  let exams = [];
+  if (Array.isArray(raw.exams) && raw.exams.length > 0) {
+    const seen = new Set();
+    for (const it of raw.exams) {
+      const item = pickExamItem(it);
+      if (!item || seen.has(item.id)) continue;
+      seen.add(item.id);
+      exams.push(item);
+    }
+  } else if (
+    typeof raw.date === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(raw.date)
+  ) {
+    // migrate legacy single exam → queue of one
+    const item = pickExamItem(raw);
+    if (item) exams = [item];
+  }
+
+  // sort by date+time ascending
+  exams.sort((a, b) => {
+    const ta = examItemTs(a);
+    const tb = examItemTs(b);
+    return ta - tb;
+  });
+
+  const enabled = raw.enabled === true && exams.length > 0;
+  // mirror of the first/active item for older readers
+  const active = exams[0] || null;
+
+  return {
+    enabled,
+    exams,
+    date: active ? active.date : null,
+    time: active ? active.time : "09:00",
+    color: active ? active.color : "#e85d04",
+    labelEn: active ? active.labelEn : "",
+    labelAr: active ? active.labelAr : "",
+  };
+}
+
+function examItemTs(item) {
+  if (!item || !item.date) return Infinity;
+  const [y, m, d] = item.date.split("-").map(Number);
+  const time = normalizeExamTime(item.time);
+  const [hh, mm] = time.split(":").map(Number);
+  const dt = new Date(y, m - 1, d, hh || 0, mm || 0, 0, 0);
+  return Number.isNaN(dt.getTime()) ? Infinity : dt.getTime();
 }
 
 

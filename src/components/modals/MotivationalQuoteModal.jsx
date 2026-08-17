@@ -3,11 +3,13 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD } from "../../lib/config/theme";
 import { XIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
-import { getRandomQuote, getQuoteCount } from "../../lib/config/motivationalQuotes";
+import { getRandomQuote, MOODS } from "../../lib/config/motivationalQuotes";
+
+const MOOD_LABEL = Object.fromEntries(MOODS.map((m) => [m.id, m]));
 
 /**
- * Motivational quote box — bilingual EN + AR.
- * Opens with a random study motivation; "Another" picks a new one.
+ * بطاقة آية / حديث حسب الحالة النفسية
+ * العربية مُشكَّلة أولًا، مع المصدر والمزاج
  */
 export default function MotivationalQuoteModal({ isAr, onClose }) {
   const [quote, setQuote] = useState(() => getRandomQuote());
@@ -33,11 +35,20 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose, pickNew]);
 
+  const moodMeta = quote?.mood ? MOOD_LABEL[quote.mood] : null;
+  const isQuran = quote?.type === "quran";
+  const typeLabel = isQuran
+    ? tr(isAr, "Quran", "قرآن")
+    : tr(isAr, "Hadith", "حديث");
+  const moodLabel = moodMeta
+    ? tr(isAr, moodMeta.en, moodMeta.ar)
+    : "";
+
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={tr(isAr, "Motivation", "تحفيز")}
+      aria-label={tr(isAr, "A verse for your heart", "آية لقلبك")}
       style={{
         position: "fixed",
         inset: 0,
@@ -73,7 +84,7 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
           <div>
             <div
               style={{
-                fontFamily: "'Source Sans 3', sans-serif",
+                fontFamily: "var(--font-latin), 'Source Sans 3', sans-serif",
                 fontSize: 13,
                 fontWeight: 700,
                 color: "var(--muted-strong)",
@@ -81,24 +92,64 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
                 textTransform: "uppercase",
               }}
             >
-              {tr(isAr, "Motivation", "تحفيز")}
+              {tr(isAr, "A word for your heart", "كلمة لقلبك")}
             </div>
-            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
-              {tr(isAr, `${getQuoteCount()} study messages`, `${getQuoteCount()} رسالة دراسية`)}
-            </div>
+            {(moodLabel || quote?.ref) && (
+              <div
+                style={{
+                  marginTop: 4,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "var(--muted)",
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 6,
+                  alignItems: "center",
+                }}
+              >
+                {moodLabel && (
+                  <span
+                    style={{
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      background: "color-mix(in srgb, var(--accent-1) 14%, transparent)",
+                      color: "var(--accent-1)",
+                      fontWeight: 700,
+                      fontSize: 11,
+                    }}
+                  >
+                    {moodLabel}
+                  </span>
+                )}
+                <span
+                  style={{
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                    background: isQuran
+                      ? "color-mix(in srgb, var(--success, #2ecc71) 16%, transparent)"
+                      : "color-mix(in srgb, var(--accent-2, #19A7CE) 16%, transparent)",
+                    color: isQuran ? "var(--success, #1a9b5c)" : "var(--accent-2, #19A7CE)",
+                    fontWeight: 700,
+                    fontSize: 11,
+                  }}
+                >
+                  {typeLabel}
+                </span>
+              </div>
+            )}
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label={tr(isAr, "Close", "إغلاق")}
             style={{
+              border: "none",
+              background: "var(--input-bg)",
+              borderRadius: 10,
               width: 36,
               height: 36,
-              borderRadius: 10,
-              border: "none",
-              background: "rgba(var(--border-rgb),0.1)",
-              color: INK,
               cursor: "pointer",
+              color: "var(--icon-muted)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -108,35 +159,51 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
           </button>
         </div>
 
-        {/* Quote card */}
+        {/* Card body — Arabic primary with tashkeel-friendly font */}
         <div
           style={{
-            padding: "20px 16px",
             borderRadius: 16,
-            background: "linear-gradient(145deg, rgba(var(--accent-1-rgb, 176, 141, 87), 0.12), rgba(var(--border-rgb),0.06))",
+            padding: "18px 16px",
+            background:
+              "linear-gradient(145deg, rgba(var(--accent-1-rgb, 176, 141, 87), 0.12), rgba(var(--border-rgb),0.06))",
             border: "1px solid rgba(var(--border-rgb),0.12)",
-            minHeight: 140,
+            minHeight: 160,
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
-            gap: 14,
+            gap: 12,
             opacity: fade ? 1 : 0,
             transition: "opacity 0.12s ease",
           }}
         >
           <div
             style={{
-              fontSize: 17,
+              fontSize: 20,
               fontWeight: 600,
-              lineHeight: 1.55,
+              lineHeight: 1.9,
               color: INK,
-              direction: "ltr",
-              textAlign: "left",
-              fontFamily: "'Source Sans 3', 'Inter', sans-serif",
+              direction: "rtl",
+              textAlign: "center",
+              fontFamily: "var(--font-arabic), 'Amiri', 'Noto Naskh Arabic', serif",
             }}
           >
-            {quote.en}
+            {quote.ar}
           </div>
+
+          {quote.ref && (
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "var(--accent-1)",
+                textAlign: "center",
+                direction: isAr ? "rtl" : "ltr",
+              }}
+            >
+              {isQuran ? (isAr ? `سورة ${quote.ref}` : `Qur'an — ${quote.ref}`) : (isAr ? quote.ref : quote.ref)}
+            </div>
+          )}
+
           <div
             style={{
               height: 1,
@@ -144,19 +211,61 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
               margin: "2px 0",
             }}
           />
+
           <div
             style={{
-              fontSize: 16,
-              fontWeight: 600,
-              lineHeight: 1.7,
+              fontSize: 14,
+              fontWeight: 500,
+              lineHeight: 1.55,
               color: "var(--muted-strong)",
-              direction: "rtl",
-              textAlign: "right",
-              fontFamily: "'Cairo', 'Tajawal', 'Almarai', sans-serif",
+              direction: "ltr",
+              textAlign: "center",
+              fontFamily: "var(--font-latin), 'Source Sans 3', sans-serif",
             }}
           >
-            {quote.ar}
+            {quote.en}
           </div>
+
+          {(quote.explainAr || quote.explainEn) && (
+            <div
+              style={{
+                marginTop: 4,
+                padding: "10px 12px",
+                borderRadius: 12,
+                background: "rgba(var(--border-rgb),0.08)",
+                border: "1px solid rgba(var(--border-rgb),0.12)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: "var(--accent-1)",
+                  marginBottom: 6,
+                  textAlign: isAr ? "right" : "left",
+                }}
+              >
+                {tr(isAr, "Reflection", "العظة")}
+              </div>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  lineHeight: 1.7,
+                  color: INK,
+                  direction: isAr ? "rtl" : "ltr",
+                  textAlign: isAr ? "right" : "left",
+                  fontFamily: isAr
+                    ? "var(--font-arabic), 'Amiri', serif"
+                    : "var(--font-latin), 'Source Sans 3', sans-serif",
+                }}
+              >
+                {isAr ? (quote.explainAr || quote.explainEn) : (quote.explainEn || quote.explainAr)}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
@@ -193,7 +302,7 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
               cursor: "pointer",
             }}
           >
-            {tr(isAr, "Another message", "رسالة أخرى")}
+            {tr(isAr, "Another", "أخرى")}
           </button>
         </div>
       </div>

@@ -4,16 +4,16 @@ import {
   normalizeExamConfig,
   examCountdownParts,
   loadExamConfigCache,
+  getActiveExam,
+  getExamQueueInfo,
+  examItemTimestamp,
 } from "../../lib/state/exam";
 import { selectExamPool } from "../../lib/utils/quizHelpers";
 import { FlameIcon, CalendarIcon } from "../common/Icons";
 
 /**
- * Fixed exam countdown banner.
- * - Visible to everyone when admin has enabled + set a date.
- * - No dismiss (X) for regular users — only admin can turn it off from settings.
- * - Color controlled by admin.
- * - Live countdown: weeks · days · hours · minutes · seconds
+ * Exam countdown banner — shows the *active* exam from the queue.
+ * When that exam passes, the next one becomes active automatically.
  */
 export default function ExamBanner({
   examConfig,
@@ -35,21 +35,30 @@ export default function ExamBanner({
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!cfg.enabled || !cfg.date) return;
+    if (!cfg.enabled || !cfg.exams?.length) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [cfg.enabled, cfg.date]);
+  }, [cfg.enabled, cfg.exams]);
 
-  const parts = useMemo(() => examCountdownParts(cfg, now), [cfg, now]);
+  const queue = useMemo(() => getExamQueueInfo(cfg, now), [cfg, now]);
+  const active = queue.active;
+  const parts = useMemo(() => {
+    if (!active) {
+      return { totalMs: 0, past: false, weeks: 0, days: 0, hours: 0, minutes: 0, seconds: 0, totalDays: 0 };
+    }
+    // countdown against the active item only
+    return examCountdownParts(
+      { enabled: true, exams: [active], date: active.date, time: active.time },
+      now
+    );
+  }, [active, now]);
 
   const weakCount = useMemo(
     () => selectExamPool(entries, studiedIds, srsDueAt, srsBox, studiedAt, 500).length,
     [entries, studiedIds, srsDueAt, srsBox, studiedAt]
   );
 
-  // Hidden when admin hasn't enabled it
-  if (!cfg.enabled || !cfg.date) {
-    // Admins still see a small prompt to set it up (optional)
+  if (!cfg.enabled || !cfg.exams?.length) {
     if (isAdmin && typeof onOpenExamSettings === "function") {
       return (
         <div
@@ -87,10 +96,18 @@ export default function ExamBanner({
     return null;
   }
 
-  const accent = cfg.color || "#e85d04";
+  if (!active) return null;
+
+  const accent = active.color || cfg.color || "#e85d04";
   const label = isAr
-    ? (cfg.labelAr || "الامتحان")
-    : (cfg.labelEn || "Exam");
+    ? (active.labelAr || active.labelEn || "الامتحان")
+    : (active.labelEn || active.labelAr || "Exam");
+
+  const nextUpcoming = queue.sorted?.find((it) => {
+    if (it.id === active.id) return false;
+    const ts = examItemTimestamp(it);
+    return ts != null && ts > now;
+  });
 
   function Unit({ value, unitEn, unitAr }) {
     return (
@@ -128,6 +145,16 @@ export default function ExamBanner({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", opacity: 0.9 }}>
             {label}
+            {queue.total > 1 && (
+              <span style={{ opacity: 0.85, fontWeight: 600 }}>
+                {" · "}
+                {tr(
+                  isAr,
+                  `${Math.min(queue.index + 1, queue.total)} of ${queue.total}`,
+                  `${Math.min(queue.index + 1, queue.total)} من ${queue.total}`
+                )}
+              </span>
+            )}
           </div>
           <div style={{ fontSize: 13.5, fontWeight: 600, marginTop: 1 }}>
             {parts.past
@@ -158,6 +185,26 @@ export default function ExamBanner({
           <Unit value={parts.hours} unitEn="HRS" unitAr="ساعة" />
           <Unit value={parts.minutes} unitEn="MIN" unitAr="دقيقة" />
           <Unit value={parts.seconds} unitEn="SEC" unitAr="ثانية" />
+        </div>
+      )}
+
+      {parts.past && nextUpcoming && (
+        <div style={{ fontSize: 12.5, marginBottom: 10, opacity: 0.95 }}>
+          {tr(
+            isAr,
+            `Next: ${nextUpcoming.labelAr || nextUpcoming.labelEn || nextUpcoming.date}`,
+            `التالي: ${nextUpcoming.labelEn || nextUpcoming.labelAr || nextUpcoming.date}`
+          )}
+        </div>
+      )}
+
+      {!parts.past && nextUpcoming && queue.total > 1 && (
+        <div style={{ fontSize: 11.5, marginBottom: 8, opacity: 0.88 }}>
+          {tr(
+            isAr,
+            `After this → ${nextUpcoming.labelAr || nextUpcoming.labelEn || nextUpcoming.date}`,
+            `بعده → ${nextUpcoming.labelEn || nextUpcoming.labelAr || nextUpcoming.date}`
+          )}
         </div>
       )}
 

@@ -838,38 +838,7 @@ export default function AppearanceModal({
             </AppearanceSection>
           )}
 
-          {/* ── Icon style ── */}
-          {typeof onChangeIconStyle === "function" && (
-            <AppearanceSection {...sp("icons")}
-              title={T("Icon style", "شكل الأيقونات")}
-              summary={iconStyle === "filled" ? T("Filled", "ممتلئة") : T("Outline", "خطية")}
-            >
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                {[
-                  { id: "outline", en: "Outline", ar: "خطية" },
-                  { id: "filled", en: "Filled", ar: "ممتلئة" },
-                ].map((opt) => {
-                  const active = iconStyle === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => onChangeIconStyle(opt.id)}
-                      className="touch-target"
-                      style={{
-                        minHeight: 48, borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13,
-                        border: active ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.14)",
-                        background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))" : "var(--input-bg)",
-                        color: "var(--ink)",
-                      }}
-                    >
-                      {T(opt.en, opt.ar)}
-                    </button>
-                  );
-                })}
-              </div>
-            </AppearanceSection>
-          )}
+          {/* Icon style fixed to Outline — setting removed. */}
 
           {/* ── Exam visual ── */}
           {typeof onChangeExamVisual === "function" && (

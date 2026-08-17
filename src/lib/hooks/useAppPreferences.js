@@ -280,14 +280,13 @@ export function useAppPreferences() {
   }, []);
   useEffect(() => { applyModalStyle(modalStyle); }, [modalStyle]);
 
-  // --- Icon style ---
-  const [iconStyle, setIconStyleState] = useState(loadIconStyle);
-  const setIconStyle = useCallback((id) => {
-    setIconStyleState(id);
-    saveIconStyle(id);
-    applyIconStyle(id);
+  // --- Icon style: fixed to outline. Choice removed. ---
+  const iconStyle = "outline";
+  const setIconStyle = useCallback(() => {
+    saveIconStyle("outline");
+    applyIconStyle("outline");
   }, []);
-  useEffect(() => { applyIconStyle(iconStyle); }, [iconStyle]);
+  useEffect(() => { applyIconStyle("outline"); }, []);
 
   // --- Motion speed: fixed to normal. Setting removed. ---
   const motionSpeed = "normal";

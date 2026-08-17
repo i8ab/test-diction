@@ -583,32 +583,12 @@ export function applySkinTheme(id, mode) {
 
 // ── Fonts (Latin UI + Arabic) ──────────────────────────────────────────
 
-/** Latin / UI body fonts */
+/** Latin / UI body fonts — only default + System */
 export const LATIN_FONTS = {
   "source-sans": {
     id: "source-sans",
     family: '"Source Sans 3", system-ui, sans-serif',
     label: { en: "Source Sans", ar: "سورس سانس" },
-  },
-  inter: {
-    id: "inter",
-    family: '"Inter", system-ui, sans-serif',
-    label: { en: "Inter", ar: "إنتر" },
-  },
-  nunito: {
-    id: "nunito",
-    family: '"Nunito", system-ui, sans-serif',
-    label: { en: "Nunito", ar: "نونيتو" },
-  },
-  "ibm-plex": {
-    id: "ibm-plex",
-    family: '"IBM Plex Sans", system-ui, sans-serif',
-    label: { en: "IBM Plex", ar: "آي بي إم بليكس" },
-  },
-  georgia: {
-    id: "georgia",
-    family: 'Georgia, "Times New Roman", serif',
-    label: { en: "Georgia", ar: "جورجيا" },
   },
   system: {
     id: "system",
@@ -617,37 +597,17 @@ export const LATIN_FONTS = {
   },
 };
 
-/** Arabic display / content fonts */
+/** Arabic display / content fonts — only default + System */
 export const ARABIC_FONTS = {
   amiri: {
     id: "amiri",
     family: '"Amiri", "Times New Roman", serif',
     label: { en: "Amiri", ar: "أميري" },
   },
-  cairo: {
-    id: "cairo",
-    family: '"Cairo", "Segoe UI", sans-serif',
-    label: { en: "Cairo", ar: "القاهرة" },
-  },
-  tajawal: {
-    id: "tajawal",
-    family: '"Tajawal", "Segoe UI", sans-serif',
-    label: { en: "Tajawal", ar: "تجوّل" },
-  },
-  "noto-naskh": {
-    id: "noto-naskh",
-    family: '"Noto Naskh Arabic", "Times New Roman", serif',
-    label: { en: "Noto Naskh", ar: "نوتو نسخ" },
-  },
-  "ibm-plex-ar": {
-    id: "ibm-plex-ar",
-    family: '"IBM Plex Sans Arabic", "Segoe UI", sans-serif',
-    label: { en: "IBM Plex Arabic", ar: "آي بي إم عربي" },
-  },
-  almarai: {
-    id: "almarai",
-    family: '"Almarai", "Segoe UI", sans-serif',
-    label: { en: "Almarai", ar: "المراعي" },
+  system: {
+    id: "system",
+    family: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+    label: { en: "System", ar: "نظام الجهاز" },
   },
 };
 
@@ -912,22 +872,19 @@ export function applyModalStyle(id) {
 // ── Icon style: outline | filled ───────────────────────────────────────
 
 export function loadIconStyle() {
-  try {
-    const v = localStorage.getItem(ICON_STYLE_KEY);
-    if (v === "outline" || v === "filled") return v;
-  } catch (_) {}
+  // Icon style choice removed — always outline.
   return "outline";
 }
 
 export function saveIconStyle(id) {
   try {
-    localStorage.setItem(ICON_STYLE_KEY, id || "outline");
+    localStorage.setItem(ICON_STYLE_KEY, "outline");
   } catch (_) {}
 }
 
 export function applyIconStyle(id) {
   try {
-    document.documentElement.setAttribute("data-icon-style", id || "outline");
+    document.documentElement.setAttribute("data-icon-style", "outline");
   } catch (_) {}
 }
 

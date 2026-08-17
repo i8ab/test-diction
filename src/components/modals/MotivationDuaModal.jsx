@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD } from "../../lib/config/theme";
-import { XIcon } from "../common/Icons";
+import { XIcon, QuranIcon, DuaIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { getRandomQuote, MOODS } from "../../lib/config/motivationalQuotes";
 import { DUA_PHASES, getRandomDua } from "../../lib/config/studyDuas";
@@ -212,7 +212,7 @@ export default function MotivationDuaModal({ isAr, onClose, initialTab = "motiva
               transition: "all 0.15s ease",
             }}
           >
-            <img src="/icons/motivation.png" alt="" width={20} height={20} style={{ borderRadius: 5, objectFit: "cover" }} />
+            <QuranIcon size={16} />
             {tr(isAr, "Motivation", "تحفيز")}
           </button>
           <button
@@ -236,7 +236,7 @@ export default function MotivationDuaModal({ isAr, onClose, initialTab = "motiva
               transition: "all 0.15s ease",
             }}
           >
-            <img src="/icons/dua.png" alt="" width={20} height={20} style={{ borderRadius: 5, objectFit: "cover" }} />
+            <DuaIcon size={16} />
             {tr(isAr, "Study Du'as", "أدعية")}
           </button>
         </div>
@@ -317,7 +317,6 @@ export default function MotivationDuaModal({ isAr, onClose, initialTab = "motiva
                       gap: 4,
                     }}
                   >
-                    <img src={isQuran ? "/icons/motivation.png" : "/icons/review.png"} alt="" width={14} height={14} style={{ borderRadius: 3, objectFit: "cover" }} />
                     {typeLabel}
                   </span>
                 </div>
@@ -468,7 +467,6 @@ export default function MotivationDuaModal({ isAr, onClose, initialTab = "motiva
                       gap: 4,
                     }}
                   >
-                    <img src="/icons/dua.png" alt="" width={14} height={14} style={{ borderRadius: 3, objectFit: "cover" }} />
                     {tr(isAr, "Du'a", "دعاء")}
                   </span>
                 </div>

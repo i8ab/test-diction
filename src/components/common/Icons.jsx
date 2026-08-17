@@ -68,6 +68,82 @@ const CalendarIcon = (p) => <Icon {...p} path={<><rect x="3" y="4" width="18" he
 const SettingsIcon = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></>} />;
 const WandIcon = (p) => <Icon {...p} path={<><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></>} />;
 
+
+/** Specialized app icons — distinct silhouettes per feature */
+const QuranIcon = (p) => (
+  <Icon
+    {...p}
+    path={
+      <>
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+        <path d="M9 7h7" />
+        <path d="M9 11h7" />
+        <path d="M9 15h4" />
+      </>
+    }
+  />
+);
+const DuaIcon = (p) => (
+  <Icon
+    {...p}
+    path={
+      <>
+        <path d="M12 3v3" />
+        <path d="M8.5 8.5c-2 1.5-3.5 3.8-3.5 6.5a5 5 0 0 0 10 0c0-2.7-1.5-5-3.5-6.5" />
+        <path d="M9.5 14.5c.5 1 1.4 1.5 2.5 1.5s2-.5 2.5-1.5" />
+        <path d="M7 22h10" />
+      </>
+    }
+  />
+);
+const HeartIcon = (p) => (
+  <Icon {...p} path={<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />} />
+);
+const TargetIcon = (p) => (
+  <Icon {...p} path={<><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></>} />
+);
+const MedalIcon = (p) => (
+  <Icon {...p} path={<><circle cx="12" cy="9" r="5"/><path d="M8.5 13.5 6 22l6-3 6 3-2.5-8.5"/><path d="M12 6v3"/></>} />
+);
+const ListChecksIcon = (p) => (
+  <Icon {...p} path={<><path d="m3 6 1.5 1.5L7 5"/><path d="m3 12 1.5 1.5L7 11"/><path d="m3 18 1.5 1.5L7 17"/><path d="M11 6h10"/><path d="M11 12h10"/><path d="M11 18h10"/></>} />
+);
+const MessageIcon = (p) => (
+  <Icon {...p} path={<><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5h-1L5 22l1.5-4A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8 11h8"/><path d="M8 14h5"/></>} />
+);
+const FileTextIcon = (p) => (
+  <Icon {...p} path={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h6"/></>} />
+);
+const ShuffleIcon = (p) => (
+  <Icon {...p} path={<><path d="m16 3 4 4-4 4"/><path d="M4 7h16"/><path d="m8 21-4-4 4-4"/><path d="M20 17H4"/></>} />
+);
+const PenLineIcon = (p) => (
+  <Icon {...p} path={<><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></>} />
+);
+const SparklesIcon = (p) => (
+  <Icon {...p} path={<><path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5Z"/><path d="M19 14v3"/><path d="M17.5 15.5h3"/><path d="M5 16v2"/><path d="M4 17h2"/></>} />
+);
+const GaugeIcon = (p) => (
+  <Icon {...p} path={<><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a8 8 0 1 0-14.8 0"/><path d="m12 12 3-3"/></>} />
+);
+const LibraryIcon = (p) => (
+  <Icon {...p} path={<><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></>} />
+);
+const SwordsIcon = (p) => (
+  <Icon {...p} path={<><path d="m14.5 17.5 3-3 3.5 3.5-1.5 1.5-3.5-3.5-1.5 1.5Z"/><path d="m9.5 6.5 3 3"/><path d="M3 21 12 12"/><path d="m9.5 17.5-3-3L3 18l1.5 1.5 3.5-3.5 1.5 1.5Z"/><path d="m14.5 6.5-3 3"/><path d="M21 3 12 12"/></>} />
+);
+const ScanTextIcon = (p) => (
+  <Icon {...p} path={<><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/><path d="M7 8h6"/><path d="M7 16h8"/></>} />
+);
+const HistoryIcon = (p) => (
+  <Icon {...p} path={<><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></>} />
+);
+const ReportIcon = (p) => (
+  <Icon {...p} path={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h2"/><path d="M8 17h8"/><path d="M14 13h2"/></>} />
+);
+
+
 function SpeakButton({ text, dir, isAr, size = 16, style, accent, showBoth = false }) {
   if (!text) return null;
   const isRtl = dir === "rtl" || /[\u0600-\u06FF]/.test(String(text));
@@ -156,5 +232,22 @@ export {
   LayersIcon,
   ShareIcon,
   CalendarIcon,
+  QuranIcon,
+  DuaIcon,
+  HeartIcon,
+  TargetIcon,
+  MedalIcon,
+  ListChecksIcon,
+  MessageIcon,
+  FileTextIcon,
+  ShuffleIcon,
+  PenLineIcon,
+  SparklesIcon,
+  GaugeIcon,
+  LibraryIcon,
+  SwordsIcon,
+  ScanTextIcon,
+  HistoryIcon,
+  ReportIcon,
   SpeakButton,
 };

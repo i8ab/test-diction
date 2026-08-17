@@ -52,6 +52,13 @@ export default function ExamModeModal({
   // Session timer
   const [remainingMs, setRemainingMs] = useState(null);
   const endAtRef = useRef(null);
+  // Keep latest answers/questions in refs so the countdown callback never
+  // grades against a stale empty array (classic interval closure bug).
+  const answersRef = useRef(answers);
+  const questionsRef = useRef(questions);
+  const finishingRef = useRef(false);
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+  useEffect(() => { questionsRef.current = questions; }, [questions]);
 
   const {
     hasUnits,
@@ -79,10 +86,11 @@ export default function ExamModeModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Countdown ticker
+  // Countdown ticker — reads answers via ref so timeout grades what was actually answered
   useEffect(() => {
     if (stage !== "running" || !endAtRef.current) return;
     const tick = () => {
+      if (!endAtRef.current || finishingRef.current) return;
       const left = endAtRef.current - Date.now();
       if (left <= 0) {
         setRemainingMs(0);
@@ -132,6 +140,7 @@ export default function ExamModeModal({
     setPhase("prompt");
     setStartedAt(Date.now());
     setFinishedAt(null);
+    finishingRef.current = false;
 
     if (timerMin > 0) {
       endAtRef.current = Date.now() + timerMin * 60 * 1000;
@@ -185,7 +194,10 @@ export default function ExamModeModal({
       return;
     }
     setQuestions(capped);
-    setAnswers(new Array(capped.length).fill(null));
+    const emptyAnswers = new Array(capped.length).fill(null);
+    answersRef.current = emptyAnswers;
+    questionsRef.current = capped;
+    setAnswers(emptyAnswers);
     setIndex(0);
     setSelected(null);
     setTypedAnswer("");
@@ -193,14 +205,23 @@ export default function ExamModeModal({
   }
 
   function finishSession() {
-    if (stage === "done") return;
+    // Guard against double-fire (timer tick + manual submit, or React Strict Mode)
+    if (finishingRef.current) return;
+    finishingRef.current = true;
+    endAtRef.current = null;
+
+    // Always read latest answers/questions from refs — critical when the
+    // session ends from the countdown interval (stale state closure).
+    const qs = questionsRef.current || [];
+    const ans = answersRef.current || [];
+
     const finishedTime = Date.now();
     setFinishedAt(finishedTime);
     setStage("done");
-    endAtRef.current = null;
+
     // Build final results from answers (exam: grade only at the end)
-    const finalResults = questions.map((q, i) => {
-      const a = answers[i];
+    const finalResults = qs.map((q, i) => {
+      const a = ans[i];
       if (!a) {
         return {
           id: q.id, correct: false, type: q.type,
@@ -213,7 +234,7 @@ export default function ExamModeModal({
       return a;
     });
     setResults(finalResults);
-    if (onSaveQuizResult && questions.length > 0) {
+    if (onSaveQuizResult && qs.length > 0) {
       const finalScore = finalResults.filter((r) => r.correct).length;
       onSaveQuizResult({
         id: uid(),
@@ -227,8 +248,8 @@ export default function ExamModeModal({
     }
     // Feed SRS once at the end for each answered question
     if (onRecordSrsAnswer) {
-      questions.forEach((q, i) => {
-        const a = answers[i];
+      qs.forEach((q, i) => {
+        const a = ans[i];
         if (a) onRecordSrsAnswer(q.entryId, !!a.correct);
       });
     }
@@ -251,6 +272,7 @@ export default function ExamModeModal({
     setAnswers((prev) => {
       const next = [...prev];
       next[idx] = row;
+      answersRef.current = next; // sync immediately so timer timeout grades live answers
       return next;
     });
     setSelected(opt);
@@ -284,6 +306,7 @@ export default function ExamModeModal({
       setAnswers((old) => {
         const copy = [...old];
         copy[index] = null;
+        answersRef.current = copy;
         return copy;
       });
     }
@@ -332,6 +355,7 @@ export default function ExamModeModal({
         setAnswers((prev) => {
           const copy = [...prev];
           copy[index] = null;
+          answersRef.current = copy;
           return copy;
         });
         setSelected(null);

@@ -1,185 +1,179 @@
 /**
- * 150 bilingual (EN + AR) motivational messages for studying.
+ * Motivational messages for studying — Egyptian dialect (AR) + English.
+ * Once a quote is shown it won't repeat until the full cycle finishes.
  * Each entry: { en, ar }
  */
 export const MOTIVATIONAL_QUOTES = [
-  { en: "Small steps every day lead to big results.", ar: "خطوات صغيرة كل يوم تؤدي إلى نتائج كبيرة." },
-  { en: "You don't have to be perfect — just consistent.", ar: "مش لازم تكون مثالي، بس كن منتظم." },
-  { en: "One more word today is one less tomorrow.", ar: "كلمة زيادة النهاردة = كلمة أقل بكرة." },
-  { en: "Focus for 25 minutes. Rest. Repeat.", ar: "ركز 25 دقيقة. ارتاح. كرر." },
-  { en: "Your future self is watching — make them proud.", ar: "نسختك المستقبلية بتشوفك — خليها تفخر بيك." },
-  { en: "Progress, not perfection.", ar: "التقدّم، مش الكمال." },
-  { en: "The hardest part is starting. You've already started.", ar: "أصعب حاجة البداية. وأنت بدأت خلاص." },
-  { en: "Every expert was once a beginner.", ar: "كل خبير كان مبتدئ في يوم من الأيام." },
-  { en: "Study while others sleep. Rise while others rest.", ar: "ادرس وناس نايمة. قوم وناس لسه بترتاح." },
-  { en: "Discipline beats motivation when motivation fades.", ar: "الانضباط بيفوز على الحماس لما الحماس يضعف." },
-  { en: "You are building a skill, not chasing a grade.", ar: "إنت بتبني مهارة، مش بتطارد درجة." },
-  { en: "Mistakes are proof that you are trying.", ar: "الأخطاء دليل إنك بتحاول." },
-  { en: "A little each day adds up to a lot.", ar: "القليل كل يوم بيتراكم لكتير." },
-  { en: "Don't count the days. Make the days count.", ar: "متعدش الأيام. خلّي الأيام تعدّ." },
-  { en: "Your only competition is who you were yesterday.", ar: "منافسك الوحيد هو أنت امبارح." },
-  { en: "Clarity comes from action, not from waiting.", ar: "الوضوح بيجي من الفعل، مش من الانتظار." },
-  { en: "Protect your study time like an important meeting.", ar: "احمِ وقت مذاكرتك كأنه اجتماع مهم." },
-  { en: "Tired is temporary. Regret can last longer.", ar: "التعب مؤقت. الندم ممكن يطول." },
-  { en: "You are allowed to rest — not to quit.", ar: "مسموح لك ترتاح، مش تسيّب." },
-  { en: "Show up even when you don't feel like it.", ar: "احضر حتى لو مش حاسس إنك عايز." },
-  { en: "Learning a language is a marathon, not a sprint.", ar: "تعلّم اللغة ماراثون، مش سباق سرعة." },
-  { en: "Review is how memory becomes permanent.", ar: "المراجعة هي اللي بتخلي الذاكرة ثابتة." },
-  { en: "The word you struggle with today will be easy next week.", ar: "الكلمة اللي بتعاندك النهاردة هتبقى سهلة الأسبوع الجاي." },
-  { en: "Put your phone away for one focused session.", ar: "سيّب الموبايل بعيد جلسة تركيز واحدة." },
-  { en: "Consistency compounds. Keep going.", ar: "الانتظام بيتضاعف. كمّل." },
-  { en: "You are closer than you think.", ar: "إنت أقرب مما تتخيّل." },
-  { en: "Breathe. Open the list. Start with one word.", ar: "خُد نفس. افتح القائمة. ابدأ بكلمة واحدة." },
-  { en: "Effort is the one thing fully under your control.", ar: "المجهود هو الحاجة الوحيدة اللي تحت سيطرتك بالكامل." },
-  { en: "Today's review saves tomorrow's stress.", ar: "مراجعة النهاردة بتوفّر توتر بكرة." },
-  { en: "Be proud of showing up.", ar: "افخر إنك حضرت." },
-  { en: "Slow progress is still progress.", ar: "التقدّم البطيء لسه تقدّم." },
-  { en: "Your brain grows when it's challenged.", ar: "مخك بيكبر لما يتحدّى." },
-  { en: "Done is better than perfect when you're learning.", ar: "المُنجَز أحسن من المثالي وأنت بتتعلّم." },
-  { en: "Turn 'I have to study' into 'I get to improve'.", ar: "حوّل «لازم أذاكر» إلى « downstreamني أتطوّر»." },
-  { en: "A focused hour beats a distracted afternoon.", ar: "ساعة تركيز أحسن من ضهر مشتّت." },
-  { en: "You are training your future fluency.", ar: "إنت بتدرّب طلاقتك المستقبلية." },
-  { en: "Skip the scroll. Open the deck.", ar: "سيّب السكرول. افتح البطاقات." },
-  { en: "Courage is studying when it's hard.", ar: "الشجاعة إنك تذاكر لما تبقى صعبة." },
-  { en: "Your notes are a gift to future you.", ar: "ملاحظاتك هدية لنسختك المستقبلية." },
-  { en: "One session at a time.", ar: "جلسة واحدة في كل مرة." },
-  { en: "The discomfort of learning is temporary.", ar: "عدم راحة التعلّم مؤقتة." },
-  { en: "Keep the streak. Protect the habit.", ar: "حافظ على السلسلة. احمِ العادة." },
-  { en: "You don't need more time — you need more focus.", ar: "مش محتاج وقت أكتر — محتاج تركيز أكتر." },
-  { en: "Read it. Say it. Write it. Use it.", ar: "اقرأها. قولها. اكتبها. استخدمها." },
-  { en: "Doubt kills more dreams than failure does.", ar: "الشك بيقتل أحلام أكتر من الفشل." },
-  { en: "Start messy. Improve as you go.", ar: "ابدأ فوضوي. حسّن وأنت ماشي." },
-  { en: "Your effort today is interest on tomorrow's success.", ar: "مجهودك النهاردة فوايد على نجاح بكرة." },
-  { en: "Silence the noise. Serve the goal.", ar: "اسكت الضوضاء. خدم الهدف." },
-  { en: "You are allowed to be a beginner.", ar: "مسموح لك تكون مبتدئ." },
-  { en: "Memorize less. Review more.", ar: "احفظ أقل. راجع أكتر." },
-  { en: "Action cures anxiety about studying.", ar: "الفعل بيعالج القلق من المذاكرة." },
-  { en: "Make it easy to start: open the app first.", ar: "سهّل البداية: افتح التطبيق الأول." },
-  { en: "Hard days build strong habits.", ar: "الأيام الصعبة بتبني عادات قوية." },
-  { en: "You are not behind. You are on your path.", ar: "إنت مش متأخر. إنت على طريقك." },
-  { en: "Celebrate small wins out loud.", ar: "احتفل بالانتصارات الصغيرة بصوت عالي." },
-  { en: "The best time to study was yesterday. The next best is now.", ar: "أحسن وقت للمذاكرة كان امبارح. اللي بعده دلوقتي." },
-  { en: "Replace 'I can't' with 'I'm learning how'.", ar: "بدّل «مش قادر» بـ «بتعلّم إزاي»." },
-  { en: "Your attention is your most valuable study tool.", ar: "انتباهك أغلى أداة مذاكرة عندك." },
-  { en: "Keep going. The breakthrough is often near.", ar: "كمّل. الانفراجة غالبًا قريبة." },
-  { en: "Study with purpose, not pressure.", ar: "ذاكر بهدف، مش بضغط." },
-  { en: "A clear desk and a clear list help a clear mind.", ar: "مكتب مرتب وقائمة واضحة يساعدوا عقل صافي." },
-  { en: "You owe yourself the chance to improve.", ar: "إنت مدين لنفسك بفرصة التطوّر." },
-  { en: "Repetition is the mother of mastery.", ar: "التكرار أمّ الإتقان." },
-  { en: "Don't wait for inspiration. Create momentum.", ar: "متستناش الإلهام. اخلق زخم." },
-  { en: "Today's vocabulary is tomorrow's conversation.", ar: "مفردات النهاردة محادثة بكرة." },
-  { en: "Be kind to yourself and strict with your schedule.", ar: "كن لطيف مع نفسك وصارم مع جدولك." },
-  { en: "Finish this session. Then rest well.", ar: "خلّص الجلسة دي. وبعدين ارتاح كويس." },
-  { en: "Confidence comes after competence — keep practicing.", ar: "الثقة بتيجي بعد الكفاءة — كمّل تمرين." },
-  { en: "You are collecting wins, one word at a time.", ar: "إنت بتجمّع انتصارات، كلمة بكلمة." },
-  { en: "When it feels hard, you're growing.", ar: "لما تحس إنها صعبة، يبقى إنت بتكبر." },
-  { en: "Plan the session. Then protect it.", ar: "خطّط للجلسة. وبعدين احميها." },
-  { en: "Your future fluency is built in quiet hours.", ar: "طلاقتك المستقبلية بتتبني في الساعات الهادية." },
-  { en: "Stop negotiating with yourself. Just begin.", ar: "بطّل تفاوض مع نفسك. ابدأ بس." },
-  { en: "Quality minutes beat empty hours.", ar: "دقائق بجودة أحسن من ساعات فاضية." },
-  { en: "You can do hard things.", ar: "تقدر تعمل حاجات صعبة." },
-  { en: "Learning loves a calm, steady pace.", ar: "التعلّم بيحب إيقاع هادي وثابت." },
-  { en: "Put energy into what you can control.", ar: "حط طاقتك في اللي تحت سيطرتك." },
-  { en: "Every review is a deposit in your memory bank.", ar: "كل مراجعة إيداع في بنك ذاكرتك." },
-  { en: "Stay curious. Curiosity makes study lighter.", ar: "فضولي. الفضول بيخلّي المذاكرة أخف." },
-  { en: "You are not stuck — you are in the middle of the process.", ar: "إنت مش واقف — إنت في نص الطريق." },
-  { en: "Choose progress over comfort for a little while.", ar: "اختار التقدّم على الراحة شوية." },
-  { en: "A strong 'why' makes a hard 'how' easier.", ar: "«ليه» قوية بتخلي «إزاي» الصعبة أسهل." },
-  { en: "Close the tabs. Open the lesson.", ar: "اقفل التابات. افتح الدرس." },
-  { en: "Your pace is valid. Keep moving.", ar: "إيقاعك مقبول. فضّل تمشي." },
-  { en: "Practice until the awkward becomes automatic.", ar: "تمرّن لحد ما الغريب يبقى تلقائي." },
-  { en: "The goal is not to finish fast — it's to finish strong.", ar: "الهدف مش تخلّص بسرعة — الهدف تخلّص قوي." },
-  { en: "Write it down. Speaking it seals it.", ar: "اكتبها. قولها بيثبّتها." },
-  { en: "You are allowed to restart your focus as many times as needed.", ar: "مسموح تعيد التركيز قد ما تحتاج." },
-  { en: "Make studying the easiest choice in the room.", ar: "خلّي المذاكرة أسهل اختيار في المكان." },
-  { en: "Results follow habits. Build the habit.", ar: "النتائج بتتبع العادات. ابنِ العادة." },
-  { en: "One focused review is better than none.", ar: "مراجعة مركّزة واحدة أحسن من ولا حاجة." },
-  { en: "Trust the process. Trust your effort.", ar: "ثق في العملية. ثق في مجهودك." },
-  { en: "You are rewriting what you believe you can do.", ar: "إنت بتعيد كتابة اللي بتفتكر إنك تقدر تعمله." },
-  { en: "Keep the session short if needed — but keep it real.", ar: "خلّي الجلسة قصيرة لو محتاج — بس خلّيها حقيقية." },
-  { en: "The list gets shorter when you stay with it.", ar: "القائمة بتقصر لما تفضل معاها." },
-  { en: "Your mind is trainable. Train it today.", ar: "عقلك قابل للتدريب. درّبه النهاردة." },
-  { en: "Borrow motivation from your goals, not from your mood.", ar: "خد الحماس من أهدافك، مش من مزاجك." },
-  { en: "Show respect to your time by using it well.", ar: "احترم وقتك باستخدامه كويس." },
-  { en: "You are stacking skills that will serve you for years.", ar: "إنت بتكدّس مهارات هتخدمك سنين." },
-  { en: "Less overthinking. More doing.", ar: "تفكير أقل. عمل أكتر." },
-  { en: "A quiet study hour is a gift to your future.", ar: "ساعة مذاكرة هادية هدية لمستقبلك." },
-  { en: "Keep your promises to yourself.", ar: "احفظ وعودك لنفسك." },
-  { en: "The word that feels hard is the one worth learning.", ar: "الكلمة اللي بتحسها صعبة هي اللي تستاهل تتعلّم." },
-  { en: "You improve every time you return.", ar: "بتحسّن كل مرة بترجع." },
-  { en: "Focus is a muscle. Exercise it.", ar: "التركيز عضلة. مرّنها." },
-  { en: "Don't compare chapters. Write yours.", ar: "متقارنش الفصول. اكتب فصلَك." },
-  { en: "The finish line moves closer with every session.", ar: "خط النهاية بيقرب مع كل جلسة." },
-  { en: "Rest is part of the plan — quitting is not.", ar: "الراحة جزء من الخطة — الاستسلام مش جزء." },
-  { en: "You are capable of more than today's doubt suggests.", ar: "إنت قادر على أكتر مما بيقوله شك النهاردة." },
-  { en: "Make the next right study choice.", ar: "اعمل اختيار المذاكرة الصح الجاي." },
-  { en: "Language opens doors. Keep the key turning.", ar: "اللغة بتفتح أبواب. فضّل تلف المفتاح." },
-  { en: "Your effort is visible in your growth.", ar: "مجهودك باين في نموّك." },
-  { en: "Stay with the page a little longer.", ar: "اقعد مع الصفحة شوية زيادة." },
-  { en: "Small consistent actions beat rare intensity.", ar: "أفعال صغيرة منتظمة بتفوز على حماس نادر." },
-  { en: "You are not late. You are learning.", ar: "إنت مش متأخر. إنت بتتعلّم." },
-  { en: "Turn pressure into a plan.", ar: "حوّل الضغط لخطة." },
-  { en: "The habit is the achievement.", ar: "العادة هي الإنجاز." },
-  { en: "Speak the word. Own the word.", ar: "قول الكلمة. امتلك الكلمة." },
-  { en: "A good session starts with a clear first step.", ar: "الجلسة الكويسة بتبدأ بخطوة أولى واضحة." },
-  { en: "You can restart your focus right now.", ar: "تقدر تعيد تركيزك دلوقتي." },
-  { en: "Study is self-respect in action.", ar: "المذاكرة احترام للنفس على أرض الواقع." },
-  { en: "Keep going through the boring middle.", ar: "كمّل في الجزء الممل في النص." },
-  { en: "Your consistency will surprise you.", ar: "انتظامك هيفاجئك." },
-  { en: "Choose the book over the feed for a while.", ar: "اختار الكتاب على الفيد شوية." },
-  { en: "You are becoming someone who finishes.", ar: "إنت بتتطوّر لشخص بيخلّص." },
-  { en: "Learning loves patience.", ar: "التعلّم بيحب الصبر." },
-  { en: "Make today count with one solid session.", ar: "خلّي النهاردة لها قيمة بجلسة قوية واحدة." },
-  { en: "The struggle is part of the story.", ar: "الصعوبة جزء من القصة." },
-  { en: "Protect your energy for what matters.", ar: "احمِ طاقتك للي يهم." },
-  { en: "You grow in the minutes you almost skipped.", ar: "بتنمو في الدقايق اللي كنت هتسيبها." },
-  { en: "Keep the standard: show up and try.", ar: "حافظ على المعيار: احضر وحاول." },
-  { en: "Fluency is built in ordinary days.", ar: "الطلاقة بتتبني في الأيام العادية." },
-  { en: "Your next review is a chance to lock it in.", ar: "مراجعتك الجاية فرصة تثبّتها." },
-  { en: "Be the student who returns.", ar: "كن الطالب اللي بيرجع." },
-  { en: "The goal is growth, not a perfect score.", ar: "الهدف النمو، مش الدرجة المثالية." },
-  { en: "You have enough to begin.", ar: "عندك كفاية عشان تبدأ." },
-  { en: "Silence helps memory. Find a quiet corner.", ar: "الهدوء بيساعد الذاكرة. لاقي ركن هادي." },
-  { en: "One honest hour changes the week.", ar: "ساعة صادقة واحدة بتغيّر الأسبوع." },
-  { en: "You are allowed to improve slowly.", ar: "مسموح لك تتحسّن ببطء." },
-  { en: "Stay loyal to the plan you made on a clear day.", ar: "كن وفي للخطة اللي عملتها في يوم صافي." },
-  { en: "The work is simple: open, study, close, repeat.", ar: "الشغل بسيط: افتح، ذاكر، اقفل، كرر." },
-  { en: "Your focus is a form of self-leadership.", ar: "تركيزك شكل من أشكال قيادة النفس." },
-  { en: "Keep stacking ordinary wins.", ar: "فضّل تكدّس انتصارات عادية." },
-  { en: "You will thank yourself for this session.", ar: "هتشكر نفسك على الجلسة دي." },
-  { en: "Learning is a long friendship with effort.", ar: "التعلّم صداقة طويلة مع المجهود." },
-  { en: "Start before you feel ready.", ar: "ابدأ قبل ما تحس إنك جاهز." },
-  { en: "The path is made by walking it daily.", ar: "الطريق بيتبني بالمشي فيه كل يوم." },
-  { en: "Your best study day can start in the next minute.", ar: "أحسن يوم مذاكرة ليك ممكن يبدأ في الدقيقة الجاية." },
-  { en: "Hold the standard: a little better than yesterday.", ar: "حافظ على المعيار: أحسن شوية من امبارح." },
-  { en: "You are building a life skill, not just a list.", ar: "إنت بتبني مهارة حياة، مش قائمة بس." },
-  { en: "When motivation is low, let routine lead.", ar: "لما الحماس ينخفض، سيّب الروتين يقود." },
-  { en: "A finished session is a quiet victory.", ar: "جلسة مخلّصة انتصار هادي." },
-  { en: "Keep your promise for the next 20 minutes.", ar: "احفظ وعدك للعشرين دقيقة الجايين." },
-  { en: "You are stronger than the urge to quit.", ar: "إنت أقوى من رغبة الاستسلام." },
-  { en: "Study is how you invest in your options.", ar: "المذاكرة استثمار في اختياراتك." },
-  { en: "Return to the words. They are waiting.", ar: "ارجع للكلمات. مستنياك." },
-  { en: "Make this the session that turns the day around.", ar: "خلّي دي الجلسة اللي تقلب اليوم." },
-  { en: "You don't need a perfect plan — you need the next step.", ar: "مش محتاج خطة مثالية — محتاج الخطوة الجاية." },
-  { en: "Stay patient with the process and honest with the effort.", ar: "كن صبور مع العملية وصادق مع المجهود." },
-  { en: "Your growth is happening in the quiet work.", ar: "نموّك بيحصل في الشغل الهادئ." },
-  { en: "One more review. One more win.", ar: "مراجعة زيادة. انتصار زيادة." },
-  { en: "You are worthy of the time you spend improving.", ar: "إنت تستاهل الوقت اللي بتصرفه على التطوّر." },
-  { en: "Let today's work be enough for today.", ar: "خلّي شغل النهاردة يكفي لليوم." },
-  { en: "The habit you protect today protects you later.", ar: "العادة اللي بتحميها النهاردة بتحميك بعدين." },
-  { en: "Keep going — your future words depend on it.", ar: "كمّل — كلماتك المستقبلية معتمدة على كده." },
+  { en: "Open the list. One word. That's enough to start.", ar: "افتح القائمة. كلمة واحدة. كده كفاية عشان تبدأ." },
+  { en: "You don't need motivation — you need five minutes.", ar: "مش محتاج حماس، محتاج خمس دقايق بس." },
+  { en: "The word that keeps beating you will get easier. Promise.", ar: "الكلمة اللي بتعاندك هتهون. متقلقش." },
+  { en: "Phone on silent. Book open. You're already ahead.", ar: "الموبايل صامت. الكتاب مفتوح. إنت متقدم خلاص." },
+  { en: "Tired is fine. Quitting mid-list is the real waste.", ar: "تعبان؟ عادي. اللي بيضيع إنك تسيب النص كده." },
+  { en: "Yesterday you knew less. That's the whole point.", ar: "امبارح كنت عارف أقل. دي الفكرة كلها." },
+  { en: "Don't wait for the perfect mood. Start ugly.", ar: "متستناش المزاج المثالي. ابدأ بأي شكل." },
+  { en: "One review now saves an hour of panic later.", ar: "مراجعة دلوقتي بتوفّر ساعة رعب قبل الامتحان." },
+  { en: "Your brain learns while you sleep — give it something to work with.", ar: "مخك بيتعلم وانت نايم — اديله حاجة يشتغل عليها." },
+  { en: "Consistency beats intensity. Show up small.", ar: "الانتظام أحسن من الشدة. اظهر بشوية بس." },
+  { en: "That hard word? You'll own it by next week.", ar: "الكلمة الصعبة دي؟ هتبقى بتاعتك الأسبوع الجاي." },
+  { en: "Nobody is watching. Just you and the next card.", ar: "محدش شايفك. إنت والكارت الجاي بس." },
+  { en: "Skip the drama. Open the app. Do ten.", ar: "سيّب الدراما. افتح التطبيق. اعمل عشرة." },
+  { en: "Feeling behind? Everyone does. Keep going anyway.", ar: "حاسس إنك متأخر؟ كله كده. كمّل برضه." },
+  { en: "A short honest session beats a long fake one.", ar: "جلسة قصيرة وصادقة أحسن من طويلة تمثيل." },
+  { en: "You already paid for this time with your future. Use it.", ar: "الوقت ده اتدفع من مستقبلك. استخدمه." },
+  { en: "Mistakes on the quiz mean you're actually learning.", ar: "الغلط في الاختبار معناه إنك بتتعلم بجد." },
+  { en: "The list isn't the enemy. Avoiding it is.", ar: "القائمة مش العدو. إنك تتهرب منها هو العدو." },
+  { en: "Put the snack down. Finish three more. Then snack.", ar: "سيّب الأكل. خلّص تلاتة كمان. بعدين كل." },
+  { en: "Your future exam self is begging you to review today.", ar: "نسختك يوم الامتحان بتترجاك تراجع النهاردة." },
+  { en: "Don't study for hours. Study until the next break feels earned.", ar: "متذاكرش ساعات. ذاكر لحد ما الاستراحة تبقى مستحقة." },
+  { en: "If it's hard, you're in the right zone.", ar: "لو صعب، يبقى إنت في المنطقة الصح." },
+  { en: "One more round. Then you can complain.", ar: "راوند كمان. بعدين اشتكي براحتك." },
+  { en: "You're not bad at this language. You're just early.", ar: "إنت مش وحش في اللغة. إنت لسة في الأول." },
+  { en: "Close Instagram. Open the words. You'll thank yourself at night.", ar: "اقفل الإنستا. افتح الكلمات. هتشكر نفسك بالليل." },
+  { en: "Progress looks boring up close. Zoom out.", ar: "التقدّم شكله ممل من قريب. بص من بعيد." },
+  { en: "You don't need a new notebook. You need the old list finished.", ar: "مش محتاج كشكول جديد. محتاج تخلّص القديمة." },
+  { en: "The only failed session is the one that never started.", ar: "الجلسة الفاشلة الوحيدة هي اللي مبتدأتش." },
+  { en: "Speak the word out loud. Your mouth needs the practice too.", ar: "قول الكلمة بصوت. بقك محتاج يتدرب برضه." },
+  { en: "Stop refreshing. Start reviewing.", ar: "بطّل تعمل ريفرش. ابدأ راجع." },
+  { en: "You're allowed to hate studying and still do it.", ar: "مسموح تكره المذاكرة وتعملها برضه." },
+  { en: "Five words today is five more than zero.", ar: "خمس كلمات النهاردة أحسن من صفر." },
+  { en: "The exam doesn't care how you felt. It cares what you practiced.", ar: "الامتحان مش فارق معاه حسيتك إيه. فارق معاه تدربت على إيه." },
+  { en: "Leave the room cleaner than your excuses.", ar: "سيّب المكان أنضف من أعذارك." },
+  { en: "That 'I'll do it later' feeling? That's the trap.", ar: "حاسس إنك هتعملها بعدين؟ دي الفخ." },
+  { en: "Write it once. Say it twice. You'll keep it.", ar: "اكتبها مرة. قولها مرتين. هتفضل معاك." },
+  { en: "Your competition is scrolling. You're building.", ar: "منافسك بيسرول. إنت بتبني." },
+  { en: "Bad day? Do the minimum and still log it.", ar: "يوم وحش؟ اعمل الحد الأدنى وسجّله." },
+  { en: "The dictionary isn't going to study itself.", ar: "القاموس مش هيذاكر لوحده." },
+  { en: "You survived harder days. This is just vocabulary.", ar: "عدّيت أيام أصعب. دي مجرد مفردات." },
+  { en: "Stop planning the perfect week. Do today's list.", ar: "بطّل تخطط للأسبوع المثالي. اعمل ليستة النهاردة." },
+  { en: "If you only remember one word from this session, it still counts.", ar: "لو فاكر كلمة واحدة من الجلسة دي، برضه بتحسب." },
+  { en: "Noise outside is free. Focus inside is a choice.", ar: "الدوشة برا ببلاش. التركيز جوه اختيار." },
+  { en: "You're not behind your friends. You're on your track.", ar: "إنت مش متأخر عن صحابك. إنت على سكتك." },
+  { en: "Finish this card. Then the next. That's the whole strategy.", ar: "خلّص الكارت ده. بعدين اللي بعده. دي الاستراتيجية كلها." },
+  { en: "Coffee helps. Showing up helps more.", ar: "القهوة بتساعد. إنك تيجي ب تساعد أكتر." },
+  { en: "The words you skip today will show up on the test. Fair warning.", ar: "الكلمات اللي بتعدّيها النهاردة هتظهر في الامتحان. خد بالك." },
+  { en: "Nobody claps for reviewing. Do it anyway.", ar: "محدش بيصفق للمراجعة. اعملها برضه." },
+  { en: "Your future self doesn't need excuses. They need the vocabulary.", ar: "نسختك المستقبلية مش محتاجة أعذار. محتاجة المفردات." },
+  { en: "Slow is fine. Stuck is the problem.", ar: "بطيء عادي. واقف في مكانك هو المشكلة." },
+  { en: "Put a timer. Race yourself. Win small.", ar: "حط تايمر. سابق نفسك. اكسب صغير." },
+  { en: "You already know more than last month. Prove it today.", ar: "إنت عارف أكتر من الشهر اللي فات. أثبتها النهاردة." },
+  { en: "Don't romanticize the grind. Just do the next item.", ar: "مترومانستيش الشغل. اعمل الحاجة اللي بعدها." },
+  { en: "The app is open. That's already better than most people.", ar: "التطبيق مفتوح. كده أحسن من ناس كتير." },
+  { en: "Wrong answers are free lessons. Take them.", ar: "الإجابات الغلط دروس ببلاش. خدها." },
+  { en: "You can't cram a language in one night. You can start tonight.", ar: "مفيش لغة بتتحفظ في ليلة. تقدر تبدأ الليلة." },
+  { en: "Protect this half hour like it's an appointment you can't miss.", ar: "احمِ النص ساعة دي كأنها ميعاد مينفعش يتأجل." },
+  { en: "When the list feels endless, do the first three only.", ar: "لما القائمة تبان مالهاش آخر، اعمل أول تلاتة بس." },
+  { en: "Your accent will improve the more you dare to sound wrong.", ar: "لهجتك هتحسن كل ما تتجرأ تطلع غلط." },
+  { en: "Rest is part of the plan. Quitting is not.", ar: "الراحة جزء من الخطة. السيب مش جزء." },
+  { en: "You're training your memory, not testing your talent.", ar: "إنت بتدرب ذاكرتك، مش بتختبر موهبتك." },
+  { en: "One honest hour beats three distracted ones.", ar: "ساعة صادقة أحسن من تلات ساعات تشتت." },
+  { en: "The word list is patient. Your exam date is not.", ar: "ليستة الكلمات صبورة. ميعاد الامتحان لأ." },
+  { en: "Feel unmotivated? Do two minutes. Then decide.", ar: "مش متشجع؟ اعمل دقيقتين. بعدين قرر." },
+  { en: "You're allowed to be average today and still improve.", ar: "مسموح تكون عادي النهاردة وتتقدم برضه." },
+  { en: "Stop comparing streaks. Compare yourself to last week.", ar: "بطّل تقارن السلاسل. قارن نفسك بالأسبوع اللي فات." },
+  { en: "Say it wrong once so you can say it right forever.", ar: "قولها غلط مرة عشان تقولها صح طول العمر." },
+  { en: "The sofa can wait. The quiz can't forever.", ar: "الكنبة تستنى. الاختبار مش هيستنى للأبد." },
+  { en: "You built this list for a reason. Honor that reason.", ar: "عملت القائمة دي لسبب. احترم السبب." },
+  { en: "Small wins stack. Stack one more.", ar: "الانتصارات الصغيرة بتتراكم. زوّد واحدة." },
+  { en: "If studying felt easy, you wouldn't need this app.", ar: "لو المذاكرة كانت سهلة مكنتش هتحتاج التطبيق." },
+  { en: "Your brain likes patterns. Give it repeated exposure.", ar: "مخك بيحب النمط. اديله تكرار." },
+  { en: "Don't aim for perfect recall. Aim for better than yesterday.", ar: "متهدفش تفتكر كل حاجة. هدفك أحسن من امبارح." },
+  { en: "The night before the exam starts with tonight's review.", ar: "ليلة الامتحان بتبدأ بمراجعة الليلة." },
+  { en: "You're not lazy. You're avoiding discomfort. Push gently.", ar: "إنت مش كسلان. بتتهرب من عدم الراحة. ادفع بهدوء." },
+  { en: "Close the tab. Open the flashcards.", ar: "اقفل التاب. افتح الفلاش كاردز." },
+  { en: "Every marked 'studied' is a quiet middle finger to doubt.", ar: "كل كلمة متعلّمة هي رد هادي على الشك." },
+  { en: "You don't need more tips. You need the next word.", ar: "مش محتاج نصايح أكتر. محتاج الكلمة اللي بعدها." },
+  { en: "Make the session so short you can't say no.", ar: "خلّي الجلسة قصيرة أوي لدرجة متقدرش ترفض." },
+  { en: "The list shrinks only when you face it.", ar: "القائمة بتصغر لما تقابلها وش لوش." },
+  { en: "Your future conversations depend on today's boring reps.", ar: "محادثاتك الجاية معتمدة على التكرار الممل النهاردة." },
+  { en: "Done is better than dramatic.", ar: "المخلّص أحسن من الدراما." },
+  { en: "If you can scroll, you can study. Same thumb, better use.", ar: "لو تقدر تسرول، تقدر تذاكر. نفس الصباع، استخدام أحسن." },
+  { en: "You're collecting proof that you can stick with things.", ar: "إنت بتجمع دليل إنك تقدر تستمر." },
+  { en: "Leave the room having done something, not just planned it.", ar: "سيّب المكان وأنت عملت حاجة، مش خططت بس." },
+  { en: "The hard days are the ones that count the most.", ar: "الأيام الصعبة هي اللي بتحسب أكتر." },
+  { en: "Keep the promise you made when you added these words.", ar: "احفظ الوعد اللي عملته لما ضفت الكلمات دي." },
+  { en: "You are allowed to restart the day at any hour.", ar: "مسموح تبدأ اليوم من أي ساعة." },
+  { en: "Less theory. More saying the word out loud.", ar: "نظري أقل. قول الكلمة بصوت أكتر." },
+  { en: "Your only job right now is the next item on the list.", ar: "شغلك دلوقتي هو الحاجة اللي بعدها في القائمة." },
+  { en: "When it feels pointless, do it for the version of you who needs this language.", ar: "لما تحس إنها ملهاش لازمة، اعملها لنسخة منك محتاجة اللغة دي." },
+  { en: "Silence the group chat. Unmute the vocabulary.", ar: "اسكت الجروب. شغّل المفردات." },
+  { en: "You're not starting from zero. Open the studied tab and look.", ar: "إنت مش من الصفر. افتح المتعلّم وبص." },
+  { en: "A messy session still moves the needle.", ar: "جلسة ملخبطة برضه بتحرّك المؤشر." },
+  { en: "Stop waiting to feel ready. Ready is a myth.", ar: "متستناش تحس إنك جاهز. الجاهزية أسطورة." },
+  { en: "The words are the same every day. Your effort doesn't have to be.", ar: "الكلمات نفسها كل يوم. مجهودك مش لازم يبقى نفسه." },
+  { en: "Trade twenty minutes of scrolling for twenty minutes of recall.", ar: "بدّل عشرين دقيقة سكرول بعشرين دقيقة تسميع." },
+  { en: "You can be tired and still mark three words as studied.", ar: "تقدر تكون تعبان وتعلّم تلات كلمات برضه." },
+  { en: "This is how languages are built: boring, daily, real.", ar: "كده بتتعمل اللغات: ممل، يومي، حقيقي." },
+  { en: "Don't quit on a bad card. Finish the set.", ar: "متسيّبش على كارت وحش. خلّص المجموعة." },
+  { en: "Your future interview / trip / exam starts with this list.", ar: "مقابلتك / سفرك / امتحانك الجاي بيبدأ من القائمة دي." },
+  { en: "Be the person who opens the app when it's inconvenient.", ar: "كون الشخص اللي بيفتح التطبيق و مش مريح." },
+  { en: "One more. Then one more. That's the whole secret.", ar: "واحدة كمان. بعدين واحدة كمان. ده السر كله." },
+  { en: "The list doesn't judge you. Only empty days do.", ar: "القائمة مش بتحاسبك. الأيام الفاضية هي اللي بتحاسب." },
+  { en: "You've wasted longer on worse things. This is worth it.", ar: "ضيّعت وقت أطول على حاجات أسوأ. دي تستاهل." },
+  { en: "Return to the words. They're still there. So are you.", ar: "ارجع للكلمات. لسة موجودة. وإنت كمان." },
 ];
 
+const SEEN_KEY = "twoTongues.motivQuotesSeen";
+
+function loadSeen() {
+  try {
+    const raw = localStorage.getItem(SEEN_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter((n) => typeof n === "number") : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveSeen(indices) {
+  try {
+    localStorage.setItem(SEEN_KEY, JSON.stringify(indices));
+  } catch (_) {}
+}
+
+/**
+ * Pick a quote that hasn't been shown this cycle.
+ * When all quotes are seen, the cycle resets and starts over.
+ * @param {number} excludeIndex - avoid this index (e.g. current open quote)
+ */
 export function getRandomQuote(excludeIndex = -1) {
   const n = MOTIVATIONAL_QUOTES.length;
   if (n === 0) return { en: "", ar: "", index: -1 };
-  let i = Math.floor(Math.random() * n);
-  if (n > 1 && i === excludeIndex) {
-    i = (i + 1 + Math.floor(Math.random() * (n - 1))) % n;
+
+  let seen = loadSeen();
+  // Drop invalid indices (e.g. after list length changed)
+  seen = seen.filter((i) => i >= 0 && i < n);
+
+  let available = [];
+  for (let i = 0; i < n; i++) {
+    if (!seen.includes(i) && i !== excludeIndex) available.push(i);
   }
+
+  // If nothing left (or only the excluded one left), reset cycle
+  if (available.length === 0) {
+    seen = [];
+    saveSeen(seen);
+    available = [];
+    for (let i = 0; i < n; i++) {
+      if (i !== excludeIndex) available.push(i);
+    }
+    if (available.length === 0) available = [0]; // single-quote edge case
+  }
+
+  const i = available[Math.floor(Math.random() * available.length)];
+  const nextSeen = seen.includes(i) ? seen : [...seen, i];
+  saveSeen(nextSeen);
+
   return { ...MOTIVATIONAL_QUOTES[i], index: i };
 }
 
 export function getQuoteCount() {
   return MOTIVATIONAL_QUOTES.length;
+}
+
+/** How many left in the current cycle (not yet shown). */
+export function getRemainingQuoteCount() {
+  const n = MOTIVATIONAL_QUOTES.length;
+  const seen = loadSeen().filter((i) => i >= 0 && i < n);
+  return Math.max(0, n - seen.length);
 }

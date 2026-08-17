@@ -43,6 +43,7 @@ import { useEntrySearch } from "../lib/hooks/useEntrySearch";
 import { useStudyShortcuts } from "../lib/hooks/useStudyShortcuts";
 import { useListPagination } from "../lib/hooks/useListPagination";
 import WelcomeOnboardingModal, { hasSeenWelcome, markWelcomeSeen } from "./modals/WelcomeOnboardingModal";
+import { consumeSessionOpenTool, setSessionOpenTool } from "../lib/state/sessionUi";
 
 export default function MainView({
   name, isAdmin, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
@@ -173,22 +174,29 @@ export default function MainView({
   const [zoomAlreadyExists, setZoomAlreadyExists] = useState(false);
   // When add hits a duplicate: show message + "Go to it" — do NOT auto-open the card.
   const [dupNotice, setDupNotice] = useState(null); // { entry } | null
-  const [showQuiz, setShowQuiz] = useState(false);
+  // Restore study overlays after same-tab refresh (sessionStorage, consumed once).
+  const restoredSession = useRef(null);
+  if (restoredSession.current === null) {
+    restoredSession.current = consumeSessionOpenTool() || false;
+  }
+  const restored = restoredSession.current || {};
+
+  const [showQuiz, setShowQuiz] = useState(() => restored.tool === "quiz");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [mobileNavTab, setMobileNavTab] = useState("words");
 
 
-  const [quizDueOnly, setQuizDueOnly] = useState(false);
-  const [showFlashcards, setShowFlashcards] = useState(false);
-  const [showStats, setShowStats] = useState(false);
-  const [showDashboard, setShowDashboard] = useState(false);
-  const [showWordLists, setShowWordLists] = useState(false);
-  const [showChallenges, setShowChallenges] = useState(false);
+  const [quizDueOnly, setQuizDueOnly] = useState(() => !!restored.quizDueOnly);
+  const [showFlashcards, setShowFlashcards] = useState(() => restored.tool === "flashcards");
+  const [showStats, setShowStats] = useState(() => restored.tool === "stats");
+  const [showDashboard, setShowDashboard] = useState(() => restored.tool === "dashboard");
+  const [showWordLists, setShowWordLists] = useState(() => restored.tool === "wordLists");
+  const [showChallenges, setShowChallenges] = useState(() => restored.tool === "challenges");
   const [requestsOpen, setRequestsOpen] = useState(false);
   const [posFilter, setPosFilter] = useState("all"); // all | noun | verb | ...
   const [dateFilter, setDateFilter] = useState("all"); // all | today | week | month
   const [sortKey, setSortKey] = useState("alpha"); // alpha | newest | oldest | weak
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(() => restored.tool === "leaderboard");
   const {
     showTimer, setShowTimer, timerBubble, setTimerBubble, openTimer, closeTimer,
     showCalendar, setShowCalendar, calendarBubble, setCalendarBubble, openCalendar, closeCalendar,
@@ -199,23 +207,23 @@ export default function MainView({
   const [nightStudy, setNightStudy] = useState(() => {
     try { return localStorage.getItem("twoTongues.nightStudy") === "1"; } catch (_) { return false; }
   });
-  const [showSmartCards, setShowSmartCards] = useState(false);
-  const [showConversation, setShowConversation] = useState(false);
-  const [showTutorChat, setShowTutorChat] = useState(false);
-  const [showLevels, setShowLevels] = useState(false);
-  const [showProgressCompare, setShowProgressCompare] = useState(false);
-  const [showTextExtract, setShowTextExtract] = useState(false);
-  const [showAiPdfExtract, setShowAiPdfExtract] = useState(false);
-  const [showQuickReview, setShowQuickReview] = useState(false);
-  const [showWeaknessReview, setShowWeaknessReview] = useState(false);
-  const [showListeningLoop, setShowListeningLoop] = useState(false);
-  const [showSentencePractice, setShowSentencePractice] = useState(false);
-  const [showWeeklyReport, setShowWeeklyReport] = useState(false);
+  const [showSmartCards, setShowSmartCards] = useState(() => restored.tool === "smartCards");
+  const [showConversation, setShowConversation] = useState(() => restored.tool === "conversation");
+  const [showTutorChat, setShowTutorChat] = useState(() => restored.tool === "tutorChat");
+  const [showLevels, setShowLevels] = useState(() => restored.tool === "levels");
+  const [showProgressCompare, setShowProgressCompare] = useState(() => restored.tool === "progressCompare");
+  const [showTextExtract, setShowTextExtract] = useState(() => restored.tool === "textExtract");
+  const [showAiPdfExtract, setShowAiPdfExtract] = useState(() => restored.tool === "aiPdfExtract");
+  const [showQuickReview, setShowQuickReview] = useState(() => restored.tool === "quickReview");
+  const [showWeaknessReview, setShowWeaknessReview] = useState(() => restored.tool === "weaknessReview");
+  const [showListeningLoop, setShowListeningLoop] = useState(() => restored.tool === "listeningLoop");
+  const [showSentencePractice, setShowSentencePractice] = useState(() => restored.tool === "sentencePractice");
+  const [showWeeklyReport, setShowWeeklyReport] = useState(() => restored.tool === "weeklyReport");
   const [showWelcome, setShowWelcome] = useState(false);
 
-  const [showExamMode, setShowExamMode] = useState(false);
-  const [showExamSettings, setShowExamSettings] = useState(false);
-  const [showInfoGuide, setShowInfoGuide] = useState(false);
+  const [showExamMode, setShowExamMode] = useState(() => restored.tool === "exam");
+  const [showExamSettings, setShowExamSettings] = useState(() => restored.tool === "examSettings");
+  const [showInfoGuide, setShowInfoGuide] = useState(() => restored.tool === "infoGuide");
 
   // System back button closes the top-most overlay on mobile instead of leaving the site.
   // NOTE: showAdd is managed by App.jsx history (openAddModal/closeAddModal) — do NOT
@@ -249,11 +257,65 @@ export default function MainView({
   }, [accountCode]);
 
 
-  const [showDictation, setShowDictation] = useState(false);
-  const [showAchievements, setShowAchievements] = useState(false);
-  const [showRandomWord, setShowRandomWord] = useState(false);
-  const [showMotivationDua, setShowMotivationDua] = useState(false);
+  const [showDictation, setShowDictation] = useState(() => restored.tool === "dictation");
+  const [showAchievements, setShowAchievements] = useState(() => restored.tool === "achievements");
+  const [showRandomWord, setShowRandomWord] = useState(() => restored.tool === "randomWord");
+  const [showMotivationDua, setShowMotivationDua] = useState(() => restored.tool === "motivationDua");
   useHistoryBackClose(showMotivationDua, () => setShowMotivationDua(false));
+
+  // Persist which overlay is open so a same-tab refresh reopens it
+  // (same idea as timer/calendar — nothing is wiped on F5).
+  useEffect(() => {
+    let tool = null;
+    const extra = {};
+    // Priority: active study session first, then other tools
+    if (showExamMode) tool = "exam";
+    else if (showQuiz) {
+      tool = "quiz";
+      extra.quizDueOnly = !!quizDueOnly;
+    } else if (showFlashcards) tool = "flashcards";
+    else if (showDictation) tool = "dictation";
+    else if (showSmartCards) tool = "smartCards";
+    else if (showQuickReview) tool = "quickReview";
+    else if (showWeaknessReview) tool = "weaknessReview";
+    else if (showListeningLoop) tool = "listeningLoop";
+    else if (showSentencePractice) tool = "sentencePractice";
+    else if (showStats) tool = "stats";
+    else if (showDashboard) tool = "dashboard";
+    else if (showWordLists) tool = "wordLists";
+    else if (showChallenges) tool = "challenges";
+    else if (showLeaderboard) tool = "leaderboard";
+    else if (showConversation) tool = "conversation";
+    else if (showTutorChat) tool = "tutorChat";
+    else if (showLevels) tool = "levels";
+    else if (showProgressCompare) tool = "progressCompare";
+    else if (showTextExtract) tool = "textExtract";
+    else if (showAiPdfExtract) tool = "aiPdfExtract";
+    else if (showWeeklyReport) tool = "weeklyReport";
+    else if (showAchievements) tool = "achievements";
+    else if (showRandomWord) tool = "randomWord";
+    else if (showMotivationDua) tool = "motivationDua";
+    else if (showInfoGuide) tool = "infoGuide";
+    else if (showExamSettings) tool = "examSettings";
+    setSessionOpenTool(tool, extra);
+
+    function flush() {
+      setSessionOpenTool(tool, extra);
+    }
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+    };
+  }, [
+    showExamMode, showQuiz, quizDueOnly, showFlashcards, showDictation,
+    showSmartCards, showQuickReview, showWeaknessReview, showListeningLoop,
+    showSentencePractice, showStats, showDashboard, showWordLists, showChallenges,
+    showLeaderboard, showConversation, showTutorChat, showLevels, showProgressCompare,
+    showTextExtract, showAiPdfExtract, showWeeklyReport, showAchievements,
+    showRandomWord, showMotivationDua, showInfoGuide, showExamSettings,
+  ]);
   /** Pending level-up celebration; deferred while quiz/exam/dictation/etc. is open. */
   const [pendingLevelUp, setPendingLevelUp] = useState(null);
   const [wordNotes, setWordNotes] = useState(() => loadWordNotes(accountCode));

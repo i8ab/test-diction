@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
 import {
@@ -10,6 +10,11 @@ import NumberStepper from "../common/NumberStepper";
 import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { playUiSound } from "../../lib/utils/uiSounds";
+import {
+  loadQuizSession,
+  saveQuizSession,
+  clearQuizSession,
+} from "../../lib/state/sessionUi";
 
 function ReviewRow({ item, isAr }) {
   const row = item || {};
@@ -42,17 +47,24 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
   const [customMinutes, setCustomMinutes] = useState("120");
   const mode = "mcq"; // quiz is multiple-choice only
   const [dueOnly, setDueOnly] = useState(!!initialDueOnly);
+  // Restore mid-session after same-tab refresh
+  const restoredRef = useRef(undefined);
+  if (restoredRef.current === undefined) {
+    restoredRef.current = loadQuizSession();
+  }
+  const restored = restoredRef.current;
+
   // "practice" = show correct/wrong immediately | "exam" = hide until finished
-  const [quizMode, setQuizMode] = useState("practice");
-  const [stage, setStage] = useState("setup"); // setup | running | done
+  const [quizMode, setQuizMode] = useState(() => restored?.quizMode || "practice");
+  const [stage, setStage] = useState(() => (restored?.stage === "running" || restored?.stage === "done" ? restored.stage : "setup"));
   const [startError, setStartError] = useState("");
-  const [questions, setQuestions] = useState([]);
-  const [index, setIndex] = useState(0);
+  const [questions, setQuestions] = useState(() => restored?.questions || []);
+  const [index, setIndex] = useState(() => restored?.index || 0);
   // answers[i] = { selected, correct, ... } | null if not yet answered
-  const [answers, setAnswers] = useState([]);
-  const [startedAt, setStartedAt] = useState(null);
-  const [finishedAt, setFinishedAt] = useState(null);
-  const [typedAnswer, setTypedAnswer] = useState("");
+  const [answers, setAnswers] = useState(() => restored?.answers || []);
+  const [startedAt, setStartedAt] = useState(() => restored?.startedAt || null);
+  const [finishedAt, setFinishedAt] = useState(() => restored?.finishedAt || null);
+  const [typedAnswer, setTypedAnswer] = useState(() => restored?.typedAnswer || "");
   const [elapsedSec, setElapsedSec] = useState(0);
 
   const {
@@ -65,8 +77,13 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
     selectAllUnits,
   } = useUnitScope(academicUnits, activeUnitId, entries);
 
+  function handleClose() {
+    clearQuizSession();
+    onClose();
+  }
+
   useEffect(() => {
-    function onKeyDown(e) { if (e.key === "Escape") onClose(); }
+    function onKeyDown(e) { if (e.key === "Escape") handleClose(); }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
@@ -80,6 +97,31 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
     }, 1000);
     return () => clearInterval(id);
   }, [stage, startedAt]);
+
+  // Persist running quiz so refresh keeps answers + progress
+  useEffect(() => {
+    if (stage !== "running") return;
+    const payload = {
+      stage,
+      quizMode,
+      questions,
+      index,
+      answers,
+      startedAt,
+      typedAnswer,
+      finishedAt: null,
+    };
+    saveQuizSession(payload);
+    function flush() {
+      saveQuizSession(payload);
+    }
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+    };
+  }, [stage, quizMode, questions, index, answers, startedAt, typedAnswer]);
 
   const RANGE_OPTIONS = [
     { key: "10", label: tr(isAr, "Last 10 min", "آخر 10 دقايق") },
@@ -287,6 +329,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
     const finishedTime = Date.now();
     setFinishedAt(finishedTime);
     setStage("done");
+    clearQuizSession();
     if (onSaveQuizResult) {
       onSaveQuizResult({
         id: uid(),
@@ -312,6 +355,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
   }
 
   function retake() {
+    clearQuizSession();
     setStage("setup");
     setStartError("");
   }
@@ -347,7 +391,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
   });
 
   return (
-    <div onClick={onClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 6000 }}>
+    <div onClick={handleClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 6000 }}>
       <BodyScrollLock />
       <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={isAr ? "rtl" : "ltr"} role="dialog" aria-modal="true" aria-labelledby="quiz-modal-title"
         style={{ width: "100%", maxWidth: 480, maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column", background: CARD, borderRadius: 20, padding: "20px 18px 18px", boxShadow: "0 24px 60px -16px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.1)" }}>
@@ -356,7 +400,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
             <QuizIcon size={19} color={BRASS} /> {tr(isAr, "Quiz", "اختبار")}
             {sectionLabel && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>· {sectionLabel}</span>}
           </h2>
-          <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}><XIcon size={20} /></button>
+          <button onClick={handleClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}><XIcon size={20} /></button>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
 
@@ -849,7 +893,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                 <button type="button" onClick={retake} style={{ flex: 1, padding: "12px 14px", fontSize: 14, fontWeight: 600, color: "var(--icon-muted)", background: "none", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, cursor: "pointer", minHeight: 48 }}>
                   {tr(isAr, "New quiz", "اختبار جديد")}
                 </button>
-                <button type="button" onClick={onClose} style={{ ...primaryBtnStyle, marginTop: 0, flex: 1, minHeight: 48, borderRadius: 10 }}>
+                <button type="button" onClick={handleClose} style={{ ...primaryBtnStyle, marginTop: 0, flex: 1, minHeight: 48, borderRadius: 10 }}>
                   <CheckIcon size={16} /> {tr(isAr, "Done", "تم")}
                 </button>
               </div>

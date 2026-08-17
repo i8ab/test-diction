@@ -8,11 +8,17 @@ import { SpeakButton, XIcon, CheckIcon, QuizIcon, ClockIcon, FlameIcon } from ".
 import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { loadExamDate, daysUntilExam, formatExamCountdown } from "../../lib/state/exam";
+import {
+  loadExamSession,
+  saveExamSession,
+  clearExamSession,
+} from "../../lib/state/sessionUi";
 
 /**
  * Exam Mode — focused session on weak + due words only.
  * Modes: flash (quick review), mcq, typing, cloze.
  * Optional session countdown timer.
+ * In-progress session is restored after same-tab refresh.
  */
 export default function ExamModeModal({
   entries,
@@ -28,30 +34,42 @@ export default function ExamModeModal({
   academicUnits = null,
   activeUnitId = null,
 }) {
-  const [stage, setStage] = useState("setup"); // setup | running | done
-  const [modes, setModes] = useState(() => new Set(["mcq", "typing"])); // multi-select
-  const [limit, setLimit] = useState(15);
-  const [timerMin, setTimerMin] = useState(0); // 0 = off
+  // Restore mid-session after refresh (once).
+  const restoredRef = useRef(undefined);
+  if (restoredRef.current === undefined) {
+    restoredRef.current = loadExamSession();
+  }
+  const restored = restoredRef.current;
+
+  const [stage, setStage] = useState(() => (restored?.stage === "running" || restored?.stage === "done" ? restored.stage : "setup"));
+  const [modes, setModes] = useState(() => new Set(restored?.modes?.length ? restored.modes : ["mcq", "typing"]));
+  const [limit, setLimit] = useState(() => restored?.limit || 15);
+  const [timerMin, setTimerMin] = useState(() => restored?.timerMin || 0);
   const [startError, setStartError] = useState("");
 
   // Running state
-  const [pool, setPool] = useState([]);
-  const [questions, setQuestions] = useState([]);
-  const [index, setIndex] = useState(0);
-  const [phase, setPhase] = useState("prompt"); // flash: prompt | revealed
-  const [selected, setSelected] = useState(null);
-  const [typedAnswer, setTypedAnswer] = useState("");
+  const [pool, setPool] = useState(() => restored?.pool || []);
+  const [questions, setQuestions] = useState(() => restored?.questions || []);
+  const [index, setIndex] = useState(() => restored?.index || 0);
+  const [phase, setPhase] = useState(() => restored?.phase || "prompt");
+  const [selected, setSelected] = useState(() => restored?.selected ?? null);
+  const [typedAnswer, setTypedAnswer] = useState(() => restored?.typedAnswer || "");
   // Per-question answers — exam style: changeable until finish (no lock on first click)
-  const [answers, setAnswers] = useState([]); // parallel to questions; null = unanswered
-  const [results, setResults] = useState([]);
-  const [knew, setKnew] = useState(0);
-  const [learning, setLearning] = useState(0);
-  const [startedAt, setStartedAt] = useState(null);
-  const [finishedAt, setFinishedAt] = useState(null);
+  const [answers, setAnswers] = useState(() => restored?.answers || []);
+  const [results, setResults] = useState(() => restored?.results || []);
+  const [knew, setKnew] = useState(() => restored?.knew || 0);
+  const [learning, setLearning] = useState(() => restored?.learning || 0);
+  const [startedAt, setStartedAt] = useState(() => restored?.startedAt || null);
+  const [finishedAt, setFinishedAt] = useState(() => restored?.finishedAt || null);
 
   // Session timer
-  const [remainingMs, setRemainingMs] = useState(null);
-  const endAtRef = useRef(null);
+  const [remainingMs, setRemainingMs] = useState(() => {
+    if (restored?.endAt && restored.stage === "running") {
+      return Math.max(0, restored.endAt - Date.now());
+    }
+    return null;
+  });
+  const endAtRef = useRef(restored?.endAt && restored.stage === "running" ? restored.endAt : null);
   // Keep latest answers/questions in refs so the countdown callback never
   // grades against a stale empty array (classic interval closure bug).
   const answersRef = useRef(answers);
@@ -59,6 +77,40 @@ export default function ExamModeModal({
   const finishingRef = useRef(false);
   useEffect(() => { answersRef.current = answers; }, [answers]);
   useEffect(() => { questionsRef.current = questions; }, [questions]);
+
+  // Persist running session so refresh keeps progress + timer
+  useEffect(() => {
+    if (stage !== "running") return;
+    const payload = {
+      stage,
+      modes: [...modes],
+      limit,
+      timerMin,
+      pool,
+      questions,
+      index,
+      phase,
+      selected,
+      typedAnswer,
+      answers,
+      results,
+      knew,
+      learning,
+      startedAt,
+      finishedAt: null,
+      endAt: endAtRef.current || null,
+    };
+    saveExamSession(payload);
+    function flush() {
+      saveExamSession({ ...payload, answers: answersRef.current, endAt: endAtRef.current });
+    }
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+    };
+  }, [stage, modes, limit, timerMin, pool, questions, index, phase, selected, typedAnswer, answers, results, knew, learning, startedAt]);
 
   const {
     hasUnits,
@@ -78,9 +130,14 @@ export default function ExamModeModal({
     [unitFilteredEntries, studiedIds, srsDueAt, srsBox, studiedAt]
   );
 
+  function handleClose() {
+    clearExamSession();
+    onClose();
+  }
+
   useEffect(() => {
     function onKey(e) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") handleClose();
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -209,6 +266,7 @@ export default function ExamModeModal({
     if (finishingRef.current) return;
     finishingRef.current = true;
     endAtRef.current = null;
+    clearExamSession();
 
     // Always read latest answers/questions from refs — critical when the
     // session ends from the countdown interval (stale state closure).
@@ -436,7 +494,7 @@ export default function ExamModeModal({
 
   return (
     <div
-      onClick={onClose}
+      onClick={handleClose}
       className="modal-backdrop"
       style={{
         position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
@@ -470,7 +528,7 @@ export default function ExamModeModal({
             {tr(isAr, "Exam Mode", "وضع الامتحان")}
           </h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             aria-label={tr(isAr, "Close", "إغلاق")}
             style={{
               border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)",
@@ -1133,7 +1191,7 @@ export default function ExamModeModal({
                   style={{ ...primaryBtnStyle, marginTop: 0, width: "auto", padding: "11px 20px" }}>
                   {tr(isAr, "Practice again", "تدريب تاني")}
                 </button>
-                <button type="button" onClick={onClose}
+                <button type="button" onClick={handleClose}
                   style={{
                     marginTop: 0, padding: "11px 20px", borderRadius: 12, border: "1px solid rgba(var(--border-rgb),0.25)",
                     background: "none", color: "var(--muted-strong)", fontWeight: 600, fontSize: 14, cursor: "pointer",

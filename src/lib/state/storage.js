@@ -1203,7 +1203,8 @@ export function hasInviteParam() {
 export function loadAppLang() {
   try {
     const s = localStorage.getItem(LANG_KEY);
-    if (s === "en" || s === "ar" || s === "de" || s === "fr") return s;
+    if (s === "en" || s === "ar") return s;
+    // previously saved de/fr → fall back to English
   } catch (_) {}
   return detectDeviceIsAr() ? "ar" : "en";
 }

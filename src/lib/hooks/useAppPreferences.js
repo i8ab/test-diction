@@ -70,7 +70,7 @@ export function useAppPreferences() {
   );
 
   const setAppLang = useCallback((lang) => {
-    if (lang !== "en" && lang !== "ar" && lang !== "de" && lang !== "fr") return;
+    if (lang !== "en" && lang !== "ar") return;
     setAppLangState(lang);
     saveAppLang(lang);
     try {

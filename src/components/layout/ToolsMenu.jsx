@@ -69,6 +69,7 @@ export default function ToolsMenu({
   nightStudy = false,
   onToggleNightStudy = null,
   onMotivation = null,
+  onStudyDua = null,
 }) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState(null);
@@ -151,6 +152,9 @@ export default function ToolsMenu({
         { key: "random", icon: <WandIcon size={18} />, tint: "#7b2cbf", label: tr(isAr, "Random word", "كلمة عشوائية"), onClick: onRandomWord },
         ...(typeof onMotivation === "function"
           ? [{ key: "motivation", icon: <StarIcon size={18} />, tint: "#ff6b6b", label: tr(isAr, "Motivation", "تحفيز"), onClick: onMotivation }]
+          : []),
+        ...(typeof onStudyDua === "function"
+          ? [{ key: "studyDua", icon: <StarIcon size={18} />, tint: "#7e22ce", label: tr(isAr, "Study Du'as", "أدعية المذاكرة"), onClick: onStudyDua }]
           : []),
         { key: "morning", icon: <StarIcon size={18} />, tint: "#ffcc00", label: tr(isAr, "Morning review", "مراجعة الصباح"), onClick: onQuickReview },
         ...(typeof onWeaknessReview === "function"

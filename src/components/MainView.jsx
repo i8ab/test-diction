@@ -254,6 +254,8 @@ export default function MainView({
   const [showRandomWord, setShowRandomWord] = useState(false);
   const [showMotivation, setShowMotivation] = useState(false);
   useHistoryBackClose(showMotivation, () => setShowMotivation(false));
+  const [showStudyDua, setShowStudyDua] = useState(false);
+  useHistoryBackClose(showStudyDua, () => setShowStudyDua(false));
   /** Pending level-up celebration; deferred while quiz/exam/dictation/etc. is open. */
   const [pendingLevelUp, setPendingLevelUp] = useState(null);
   const [wordNotes, setWordNotes] = useState(() => loadWordNotes(accountCode));
@@ -655,6 +657,7 @@ export default function MainView({
               onAchievements={() => setShowAchievements(true)}
               onRandomWord={() => setShowRandomWord(true)}
               onMotivation={() => setShowMotivation(true)}
+              onStudyDua={() => setShowStudyDua(true)}
               onExport={() => {
                 const list = filtered.length ? filtered : sectionEntries;
                 const csv = exportEntriesAsCsv(list);
@@ -1137,6 +1140,8 @@ export default function MainView({
         setShowRandomWord={setShowRandomWord}
         showMotivation={showMotivation}
         setShowMotivation={setShowMotivation}
+        showStudyDua={showStudyDua}
+        setShowStudyDua={setShowStudyDua}
         showQuickReview={showQuickReview}
         setShowQuickReview={setShowQuickReview}
         showWeaknessReview={showWeaknessReview}

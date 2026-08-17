@@ -3,73 +3,61 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD } from "../../lib/config/theme";
 import { XIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
-import { getRandomQuote, MOODS } from "../../lib/config/motivationalQuotes";
+import { DUA_PHASES, getRandomDua } from "../../lib/config/studyDuas";
 
-/** لون مميز لكل حالة */
-const MOOD_COLORS = {
-  happy:   { bg: "rgba(234, 179, 8, 0.16)",   fg: "#b45309", ring: "rgba(234, 179, 8, 0.45)" },   // فرحان — ذهبي
-  sad:     { bg: "rgba(59, 130, 246, 0.14)",  fg: "#1d4ed8", ring: "rgba(59, 130, 246, 0.4)" },  // زعلان — أزرق
-  anxious: { bg: "rgba(168, 85, 247, 0.14)",  fg: "#7e22ce", ring: "rgba(168, 85, 247, 0.4)" },  // قلق — بنفسجي
-  despair: { bg: "rgba(100, 116, 139, 0.18)", fg: "#334155", ring: "rgba(100, 116, 139, 0.45)" },// يائس — رمادي
-  tired:   { bg: "rgba(20, 184, 166, 0.14)",  fg: "#0f766e", ring: "rgba(20, 184, 166, 0.4)" },  // تعبان — تركواز
-  nofire:  { bg: "rgba(249, 115, 22, 0.14)",  fg: "#c2410c", ring: "rgba(249, 115, 22, 0.4)" },  // فاقد الشغف — برتقالي
-  hope:    { bg: "rgba(34, 197, 94, 0.14)",   fg: "#15803d", ring: "rgba(34, 197, 94, 0.4)" },   // أمل — أخضر
-  angry:   { bg: "rgba(239, 68, 68, 0.14)",   fg: "#b91c1c", ring: "rgba(239, 68, 68, 0.4)" },   // غضب — أحمر
-  lonely:  { bg: "rgba(99, 102, 241, 0.14)",  fg: "#4338ca", ring: "rgba(99, 102, 241, 0.4)" },  // وحيد — نيلي
-  study:   { bg: "rgba(14, 165, 233, 0.14)",  fg: "#0369a1", ring: "rgba(14, 165, 233, 0.4)" },  // مذاكرة — سماوي
+const PHASE_COLORS = {
+  before: { bg: "rgba(14, 165, 233, 0.14)", fg: "#0369a1", ring: "rgba(14, 165, 233, 0.4)" },
+  during: { bg: "rgba(168, 85, 247, 0.14)", fg: "#7e22ce", ring: "rgba(168, 85, 247, 0.4)" },
+  after:  { bg: "rgba(34, 197, 94, 0.14)",  fg: "#15803d", ring: "rgba(34, 197, 94, 0.4)" },
 };
 
 /**
- * بطاقة آية / حديث — المستخدم يختار حالته
- * في الوضع العربي: نص عربي + عظة عربية فقط (من غير ترجمة إنجليزي)
+ * قسم أدعية المذاكرة — منفصل عن آيات القرآن والأحاديث
+ * المستخدم يختار: قبل / أثناء / بعد الجلسة
  */
-export default function MotivationalQuoteModal({ isAr, onClose }) {
-  const [mood, setMood] = useState(null); // null = لسه مختارش
-  const [quote, setQuote] = useState(null);
+export default function StudyDuaModal({ isAr, onClose }) {
+  const [phase, setPhase] = useState(null);
+  const [dua, setDua] = useState(null);
   const [fade, setFade] = useState(true);
 
-  const loadQuote = useCallback((moodId, exclude = -1) => {
+  const loadDua = useCallback((phaseId, exclude = -1) => {
     setFade(false);
     setTimeout(() => {
-      setQuote(getRandomQuote(exclude, moodId));
+      setDua(getRandomDua(phaseId, exclude));
       setFade(true);
     }, 100);
   }, []);
 
-  const onPickMood = (moodId) => {
-    setMood(moodId);
-    loadQuote(moodId, -1);
+  const onPickPhase = (phaseId) => {
+    setPhase(phaseId);
+    loadDua(phaseId, -1);
   };
 
   const pickNew = useCallback(() => {
-    if (!mood) return;
-    loadQuote(mood, quote?.index ?? -1);
-  }, [mood, quote, loadQuote]);
+    if (!phase) return;
+    loadDua(phase, dua?.index ?? -1);
+  }, [phase, dua, loadDua]);
 
   useEffect(() => {
     function onKey(e) {
       if (e.key === "Escape") onClose();
-      if ((e.key === " " || e.key === "Enter") && mood && quote) {
+      if ((e.key === " " || e.key === "Enter") && phase && dua) {
         e.preventDefault();
         pickNew();
       }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose, pickNew, mood, quote]);
+  }, [onClose, pickNew, phase, dua]);
 
-  const colors = mood ? MOOD_COLORS[mood] || MOOD_COLORS.hope : null;
-  const isQuran = quote?.type === "quran";
-  const typeLabel = isQuran
-    ? tr(isAr, "Quran", "قرآن")
-    : tr(isAr, "Hadith", "حديث");
-  const moodMeta = MOODS.find((m) => m.id === mood);
+  const colors = phase ? PHASE_COLORS[phase] || PHASE_COLORS.before : null;
+  const phaseMeta = DUA_PHASES.find((p) => p.id === phase);
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={tr(isAr, "A word for your heart", "كلمة لقلبك")}
+      aria-label={tr(isAr, "Study Du'as", "أدعية المذاكرة")}
       style={{
         position: "fixed",
         inset: 0,
@@ -112,15 +100,15 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
               color: "var(--muted-strong)",
             }}
           >
-            {tr(isAr, "How are you feeling?", "حاسس بإيه دلوقتي؟")}
+            {tr(isAr, "Study Du'as", "أدعية المذاكرة")}
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label={tr(isAr, "Close", "إغلاق")}
             style={{
+              background: "transparent",
               border: "none",
-              background: "var(--input-bg)",
               borderRadius: 10,
               width: 36,
               height: 36,
@@ -135,25 +123,25 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
           </button>
         </div>
 
-        {/* Mood picker */}
+        {/* Phase picker — labels always Arabic as requested for mood-like choices */}
         <div
           style={{
             display: "flex",
             flexWrap: "wrap",
             gap: 8,
-            direction: isAr ? "rtl" : "ltr",
+            direction: "rtl",
           }}
         >
-          {MOODS.map((m) => {
-            const c = MOOD_COLORS[m.id] || MOOD_COLORS.hope;
-            const active = mood === m.id;
+          {DUA_PHASES.map((p) => {
+            const c = PHASE_COLORS[p.id] || PHASE_COLORS.before;
+            const active = phase === p.id;
             return (
               <button
-                key={m.id}
+                key={p.id}
                 type="button"
-                onClick={() => onPickMood(m.id)}
+                onClick={() => onPickPhase(p.id)}
                 style={{
-                  padding: "8px 12px",
+                  padding: "8px 14px",
                   borderRadius: 999,
                   border: active ? `2px solid ${c.fg}` : "1px solid rgba(var(--border-rgb),0.2)",
                   background: active ? c.bg : "var(--input-bg)",
@@ -165,21 +153,21 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
                   transition: "all 0.15s ease",
                 }}
               >
-                {m.ar}
+                {p.ar}
               </button>
             );
           })}
         </div>
 
-        {/* Quote card — only after mood chosen */}
-        {mood && quote && (
+        {/* Dua card */}
+        {phase && dua && (
           <div
             style={{
               borderRadius: 16,
               padding: "18px 16px",
               background: colors
                 ? `linear-gradient(145deg, ${colors.bg}, rgba(var(--border-rgb),0.06))`
-                : "linear-gradient(145deg, rgba(var(--accent-1-rgb, 176, 141, 87), 0.12), rgba(var(--border-rgb),0.06))",
+                : "linear-gradient(145deg, rgba(168, 85, 247, 0.12), rgba(var(--border-rgb),0.06))",
               border: colors
                 ? `1px solid ${colors.ring}`
                 : "1px solid rgba(var(--border-rgb),0.12)",
@@ -192,17 +180,16 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
               transition: "opacity 0.12s ease",
             }}
           >
-            {/* badges */}
             <div
               style={{
                 display: "flex",
                 flexWrap: "wrap",
                 gap: 6,
                 justifyContent: "center",
-                direction: isAr ? "rtl" : "ltr",
+                direction: "rtl",
               }}
             >
-              {moodMeta && (
+              {phaseMeta && (
                 <span
                   style={{
                     padding: "2px 10px",
@@ -213,26 +200,23 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
                     fontSize: 11,
                   }}
                 >
-                  {moodMeta.ar}
+                  {phaseMeta.ar}
                 </span>
               )}
               <span
                 style={{
                   padding: "2px 10px",
                   borderRadius: 999,
-                  background: isQuran
-                    ? "rgba(34, 197, 94, 0.16)"
-                    : "rgba(14, 165, 233, 0.16)",
-                  color: isQuran ? "#15803d" : "#0369a1",
+                  background: "rgba(168, 85, 247, 0.16)",
+                  color: "#7e22ce",
                   fontWeight: 800,
                   fontSize: 11,
                 }}
               >
-                {typeLabel}
+                {tr(isAr, "Du'a", "دعاء")}
               </span>
             </div>
 
-            {/* Arabic text — always primary */}
             <div
               style={{
                 fontSize: 20,
@@ -244,10 +228,10 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
                 fontFamily: "var(--font-arabic), 'Amiri', 'Noto Naskh Arabic', serif",
               }}
             >
-              {quote.ar}
+              {dua.ar}
             </div>
 
-            {quote.ref && (
+            {dua.ref && (
               <div
                 style={{
                   fontSize: 12,
@@ -257,11 +241,11 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
                   direction: "rtl",
                 }}
               >
-                {isQuran ? `سورة ${quote.ref}` : quote.ref}
+                {dua.ref}
               </div>
             )}
-{/* العظة — عربي دائمًا */}
-            {quote.explainAr && (
+
+            {dua.explainAr && (
               <div
                 style={{
                   marginTop: 2,
@@ -276,12 +260,12 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
                     fontSize: 11,
                     fontWeight: 800,
                     color: colors?.fg || "var(--accent-1)",
-                    marginBottom: 6,
-                    textAlign: "right",
+                    marginBottom: 4,
                     direction: "rtl",
+                    textAlign: "right",
                   }}
                 >
-                  العظة
+                  عظة
                 </div>
                 <div
                   style={{
@@ -294,15 +278,14 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
                     fontFamily: "var(--font-arabic), 'Amiri', serif",
                   }}
                 >
-                  {quote.explainAr}
+                  {dua.explainAr}
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* Placeholder before mood */}
-        {!mood && (
+        {!phase && (
           <div
             style={{
               borderRadius: 16,
@@ -312,18 +295,13 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
               fontSize: 14,
               fontWeight: 600,
               border: "1px dashed rgba(var(--border-rgb),0.25)",
-              direction: isAr ? "rtl" : "ltr",
+              direction: "rtl",
             }}
           >
-            {tr(
-              isAr,
-              "Pick how you feel to get a fitting verse or hadith.",
-              "اختار إحساسك عشان توصلك آية أو حديث يناسبك."
-            )}
+            اختار وقت الدعاء: قبل المذاكرة، أثناءها، أو بعد ما تخلّص الجلسة.
           </div>
         )}
 
-        {/* Actions */}
         <div style={{ display: "flex", gap: 10 }}>
           <button
             type="button"
@@ -342,7 +320,7 @@ export default function MotivationalQuoteModal({ isAr, onClose }) {
           >
             {tr(isAr, "Close", "إغلاق")}
           </button>
-          {mood && (
+          {phase && (
             <button
               type="button"
               onClick={pickNew}

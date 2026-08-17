@@ -39,6 +39,7 @@ export const SentencePracticeModal = lazy(() => import("./SentencePracticeModal"
 export const WeeklyReportModal = lazy(() => import("./WeeklyReportModal"));
 export const TutorChatModal = lazy(() => import("./TutorChatModal"));
 export const MotivationalQuoteModal = lazy(() => import("./MotivationalQuoteModal"));
+export const StudyDuaModal = lazy(() => import("./StudyDuaModal"));
 
 
 /** Fire-and-forget chunk preloads so the next open feels instant. */

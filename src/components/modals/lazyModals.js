@@ -40,7 +40,7 @@ export const WeeklyReportModal = lazy(() => import("./WeeklyReportModal"));
 export const TutorChatModal = lazy(() => import("./TutorChatModal"));
 export const MotivationalQuoteModal = lazy(() => import("./MotivationalQuoteModal"));
 export const StudyDuaModal = lazy(() => import("./StudyDuaModal"));
-
+export const MotivationDuaModal = lazy(() => import("./MotivationDuaModal"));
 
 /** Fire-and-forget chunk preloads so the next open feels instant. */
 const _preloaded = new Set();
@@ -64,6 +64,9 @@ export function preloadInfoGuideModal() {
 }
 export function preloadExamSettingsModal() {
   preload("examSettings", () => import("./ExamSettingsModal"));
+}
+export function preloadMotivationDuaModal() {
+  preload("motivationDua", () => import("./MotivationDuaModal"));
 }
 export function preloadSettingsHeavy() {
   preloadAdminModal();

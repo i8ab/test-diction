@@ -36,8 +36,7 @@ import {
   ListeningLoopModal,
   SentencePracticeModal,
   WeeklyReportModal,
-  MotivationalQuoteModal,
-  StudyDuaModal,
+  MotivationDuaModal,
 } from "../modals/lazyModals";
 
 /** Lightweight shell while a lazy modal chunk downloads. */
@@ -117,8 +116,7 @@ export default function MainViewOverlays(p) {
     showDictation, setShowDictation, onDictationRoundFinished,
     showAchievements, setShowAchievements,
     showRandomWord, setShowRandomWord,
-    showMotivation, setShowMotivation,
-    showStudyDua, setShowStudyDua,
+    showMotivationDua, setShowMotivationDua,
     showQuickReview, setShowQuickReview,
     showWeaknessReview, setShowWeaknessReview,
     showListeningLoop, setShowListeningLoop,
@@ -693,20 +691,11 @@ export default function MainViewOverlays(p) {
       </Suspense>
     )}
 
-    {showMotivation && (
+    {showMotivationDua && (
       <Suspense fallback={null}>
-        <MotivationalQuoteModal
+        <MotivationDuaModal
           isAr={appIsAr}
-          onClose={() => setShowMotivation(false)}
-        />
-      </Suspense>
-    )}
-
-    {showStudyDua && (
-      <Suspense fallback={null}>
-        <StudyDuaModal
-          isAr={appIsAr}
-          onClose={() => setShowStudyDua(false)}
+          onClose={() => setShowMotivationDua(false)}
         />
       </Suspense>
     )}

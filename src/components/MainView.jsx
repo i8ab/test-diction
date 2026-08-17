@@ -252,10 +252,8 @@ export default function MainView({
   const [showDictation, setShowDictation] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [showRandomWord, setShowRandomWord] = useState(false);
-  const [showMotivation, setShowMotivation] = useState(false);
-  useHistoryBackClose(showMotivation, () => setShowMotivation(false));
-  const [showStudyDua, setShowStudyDua] = useState(false);
-  useHistoryBackClose(showStudyDua, () => setShowStudyDua(false));
+  const [showMotivationDua, setShowMotivationDua] = useState(false);
+  useHistoryBackClose(showMotivationDua, () => setShowMotivationDua(false));
   /** Pending level-up celebration; deferred while quiz/exam/dictation/etc. is open. */
   const [pendingLevelUp, setPendingLevelUp] = useState(null);
   const [wordNotes, setWordNotes] = useState(() => loadWordNotes(accountCode));
@@ -656,8 +654,7 @@ export default function MainView({
               onDictation={() => setShowDictation(true)}
               onAchievements={() => setShowAchievements(true)}
               onRandomWord={() => setShowRandomWord(true)}
-              onMotivation={() => setShowMotivation(true)}
-              onStudyDua={() => setShowStudyDua(true)}
+              onMotivationDua={() => setShowMotivationDua(true)}
               onExport={() => {
                 const list = filtered.length ? filtered : sectionEntries;
                 const csv = exportEntriesAsCsv(list);
@@ -1138,10 +1135,8 @@ export default function MainView({
         setShowAchievements={setShowAchievements}
         showRandomWord={showRandomWord}
         setShowRandomWord={setShowRandomWord}
-        showMotivation={showMotivation}
-        setShowMotivation={setShowMotivation}
-        showStudyDua={showStudyDua}
-        setShowStudyDua={setShowStudyDua}
+        showMotivationDua={showMotivationDua}
+        setShowMotivationDua={setShowMotivationDua}
         showQuickReview={showQuickReview}
         setShowQuickReview={setShowQuickReview}
         showWeaknessReview={showWeaknessReview}

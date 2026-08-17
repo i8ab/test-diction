@@ -5,8 +5,31 @@ import { tr } from "../../lib/config/i18n";
 import {
   ChevronIcon, XIcon, TrophyIcon, StatsIcon, QuizIcon, LayersIcon,
   DownloadIcon, UploadIcon, LoaderIcon, ClockIcon, CalendarIcon, CheckIcon, FlameIcon,
-  MicIcon, StarIcon, WandIcon, MoreIcon,
+  MicIcon, StarIcon, WandIcon, MoreIcon, BookIcon,
 } from "../common/Icons";
+import { preloadMotivationDuaModal } from "../modals/lazyModals";
+
+/** أيقونة صورة حقيقية من public/icons */
+function PhotoIcon({ name, size = 28 }) {
+  return (
+    <img
+      src={`/icons/${name}.png`}
+      alt=""
+      width={size}
+      height={size}
+      draggable={false}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 8,
+        objectFit: "cover",
+        display: "block",
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
 
 /**
  * قائمة "المزيد" — منظمة في فئات واضحة مع عناوين فرعية.
@@ -68,8 +91,7 @@ export default function ToolsMenu({
   onSentencePractice = null,
   nightStudy = false,
   onToggleNightStudy = null,
-  onMotivation = null,
-  onStudyDua = null,
+  onMotivationDua = null,
 }) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState(null);
@@ -102,6 +124,7 @@ export default function ToolsMenu({
       import("../todo/TodoPage");
       import("../goals/GoalsPage");
       import("../dashboard/DashboardPage");
+      preloadMotivationDuaModal();
     } catch (_) {}
   }
 
@@ -131,31 +154,33 @@ export default function ToolsMenu({
       id: "practice",
       title: tr(isAr, "Practice", "التدريب"),
       items: [
-        { key: "quick", icon: <LayersIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quick review", "مراجعة سريعة"), onClick: onQuickReview },
+        { key: "quick", icon: <PhotoIcon name="review" />, tint: "#af52de", label: tr(isAr, "Quick review", "مراجعة سريعة"), onClick: onQuickReview },
         ...(typeof onWeaknessReview === "function"
-          ? [{ key: "weakness", icon: <FlameIcon size={18} />, tint: "#ff3b30", label: tr(isAr, "Weakness review", "مراجعة الضعف"), onClick: onWeaknessReview }]
+          ? [{ key: "weakness", icon: <PhotoIcon name="exam" />, tint: "#ff3b30", label: tr(isAr, "Weakness review", "مراجعة الضعف"), onClick: onWeaknessReview }]
           : []),
         ...(typeof onSmartCards === "function"
-          ? [{ key: "smartCards", icon: <LayersIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Smart cards", "بطاقات ذكية"), onClick: onSmartCards }]
+          ? [{ key: "smartCards", icon: <PhotoIcon name="cards" />, tint: "#ff9f0a", label: tr(isAr, "Smart cards", "بطاقات ذكية"), onClick: onSmartCards }]
           : []),
-        { key: "dictation", icon: <MicIcon size={18} />, tint: "#e76f51", label: tr(isAr, "Listening & Dictation", "استماع وإملاء"), onClick: onDictation },
+        { key: "dictation", icon: <PhotoIcon name="dictation" />, tint: "#e76f51", label: tr(isAr, "Listening & Dictation", "استماع وإملاء"), onClick: onDictation },
         ...(typeof onSentencePractice === "function"
-          ? [{ key: "sentence", icon: <CheckIcon size={18} />, tint: "#32ade6", label: tr(isAr, "Sentence practice", "تمرين الجمل"), onClick: onSentencePractice }]
+          ? [{ key: "sentence", icon: <PhotoIcon name="review" />, tint: "#32ade6", label: tr(isAr, "Sentence practice", "تمرين الجمل"), onClick: onSentencePractice }]
           : []),
-        { key: "quiz", icon: <QuizIcon size={18} />, tint: "#af52de", label: tr(isAr, "Quiz", "اختبار"), onClick: onQuiz },
-        { key: "exam", icon: <FlameIcon size={18} />, tint: "#e85d04", label: tr(isAr, "Exam Mode", "وضع الامتحان"), onClick: onExamMode },
-        { key: "random", icon: <WandIcon size={18} />, tint: "#7b2cbf", label: tr(isAr, "Random word", "كلمة عشوائية"), onClick: onRandomWord },
+        { key: "quiz", icon: <PhotoIcon name="quiz" />, tint: "#af52de", label: tr(isAr, "Quiz", "اختبار"), onClick: onQuiz },
+        { key: "exam", icon: <PhotoIcon name="exam" />, tint: "#e85d04", label: tr(isAr, "Exam Mode", "وضع الامتحان"), onClick: onExamMode },
+        { key: "random", icon: <PhotoIcon name="random" />, tint: "#7b2cbf", label: tr(isAr, "Random word", "كلمة عشوائية"), onClick: onRandomWord },
       ],
     },
     {
       id: "mindset",
       title: tr(isAr, "Mindset", "تحفيز ودعاء"),
       items: [
-        ...(typeof onMotivation === "function"
-          ? [{ key: "motivation", icon: <StarIcon size={18} />, tint: "#ff6b6b", label: tr(isAr, "Motivation", "تحفيز"), onClick: onMotivation }]
-          : []),
-        ...(typeof onStudyDua === "function"
-          ? [{ key: "studyDua", icon: <StarIcon size={18} />, tint: "#7e22ce", label: tr(isAr, "Study Du'as", "أدعية المذاكرة"), onClick: onStudyDua }]
+        ...(typeof onMotivationDua === "function"
+          ? [{
+              key: "motivationDua",
+              icon: <PhotoIcon name="motivation" />, tint: "#b45309",
+              label: tr(isAr, "Motivation & Du'as", "تحفيز ودعاء"),
+              onClick: onMotivationDua,
+            }]
           : []),
       ].filter(Boolean),
     },
@@ -163,19 +188,19 @@ export default function ToolsMenu({
       id: "progress",
       title: tr(isAr, "Progress", "التقدّم"),
       items: [
-        { key: "dashboard", icon: <StatsIcon size={18} />, tint: "#5b8def", label: tr(isAr, "Dashboard", "لوحة القيادة"), onClick: onDashboard },
-        { key: "stats", icon: <StatsIcon size={18} />, tint: "#5b8def", label: tr(isAr, "Stats", "إحصائياتي"), onClick: onStats },
+        { key: "dashboard", icon: <PhotoIcon name="stats" />, tint: "#5b8def", label: tr(isAr, "Dashboard", "لوحة القيادة"), onClick: onDashboard },
+        { key: "stats", icon: <PhotoIcon name="stats" />, tint: "#5b8def", label: tr(isAr, "Stats", "إحصائياتي"), onClick: onStats },
         ...(typeof onWeeklyReport === "function"
-          ? [{ key: "weekly", icon: <StatsIcon size={18} />, tint: "#30d158", label: tr(isAr, "Weekly report", "التقرير الأسبوعي"), onClick: onWeeklyReport }]
+          ? [{ key: "weekly", icon: <PhotoIcon name="stats" />, tint: "#30d158", label: tr(isAr, "Weekly report", "التقرير الأسبوعي"), onClick: onWeeklyReport }]
           : []),
-        { key: "achievements", icon: <StarIcon size={18} />, tint: "#f4a261", label: tr(isAr, "Achievements", "الإنجازات"), onClick: onAchievements },
-        { key: "goals", icon: <FlameIcon size={18} />, tint: "#ff9f0a", label: tr(isAr, "Goals", "الأهداف"), onClick: onGoals },
-        { key: "leaderboard", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Leaderboard", "الترتيب"), onClick: onLeaderboard },
+        { key: "achievements", icon: <PhotoIcon name="trophy" />, tint: "#f4a261", label: tr(isAr, "Achievements", "الإنجازات"), onClick: onAchievements },
+        { key: "goals", icon: <PhotoIcon name="goals" />, tint: "#ff9f0a", label: tr(isAr, "Goals", "الأهداف"), onClick: onGoals },
+        { key: "leaderboard", icon: <PhotoIcon name="trophy" />, tint: "#d4a017", label: tr(isAr, "Leaderboard", "الترتيب"), onClick: onLeaderboard },
         ...(typeof onLevels === "function"
-          ? [{ key: "levels", icon: <TrophyIcon size={18} />, tint: "#f5c542", label: tr(isAr, "Levels & XP", "المستويات والنقاط"), onClick: onLevels }]
+          ? [{ key: "levels", icon: <PhotoIcon name="star" />, tint: "#f5c542", label: tr(isAr, "Levels & XP", "المستويات والنقاط"), onClick: onLevels }]
           : []),
         ...(typeof onProgressCompare === "function"
-          ? [{ key: "compare", icon: <StatsIcon size={18} />, tint: "#5b8def", label: tr(isAr, "You vs past you", "أنت ونفسك القديمة"), onClick: onProgressCompare }]
+          ? [{ key: "compare", icon: <PhotoIcon name="stats" />, tint: "#5b8def", label: tr(isAr, "You vs past you", "أنت ونفسك القديمة"), onClick: onProgressCompare }]
           : []),
       ],
     },
@@ -183,24 +208,24 @@ export default function ToolsMenu({
       id: "tools",
       title: tr(isAr, "Tools", "الأدوات"),
       items: [
-        { key: "timer", icon: <ClockIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Timer", "مؤقّت"), onClick: onTimer },
-        { key: "calendar", icon: <CalendarIcon size={18} />, tint: "#e85d04", label: tr(isAr, "Calendar", "التقويم"), onClick: onCalendar },
-        { key: "todo", icon: <CheckIcon size={18} />, tint: "#30d158", label: tr(isAr, "To-do list", "قائمة المهام"), onClick: onTodo },
-        { key: "lists", icon: <LayersIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Word lists", "قوائم الكلمات"), onClick: onWordLists },
-        { key: "challenges", icon: <TrophyIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Challenges", "تحديات"), onClick: onChallenges },
+        { key: "timer", icon: <PhotoIcon name="timer" />, tint: "#19A7CE", label: tr(isAr, "Timer", "مؤقّت"), onClick: onTimer },
+        { key: "calendar", icon: <PhotoIcon name="calendar" />, tint: "#e85d04", label: tr(isAr, "Calendar", "التقويم"), onClick: onCalendar },
+        { key: "todo", icon: <PhotoIcon name="todo" />, tint: "#30d158", label: tr(isAr, "To-do list", "قائمة المهام"), onClick: onTodo },
+        { key: "lists", icon: <PhotoIcon name="cards" />, tint: "#19A7CE", label: tr(isAr, "Word lists", "قوائم الكلمات"), onClick: onWordLists },
+        { key: "challenges", icon: <PhotoIcon name="trophy" />, tint: "#d4a017", label: tr(isAr, "Challenges", "تحديات"), onClick: onChallenges },
         ...(typeof onConversation === "function"
-          ? [{ key: "conversation", icon: <MicIcon size={18} />, tint: "#5e5ce6", label: tr(isAr, "Conversation", "محادثة"), onClick: onConversation }]
+          ? [{ key: "conversation", icon: <PhotoIcon name="chat" />, tint: "#5e5ce6", label: tr(isAr, "Conversation", "محادثة"), onClick: onConversation }]
           : []),
         ...(typeof onTutorChat === "function"
-          ? [{ key: "tutorChat", icon: <WandIcon size={18} />, tint: "#5b8def", label: tr(isAr, "Study Coach", "مساعد الدراسة"), onClick: onTutorChat }]
+          ? [{ key: "tutorChat", icon: <PhotoIcon name="chat" />, tint: "#5b8def", label: tr(isAr, "Study Coach", "مساعد الدراسة"), onClick: onTutorChat }]
           : []),
         ...(typeof onTextExtract === "function"
-          ? [{ key: "extract", icon: <WandIcon size={18} />, tint: "#ff2d55", label: tr(isAr, "Extract from text", "استخراج من نص"), onClick: onTextExtract }]
+          ? [{ key: "extract", icon: <PhotoIcon name="random" />, tint: "#ff2d55", label: tr(isAr, "Extract from text", "استخراج من نص"), onClick: onTextExtract }]
           : []),
         ...(typeof onToggleNightStudy === "function"
           ? [{
               key: "night",
-              icon: <StarIcon size={18} />,
+              icon: <PhotoIcon name="night" />,
               tint: "#8e8e93",
               label: nightStudy
                 ? tr(isAr, "Exit night study", "إغلاق وضع الليل")
@@ -214,9 +239,9 @@ export default function ToolsMenu({
       id: "data",
       title: tr(isAr, "Data", "البيانات"),
       items: [
-        { key: "export", icon: <DownloadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Export CSV", "تصدير CSV"), onClick: onExport, disabled: exportDisabled },
-        { key: "exportAnki", icon: <DownloadIcon size={18} />, tint: "#30d158", label: tr(isAr, "Export Anki", "تصدير Anki"), onClick: onExportAnki, disabled: exportDisabled },
-        { key: "import", icon: importing ? <LoaderIcon size={18} /> : <UploadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Import CSV", "استيراد CSV"), onClick: onImport, disabled: importing },
+        { key: "export", icon: <PhotoIcon name="data" />, tint: "#34c759", label: tr(isAr, "Export CSV", "تصدير CSV"), onClick: onExport, disabled: exportDisabled },
+        { key: "exportAnki", icon: <PhotoIcon name="data" />, tint: "#30d158", label: tr(isAr, "Export Anki", "تصدير Anki"), onClick: onExportAnki, disabled: exportDisabled },
+        { key: "import", icon: importing ? <LoaderIcon size={18} /> : <PhotoIcon name="data" />, tint: "#34c759", label: tr(isAr, "Import CSV", "استيراد CSV"), onClick: onImport, disabled: importing },
       ],
     },
   ].filter((cat) => cat.items.length > 0);
@@ -377,12 +402,13 @@ export default function ToolsMenu({
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        width: 32,
-                        height: 32,
-                        borderRadius: 9,
-                        background: `${it.tint}18`,
+                        width: 36,
+                        height: 36,
+                        borderRadius: 10,
+                        background: "transparent",
                         color: it.tint,
                         flexShrink: 0,
+                        overflow: "hidden",
                       }}
                     >
                       {it.icon}

@@ -152,75 +152,78 @@ function formatMs(ms) {
 }
 
 /**
- * Split-flap digit — always-mounted layers (digitalclock.live motion).
- * Static top/bottom show the current digit.
- * On change: top flap (old) rotates down, bottom flap (new) rotates up.
+ * Split-flap digit (flipclock.online style).
+ * Remounts fold layers every change so CSS animation always restarts.
  */
 function FlipDigit({ value, color }) {
   const next = String(value);
   const [display, setDisplay] = useState(next);
   const [from, setFrom] = useState(next);
-  const [go, setGo] = useState(false);
-  const busy = useRef(false);
-  const pending = useRef(null);
+  const [flipId, setFlipId] = useState(0);
+  const [flipping, setFlipping] = useState(false);
   const displayRef = useRef(next);
-
-  const runFlip = (target) => {
-    if (target === displayRef.current) return;
-    busy.current = true;
-    setFrom(displayRef.current);
-    setDisplay(target);
-    displayRef.current = target;
-    setGo(false);
-    // force style flush then start CSS animation
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setGo(true);
-        setTimeout(() => {
-          setGo(false);
-          busy.current = false;
-          if (pending.current != null && pending.current !== displayRef.current) {
-            const p = pending.current;
-            pending.current = null;
-            runFlip(p);
-          } else {
-            pending.current = null;
-          }
-        }, 700);
-      });
-    });
-  };
+  const busyRef = useRef(false);
+  const pendingRef = useRef(null);
 
   useEffect(() => {
-    if (next === displayRef.current) return;
-    if (busy.current) {
-      pending.current = next;
-      return;
+    if (next === displayRef.current) return undefined;
+    if (busyRef.current) {
+      pendingRef.current = next;
+      return undefined;
     }
-    runFlip(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    busyRef.current = true;
+    setFrom(displayRef.current);
+    setDisplay(next);
+    displayRef.current = next;
+    setFlipping(true);
+    setFlipId((n) => n + 1);
+    const t = setTimeout(() => {
+      setFlipping(false);
+      busyRef.current = false;
+      if (pendingRef.current != null && pendingRef.current !== displayRef.current) {
+        const p = pendingRef.current;
+        pendingRef.current = null;
+        // trigger another flip for queued value
+        busyRef.current = true;
+        setFrom(displayRef.current);
+        setDisplay(p);
+        displayRef.current = p;
+        setFlipping(true);
+        setFlipId((n) => n + 1);
+        setTimeout(() => {
+          setFlipping(false);
+          busyRef.current = false;
+          pendingRef.current = null;
+        }, 650);
+      } else {
+        pendingRef.current = null;
+      }
+    }, 650);
+    return () => clearTimeout(t);
   }, [next]);
 
   return (
     <div
-      className={`tt-flip${go ? " tt-go" : ""}`}
+      className={`tt-flip${flipping ? " tt-go" : ""}`}
       style={color ? { color } : undefined}
       aria-hidden
     >
-      {/* Static base — always the new/current digit */}
       <div className="tt-top">
         <span>{display}</span>
       </div>
       <div className="tt-bot">
-        <span>{go ? from : display}</span>
+        <span>{flipping ? from : display}</span>
       </div>
-      {/* Folding layers */}
-      <div className="tt-fold-top">
-        <span>{from}</span>
-      </div>
-      <div className="tt-fold-bot">
-        <span>{display}</span>
-      </div>
+      {flipping && (
+        <>
+          <div key={`t-${flipId}`} className="tt-fold-top">
+            <span>{from}</span>
+          </div>
+          <div key={`b-${flipId}`} className="tt-fold-bot">
+            <span>{display}</span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -1073,13 +1076,31 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
     // Do not open settings, do not clearLiveState, do not change viewMode
   }
 
-  function applyDuration() {
-    const total = parseHms(hours, mins, secs);
+  /** Apply a new duration (ms). Works while running — restarts the segment from the new total. */
+  function applyNewDuration(totalMs) {
+    const total = Math.max(0, Number(totalMs) || 0);
     setRemainingMs(total);
-    baseDurationRef.current = total; // new chosen duration becomes the Reset target
-    if (running && prefs.mode === "countdown") {
+    baseDurationRef.current = total;
+    sessionDurationRef.current = total;
+    if (runningRef.current && (prefs.mode === "countdown" || prefs.mode === "pomodoro")) {
       endAtRef.current = Date.now() + total;
+      try {
+        saveLiveState({
+          mode: prefs.mode,
+          running: true,
+          remainingMs: total,
+          endAt: endAtRef.current,
+          pomoPhase: pomoPhaseRef.current,
+          pomoCycle: pomoCycleRef.current,
+          updatedAt: Date.now(),
+        });
+      } catch (_) {}
+      broadcastState({ remainingMs: total, display: formatMs(total) });
     }
+  }
+
+  function applyDuration() {
+    applyNewDuration(parseHms(hours, mins, secs));
   }
 
   function updatePref(patch) {
@@ -2047,7 +2068,7 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
                         setHours(p.h);
                         setMins(p.m);
                         setSecs(p.s);
-                        setRemainingMs(parseHms(p.h, p.m, p.s));
+                        applyNewDuration(parseHms(p.h, p.m, p.s));
                       }}
                       style={{ ...btnGhost, padding: "6px 12px", fontSize: 12 }}
                     >

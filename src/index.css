@@ -2535,44 +2535,48 @@ html[data-exam-visual="1"][data-theme="dark"] {
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Header styles ──
-   Goal: header is literally a piece of the page background (same photo +
-   same overlay as body). Not a similar shade — the SAME layers.
-   Solid = opaque paper. Glass/Clear/default = true see-through so the
-   mountain/photo continues into the header. */
+   Match the mobile bottom toolbar look: same frost, same border weight,
+   same soft shadow — so top and bottom feel like one system, not two eras.
+   Solid = opaque paper. Glass/Clear/default = frosted bar like .mobile-bottom-nav. */
 .app-top-header {
   background-repeat: no-repeat, no-repeat;
   background-size: cover, cover;
   background-position: center top, center top;
-  transition: background-color 0.25s ease, backdrop-filter 0.25s ease, border-color 0.25s ease;
+  transition: background-color 0.25s ease, backdrop-filter 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 html[data-header-style="solid"] .app-top-header {
   background-color: var(--paper) !important;
   background-image: var(--app-bg, none) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
 }
-/* Glass + default: transparent so body bg shows through = continuous photo */
+/* Glass + default: same language as .mobile-bottom-nav */
 html[data-header-style="glass"] .app-top-header,
 html:not([data-header-style]) .app-top-header {
-  background-color: transparent !important;
+  background-color: color-mix(in srgb, var(--paper, #faf8f5) 92%, transparent) !important;
   background-image: none !important;
-  backdrop-filter: blur(10px) saturate(1.08);
-  -webkit-backdrop-filter: blur(10px) saturate(1.08);
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border-bottom: 1px solid rgba(var(--border-rgb), 0.14) !important;
+  box-shadow: 0 8px 24px -16px rgba(0, 0, 0, 0.18) !important;
 }
 html[data-header-style="clear"] .app-top-header {
-  background-color: transparent !important;
+  background-color: color-mix(in srgb, var(--paper, #faf8f5) 78%, transparent) !important;
   background-image: none !important;
-  backdrop-filter: blur(4px) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
-  border-bottom-color: rgba(var(--border-rgb), 0.12) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border-bottom: 1px solid rgba(var(--border-rgb), 0.12) !important;
+  box-shadow: 0 6px 18px -14px rgba(0, 0, 0, 0.14) !important;
 }
-/* When body uses fixed bg (desktop), keep header in sync visually */
+/* Desktop: keep the same frosted bar (was too transparent / dated vs bottom nav) */
 @media (hover: hover) and (pointer: fine) {
   html[data-header-style="glass"] .app-top-header,
-  html:not([data-header-style]) .app-top-header,
+  html:not([data-header-style]) .app-top-header {
+    background-color: color-mix(in srgb, var(--paper, #faf8f5) 90%, transparent) !important;
+  }
   html[data-header-style="clear"] .app-top-header {
-    /* slight tint only for text readability; photo still fully visible */
-    background-color: color-mix(in srgb, var(--paper) 18%, transparent) !important;
+    background-color: color-mix(in srgb, var(--paper, #faf8f5) 72%, transparent) !important;
   }
 }
 
@@ -2972,17 +2976,18 @@ html[data-header-style="solid"] .app-stats-bar {
 
 html[data-header-style="glass"] .app-stats-bar,
 html:not([data-header-style]) .app-stats-bar {
-  background: color-mix(in srgb, var(--card) 78%, transparent) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  border-color: rgba(var(--border-rgb), 0.20) !important;
+  /* align with header + bottom nav frost */
+  background: color-mix(in srgb, var(--paper, #faf8f5) 90%, transparent) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-color: rgba(var(--border-rgb), 0.14) !important;
 }
 
 html[data-header-style="clear"] .app-stats-bar {
-  background: color-mix(in srgb, var(--card) 55%, transparent) !important;
-  backdrop-filter: blur(4px) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
-  border-color: rgba(var(--border-rgb), 0.26) !important;
+  background: color-mix(in srgb, var(--paper, #faf8f5) 78%, transparent) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border-color: rgba(var(--border-rgb), 0.12) !important;
   box-shadow: none;
 }
 

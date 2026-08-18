@@ -254,6 +254,71 @@ async function sbFetch(method, path, body, extraHeaders = {}) {
   }
 }
 
+/** Version only — used by partial writes so we never pull the whole dictionary. */
+async function loadVersionOnly() {
+  try {
+    const rows = await sbFetch("GET", "settings?key=eq.version&select=value");
+    const v = rows && rows[0] && rows[0].value;
+    return typeof v === "number" ? v : Number(v) || 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+async function loadOneAccount(code) {
+  const rows = await sbFetch(
+    "GET",
+    `accounts?code=eq.${encodeURIComponent(code)}&select=data`
+  );
+  if (rows && rows[0] && rows[0].data) return rows[0].data;
+  return null;
+}
+
+async function loadAccountsDataOnly() {
+  const accountsRows = await sbFetch("GET", "accounts?select=data");
+  const statusRankLoad = (s) =>
+    s === "active" || s === "blocked" ? 2 : s === "pending" ? 1 : 0;
+  const byCodeLoad = new Map();
+  for (const a of (accountsRows || []).map((r) => r.data).filter(Boolean)) {
+    if (!a || !a.code) continue;
+    const key = String(a.code);
+    const prev = byCodeLoad.get(key);
+    if (!prev || statusRankLoad(a.status) >= statusRankLoad(prev.status)) {
+      byCodeLoad.set(key, a);
+    }
+  }
+  return Array.from(byCodeLoad.values());
+}
+
+async function bumpVersion(nextVersion) {
+  await sbFetch(
+    "POST",
+    "settings?on_conflict=key",
+    [{ key: "version", value: nextVersion }],
+    { Prefer: "resolution=merge-duplicates,return=minimal" }
+  );
+}
+
+/** Upsert one account row (delete-by-code then insert). */
+async function upsertAccountRow(account) {
+  const code = String((account && account.code) || "");
+  if (!code) return;
+  try {
+    await sbFetch(
+      "DELETE",
+      `accounts?code=eq.${encodeURIComponent(code)}`,
+      undefined,
+      { Prefer: "return=minimal" }
+    );
+  } catch (_) {}
+  await sbFetch(
+    "POST",
+    "accounts",
+    [{ code, data: account }],
+    { Prefer: "return=minimal" }
+  );
+}
+
 async function loadRecord() {
   const [entriesRows, accountsRows, logsRows, settingsRows] = await Promise.all([
     sbFetch("GET", "entries?select=data"),
@@ -486,6 +551,236 @@ export default async function handler(req, res) {
       }
 
       try {
+        // ——— Fast partial paths: never load entries/logs unless conflict ———
+        const scoped = body.scope;
+        if (
+          scoped === "accountPatch" ||
+          scoped === "entryPatch" ||
+          scoped === "entryDelete" ||
+          scoped === "settingsPatch" ||
+          scoped === "accounts"
+        ) {
+          const curVersion = await loadVersionOnly();
+          if (curVersion !== body.expectedVersion) {
+            const full = await loadRecord();
+            return res.status(409).json({
+              error: "conflict",
+              message: "The dictionary changed since you last loaded it.",
+              ...full,
+            });
+          }
+          const nextVersion = curVersion + 1;
+
+          if (scoped === "accountPatch") {
+            const code = String(body.code || "").trim();
+            const patch =
+              body.patch && typeof body.patch === "object" ? body.patch : null;
+            if (!code || !patch || !Object.keys(patch).length) {
+              return res.status(400).json({
+                error: "accountPatch requires code and a non-empty patch object",
+              });
+            }
+            const prev = await loadOneAccount(code);
+            if (!prev) {
+              return res.status(404).json({ error: "Account not found" });
+            }
+            const {
+              code: _c,
+              role: _r,
+              ...safePatch
+            } = patch;
+            if (patch.passwordHash != null) safePatch.passwordHash = patch.passwordHash;
+            const merged = { ...prev, ...safePatch, code: prev.code, role: prev.role };
+            await bumpVersion(nextVersion);
+            await upsertAccountRow(merged);
+            return res.status(200).json({
+              ok: true,
+              version: nextVersion,
+              scope: "accountPatch",
+              account: merged,
+            });
+          }
+
+          if (scoped === "entryPatch") {
+            const entry = body.entry && typeof body.entry === "object" ? body.entry : null;
+            const entryId =
+              entry && entry.id != null ? String(entry.id) : String(body.id || "");
+            if (!entryId || !entry) {
+              return res.status(400).json({
+                error: "entryPatch requires entry object with id",
+              });
+            }
+            await bumpVersion(nextVersion);
+            try {
+              await sbFetch(
+                "DELETE",
+                `entries?data->>id=eq.${encodeURIComponent(entryId)}`,
+                undefined,
+                { Prefer: "return=minimal" }
+              );
+            } catch (_) {}
+            await sbFetch(
+              "POST",
+              "entries",
+              [{ data: { ...entry, id: entryId } }],
+              { Prefer: "return=minimal" }
+            );
+            return res.status(200).json({
+              ok: true,
+              version: nextVersion,
+              scope: "entryPatch",
+              id: entryId,
+            });
+          }
+
+          if (scoped === "entryDelete") {
+            const entryId = String(body.id || "").trim();
+            if (!entryId) {
+              return res.status(400).json({ error: "entryDelete requires id" });
+            }
+            await bumpVersion(nextVersion);
+            try {
+              await sbFetch(
+                "DELETE",
+                `entries?data->>id=eq.${encodeURIComponent(entryId)}`,
+                undefined,
+                { Prefer: "return=minimal" }
+              );
+            } catch (_) {}
+            return res.status(200).json({
+              ok: true,
+              version: nextVersion,
+              scope: "entryDelete",
+              id: entryId,
+            });
+          }
+
+          if (scoped === "settingsPatch") {
+            const key = typeof body.key === "string" ? body.key.trim() : "";
+            if (!key || key === "version") {
+              return res.status(400).json({
+                error: "settingsPatch requires a key (not version)",
+              });
+            }
+            let value = body.value;
+            if (key === "site_banner" && value != null) value = pickBanner(value);
+            if (key === "exam_config" && value != null) value = pickExamConfig(value);
+            if (key === "academic_units" && value != null) {
+              value = pickAcademicUnits(value);
+            }
+            await sbFetch(
+              "POST",
+              "settings?on_conflict=key",
+              [
+                { key: "version", value: nextVersion },
+                { key, value: value === undefined ? null : value },
+              ],
+              { Prefer: "resolution=merge-duplicates,return=minimal" }
+            );
+            return res.status(200).json({
+              ok: true,
+              version: nextVersion,
+              scope: "settingsPatch",
+              key,
+            });
+          }
+
+          if (scoped === "accounts") {
+            // Load accounts table only (not entries/logs)
+            const currentAccounts = await loadAccountsDataOnly();
+            const statusRank = (s) => {
+              if (s === "active" || s === "blocked") return 2;
+              if (s === "pending") return 1;
+              return 0;
+            };
+            const mergeAccountRow = (prev, incoming) => {
+              if (!prev) return incoming;
+              if (!incoming) return prev;
+              const merged = { ...prev, ...incoming };
+              if (statusRank(prev.status) > statusRank(incoming.status)) {
+                merged.status = prev.status;
+              }
+              return merged;
+            };
+            let nextAccounts = Array.isArray(body.accounts) ? body.accounts : [];
+            if (currentAccounts.length) {
+              const byCode = new Map();
+              for (const a of currentAccounts) {
+                if (a && a.code) byCode.set(String(a.code), a);
+              }
+              for (const a of nextAccounts) {
+                if (a && a.code) {
+                  const key = String(a.code);
+                  byCode.set(key, mergeAccountRow(byCode.get(key), a));
+                }
+              }
+              nextAccounts = Array.from(byCode.values());
+            }
+            const removeCodes = Array.isArray(body.removeAccountCodes)
+              ? body.removeAccountCodes.map((c) => String(c)).filter(Boolean)
+              : [];
+            if (removeCodes.length) {
+              const drop = new Set(removeCodes);
+              nextAccounts = nextAccounts.filter(
+                (a) => a && a.code && !drop.has(String(a.code))
+              );
+            }
+            const approveCodes = Array.isArray(body.approveAccountCodes)
+              ? body.approveAccountCodes.map((c) => String(c)).filter(Boolean)
+              : [];
+            if (approveCodes.length) {
+              const forceActive = new Set(approveCodes);
+              nextAccounts = nextAccounts.map((a) =>
+                a && a.code && forceActive.has(String(a.code)) && a.status !== "blocked"
+                  ? { ...a, status: "active" }
+                  : a
+              );
+            }
+            await bumpVersion(nextVersion);
+            const keepCodes = new Set(
+              nextAccounts.map((a) => String((a && a.code) || "")).filter(Boolean)
+            );
+            try {
+              const existing = await sbFetch("GET", "accounts?select=code");
+              const toDelete = (existing || [])
+                .map((r) => String((r && r.code) || ""))
+                .filter((c) => c && !keepCodes.has(c));
+              for (const code of toDelete) {
+                await sbFetch(
+                  "DELETE",
+                  `accounts?code=eq.${encodeURIComponent(code)}`,
+                  undefined,
+                  { Prefer: "return=minimal" }
+                );
+              }
+            } catch (_) {}
+            // Only rewrite accounts that changed vs current
+            const prevMap = new Map(
+              currentAccounts.map((a) => [String(a.code), a])
+            );
+            for (const a of nextAccounts) {
+              const code = String((a && a.code) || "");
+              if (!code) continue;
+              const prev = prevMap.get(code);
+              let changed = !prev;
+              if (prev) {
+                try {
+                  changed = JSON.stringify(prev) !== JSON.stringify(a);
+                } catch (_) {
+                  changed = true;
+                }
+              }
+              if (changed) await upsertAccountRow(a);
+            }
+            return res.status(200).json({
+              ok: true,
+              version: nextVersion,
+              scope: "accounts",
+            });
+          }
+        }
+
+        // ——— Full record path (bulk / legacy) ———
         const current = await loadRecord();
         if (current.version !== body.expectedVersion) {
           return res.status(409).json({
@@ -496,267 +791,6 @@ export default async function handler(req, res) {
         }
 
         const nextVersion = current.version + 1;
-
-        // ——— Partial save: accounts only (profile edit / approve / delete) ———
-        // Does NOT rewrite entries, logs, or banners — much faster.
-        if (body.scope === "accounts") {
-          const statusRank = (s) => {
-            if (s === "active" || s === "blocked") return 2;
-            if (s === "pending") return 1;
-            return 0;
-          };
-          const mergeAccountRow = (prev, incoming) => {
-            if (!prev) return incoming;
-            if (!incoming) return prev;
-            const merged = { ...prev, ...incoming };
-            if (statusRank(prev.status) > statusRank(incoming.status)) {
-              merged.status = prev.status;
-            }
-            return merged;
-          };
-          let nextAccounts = Array.isArray(body.accounts) ? body.accounts : [];
-          if (Array.isArray(current.accounts) && current.accounts.length) {
-            const byCode = new Map();
-            for (const a of current.accounts) {
-              if (a && a.code) byCode.set(String(a.code), a);
-            }
-            for (const a of nextAccounts) {
-              if (a && a.code) {
-                const key = String(a.code);
-                byCode.set(key, mergeAccountRow(byCode.get(key), a));
-              }
-            }
-            nextAccounts = Array.from(byCode.values());
-          }
-          const removeCodes = Array.isArray(body.removeAccountCodes)
-            ? body.removeAccountCodes.map((c) => String(c)).filter(Boolean)
-            : [];
-          if (removeCodes.length) {
-            const drop = new Set(removeCodes);
-            nextAccounts = nextAccounts.filter(
-              (a) => a && a.code && !drop.has(String(a.code))
-            );
-          }
-          const approveCodes = Array.isArray(body.approveAccountCodes)
-            ? body.approveAccountCodes.map((c) => String(c)).filter(Boolean)
-            : [];
-          if (approveCodes.length) {
-            const forceActive = new Set(approveCodes);
-            nextAccounts = nextAccounts.map((a) =>
-              a && a.code && forceActive.has(String(a.code)) && a.status !== "blocked"
-                ? { ...a, status: "active" }
-                : a
-            );
-          }
-
-          // version bump only in settings
-          await sbFetch(
-            "POST",
-            "settings?on_conflict=key",
-            [{ key: "version", value: nextVersion }],
-            { Prefer: "resolution=merge-duplicates,return=minimal" }
-          );
-
-          // accounts table only
-          const keepCodes = new Set(
-            nextAccounts.map((a) => String((a && a.code) || "")).filter(Boolean)
-          );
-          try {
-            const existing = await sbFetch("GET", "accounts?select=code");
-            const toDelete = (existing || [])
-              .map((r) => String((r && r.code) || ""))
-              .filter((c) => c && !keepCodes.has(c));
-            for (const code of toDelete) {
-              await sbFetch(
-                "DELETE",
-                `accounts?code=eq.${encodeURIComponent(code)}`,
-                undefined,
-                { Prefer: "return=minimal" }
-              );
-            }
-          } catch (_) {}
-          for (const a of nextAccounts) {
-            const code = String((a && a.code) || "");
-            if (!code) continue;
-            try {
-              await sbFetch(
-                "DELETE",
-                `accounts?code=eq.${encodeURIComponent(code)}`,
-                undefined,
-                { Prefer: "return=minimal" }
-              );
-            } catch (_) {}
-          }
-          if (nextAccounts.length) {
-            const rows = nextAccounts.map((a) => ({
-              code: a.code || "",
-              data: a,
-            }));
-            for (let i = 0; i < rows.length; i += 50) {
-              await sbFetch("POST", "accounts", rows.slice(i, i + 50), {
-                Prefer: "return=minimal",
-              });
-            }
-          }
-
-          return res.status(200).json({ ok: true, version: nextVersion, scope: "accounts" });
-        }
-
-        // ——— Single account, only the fields in `patch` (e.g. birthDate only) ———
-        if (body.scope === "accountPatch") {
-          const code = String(body.code || "").trim();
-          const patch =
-            body.patch && typeof body.patch === "object" ? body.patch : null;
-          if (!code || !patch || !Object.keys(patch).length) {
-            return res.status(400).json({
-              error: "accountPatch requires code and a non-empty patch object",
-            });
-          }
-          const prev = (current.accounts || []).find(
-            (a) => a && String(a.code) === code
-          );
-          if (!prev) {
-            return res.status(404).json({ error: "Account not found" });
-          }
-          // Never allow patch to change code / escalate role via this path
-          const {
-            code: _ignoreCode,
-            role: _ignoreRole,
-            passwordHash: _ignorePw,
-            ...safePatch
-          } = patch;
-          if (patch.passwordHash != null) safePatch.passwordHash = patch.passwordHash;
-          // role only if explicitly allowed later; blocked for self-service field patches
-          const merged = { ...prev, ...safePatch, code: prev.code };
-          if (patch.role === "admin" || patch.role === "user") {
-            // admin tools should use scope:accounts; ignore role here
-          }
-          merged.role = prev.role;
-
-          await sbFetch(
-            "POST",
-            "settings?on_conflict=key",
-            [{ key: "version", value: nextVersion }],
-            { Prefer: "resolution=merge-duplicates,return=minimal" }
-          );
-          try {
-            await sbFetch(
-              "DELETE",
-              `accounts?code=eq.${encodeURIComponent(code)}`,
-              undefined,
-              { Prefer: "return=minimal" }
-            );
-          } catch (_) {}
-          await sbFetch(
-            "POST",
-            "accounts",
-            [{ code, data: merged }],
-            { Prefer: "return=minimal" }
-          );
-          return res.status(200).json({
-            ok: true,
-            version: nextVersion,
-            scope: "accountPatch",
-            account: merged,
-          });
-        }
-
-        // ——— Single dictionary entry (one word only) ———
-        if (body.scope === "entryPatch") {
-          const entry = body.entry && typeof body.entry === "object" ? body.entry : null;
-          const entryId = entry && entry.id != null ? String(entry.id) : String(body.id || "");
-          if (!entryId || !entry) {
-            return res.status(400).json({
-              error: "entryPatch requires entry object with id",
-            });
-          }
-          await sbFetch(
-            "POST",
-            "settings?on_conflict=key",
-            [{ key: "version", value: nextVersion }],
-            { Prefer: "resolution=merge-duplicates,return=minimal" }
-          );
-          // Remove old row for this entry id (json path filter), then insert
-          try {
-            await sbFetch(
-              "DELETE",
-              `entries?data->>id=eq.${encodeURIComponent(entryId)}`,
-              undefined,
-              { Prefer: "return=minimal" }
-            );
-          } catch (_) {}
-          await sbFetch(
-            "POST",
-            "entries",
-            [{ data: { ...entry, id: entryId } }],
-            { Prefer: "return=minimal" }
-          );
-          return res.status(200).json({
-            ok: true,
-            version: nextVersion,
-            scope: "entryPatch",
-            id: entryId,
-          });
-        }
-
-        // ——— Delete one dictionary entry by id ———
-        if (body.scope === "entryDelete") {
-          const entryId = String(body.id || "").trim();
-          if (!entryId) {
-            return res.status(400).json({ error: "entryDelete requires id" });
-          }
-          await sbFetch(
-            "POST",
-            "settings?on_conflict=key",
-            [{ key: "version", value: nextVersion }],
-            { Prefer: "resolution=merge-duplicates,return=minimal" }
-          );
-          try {
-            await sbFetch(
-              "DELETE",
-              `entries?data->>id=eq.${encodeURIComponent(entryId)}`,
-              undefined,
-              { Prefer: "return=minimal" }
-            );
-          } catch (_) {}
-          return res.status(200).json({
-            ok: true,
-            version: nextVersion,
-            scope: "entryDelete",
-            id: entryId,
-          });
-        }
-
-        // ——— Single settings key (banner / exam_config / academic_units / …) ———
-        if (body.scope === "settingsPatch") {
-          const key = typeof body.key === "string" ? body.key.trim() : "";
-          if (!key || key === "version") {
-            return res.status(400).json({
-              error: "settingsPatch requires a key (not version)",
-            });
-          }
-          let value = body.value;
-          if (key === "site_banner" && value != null) value = pickBanner(value);
-          if (key === "exam_config" && value != null) value = pickExamConfig(value);
-          if (key === "academic_units" && value != null) {
-            value = pickAcademicUnits(value);
-          }
-          await sbFetch(
-            "POST",
-            "settings?on_conflict=key",
-            [
-              { key: "version", value: nextVersion },
-              { key, value: value === undefined ? null : value },
-            ],
-            { Prefer: "resolution=merge-duplicates,return=minimal" }
-          );
-          return res.status(200).json({
-            ok: true,
-            version: nextVersion,
-            scope: "settingsPatch",
-            key,
-          });
-        }
 
         let nextBanner;
         if (body.siteBanner !== undefined) {

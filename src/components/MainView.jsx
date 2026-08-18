@@ -22,7 +22,6 @@ import {
 } from "../lib/state/academicUnits";
 import MinecraftAchievementToast from "./common/MinecraftAchievementToast";
 import HeaderMenu from "./layout/HeaderMenu";
-import PwaSyncButton from "./common/PwaSyncButton";
 import BrandMark from "./common/BrandMark";
 import AvatarWithFrame from "./common/AvatarWithFrame";
 import ToolsMenu from "./layout/ToolsMenu";
@@ -671,7 +670,6 @@ export default function MainView({
                   />
                 </>
               )}
-              <PwaSyncButton isAr={appIsAr} />
               <HeaderMenu theme={theme} onToggleTheme={onToggleTheme} onChangeTheme={onChangeTheme} isAdmin={isAdmin}
                 onOpenAccount={onOpenAccount} onOpenAdmin={onOpenAdmin} onLogout={onLogout} isAr={appIsAr}
                 vaultAccounts={vaultAccounts} mainAccountCode={mainAccountCode} accountCode={accountCode}

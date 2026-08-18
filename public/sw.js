@@ -21,7 +21,7 @@
    network-first, but still useful as a hard reset).
    ============================================================================= */
 
-const CACHE_VERSION = "two-tongues-v13";
+const CACHE_VERSION = "two-tongues-v14";
 const APP_SHELL = [
   "/",
   "/index.html",

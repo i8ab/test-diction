@@ -152,59 +152,58 @@ function formatMs(ms) {
 }
 
 /**
- * Classic split-flap digit (flipclock.us style):
- * top static = new digit, bottom static = old then new,
- * upper flap folds old digit down, lower flap unfolds new digit up.
+ * Split-flap digit (digitalclock.live style).
+ * Static top/bottom halves + one folding card (front=old, back=new) with rotateX.
  */
 function FlipDigit({ value, color }) {
-  const [current, setCurrent] = useState(String(value));
-  const [previous, setPrevious] = useState(String(value));
-  const [animKey, setAnimKey] = useState(0);
-  const [phase, setPhase] = useState("idle"); // idle | top | bottom
+  const [from, setFrom] = useState(String(value));
+  const [to, setTo] = useState(String(value));
+  const [play, setPlay] = useState(false);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     const next = String(value);
-    if (next === current) return undefined;
-    setPrevious(current);
-    setCurrent(next);
-    setPhase("top");
-    setAnimKey((k) => k + 1);
-    const t1 = setTimeout(() => setPhase("bottom"), 300);
-    const t2 = setTimeout(() => setPhase("idle"), 600);
+    if (next === to) return undefined;
+    setFrom(to);
+    setTo(next);
+    setPlay(false);
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        setPlay(true);
+        setTick((t) => t + 1);
+      });
+    });
+    const done = setTimeout(() => setPlay(false), 650);
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      clearTimeout(done);
     };
-  }, [value, current]);
-
-  const bottomDigit = phase === "idle" || phase === "bottom" ? current : previous;
+  }, [value, to]);
 
   return (
-    <div className="flip-digit" style={{ color: color || "#fff" }} aria-hidden>
-      <div className="flip-digit-card">
-        <div className="flip-digit-half top">
-          <div className="flip-digit-glyph">{current}</div>
-        </div>
-        <div className="flip-digit-half bottom">
-          <div className="flip-digit-glyph">{bottomDigit}</div>
-        </div>
-        <div className="flip-digit-hinge" />
-        {animKey > 0 && phase !== "idle" && (
-          <>
-            <div
-              key={`up-${animKey}`}
-              className={`flip-digit-flap flip-digit-flap-top${phase === "top" ? " animating-top" : " done-top"}`}
-            >
-              <div className="flip-digit-glyph">{previous}</div>
-            </div>
-            {phase === "bottom" && (
-              <div key={`lo-${animKey}`} className="flip-digit-flap flip-digit-flap-bottom animating-bottom">
-                <div className="flip-digit-glyph">{current}</div>
-              </div>
-            )}
-          </>
-        )}
+    <div
+      className={`flip-unit${play ? " play" : ""}`}
+      style={{ color: color || "#fff" }}
+      aria-hidden
+    >
+      <div className="flip-unit-top">
+        <span>{to}</span>
       </div>
+      <div className="flip-unit-bottom">
+        <span>{play ? from : to}</span>
+      </div>
+      {play && (
+        <div key={tick} className="flip-unit-fold">
+          <div className="flip-unit-fold-front">
+            <span>{from}</span>
+          </div>
+          <div className="flip-unit-fold-back">
+            <span>{to}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

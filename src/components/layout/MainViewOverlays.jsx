@@ -692,7 +692,7 @@ export default function MainViewOverlays(p) {
     )}
 
     {showMotivationDua && (
-      <Suspense fallback={null}>
+      <Suspense fallback={<ModalChunkFallback label={appIsAr ? "جاري الفتح…" : "Opening…"} />}>
         <MotivationDuaModal
           isAr={appIsAr}
           onClose={() => setShowMotivationDua(false)}

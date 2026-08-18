@@ -43,7 +43,7 @@ import { useEntrySearch } from "../lib/hooks/useEntrySearch";
 import { useStudyShortcuts } from "../lib/hooks/useStudyShortcuts";
 import { useListPagination } from "../lib/hooks/useListPagination";
 import WelcomeOnboardingModal, { hasSeenWelcome, markWelcomeSeen } from "./modals/WelcomeOnboardingModal";
-import { scheduleIdlePreload, preloadStudyCore } from "./modals/lazyModals";
+import { scheduleIdlePreload, preloadStudyCore, preloadMotivationDuaModal } from "./modals/lazyModals";
 import { consumeSessionOpenTool, setSessionOpenTool } from "../lib/state/sessionUi";
 
 export default function MainView({
@@ -257,9 +257,10 @@ export default function MainView({
     return () => clearTimeout(t);
   }, [accountCode]);
 
-  // Warm common study chunks in the background so first open is instant
+  // Warm common study chunks + Motivation/Du'a in the background so first open is instant
   useEffect(() => {
     scheduleIdlePreload(preloadStudyCore);
+    scheduleIdlePreload(preloadMotivationDuaModal);
   }, []);
 
   const [showDictation, setShowDictation] = useState(() => restored.tool === "dictation");

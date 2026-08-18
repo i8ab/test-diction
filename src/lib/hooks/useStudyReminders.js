@@ -9,6 +9,8 @@ import {
   saveRemindersEnabled,
   loadReminderMessage,
   saveReminderMessage,
+  loadReminderMessages,
+  saveReminderMessages,
   loadReminderTitle,
   saveReminderTitle,
   loadReminderIntervalHours,
@@ -29,6 +31,7 @@ export function useStudyReminders(accountCode, showToast) {
   const [remindersBusy, setRemindersBusy] = useState(false);
   const [reminderTitle, setReminderTitle] = useState("");
   const [reminderMessage, setReminderMessage] = useState("");
+  const [reminderMessages, setReminderMessages] = useState([]);
   const [reminderIntervalHours, setReminderIntervalHours] = useState(DEFAULT_INTERVAL_HOURS);
   const prefsSaveTimerRef = useRef(null);
 
@@ -39,12 +42,14 @@ export function useStudyReminders(accountCode, showToast) {
       setRemindersOn(false);
       setReminderTitle("");
       setReminderMessage("");
+      setReminderMessages([]);
       setReminderIntervalHours(DEFAULT_INTERVAL_HOURS);
       return;
     }
     setRemindersOn(loadRemindersEnabled(accountCode));
     setReminderTitle(loadReminderTitle(accountCode));
     setReminderMessage(loadReminderMessage(accountCode));
+    setReminderMessages(loadReminderMessages(accountCode));
     setReminderIntervalHours(loadReminderIntervalHours(accountCode));
   }, [accountCode]);
 
@@ -62,10 +67,11 @@ export function useStudyReminders(accountCode, showToast) {
   const getReminderPrefs = useCallback(
     () => ({
       title: reminderTitle,
-      message: reminderMessage,
+      message: reminderMessages[0] || reminderMessage,
+      messages: reminderMessages,
       intervalHours: reminderIntervalHours,
     }),
-    [reminderTitle, reminderMessage, reminderIntervalHours]
+    [reminderTitle, reminderMessage, reminderMessages, reminderIntervalHours]
   );
 
   const handleChangeReminderTitle = useCallback(
@@ -81,7 +87,30 @@ export function useStudyReminders(accountCode, showToast) {
     (message) => {
       setReminderMessage(message);
       if (accountCode) saveReminderMessage(message, accountCode);
-      schedulePrefsSave({ title: reminderTitle, message, intervalHours: reminderIntervalHours });
+      schedulePrefsSave({ title: reminderTitle, message, messages: reminderMessages, intervalHours: reminderIntervalHours });
+    },
+    [accountCode, reminderTitle, reminderMessages, reminderIntervalHours, schedulePrefsSave]
+  );
+
+  const handleChangeReminderMessages = useCallback(
+    (messages) => {
+      // Keep empty slots while the user is typing; only persist non-empty ones.
+      const draft = (Array.isArray(messages) ? messages : [])
+        .map((m) => String(m || ""))
+        .slice(0, 20);
+      const cleaned = draft.map((m) => m.trim()).filter(Boolean).slice(0, 20);
+      setReminderMessages(draft.length ? draft : []);
+      setReminderMessage(cleaned[0] || "");
+      if (accountCode) {
+        saveReminderMessages(cleaned, accountCode);
+        saveReminderMessage(cleaned[0] || "", accountCode);
+      }
+      schedulePrefsSave({
+        title: reminderTitle,
+        message: cleaned[0] || "",
+        messages: cleaned,
+        intervalHours: reminderIntervalHours,
+      });
     },
     [accountCode, reminderTitle, reminderIntervalHours, schedulePrefsSave]
   );
@@ -91,7 +120,7 @@ export function useStudyReminders(accountCode, showToast) {
       const n = Number(hours);
       setReminderIntervalHours(n);
       if (accountCode) saveReminderIntervalHours(n, accountCode);
-      schedulePrefsSave({ title: reminderTitle, message: reminderMessage, intervalHours: n });
+      schedulePrefsSave({ title: reminderTitle, message: reminderMessages[0] || reminderMessage, messages: reminderMessages, intervalHours: n });
     },
     [accountCode, reminderTitle, reminderMessage, schedulePrefsSave]
   );
@@ -208,9 +237,11 @@ export function useStudyReminders(accountCode, showToast) {
     remindersBusy,
     reminderTitle,
     reminderMessage,
+    reminderMessages,
     reminderIntervalHours,
     handleChangeReminderTitle,
     handleChangeReminderMessage,
+    handleChangeReminderMessages,
     handleChangeReminderIntervalHours,
     enableReminders,
     disableReminders,

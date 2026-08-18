@@ -215,9 +215,11 @@ export default function DictionaryApp() {
     remindersBusy,
     reminderTitle,
     reminderMessage,
+    reminderMessages,
     reminderIntervalHours,
     handleChangeReminderTitle,
     handleChangeReminderMessage,
+    handleChangeReminderMessages,
     handleChangeReminderIntervalHours,
     enableReminders,
     disableReminders,
@@ -1675,7 +1677,7 @@ useEffect(() => {
       sessionStart={sessionStartRef.current}
       remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={enableReminders} onDisableReminders={disableReminders} onTestReminder={testReminderPush}
       reminderTitle={reminderTitle} onChangeReminderTitle={handleChangeReminderTitle}
-      reminderMessage={reminderMessage} onChangeReminderMessage={handleChangeReminderMessage}
+      reminderMessage={reminderMessage} onChangeReminderMessage={handleChangeReminderMessage} reminderMessages={reminderMessages} onChangeReminderMessages={handleChangeReminderMessages}
       reminderIntervalHours={reminderIntervalHours} onChangeReminderIntervalHours={handleChangeReminderIntervalHours}
     />
   );

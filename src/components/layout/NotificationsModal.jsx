@@ -20,6 +20,8 @@ export default function NotificationsModal({
   onChangeReminderTitle = null,
   reminderMessage = "",
   onChangeReminderMessage = null,
+  reminderMessages = [],
+  onChangeReminderMessages = null,
   reminderIntervalHours = 24,
   onChangeReminderIntervalHours = null,
   isAdmin = false,
@@ -198,23 +200,86 @@ export default function NotificationsModal({
                       </div>
 
                       <div>
-                        <label style={fieldLabel}>{T( "Notification message", "نص الإشعار")}</label>
-                        <textarea
-                          value={reminderMessage || ""}
-                          onChange={(e) => onChangeReminderMessage && onChangeReminderMessage(e.target.value)}
-                          placeholder={tr(
-                            isAr,
-                            "It's been a while since you studied — time for a quick review.",
-                            "عدّى وقت من غير ما تراجع — يلا نراجع شوية."
+                        <label style={fieldLabel}>
+                          {T("Notification messages (in order)", "رسائل الإشعارات (بالترتيب)")}
+                        </label>
+                        <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.4, marginBottom: 8 }}>
+                          {T(
+                            "Each reminder uses the next message. After the last one, it starts over from the first.",
+                            "كل تذكير بياخد الرسالة اللي بعدها. بعد آخر رسالة يرجع من الأول تاني."
                           )}
-                          maxLength={300}
-                          rows={3}
-                          style={{ ...fieldInput, resize: "vertical", minHeight: 64, lineHeight: 1.4 }}
-                          dir="auto"
-                        />
-                        <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 3, textAlign: "end" }}>
-                          {(reminderMessage || "").length}/300
                         </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {(reminderMessages && reminderMessages.length ? reminderMessages : [""]).map((msg, i) => (
+                            <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                              <span style={{
+                                flex: "0 0 22px", marginTop: 10, fontSize: 11, fontWeight: 800,
+                                color: "var(--muted)", textAlign: "center",
+                              }}>{i + 1}</span>
+                              <textarea
+                                value={msg}
+                                onChange={(e) => {
+                                  if (!onChangeReminderMessages) return;
+                                  const base = (reminderMessages && reminderMessages.length)
+                                    ? [...reminderMessages]
+                                    : [""];
+                                  while (base.length <= i) base.push("");
+                                  base[i] = e.target.value;
+                                  onChangeReminderMessages(base);
+                                }}
+                                placeholder={tr(
+                                  isAr,
+                                  i === 0 ? "It's been a while — time for a quick review." : "Next message…",
+                                  i === 0 ? "عدّى وقت — يلا نراجع شوية." : "الرسالة التالية…"
+                                )}
+                                maxLength={300}
+                                rows={2}
+                                style={{ ...fieldInput, flex: 1, resize: "vertical", minHeight: 48, lineHeight: 1.4 }}
+                                dir="auto"
+                              />
+                              <button
+                                type="button"
+                                className="touch-target"
+                                title={T("Remove", "حذف")}
+                                onClick={() => {
+                                  if (!onChangeReminderMessages) return;
+                                  const base = (reminderMessages && reminderMessages.length)
+                                    ? reminderMessages.filter((_, j) => j !== i)
+                                    : [];
+                                  onChangeReminderMessages(base);
+                                }}
+                                style={{
+                                  flex: "0 0 36px", marginTop: 4, height: 36, borderRadius: 10,
+                                  border: "1px solid rgba(var(--border-rgb),0.2)", background: "var(--input-bg)",
+                                  color: "var(--danger, #e5484d)", fontWeight: 800, cursor: "pointer", fontSize: 16,
+                                }}
+                              >×</button>
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          className="touch-target"
+                          disabled={(reminderMessages || []).length >= 20}
+                          onClick={() => {
+                            if (!onChangeReminderMessages) return;
+                            const base = [...(reminderMessages || [])];
+                            if (base.length >= 20) return;
+                            base.push("");
+                            onChangeReminderMessages(base);
+                          }}
+                          style={{
+                            marginTop: 8, width: "100%", minHeight: 40, borderRadius: 10, cursor: "pointer",
+                            border: "1px dashed rgba(var(--border-rgb),0.35)", background: "transparent",
+                            color: "var(--accent-1)", fontWeight: 700, fontSize: 13,
+                            opacity: (reminderMessages || []).length >= 20 ? 0.5 : 1,
+                          }}
+                        >
+                          + {T("Add message", "إضافة رسالة")}
+                          {(reminderMessages || []).length > 0
+                            ? ` (${(reminderMessages || []).length}/20)`
+                            : ""}
+                        </button>
                       </div>
 
                       <div style={{
@@ -222,13 +287,13 @@ export default function NotificationsModal({
                         padding: "10px 12px", background: "var(--paper)",
                       }}>
                         <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>
-                          {T( "Preview", "معاينة")}
+                          {T( "Preview (next up)", "معاينة (الجاية)")}
                         </div>
                         <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)", marginBottom: 3, lineHeight: 1.3 }} dir="auto">
                           {(reminderTitle && reminderTitle.trim()) || T( "Time to review!", "وقت المراجعة!")}
                         </div>
                         <div style={{ fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.4 }} dir="auto">
-                          {(reminderMessage && reminderMessage.trim()) || tr(
+                          {((reminderMessages && reminderMessages[0]) || reminderMessage || "").trim() || tr(
                             isAr,
                             "It's been a while since you studied — time for a quick review.",
                             "عدّى وقت من غير ما تراجع — يلا نراجع شوية."

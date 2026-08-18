@@ -50,7 +50,18 @@ function normalizePrefs(body) {
 
   const message = typeof body.message === "string" ? body.message.trim().slice(0, 300) : "";
   const title = typeof body.title === "string" ? body.title.trim().slice(0, 120) : "";
-  return { intervalHours, message, title };
+  let messages = [];
+  if (Array.isArray(body.messages)) {
+    messages = body.messages
+      .map((m) => (typeof m === "string" ? m.trim().slice(0, 300) : ""))
+      .filter(Boolean)
+      .slice(0, 20);
+  } else if (message) {
+    messages = [message];
+  }
+  // Keep legacy message = first of list
+  const messageOut = messages[0] || message;
+  return { intervalHours, message: messageOut, title, messages };
 }
 
 export default async function handler(req, res) {

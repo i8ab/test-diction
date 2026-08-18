@@ -74,7 +74,7 @@ export default function MainView({
   sessionStart,
   remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
   reminderTitle, onChangeReminderTitle,
-  reminderMessage, onChangeReminderMessage,
+  reminderMessage, onChangeReminderMessage, reminderMessages = [], onChangeReminderMessages = null,
   reminderIntervalHours, onChangeReminderIntervalHours,
   vaultAccounts = [], mainAccountCode = "",
   onSwitchAccount, onSetMainAccount, onUnlinkVaultAccount, onLogoutAll, onLinkAccount,
@@ -692,7 +692,7 @@ export default function MainView({
                 examVisual={examVisual} onChangeExamVisual={onChangeExamVisual}
                 remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={onEnableReminders} onDisableReminders={onDisableReminders} onTestReminder={onTestReminder}
                 reminderTitle={reminderTitle} onChangeReminderTitle={onChangeReminderTitle}
-                reminderMessage={reminderMessage} onChangeReminderMessage={onChangeReminderMessage}
+                reminderMessage={reminderMessage} onChangeReminderMessage={onChangeReminderMessage} reminderMessages={reminderMessages} onChangeReminderMessages={onChangeReminderMessages}
                 reminderIntervalHours={reminderIntervalHours} onChangeReminderIntervalHours={onChangeReminderIntervalHours}
                 pendingAccounts={(accounts || []).filter((a) => a.status === "pending")}
                 onApproveRequest={onApproveRequest}

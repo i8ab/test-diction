@@ -6,6 +6,7 @@
 const REMINDERS_KEY = "twoTongues.remindersEnabled.";
 const TITLE_KEY = "twoTongues.reminderTitle.";
 const MSG_KEY = "twoTongues.reminderMessage.";
+const MESSAGES_KEY = "twoTongues.reminderMessages.";
 const INTERVAL_KEY = "twoTongues.reminderIntervalHours.";
 const SUB_KEY = "twoTongues.pushSub.";
 
@@ -58,9 +59,19 @@ function prefsFromObject(prefs = {}) {
       Math.abs(v - h) < Math.abs(best - h) ? v : best
     , 24);
   }
+  let messages = [];
+  if (Array.isArray(prefs.messages)) {
+    messages = prefs.messages
+      .map((m) => (typeof m === "string" ? m.trim() : ""))
+      .filter(Boolean)
+      .slice(0, 20);
+  } else if (typeof prefs.message === "string" && prefs.message.trim()) {
+    messages = [prefs.message.trim()];
+  }
   return {
     title: typeof prefs.title === "string" ? prefs.title : "",
-    message: typeof prefs.message === "string" ? prefs.message : "",
+    message: typeof prefs.message === "string" ? prefs.message : (messages[0] || ""),
+    messages,
     intervalHours,
   };
 }
@@ -232,6 +243,37 @@ export function saveReminderIntervalHours(hours, accountCode) {
     if (ALLOWED_INTERVAL_HOURS.includes(n)) {
       localStorage.setItem(INTERVAL_KEY + accountCode, String(n));
     }
+  } catch (_) {}
+}
+
+
+export function loadReminderMessages(accountCode) {
+  try {
+    const raw = localStorage.getItem(MESSAGES_KEY + accountCode);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        return arr.map((m) => String(m || "").trim()).filter(Boolean).slice(0, 20);
+      }
+    }
+    // migrate single message → list
+    const one = localStorage.getItem(MSG_KEY + accountCode);
+    if (one && one.trim()) return [one.trim()];
+    return [];
+  } catch (_) {
+    return [];
+  }
+}
+
+export function saveReminderMessages(messages, accountCode) {
+  try {
+    const list = (Array.isArray(messages) ? messages : [])
+      .map((m) => String(m || "").trim())
+      .filter(Boolean)
+      .slice(0, 20);
+    localStorage.setItem(MESSAGES_KEY + accountCode, JSON.stringify(list));
+    // keep legacy single field in sync with first message
+    localStorage.setItem(MSG_KEY + accountCode, list[0] || "");
   } catch (_) {}
 }
 

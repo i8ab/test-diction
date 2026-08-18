@@ -16,6 +16,7 @@ const CODES_SET_KEY = "twoTongues:push:codes";
 const SUB_PREFIX = "twoTongues:push:sub:";
 const PREFS_PREFIX = "twoTongues:push:prefs:";
 const LAST_SENT_PREFIX = "twoTongues:push:lastSent:";
+const MSG_INDEX_PREFIX = "twoTongues:push:msgIndex:";
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 const DEFAULT_INTERVAL_HOURS = 24;
@@ -138,7 +139,7 @@ async function clearStaleLogsDirect(record) {
 async function loadPrefs(code) {
   try {
     const raw = await redisCommand("GET", `${PREFS_PREFIX}${code}`);
-    if (!raw) return { intervalHours: DEFAULT_INTERVAL_HOURS, message: "", title: "" };
+    if (!raw) return { intervalHours: DEFAULT_INTERVAL_HOURS, message: "", title: "", messages: [] };
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
 
     let hours = DEFAULT_INTERVAL_HOURS;
@@ -163,9 +164,12 @@ async function loadPrefs(code) {
       intervalHours: hours,
       message: typeof parsed.message === "string" ? parsed.message : "",
       title: typeof parsed.title === "string" ? parsed.title : "",
+      messages: Array.isArray(parsed.messages)
+        ? parsed.messages.map((m) => (typeof m === "string" ? m.trim() : "")).filter(Boolean).slice(0, 20)
+        : (typeof parsed.message === "string" && parsed.message.trim() ? [parsed.message.trim()] : []),
     };
   } catch (e) {
-    return { intervalHours: DEFAULT_INTERVAL_HOURS, message: "", title: "" };
+    return { intervalHours: DEFAULT_INTERVAL_HOURS, message: "", title: "", messages: [] };
   }
 }
 
@@ -280,7 +284,22 @@ export default async function handler(req, res) {
       const daysSince = lastStudied == null ? null : Math.max(0, Math.floor((now - lastStudied) / DAY_MS));
 
       const title = (prefs.title && prefs.title.trim()) || DEFAULT_TITLE;
-      let body = (prefs.message && prefs.message.trim()) || "";
+      // Rotate through user message list (order preserved, loops forever)
+      const list = (prefs.messages && prefs.messages.length)
+        ? prefs.messages
+        : ((prefs.message && prefs.message.trim()) ? [prefs.message.trim()] : []);
+      let body = "";
+      let nextIdx = 0;
+      if (list.length) {
+        let idx = 0;
+        try {
+          const rawIdx = await redisCommand("GET", `${MSG_INDEX_PREFIX}${code}`);
+          idx = Math.max(0, parseInt(rawIdx, 10) || 0);
+        } catch (_) { idx = 0; }
+        idx = idx % list.length;
+        body = list[idx];
+        nextIdx = (idx + 1) % list.length;
+      }
       if (!body) {
         body = daysSince == null
           ? "يلا نراجع شوية النهارده. / Time for today's review."
@@ -299,6 +318,9 @@ export default async function handler(req, res) {
       if (result.ok) {
         sent++;
         await setLastSent(code, now);
+        if (list.length) {
+          try { await redisCommand("SET", `${MSG_INDEX_PREFIX}${code}`, String(nextIdx)); } catch (_) {}
+        }
       } else if (result.expired) {
         expired++;
         await redisCommand("DEL", `${SUB_PREFIX}${code}`);

@@ -1103,6 +1103,16 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
     applyNewDuration(parseHms(hours, mins, secs));
   }
 
+  /** Apply current pomodoro phase length (study or break) — works while running. */
+  function applyPomoDuration() {
+    const phase = pomoPhaseRef.current || "work";
+    const mins =
+      phase === "break"
+        ? Math.max(1, Number(prefs.pomoBreakMin) || 5)
+        : Math.max(1, Number(prefs.pomoWorkMin) || 25);
+    applyNewDuration(mins * 60 * 1000);
+  }
+
   function updatePref(patch) {
     setPrefs((p) => ({ ...p, ...patch }));
   }
@@ -1928,7 +1938,12 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
                         if (!running) {
                           pomoPhaseRef.current = "work";
                           setPomoPhase("work");
-                          setRemainingMs(p.work * 60 * 1000);
+                          applyNewDuration(p.work * 60 * 1000);
+                        } else {
+                          // Running: apply length for the current phase
+                          const phase = pomoPhaseRef.current || "work";
+                          const mins = phase === "break" ? p.brk : p.work;
+                          applyNewDuration(mins * 60 * 1000);
                         }
                       }}
                       style={{
@@ -1954,7 +1969,9 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
                       width={100}
                       onChange={(v) => {
                         updatePref({ pomoWorkMin: v });
-                        if (!running && pomoPhase === "work") setRemainingMs(v * 60 * 1000);
+                        if (!running && (pomoPhaseRef.current || "work") === "work") {
+                          applyNewDuration(v * 60 * 1000);
+                        }
                       }}
                       aria-label={tr(isAr, "Study minutes", "دقائق المذاكرة")}
                     />
@@ -1966,7 +1983,12 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
                       max={60}
                       value={prefs.pomoBreakMin || 5}
                       width={100}
-                      onChange={(v) => updatePref({ pomoBreakMin: v })}
+                      onChange={(v) => {
+                        updatePref({ pomoBreakMin: v });
+                        if (!running && (pomoPhaseRef.current || "work") === "break") {
+                          applyNewDuration(v * 60 * 1000);
+                        }
+                      }}
                       aria-label={tr(isAr, "Break minutes", "دقائق الراحة")}
                     />
                     <span style={{ fontSize: 11, opacity: 0.75 }}>{tr(isAr, "Break (min)", "راحة (د)")}</span>
@@ -1982,6 +2004,18 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
                     />
                     <span style={{ fontSize: 11, opacity: 0.75 }}>{tr(isAr, "Cycles", "دورات")}</span>
                   </div>
+                </div>
+                <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                  <button type="button" onClick={applyPomoDuration} style={{ ...btnGhost }}>
+                    {tr(isAr, "Apply duration", "تطبيق المدة")}
+                  </button>
+                  <span style={{ fontSize: 11, opacity: 0.65 }}>
+                    {tr(
+                      isAr,
+                      "Applies the current phase length (study or break), even while running.",
+                      "بيطبّق مدة المرحلة الحالية (مذاكرة أو راحة)، حتى لو التايمر شغال."
+                    )}
+                  </span>
                 </div>
                 <p style={{ fontSize: 12, opacity: 0.7, margin: "10px 0 0", lineHeight: 1.5 }}>
                   {tr(

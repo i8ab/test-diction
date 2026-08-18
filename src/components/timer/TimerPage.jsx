@@ -57,6 +57,7 @@ const DEFAULT_PREFS = {
   alarmVolume: 0.7,
   ambientVolume: 0.25,
   flipDigits: false, // optional flip-clock style digits
+  sessionTitle: "", // optional label for this study session
   // Pomodoro
   pomoWorkMin: 25,
   pomoBreakMin: 5,
@@ -1483,6 +1484,24 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
           </div>
         )}
 
+        {prefs.sessionTitle && String(prefs.sessionTitle).trim() && (
+          <div
+            style={{
+              fontSize: 16,
+              fontWeight: 600,
+              opacity: 0.9,
+              marginBottom: 8,
+              textAlign: "center",
+              maxWidth: "90%",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {String(prefs.sessionTitle).trim()}
+          </div>
+        )}
+
         <div
           style={{
             animation: doneFlash ? "timerPulse 0.6s ease 3" : undefined,
@@ -1852,6 +1871,30 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
                 </p>
               </section>
             )}
+
+            {/* Session title */}
+            <section>
+              <Label muted={muted}>{tr(isAr, "Session title (optional)", "عنوان الجلسة (اختياري)")}</Label>
+              <input
+                type="text"
+                value={prefs.sessionTitle || ""}
+                onChange={(e) => updatePref({ sessionTitle: e.target.value.slice(0, 80) })}
+                placeholder={tr(isAr, "e.g. Unit 3 vocabulary", "مثال: مفردات الوحدة 3")}
+                maxLength={80}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.18)",
+                  background: "rgba(0,0,0,0.25)",
+                  color: prefs.textColor || "#fff",
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                  outline: "none",
+                }}
+              />
+            </section>
 
             {/* Duration — free, no hard cap beyond practical UI limits */}
             {prefs.mode === "countdown" && (

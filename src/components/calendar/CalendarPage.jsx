@@ -398,6 +398,36 @@ export default function CalendarPage({
             {streak} {tr(isAr, streak === 1 ? "day streak" : "day streak", "يوم متتالي")}
           </div>
 
+          {(() => {
+            const todayKey = dateKey(Date.now());
+            const todayWords = dayMap[todayKey]?.count || 0;
+            const todayMin = getTodayTimerMinutes();
+            const wordGoal = 10;
+            const minGoal = 20;
+            const done = todayWords >= wordGoal || todayMin >= minGoal;
+            return (
+              <div
+                title={tr(isAr, "Daily goal: 10 words or 20 focus minutes", "هدف يومي: 10 كلمات أو 20 دقيقة تركيز")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "5px 10px",
+                  borderRadius: 20,
+                  background: done ? "color-mix(in srgb, #22c55e 14%, transparent)" : "rgba(var(--border-rgb),0.08)",
+                  color: done ? "#16a34a" : "var(--muted-strong)",
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                {done ? "✓ " : ""}
+                {todayWords}/{wordGoal} {tr(isAr, "words", "كلمة")}
+                {" · "}
+                {todayMin}/{minGoal} {tr(isAr, "min", "د")}
+              </div>
+            );
+          })()}
+
           <button
             type="button"
             onClick={() => setViewMode("bubble")}

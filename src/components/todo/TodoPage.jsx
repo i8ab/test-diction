@@ -21,12 +21,24 @@ function loadTodos() {
         done: !!t.done,
         createdAt: typeof t.createdAt === "number" ? t.createdAt : Date.now(),
         workedMs: typeof t.workedMs === "number" ? Math.max(0, t.workedMs) : 0,
-        // Only one task should be active; cleaned up after load
         activeSince: typeof t.activeSince === "number" ? t.activeSince : null,
+        priority: ["high", "medium", "low"].includes(t.priority) ? t.priority : "medium",
+        dueDate: typeof t.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.dueDate) ? t.dueDate : null,
+        note: typeof t.note === "string" ? String(t.note).slice(0, 300) : "",
       }));
   } catch (_) {
     return [];
   }
+}
+
+const PRIORITY_META = {
+  high:   { en: "High",   ar: "عالية",  color: "#ef4444" },
+  medium: { en: "Medium", ar: "متوسطة", color: "#f59e0b" },
+  low:    { en: "Low",    ar: "منخفضة", color: "#22c55e" },
+};
+
+function priorityRank(p) {
+  return p === "high" ? 0 : p === "medium" ? 1 : 2;
 }
 
 function saveTodos(list) {
@@ -60,9 +72,12 @@ export default function TodoPage({
 }) {
   const [todos, setTodos] = useState(loadTodos);
   const [draft, setDraft] = useState("");
+  const [draftPriority, setDraftPriority] = useState("medium");
+  const [draftDue, setDraftDue] = useState("");
+  const [draftNote, setDraftNote] = useState("");
   const [viewMode, setViewMode] = useState(initialBubble ? "bubble" : "full");
   const [bubblePos, setBubblePos] = useState({ x: null, y: null });
-  const [filter, setFilter] = useState("all"); // all | open | done
+  const [filter, setFilter] = useState("all"); // all | open | done | high
   const [nowTick, setNowTick] = useState(Date.now());
   const inputRef = useRef(null);
   const dragRef = useRef(null);
@@ -110,18 +125,39 @@ export default function TodoPage({
   const doneCount = todos.length - openCount;
 
   const visible = useMemo(() => {
-    if (filter === "open") return todos.filter((t) => !t.done);
-    if (filter === "done") return todos.filter((t) => t.done);
-    // open first, then done
-    return [...todos].sort((a, b) => Number(a.done) - Number(b.done) || b.createdAt - a.createdAt);
+    let list = todos;
+    if (filter === "open") list = todos.filter((t) => !t.done);
+    else if (filter === "done") list = todos.filter((t) => t.done);
+    else if (filter === "high") list = todos.filter((t) => !t.done && t.priority === "high");
+    return [...list].sort((a, b) => {
+      if (Number(a.done) !== Number(b.done)) return Number(a.done) - Number(b.done);
+      if (priorityRank(a.priority) !== priorityRank(b.priority)) return priorityRank(a.priority) - priorityRank(b.priority);
+      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+      if (a.dueDate) return -1;
+      if (b.dueDate) return 1;
+      return b.createdAt - a.createdAt;
+    });
   }, [todos, filter]);
 
   function addTodo(e) {
     e?.preventDefault?.();
     const text = draft.trim();
     if (!text) return;
-    setTodos((prev) => [{ id: uid(), text, done: false, createdAt: Date.now() }, ...prev]);
+    setTodos((prev) => [{
+      id: uid(),
+      text,
+      done: false,
+      createdAt: Date.now(),
+      workedMs: 0,
+      activeSince: null,
+      priority: draftPriority,
+      dueDate: draftDue || null,
+      note: draftNote.trim().slice(0, 300),
+    }, ...prev]);
     setDraft("");
+    setDraftDue("");
+    setDraftNote("");
+    setDraftPriority("medium");
     inputRef.current?.focus?.();
   }
 
@@ -441,6 +477,9 @@ export default function TodoPage({
                         createdAt: typeof t.createdAt === "number" ? t.createdAt : Date.now(),
                         workedMs: typeof t.workedMs === "number" ? t.workedMs : 0,
                         activeSince: null,
+                        priority: ["high", "medium", "low"].includes(t.priority) ? t.priority : "medium",
+                        dueDate: typeof t.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.dueDate) ? t.dueDate : null,
+                        note: typeof t.note === "string" ? String(t.note).slice(0, 300) : "",
                       }));
                     setTodos(cleaned);
                   } catch (_) {}
@@ -456,48 +495,104 @@ export default function TodoPage({
       </header>
 
       <div style={{ padding: "12px 16px", flexShrink: 0, maxWidth: 560, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
-        <form onSubmit={addTodo} style={{ display: "flex", gap: 8 }}>
-          <input
-            ref={inputRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder={tr(isAr, "New task…", "مهمة جديدة…")}
-            maxLength={500}
-            style={{
-              flex: 1,
-              boxSizing: "border-box",
-              padding: "11px 13px",
-              fontSize: 15,
-              fontFamily: "inherit",
-              color: INK,
-              background: "var(--input-bg)",
-              border: "1px solid rgba(var(--border-rgb),0.2)",
-              borderRadius: 10,
-              outline: "none",
-            }}
-          />
-          <button
-            type="submit"
-            disabled={!draft.trim()}
-            style={{
-              ...headerBtn,
-              background: draft.trim() ? "linear-gradient(135deg, var(--accent-1), var(--accent-2))" : "var(--card)",
-              color: draft.trim() ? "#fff" : "var(--muted)",
-              border: "none",
-              opacity: draft.trim() ? 1 : 0.6,
-              minWidth: 48,
-              justifyContent: "center",
-            }}
-            aria-label={tr(isAr, "Add", "إضافة")}
-          >
-            <PlusIcon size={18} />
-          </button>
+        <form onSubmit={addTodo} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              ref={inputRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={tr(isAr, "New task…", "مهمة جديدة…")}
+              maxLength={500}
+              style={{
+                flex: 1,
+                boxSizing: "border-box",
+                padding: "11px 13px",
+                fontSize: 15,
+                fontFamily: "inherit",
+                color: INK,
+                background: "var(--input-bg)",
+                border: "1px solid rgba(var(--border-rgb),0.2)",
+                borderRadius: 10,
+                outline: "none",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!draft.trim()}
+              style={{
+                ...headerBtn,
+                background: draft.trim() ? "linear-gradient(135deg, var(--accent-1), var(--accent-2))" : "var(--card)",
+                color: draft.trim() ? "#fff" : "var(--muted)",
+                border: "none",
+                opacity: draft.trim() ? 1 : 0.6,
+                minWidth: 48,
+                justifyContent: "center",
+              }}
+              aria-label={tr(isAr, "Add", "إضافة")}
+            >
+              <PlusIcon size={18} />
+            </button>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            {["high", "medium", "low"].map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setDraftPriority(p)}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 16,
+                  border: draftPriority === p ? `2px solid ${PRIORITY_META[p].color}` : "1px solid rgba(var(--border-rgb),0.2)",
+                  background: draftPriority === p ? `${PRIORITY_META[p].color}22` : "var(--card)",
+                  color: PRIORITY_META[p].color,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {isAr ? PRIORITY_META[p].ar : PRIORITY_META[p].en}
+              </button>
+            ))}
+            <input
+              type="date"
+              value={draftDue}
+              onChange={(e) => setDraftDue(e.target.value)}
+              title={tr(isAr, "Due date", "تاريخ الاستحقاق")}
+              style={{
+                padding: "5px 8px",
+                borderRadius: 8,
+                border: "1px solid rgba(var(--border-rgb),0.2)",
+                background: "var(--input-bg)",
+                color: INK,
+                fontSize: 12,
+                fontFamily: "inherit",
+              }}
+            />
+            <input
+              value={draftNote}
+              onChange={(e) => setDraftNote(e.target.value)}
+              placeholder={tr(isAr, "Note (optional)", "ملاحظة (اختياري)")}
+              maxLength={300}
+              style={{
+                flex: 1,
+                minWidth: 120,
+                padding: "5px 8px",
+                borderRadius: 8,
+                border: "1px solid rgba(var(--border-rgb),0.2)",
+                background: "var(--input-bg)",
+                color: INK,
+                fontSize: 12,
+                fontFamily: "inherit",
+              }}
+            />
+          </div>
         </form>
 
         <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
           {[
             { id: "all", label: tr(isAr, "All", "الكل") },
             { id: "open", label: tr(isAr, "Open", "مفتوحة") },
+            { id: "high", label: tr(isAr, "High priority", "أولوية عالية") },
             { id: "done", label: tr(isAr, "Done", "منتهية") },
           ].map((f) => (
             <button
@@ -558,6 +653,8 @@ export default function TodoPage({
                 ? tr(isAr, "No completed tasks yet.", "لسه مفيش مهام منتهية.")
                 : filter === "open"
                 ? tr(isAr, "All clear — no open tasks.", "فاضي — مفيش مهام مفتوحة.")
+                : filter === "high"
+                ? tr(isAr, "No high-priority open tasks.", "مفيش مهام مفتوحة بأولوية عالية.")
                 : tr(isAr, "Add your first task above.", "ضيف أول مهمة من فوق.")}
             </li>
           ) : (
@@ -599,33 +696,61 @@ export default function TodoPage({
                   {t.done ? <CheckIcon size={14} /> : null}
                 </button>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <span
-                    style={{
-                      fontSize: 15,
-                      color: INK,
-                      textDecoration: t.done ? "line-through" : "none",
-                      wordBreak: "break-word",
-                      display: "block",
-                    }}
-                  >
-                    {t.text}
-                  </span>
-                  {(t.activeSince || (t.workedMs || 0) > 0) && (
-                    <div
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span
+                      title={isAr ? PRIORITY_META[t.priority || "medium"].ar : PRIORITY_META[t.priority || "medium"].en}
                       style={{
-                        marginTop: 4,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        fontFamily: "ui-monospace, 'Source Sans 3', monospace",
-                        color: t.activeSince ? "#30d158" : "var(--muted-strong)",
-                        letterSpacing: "0.02em",
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: PRIORITY_META[t.priority || "medium"].color,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 15,
+                        color: INK,
+                        textDecoration: t.done ? "line-through" : "none",
+                        wordBreak: "break-word",
                       }}
                     >
-                      {t.activeSince ? "● " : ""}
-                      {formatElapsed(elapsedFor(t))}
-                      {t.activeSince
-                        ? ` ${tr(isAr, "working", "شغال")}`
-                        : ` ${tr(isAr, "total", "إجمالي")}`}
+                      {t.text}
+                    </span>
+                  </div>
+                  {(t.note || t.dueDate || t.activeSince || (t.workedMs || 0) > 0) && (
+                    <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                      {t.dueDate && (
+                        <span style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: (!t.done && t.dueDate < new Date().toISOString().slice(0, 10)) ? "var(--danger)" : "var(--muted-strong)",
+                        }}>
+                          📅 {t.dueDate}
+                        </span>
+                      )}
+                      {t.note && (
+                        <span style={{ fontSize: 11, color: "var(--muted)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {t.note}
+                        </span>
+                      )}
+                      {(t.activeSince || (t.workedMs || 0) > 0) && (
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            fontFamily: "ui-monospace, 'Source Sans 3', monospace",
+                            color: t.activeSince ? "#30d158" : "var(--muted-strong)",
+                            letterSpacing: "0.02em",
+                          }}
+                        >
+                          {t.activeSince ? "● " : ""}
+                          {formatElapsed(elapsedFor(t))}
+                          {t.activeSince
+                            ? ` ${tr(isAr, "working", "شغال")}`
+                            : ` ${tr(isAr, "total", "إجمالي")}`}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>

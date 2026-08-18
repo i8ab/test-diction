@@ -1,99 +1,18 @@
-/**
- * Push prefs + multi-device helpers
- * Messages & settings live on the server → synced across devices.
- * Local storage is used as a fast offline cache per account.
- */
+// Web Push subscription helpers + local reminder prefs.
+// API contract (api/push-subscribe.js):
+//   POST { code, subscription?, prefsOnly?, title?, message?, intervalHours? }
+//   DELETE { code }
 
-const API = "/api/push-subscribe";
+const REMINDERS_KEY = "twoTongues.remindersEnabled.";
+const TITLE_KEY = "twoTongues.reminderTitle.";
+const MSG_KEY = "twoTongues.reminderMessage.";
+const MESSAGES_KEY = "twoTongues.reminderMessages.";
+const INTERVAL_KEY = "twoTongues.reminderIntervalHours.";
+const SUB_KEY = "twoTongues.pushSub.";
 
+export const ALLOWED_INTERVAL_HOURS = [1, 2, 3, 6, 12, 24];
 export const DEFAULT_INTERVAL_HOURS = 24;
 
-// ---------- Local storage keys (per-account) ----------
-function key(code, suffix) {
-  return `twoTongues.push.${code || "anon"}.${suffix}`;
-}
-
-function readLocal(code, suffix, fallback) {
-  try {
-    const raw = localStorage.getItem(key(code, suffix));
-    if (raw == null) return fallback;
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-}
-
-function writeLocal(code, suffix, value) {
-  try {
-    localStorage.setItem(key(code, suffix), JSON.stringify(value));
-  } catch (_) {}
-}
-
-// ---------- Local prefs cache ----------
-export function loadRemindersEnabled(code) {
-  return !!readLocal(code, "enabled", false);
-}
-
-export function saveRemindersEnabled(code, on) {
-  writeLocal(code, "enabled", !!on);
-}
-
-export function loadReminderTitle(code) {
-  return String(readLocal(code, "title", "") || "");
-}
-
-export function saveReminderTitle(title, code) {
-  writeLocal(code, "title", String(title || ""));
-}
-
-export function loadReminderMessage(code) {
-  return String(readLocal(code, "message", "") || "");
-}
-
-export function saveReminderMessage(message, code) {
-  writeLocal(code, "message", String(message || ""));
-}
-
-export function loadReminderMessages(code) {
-  const v = readLocal(code, "messages", []);
-  return Array.isArray(v) ? v.map(String) : [];
-}
-
-export function saveReminderMessages(messages, code) {
-  const list = (Array.isArray(messages) ? messages : [])
-    .map((m) => String(m || "").trim())
-    .filter(Boolean)
-    .slice(0, 20);
-  writeLocal(code, "messages", list);
-}
-
-export function loadReminderIntervalHours(code) {
-  const n = Number(readLocal(code, "intervalHours", DEFAULT_INTERVAL_HOURS));
-  return Number.isFinite(n) && n > 0 ? n : DEFAULT_INTERVAL_HOURS;
-}
-
-export function saveReminderIntervalHours(hours, code) {
-  const n = Number(hours);
-  writeLocal(code, "intervalHours", Number.isFinite(n) && n > 0 ? n : DEFAULT_INTERVAL_HOURS);
-}
-
-/** Apply cloud prefs into localStorage so the UI stays consistent offline. */
-export function applyPushPrefsLocally(code, cloud) {
-  if (!code || !cloud) return;
-  if (cloud.title != null) saveReminderTitle(cloud.title, code);
-  if (cloud.message != null) saveReminderMessage(cloud.message, code);
-  if (Array.isArray(cloud.messages)) saveReminderMessages(cloud.messages, code);
-  if (cloud.intervalHours != null) saveReminderIntervalHours(cloud.intervalHours, code);
-  if (cloud.enabled != null) saveRemindersEnabled(code, cloud.enabled);
-}
-
-export function buildReminderPayload({ title, message } = {}) {
-  const t = (title && String(title).trim()) || "وقت المراجعة! / Time to review!";
-  const b = (message && String(message).trim()) || "افتح التطبيق وراجع كلماتك / Open the app and review your words";
-  return { title: t, body: b };
-}
-
-// ---------- Web Push helpers ----------
 export function pushSupported() {
   return (
     typeof window !== "undefined" &&
@@ -104,227 +23,358 @@ export function pushSupported() {
 }
 
 export async function getPushStatus() {
-  if (typeof Notification === "undefined") return "unsupported";
-  return Notification.permission; // "granted" | "denied" | "default"
+  if (!pushSupported()) return "unsupported";
+  const perm = Notification.permission;
+  if (perm === "granted") return "granted";
+  if (perm === "denied") return "denied";
+  return "default";
 }
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
+  const raw = atob(base64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
 }
 
-async function getRegistration() {
-  if (!("serviceWorker" in navigator)) return null;
+function getVapidPublicKey() {
   try {
-    // Prefer the existing registration (sw.js is registered by the app)
-    const reg = await navigator.serviceWorker.ready;
-    return reg;
-  } catch {
-    try {
-      return await navigator.serviceWorker.register("/sw.js");
-    } catch {
-      return null;
+    const k = import.meta.env && import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    return k && String(k).trim() ? String(k).trim() : "";
+  } catch (_) {
+    return "";
+  }
+}
+
+function prefsFromObject(prefs = {}) {
+  let intervalHours = DEFAULT_INTERVAL_HOURS;
+  if (typeof prefs.intervalHours === "number" && ALLOWED_INTERVAL_HOURS.includes(prefs.intervalHours)) {
+    intervalHours = prefs.intervalHours;
+  } else if (typeof prefs.intervalDays === "number") {
+    // Legacy fallback
+    const h = Math.max(1, Math.round(prefs.intervalDays * 24));
+    intervalHours = ALLOWED_INTERVAL_HOURS.reduce((best, v) =>
+      Math.abs(v - h) < Math.abs(best - h) ? v : best
+    , 24);
+  }
+  let messages = [];
+  if (Array.isArray(prefs.messages)) {
+    messages = prefs.messages
+      .map((m) => (typeof m === "string" ? m.trim() : ""))
+      .filter(Boolean)
+      .slice(0, 20);
+  } else if (typeof prefs.message === "string" && prefs.message.trim()) {
+    messages = [prefs.message.trim()];
+  }
+  return {
+    title: typeof prefs.title === "string" ? prefs.title : "",
+    message: typeof prefs.message === "string" ? prefs.message : (messages[0] || ""),
+    messages,
+    intervalHours,
+  };
+}
+
+export async function subscribeToPush(accountCode, prefs = {}) {
+  if (!pushSupported()) return { ok: false, reason: "unsupported", error: "unsupported" };
+  if (!accountCode) return { ok: false, reason: "no_code", error: "no_code" };
+
+  try {
+    let perm = Notification.permission;
+    if (perm !== "granted") {
+      perm = await Notification.requestPermission();
     }
+    if (perm === "denied") {
+      return { ok: false, reason: "denied", error: "denied" };
+    }
+    if (perm !== "granted") {
+      return { ok: false, reason: "default", error: "default" };
+    }
+
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+
+    if (!sub) {
+      const vapidKey = getVapidPublicKey();
+      if (!vapidKey) {
+        return {
+          ok: false,
+          reason: "no_vapid",
+          error: "no_vapid",
+          message: "VAPID public key missing",
+        };
+      }
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+    }
+
+    const payload = {
+      code: accountCode,
+      subscription: sub.toJSON(),
+      ...prefsFromObject(prefs),
+    };
+
+    const r = await fetch("/api/push-subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      return {
+        ok: false,
+        reason: "server",
+        error: data.error || "server_error",
+        message: data.message || data.error || `HTTP ${r.status}`,
+      };
+    }
+
+    try {
+      localStorage.setItem(SUB_KEY + accountCode, JSON.stringify(sub.toJSON()));
+    } catch (_) {}
+
+    return { ok: true, subscription: sub, prefs: data.prefs };
+  } catch (e) {
+    return {
+      ok: false,
+      reason: "exception",
+      error: String((e && e.message) || e),
+    };
+  }
+}
+
+export async function unsubscribeFromPush(accountCode) {
+  let endpoint = "";
+  try {
+    if (pushSupported()) {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        try {
+          endpoint = sub.endpoint || "";
+        } catch (_) {}
+        await sub.unsubscribe();
+      }
+    }
+  } catch (_) {}
+  try {
+    if (accountCode) {
+      // Remove only this device; keep prefs + other phones for the same account
+      await fetch("/api/push-subscribe", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: accountCode,
+          ...(endpoint ? { endpoint } : {}),
+        }),
+      });
+    }
+  } catch (_) {}
+  try {
+    if (accountCode) localStorage.removeItem(SUB_KEY + accountCode);
+  } catch (_) {}
+}
+
+export async function savePushPrefs(accountCode, prefs) {
+  if (!accountCode) return;
+  try {
+    await fetch("/api/push-subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: accountCode,
+        prefsOnly: true,
+        ...prefsFromObject(prefs),
+      }),
+    });
+  } catch (_) {}
+}
+
+/**
+ * Clear reminder schedule markers (lastSent / lastSlot / message rotation index)
+ * so the next cron can fire on a clean slate. Does not disable push or prefs.
+ */
+export async function resetPushSlots(accountCode) {
+  if (!accountCode) return { ok: false, error: "no_code" };
+  try {
+    const r = await fetch("/api/push-subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: accountCode,
+        prefsOnly: true,
+        resetSlots: true,
+      }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      return { ok: false, error: data.error || `HTTP ${r.status}` };
+    }
+    return { ok: true, slotsCleared: !!data.slotsCleared };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
   }
 }
 
 /**
- * Subscribe this device and send the subscription to the server.
- * @returns {{ ok: boolean, error?: string, message?: string, reason?: string }}
+ * Fetch reminder prefs from the server (shared across all devices for this account).
+ * Returns normalized prefs or null on failure / missing.
  */
-export async function subscribeToPush(code, prefs = {}) {
-  if (!code) return { ok: false, error: "no_code" };
-  if (!pushSupported()) return { ok: false, error: "unsupported" };
-
-  const vapid = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-  if (!vapid) return { ok: false, error: "no_vapid", message: "VITE_VAPID_PUBLIC_KEY missing" };
-
+export async function fetchPushPrefs(accountCode) {
+  if (!accountCode) return null;
   try {
-    if (Notification.permission === "denied") {
-      return { ok: false, error: "denied" };
-    }
-    if (Notification.permission !== "granted") {
-      const perm = await Notification.requestPermission();
-      if (perm !== "granted") return { ok: false, error: "denied" };
-    }
-
-    const reg = await getRegistration();
-    if (!reg) return { ok: false, error: "no_sw", message: "Service worker not ready" };
-
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-      sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapid),
-      });
-    }
-
-    const json = sub.toJSON();
-    const result = await subscribePush(code, json);
-    if (!result || result.error) {
-      return { ok: false, error: result?.error || "server", message: result?.message };
-    }
-
-    // Persist enabled + optional prefs locally
-    saveRemindersEnabled(code, true);
-    if (prefs && typeof prefs === "object") {
-      if (prefs.title != null) saveReminderTitle(prefs.title, code);
-      if (prefs.message != null) saveReminderMessage(prefs.message, code);
-      if (Array.isArray(prefs.messages)) saveReminderMessages(prefs.messages, code);
-      if (prefs.intervalHours != null) saveReminderIntervalHours(prefs.intervalHours, code);
-      // Also push to server so other devices stay in sync
-      await savePushPrefs(code, {
-        enabled: true,
-        title: prefs.title,
-        message: prefs.message,
-        messages: prefs.messages,
-        intervalHours: prefs.intervalHours,
-      }).catch(() => {});
-    }
-
-    return { ok: true, subscription: json, devices: result.devices };
-  } catch (err) {
-    console.warn("subscribeToPush", err);
-    return { ok: false, error: "exception", message: String(err?.message || err) };
+    const r = await fetch(
+      `/api/push-subscribe?code=${encodeURIComponent(accountCode)}&_t=${Date.now()}`,
+      {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+      }
+    );
+    if (!r.ok) return null;
+    const data = await r.json().catch(() => null);
+    if (!data || !data.prefs) return null;
+    return prefsFromObject(data.prefs);
+  } catch (_) {
+    return null;
   }
 }
 
-/** Unsubscribe this device only (other devices keep working). */
-export async function unsubscribeFromPush(code) {
-  if (!code) return { ok: false };
+/** Write server prefs into localStorage so offline UI matches cloud. */
+export function applyPushPrefsLocally(accountCode, prefs) {
+  if (!accountCode || !prefs) return;
+  const n = prefsFromObject(prefs);
   try {
-    const reg = await getRegistration();
-    if (reg) {
-      const sub = await reg.pushManager.getSubscription();
-      if (sub) {
-        const endpoint = sub.endpoint;
-        await sub.unsubscribe().catch(() => {});
-        await unsubscribePush(code, endpoint);
+    if (n.title) saveReminderTitle(n.title, accountCode);
+    else saveReminderTitle("", accountCode);
+    if (n.messages && n.messages.length) {
+      saveReminderMessages(n.messages, accountCode);
+    } else if (n.message) {
+      saveReminderMessages([n.message], accountCode);
+    }
+    if (ALLOWED_INTERVAL_HOURS.includes(n.intervalHours)) {
+      saveReminderIntervalHours(n.intervalHours, accountCode);
+    }
+  } catch (_) {}
+}
+
+export function loadRemindersEnabled(accountCode) {
+  try {
+    return localStorage.getItem(REMINDERS_KEY + accountCode) === "1";
+  } catch (_) {
+    return false;
+  }
+}
+
+export function saveRemindersEnabled(accountCode, on) {
+  try {
+    if (on) localStorage.setItem(REMINDERS_KEY + accountCode, "1");
+    else localStorage.removeItem(REMINDERS_KEY + accountCode);
+  } catch (_) {}
+}
+
+export function loadReminderTitle(accountCode) {
+  try {
+    return localStorage.getItem(TITLE_KEY + accountCode) || "";
+  } catch (_) {
+    return "";
+  }
+}
+
+export function saveReminderTitle(title, accountCode) {
+  try {
+    localStorage.setItem(TITLE_KEY + accountCode, title || "");
+  } catch (_) {}
+}
+
+export function loadReminderMessage(accountCode) {
+  try {
+    return localStorage.getItem(MSG_KEY + accountCode) || "";
+  } catch (_) {
+    return "";
+  }
+}
+
+export function saveReminderMessage(message, accountCode) {
+  try {
+    localStorage.setItem(MSG_KEY + accountCode, message || "");
+  } catch (_) {}
+}
+
+export function loadReminderIntervalHours(accountCode) {
+  try {
+    const raw = localStorage.getItem(INTERVAL_KEY + accountCode);
+    const n = Number(raw);
+    if (ALLOWED_INTERVAL_HOURS.includes(n)) return n;
+    return DEFAULT_INTERVAL_HOURS;
+  } catch (_) {
+    return DEFAULT_INTERVAL_HOURS;
+  }
+}
+
+export function saveReminderIntervalHours(hours, accountCode) {
+  try {
+    const n = Number(hours);
+    if (ALLOWED_INTERVAL_HOURS.includes(n)) {
+      localStorage.setItem(INTERVAL_KEY + accountCode, String(n));
+    }
+  } catch (_) {}
+}
+
+
+export function loadReminderMessages(accountCode) {
+  try {
+    const raw = localStorage.getItem(MESSAGES_KEY + accountCode);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        return arr.map((m) => String(m || "").trim()).filter(Boolean).slice(0, 20);
       }
     }
-    saveRemindersEnabled(code, false);
-    return { ok: true };
-  } catch (err) {
-    console.warn("unsubscribeFromPush", err);
-    return { ok: false, error: String(err?.message || err) };
+    // migrate single message → list
+    const one = localStorage.getItem(MSG_KEY + accountCode);
+    if (one && one.trim()) return [one.trim()];
+    return [];
+  } catch (_) {
+    return [];
   }
 }
 
-/** Clear schedule slots on the server so the next reminder can fire fresh. */
-export async function resetPushSlots(code) {
-  if (!code) return { ok: false, error: "no_code" };
+export function saveReminderMessages(messages, accountCode) {
   try {
-    const prefs = await clearSchedule(code);
-    return { ok: true, prefs };
-  } catch (err) {
-    return { ok: false, error: String(err?.message || err) };
-  }
+    const list = (Array.isArray(messages) ? messages : [])
+      .map((m) => String(m || "").trim())
+      .filter(Boolean)
+      .slice(0, 20);
+    localStorage.setItem(MESSAGES_KEY + accountCode, JSON.stringify(list));
+    // keep legacy single field in sync with first message
+    localStorage.setItem(MSG_KEY + accountCode, list[0] || "");
+  } catch (_) {}
 }
 
-// ---------- Server API wrappers (already present, kept for compatibility) ----------
-
-export async function fetchPushPrefs(code) {
-  if (!code) return null;
-  try {
-    const res = await fetch(`${API}?code=${encodeURIComponent(code)}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    return {
-      ...data.prefs,
-      devices: data.devices || 0,
-      inbox: data.inbox || [],
-      unread: data.unread || 0,
-    };
-  } catch (err) {
-    console.warn("fetchPushPrefs", err);
-    return null;
+export function buildReminderPayload({ title, message, body, dueCount, examDays } = {}) {
+  const custom =
+    (typeof message === "string" && message.trim()) ||
+    (typeof body === "string" && body.trim()) ||
+    "";
+  let examBit = "";
+  if (typeof examDays === "number") {
+    if (examDays < 0) examBit = "";
+    else if (examDays === 0) examBit = "Exam is today! ";
+    else if (examDays === 1) examBit = "1 day until the exam. ";
+    else examBit = `${examDays} days until the exam. `;
   }
-}
-
-export async function savePushPrefs(code, prefs) {
-  if (!code) return null;
-  try {
-    const res = await fetch(API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "savePrefs", code, prefs }),
-    });
-    const data = await res.json();
-    return data.prefs;
-  } catch (err) {
-    console.warn("savePushPrefs", err);
-    return null;
-  }
-}
-
-/** Clear only the reminder messages list (synced) */
-export async function clearReminderMessages(code) {
-  if (!code) return null;
-  try {
-    const res = await fetch(API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "clearMessages", code }),
-    });
-    const data = await res.json();
-    // also clear local cache
-    saveReminderMessages([], code);
-    saveReminderMessage("", code);
-    return data.prefs;
-  } catch (err) {
-    console.warn("clearReminderMessages", err);
-    return null;
-  }
-}
-
-export async function clearSchedule(code) {
-  if (!code) return null;
-  try {
-    const res = await fetch(API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "clearSchedule", code }),
-    });
-    const data = await res.json();
-    return data.prefs;
-  } catch (err) {
-    console.warn("clearSchedule", err);
-    return null;
-  }
-}
-
-export async function subscribePush(code, subscription) {
-  if (!code || !subscription) return null;
-  try {
-    const res = await fetch(API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "subscribe", code, subscription }),
-    });
-    return res.json();
-  } catch (err) {
-    console.warn("subscribePush", err);
-    return null;
-  }
-}
-
-export async function unsubscribePush(code, endpoint) {
-  if (!code || !endpoint) return null;
-  try {
-    const res = await fetch(API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "unsubscribe", code, endpoint }),
-    });
-    return res.json();
-  } catch (err) {
-    console.warn("unsubscribePush", err);
-    return null;
-  }
+  return {
+    title: (title && String(title).trim()) || "Study reminder",
+    body:
+      custom ||
+      (examBit
+        ? `${examBit}${dueCount ? `${dueCount} weak/due words to review` : "Time to review"}`
+        : dueCount
+          ? `${dueCount} words due for review`
+          : "Time to review your words"),
+    dueCount: dueCount || 0,
+  };
 }

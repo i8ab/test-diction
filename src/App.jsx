@@ -1443,13 +1443,25 @@ export default function DictionaryApp() {
     };
   }, [authStage, accountCode]);
 
-  async function handleUpdateOwnAccount({ name: newName, password: newPassword, avatar: nextAvatar, gender: nextGender, birthDate: nextBirthDate }) {
+  async function handleUpdateOwnAccount({
+    name: newName,
+    password: newPassword,
+    avatar: nextAvatar,
+    gender: nextGender,
+    birthDate: nextBirthDate,
+    bacTrack: nextBacTrack,
+    bacGrade: nextBacGrade,
+    bacSpecialty: nextBacSpecialty,
+  }) {
     return updateOwnAccount({
       newName,
       newPassword,
       nextAvatar,
       nextGender,
       nextBirthDate,
+      nextBacTrack,
+      nextBacGrade,
+      nextBacSpecialty,
       accountCode,
       name,
       accounts,

@@ -439,11 +439,6 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                         <div style={{ fontSize: 12, color: "var(--muted-strong)", fontFamily: "ui-monospace, monospace", marginTop: 2 }} dir="ltr">
                           @{a.username || "—"}
                         </div>
-                        {formatBacSummary(a, isAr) && (
-                          <div style={{ fontSize: 11.5, color: "var(--muted-strong)", marginTop: 3, lineHeight: 1.35, fontWeight: 600 }}>
-                            {formatBacSummary(a, isAr)}
-                          </div>
-                        )}
                         <div style={{ fontSize: 11.5, fontWeight: 700, color: a.role === "admin" ? BRASS : "var(--muted)", marginTop: 2 }}>
                           {a.role === "admin" ? tr(isAr, "Admin", "مسؤول") : tr(isAr, "User", "مستخدم")}
                         </div>
@@ -815,6 +810,57 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                   <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--muted)", lineHeight: 1.4 }}>
                     {tr(isAr, "Blocked users are logged out and cannot sign in until you allow them again.", "المحظورون بيتسجل خروجهم ومش يقدروا يدخلوا لحد ما تسمح لهم تاني.")}
                   </p>
+                  {(() => {
+                    const editing = accounts.find((a) => a.code === editingCode);
+                    if (!editing) return null;
+                    const bacLine = formatBacSummary(editing, isAr);
+                    const hasGender = editing.gender === "male" || editing.gender === "female";
+                    const hasBirth = editing.birthDate && /^\d{4}-\d{2}-\d{2}$/.test(String(editing.birthDate));
+                    if (!bacLine && !hasGender && !hasBirth) return null;
+                    return (
+                      <div
+                        style={{
+                          marginTop: 16,
+                          padding: "12px 14px",
+                          borderRadius: 12,
+                          background: "var(--input-bg)",
+                          border: "1px solid rgba(var(--border-rgb),0.12)",
+                        }}
+                      >
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
+                          {tr(isAr, "Profile details", "تفاصيل الملف")}
+                        </div>
+                        {hasGender && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                            <span style={{ fontSize: 12.5, color: "var(--muted-strong)", minWidth: 72 }}>
+                              {tr(isAr, "Gender", "الجنس")}
+                            </span>
+                            <GenderBadge gender={editing.gender} isAr={isAr} size="sm" />
+                          </div>
+                        )}
+                        {hasBirth && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                            <span style={{ fontSize: 12.5, color: "var(--muted-strong)", minWidth: 72 }}>
+                              {tr(isAr, "Birth date", "الميلاد")}
+                            </span>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: INK, fontFamily: "ui-monospace, monospace" }} dir="ltr">
+                              {editing.birthDate}
+                            </span>
+                          </div>
+                        )}
+                        {bacLine && (
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                            <span style={{ fontSize: 12.5, color: "var(--muted-strong)", minWidth: 72, flexShrink: 0 }}>
+                              {tr(isAr, "Path", "المسار")}
+                            </span>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.4 }}>
+                              {bacLine}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </>
               )}
               {error && (

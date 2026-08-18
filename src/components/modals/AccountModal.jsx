@@ -6,6 +6,11 @@ import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { GenderBadge, GenderPicker } from "../common/GenderUI";
 import { birthDateInputMin, birthDateInputMax, validateBirthDate } from "../../lib/utils/authUtils";
 import {
+  BAC_TRACKS,
+  BAC_GRADES,
+  getSpecialtyOptions,
+} from "../../lib/config/baccalaureate";
+import {
   loadXp,
   levelFromXp,
   listUnlockedBadges,
@@ -64,6 +69,9 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
   const [birthDate, setBirthDate] = useState(
     account.birthDate && /^\d{4}-\d{2}-\d{2}$/.test(String(account.birthDate)) ? String(account.birthDate) : ""
   );
+  const [bacTrack, setBacTrack] = useState(account.bacTrack || "");
+  const [bacGrade, setBacGrade] = useState(account.bacGrade === "2" || account.bacGrade === "3" ? account.bacGrade : "");
+  const [bacSpecialty, setBacSpecialty] = useState(account.bacSpecialty || "");
   const [changePassword, setChangePassword] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [password2, setPassword2] = useState("");
@@ -135,12 +143,36 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
       setSaving(false);
       return;
     }
+    // Validate bac path if partially filled
+    if (bacTrack || bacGrade) {
+      if (!bacTrack || !BAC_TRACKS.some((t) => t.id === bacTrack)) {
+        setError(T("Choose a baccalaureate track.", "اختَر مسار البكالوريا."));
+        setSaving(false);
+        return;
+      }
+      if (bacGrade !== "2" && bacGrade !== "3") {
+        setError(T("Choose your grade (2nd or 3rd secondary).", "اختَر الصف (الثاني أو الثالث)."));
+        setSaving(false);
+        return;
+      }
+      if (bacGrade === "2") {
+        const opts = getSpecialtyOptions(bacTrack);
+        if (opts.length && !opts.some((o) => o.id === bacSpecialty)) {
+          setError(T("Choose your specialty for grade 2.", "اختَر التخصص للصف الثاني."));
+          setSaving(false);
+          return;
+        }
+      }
+    }
     const result = await onSave({
       name: nameInput,
       password: changePassword && passwordInput ? passwordInput : undefined,
       avatar: avatar || "",
       gender: gender || "",
       birthDate: bCheck.birthDate,
+      bacTrack: bacTrack || "",
+      bacGrade: bacGrade || "",
+      bacSpecialty: bacGrade === "2" ? (bacSpecialty || "") : "",
     });
     setSaving(false);
     if (result && result.error) {
@@ -514,6 +546,64 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
           />
           <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4, marginBottom: 4 }}>
             {T("Optional — leave empty to clear.", "اختياري — اتركه فاضي لمسحه.")}
+          </div>
+
+          {/* Baccalaureate path — stored on the account; user can customize */}
+          <label style={{ ...labelStyle, marginTop: 14 }} htmlFor="account-bac-track">
+            {T("Baccalaureate track", "مسار البكالوريا")}
+          </label>
+          <select
+            id="account-bac-track"
+            value={bacTrack || ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              setBacTrack(v);
+              setBacSpecialty("");
+            }}
+            style={{ ...inputStyle, borderRadius: 12, fontFamily: "inherit" }}
+          >
+            <option value="">{T("Not set", "غير محدد")}</option>
+            {BAC_TRACKS.map((t) => (
+              <option key={t.id} value={t.id}>{isAr ? t.ar : t.en}</option>
+            ))}
+          </select>
+          <label style={{ ...labelStyle, marginTop: 12 }} htmlFor="account-bac-grade">
+            {T("Grade", "الصف")}
+          </label>
+          <select
+            id="account-bac-grade"
+            value={bacGrade || ""}
+            onChange={(e) => {
+              setBacGrade(e.target.value);
+              if (e.target.value !== "2") setBacSpecialty("");
+            }}
+            style={{ ...inputStyle, borderRadius: 12, fontFamily: "inherit" }}
+          >
+            <option value="">{T("Not set", "غير محدد")}</option>
+            {BAC_GRADES.map((g) => (
+              <option key={g.id} value={g.id}>{isAr ? g.ar : g.en}</option>
+            ))}
+          </select>
+          {bacGrade === "2" && bacTrack && (
+            <>
+              <label style={{ ...labelStyle, marginTop: 12 }} htmlFor="account-bac-specialty">
+                {T("Specialty (grade 2)", "التخصص (الصف الثاني)")}
+              </label>
+              <select
+                id="account-bac-specialty"
+                value={bacSpecialty || ""}
+                onChange={(e) => setBacSpecialty(e.target.value)}
+                style={{ ...inputStyle, borderRadius: 12, fontFamily: "inherit" }}
+              >
+                <option value="">{T("Select…", "اختَر…")}</option>
+                {getSpecialtyOptions(bacTrack).map((s) => (
+                  <option key={s.id} value={s.id}>{isAr ? s.ar : s.en}</option>
+                ))}
+              </select>
+            </>
+          )}
+          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4, marginBottom: 4 }}>
+            {T("Your path is private — only you and admins (when editing your account) can see it.", "مسارك خاص — أنت والأدمن (لما يفتح حسابك) بس يشوفوه.")}
           </div>
 
           {account.role === "admin" && (

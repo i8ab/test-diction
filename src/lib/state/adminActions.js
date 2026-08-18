@@ -13,7 +13,7 @@ import { generatePersonalCode } from "./storage";
 import { makeLogEntry } from "./logs";
 
 /**
- * Current user updates their own profile (name / password / avatar / gender / birthDate).
+ * Current user updates their own profile (name / password / avatar / gender / birthDate / bac path).
  */
 export async function updateOwnAccount({
   newName,
@@ -21,6 +21,9 @@ export async function updateOwnAccount({
   nextAvatar,
   nextGender,
   nextBirthDate,
+  nextBacTrack,
+  nextBacGrade,
+  nextBacSpecialty,
   accountCode,
   name,
   accounts,
@@ -37,11 +40,26 @@ export async function updateOwnAccount({
   }
   if (nextGender === "male" || nextGender === "female") {
     updates.gender = nextGender;
+  } else if (nextGender === "") {
+    updates.gender = "";
   }
   if (typeof nextBirthDate === "string") {
     const bCheck = validateBirthDate(nextBirthDate);
     if (!bCheck.ok) return { error: bCheck.error };
     updates.birthDate = bCheck.birthDate || "";
+  }
+  // Baccalaureate path (stored on the account; private — not shown in public lists)
+  if (nextBacTrack !== undefined) {
+    updates.bacTrack = typeof nextBacTrack === "string" ? nextBacTrack : "";
+  }
+  if (nextBacGrade !== undefined) {
+    updates.bacGrade = nextBacGrade === "2" || nextBacGrade === "3" ? nextBacGrade : "";
+  }
+  if (nextBacSpecialty !== undefined) {
+    updates.bacSpecialty = typeof nextBacSpecialty === "string" ? nextBacSpecialty : "";
+  }
+  if (updates.bacGrade !== "2") {
+    updates.bacSpecialty = "";
   }
   if (newPassword) {
     const pCheck = validatePassword(newPassword);

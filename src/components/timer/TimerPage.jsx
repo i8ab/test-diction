@@ -153,7 +153,7 @@ function formatMs(ms) {
 
 /**
  * Split-flap digit (flipclock.online style).
- * Remounts fold layers every change so CSS animation always restarts.
+ * No busy-lock: rapid second changes must never freeze a digit.
  */
 function FlipDigit({ value, color }) {
   const next = String(value);
@@ -162,45 +162,36 @@ function FlipDigit({ value, color }) {
   const [flipId, setFlipId] = useState(0);
   const [flipping, setFlipping] = useState(false);
   const displayRef = useRef(next);
-  const busyRef = useRef(false);
-  const pendingRef = useRef(null);
+  const endTimerRef = useRef(null);
 
   useEffect(() => {
     if (next === displayRef.current) return undefined;
-    if (busyRef.current) {
-      pendingRef.current = next;
-      return undefined;
+
+    // Restart flip toward the latest value (even mid-animation)
+    if (endTimerRef.current) {
+      clearTimeout(endTimerRef.current);
+      endTimerRef.current = null;
     }
-    busyRef.current = true;
+
     setFrom(displayRef.current);
     setDisplay(next);
     displayRef.current = next;
     setFlipping(true);
     setFlipId((n) => n + 1);
-    const t = setTimeout(() => {
+
+    endTimerRef.current = setTimeout(() => {
       setFlipping(false);
-      busyRef.current = false;
-      if (pendingRef.current != null && pendingRef.current !== displayRef.current) {
-        const p = pendingRef.current;
-        pendingRef.current = null;
-        // trigger another flip for queued value
-        busyRef.current = true;
-        setFrom(displayRef.current);
-        setDisplay(p);
-        displayRef.current = p;
-        setFlipping(true);
-        setFlipId((n) => n + 1);
-        setTimeout(() => {
-          setFlipping(false);
-          busyRef.current = false;
-          pendingRef.current = null;
-        }, 650);
-      } else {
-        pendingRef.current = null;
-      }
-    }, 650);
-    return () => clearTimeout(t);
+      endTimerRef.current = null;
+    }, 600);
+
+    return undefined; // do not clear the end timer on dependency change
   }, [next]);
+
+  useEffect(() => {
+    return () => {
+      if (endTimerRef.current) clearTimeout(endTimerRef.current);
+    };
+  }, []);
 
   return (
     <div

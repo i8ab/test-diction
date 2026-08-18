@@ -11,6 +11,30 @@
 // Auth is username + password only. Writes go through /api/jsonbin; the
 // Supabase key never ships to the browser.
 
+// In-memory short TTL for non-fresh reads in the same tab session.
+// Does NOT replace fresh:true (signup/login/conflict paths still hit network).
+// Safe: 20s is short; any successful write invalidates immediately.
+let _memRecord = null;
+let _memAt = 0;
+const MEM_TTL_MS = 20 * 1000;
+
+function invalidateRecordCache() {
+  _memRecord = null;
+  _memAt = 0;
+}
+
+function normalizeRecord(data) {
+  return {
+    entries: data.entries || [],
+    accounts: data.accounts || [],
+    logs: data.logs || [],
+    siteBanner: data.siteBanner || null,
+    examConfig: data.examConfig || null,
+    academicUnits: data.academicUnits || null,
+    version: data.version || 0,
+  };
+}
+
 // `fresh: true` must bypass BOTH browser cache and Vercel edge cache.
 // `cache: "no-store"` alone is not enough — the edge still serves responses
 // for up to s-maxage / stale-while-revalidate (30s–120s). That made a second
@@ -18,6 +42,9 @@
 // like "nothing happened". We bust the CDN with a unique query string and
 // ask the API to emit private no-store headers.
 export async function fetchRecord({ fresh = false } = {}) {
+  if (!fresh && _memRecord && Date.now() - _memAt < MEM_TTL_MS) {
+    return _memRecord;
+  }
   const url = fresh
     ? `/api/jsonbin?fresh=1&_t=${Date.now()}`
     : "/api/jsonbin";
@@ -30,15 +57,10 @@ export async function fetchRecord({ fresh = false } = {}) {
   );
   if (!res.ok) throw new Error("fetch failed");
   const data = await res.json();
-  return {
-    entries: data.entries || [],
-    accounts: data.accounts || [],
-    logs: data.logs || [],
-    siteBanner: data.siteBanner || null,
-    examConfig: data.examConfig || null,
-    academicUnits: data.academicUnits || null,
-    version: data.version || 0,
-  };
+  const record = normalizeRecord(data);
+  _memRecord = record;
+  _memAt = Date.now();
+  return record;
 }
 
 // Thrown when the server rejects a save because someone else saved first
@@ -63,10 +85,12 @@ export async function saveRecord(record, expectedVersion) {
     throw new Error("unauthorized");
   }
   if (res.status === 409) {
+    invalidateRecordCache();
     const data = await res.json().catch(() => null);
     throw new SaveConflictError(data || { entries: [], accounts: [], logs: [], siteBanner: null, examConfig: null, academicUnits: null, version: expectedVersion });
   }
   if (!res.ok) throw new Error("save failed");
+  invalidateRecordCache();
   const data = await res.json().catch(() => ({}));
   return typeof data.version === "number" ? data.version : expectedVersion + 1;
 }
@@ -99,6 +123,7 @@ export async function saveAccountsOnly(
     throw new Error("unauthorized");
   }
   if (res.status === 409) {
+    invalidateRecordCache();
     const data = await res.json().catch(() => null);
     throw new SaveConflictError(
       data || {
@@ -113,6 +138,7 @@ export async function saveAccountsOnly(
     );
   }
   if (!res.ok) throw new Error("save failed");
+  invalidateRecordCache();
   const data = await res.json().catch(() => ({}));
   return typeof data.version === "number" ? data.version : expectedVersion + 1;
 }
@@ -126,6 +152,7 @@ async function putScoped(body, expectedVersion) {
   });
   if (res.status === 401) throw new Error("unauthorized");
   if (res.status === 409) {
+    invalidateRecordCache();
     const data = await res.json().catch(() => null);
     throw new SaveConflictError(
       data || {
@@ -140,6 +167,7 @@ async function putScoped(body, expectedVersion) {
     );
   }
   if (!res.ok) throw new Error("save failed");
+  invalidateRecordCache();
   return res.json().catch(() => ({}));
 }
 

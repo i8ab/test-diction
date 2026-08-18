@@ -135,16 +135,23 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: "Missing adminCode." });
         }
         try {
-          const proto = req.headers["x-forwarded-proto"] || "https";
-          const host = req.headers.host;
-          const r = await fetch(`${proto}://${host}/api/jsonbin`, {
-            cache: "no-store",
+          // Accounts only — no full dictionary pull just to verify admin
+          const sbUrl = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
+          const sbKey =
+            process.env.SUPABASE_SERVICE_ROLE_KEY ||
+            process.env.SUPABASE_ANON_KEY ||
+            process.env.SUPABASE_KEY;
+          if (!sbUrl || !sbKey) {
+            return res.status(502).json({ error: "Could not verify admin." });
+          }
+          const r = await fetch(`${sbUrl}/rest/v1/accounts?select=data`, {
+            headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
           });
           if (!r.ok) {
             return res.status(502).json({ error: "Could not verify admin." });
           }
-          const record = await r.json();
-          const accounts = record.accounts || [];
+          const rows = await r.json();
+          const accounts = (rows || []).map((row) => row.data).filter(Boolean);
           const admin = accounts.find(
             (a) => a.code === adminCode && a.role === "admin"
           );

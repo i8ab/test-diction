@@ -20,12 +20,20 @@ import { redisConfigured, redisCommand } from "../lib/redis.js";
 import { sendPush, vapidConfigured } from "../lib/webpush.js";
 import { CODES_SET_KEY, loadSubs, removeExpiredEndpoint, addInboxItem } from "../lib/pushSubs.js";
 
-async function fetchRecord(req) {
-  const proto = req.headers["x-forwarded-proto"] || "https";
-  const host = req.headers.host;
-  const r = await fetch(`${proto}://${host}/api/jsonbin`, { cache: "no-store" });
-  if (!r.ok) throw new Error("Could not load dictionary record");
-  return r.json();
+/** Accounts only — avoids pulling the full dictionary just to verify admin. */
+async function fetchAccountsDirect() {
+  const url = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_KEY;
+  if (!url || !key) throw new Error("missing SUPABASE_URL or key");
+  const r = await fetch(`${url}/rest/v1/accounts?select=data`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}` },
+  });
+  if (!r.ok) throw new Error(`Supabase accounts → ${r.status}`);
+  const rows = await r.json();
+  return (rows || []).map((row) => row.data).filter(Boolean);
 }
 
 export default async function handler(req, res) {
@@ -58,8 +66,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const record = await fetchRecord(req);
-    const accounts = record.accounts || [];
+    const accounts = await fetchAccountsDirect();
     const admin = accounts.find((a) => a.code === adminCode && a.role === "admin");
     if (!admin) {
       return res.status(403).json({ error: "Not authorized — admin account required." });

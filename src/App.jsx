@@ -1141,10 +1141,6 @@ export default function DictionaryApp() {
   }
 
   async function handleRecordSrsAnswer(entryId, correct, qualityOverride) {
-    try {
-      const { playUiSound } = await import("./lib/utils/uiSounds");
-      playUiSound(correct ? "correct" : "wrong");
-    } catch (_) {}
     await recordSrsAnswer({ entryId, correct, qualityOverride, accountCode, persistAccounts });
   }
 

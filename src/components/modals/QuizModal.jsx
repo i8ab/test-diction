@@ -9,7 +9,7 @@ import { SpeakButton, XIcon, CheckIcon, EyeIcon, QuizIcon } from "../common/Icon
 import NumberStepper from "../common/NumberStepper";
 import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
-import { playUiSound } from "../../lib/utils/uiSounds";
+
 import {
   loadQuizSession,
   saveQuizSession,
@@ -173,11 +173,6 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
   function saveAnswerAt(idx, selectedOpt, correct) {
     const q = questions[idx];
     if (!q) return;
-    const wasEmpty = !answers[idx];
-    // Always play feedback on first full answer (correct + wrong)
-    if (wasEmpty) {
-      try { playUiSound(correct ? "correct" : "wrong"); } catch (_) {}
-    }
     setAnswers((prev) => {
       const next = [...prev];
       next[idx] = {
@@ -251,10 +246,6 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
 
     // Full selection: check both answers
     const ok = nextList.length === need && nextList.every((x) => corrects.includes(x));
-    const firstCommit = !answers[index] || answers[index].partial;
-    if (firstCommit) {
-      try { playUiSound(ok ? "correct" : "wrong"); } catch (_) {}
-    }
     setAnswers((old) => {
       const copy = [...old];
       copy[index] = {

@@ -664,10 +664,15 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
       return;
     }
 
+    let lastUiMs = -1;
     const tick = () => {
       if (prefs.mode === "countdown" || prefs.mode === "pomodoro") {
         const left = Math.max(0, (endAtRef.current || 0) - Date.now());
-        setRemainingMs(left);
+        // Update UI at most every 100ms — avoids localStorage/broadcast lag every frame
+        if (lastUiMs < 0 || Math.abs(lastUiMs - left) >= 100 || left <= 0) {
+          lastUiMs = left;
+          setRemainingMs(left);
+        }
         if (left <= 0) {
           runningRef.current = false;
           setRunning(false);
@@ -723,7 +728,10 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
         }
       } else {
         const elapsed = accumulatedRef.current + (Date.now() - (startedAtRef.current || Date.now()));
-        setElapsedMs(elapsed);
+        if (lastUiMs < 0 || Math.abs(lastUiMs - elapsed) >= 100) {
+          lastUiMs = elapsed;
+          setElapsedMs(elapsed);
+        }
       }
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -733,9 +741,10 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
     };
   }, [running, prefs.mode, broadcastState]);
 
-  // Push state to popup + localStorage whenever display changes
+  // Push state to popup + localStorage — throttled to cut lag
   useEffect(() => {
-    broadcastState();
+    const t = setTimeout(() => broadcastState(), 80);
+    return () => clearTimeout(t);
   }, [running, remainingMs, elapsedMs, broadcastState]);
 
   // Hard backup: write live state every second so refresh never loses time
@@ -1825,24 +1834,18 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
                     type="button"
                     onClick={() => {
                       if (m.id === prefs.mode) return;
-                      // Don't kill a running session when browsing settings
-                      if (runningRef.current || running) {
-                        setErrorMsg(
-                          tr(
-                            isAr,
-                            "Pause the timer first, then change the mode.",
-                            "وقف التايمر الأول، بعدين غيّر الوضع."
-                          )
-                        );
-                        return;
-                      }
                       setErrorMsg("");
-                      updatePref({ mode: m.id });
+                      // Switching mode always ends the current run and arms the new mode (ready, not running)
+                      runningRef.current = false;
+                      setRunning(false);
                       endAtRef.current = null;
                       startedAtRef.current = null;
                       accumulatedRef.current = 0;
                       setElapsedMs(0);
+                      setDoneFlash(false);
                       setPomoAwaiting(null);
+                      stopAmbient();
+                      updatePref({ mode: m.id });
                       if (m.id === "countdown") {
                         const total = parseHms(hours, mins, secs) || 25 * 60 * 1000;
                         setRemainingMs(total);
@@ -1859,6 +1862,23 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
                         setRemainingMs(0);
                         baseDurationRef.current = 0;
                       }
+                      // Persist idle state so bubble / refresh match
+                      try {
+                        saveLiveState({
+                          mode: m.id,
+                          running: false,
+                          remainingMs: m.id === "stopwatch" ? 0 : (m.id === "pomodoro"
+                            ? Math.max(1, Number(prefs.pomoWorkMin) || 25) * 60 * 1000
+                            : (parseHms(hours, mins, secs) || 25 * 60 * 1000)),
+                          elapsedMs: 0,
+                          endAt: null,
+                          startedAt: null,
+                          accumulated: 0,
+                          pomoPhase: "work",
+                          pomoCycle: 1,
+                          updatedAt: Date.now(),
+                        });
+                      } catch (_) {}
                     }}
                     style={{
                       ...btnGhost,

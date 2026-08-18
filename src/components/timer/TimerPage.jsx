@@ -877,6 +877,8 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
   }
 
   const sessionDurationRef = useRef(0); // ms credited when countdown completes
+  /** Full duration this segment started from — Reset restores this without killing the bubble. */
+  const baseDurationRef = useRef(0);
 
   function pomoWorkMs() {
     return Math.max(1, Number(prefs.pomoWorkMin) || 25) * 60 * 1000;
@@ -895,20 +897,25 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
         setErrorMsg(tr(isAr, "Set a duration first.", "حدد مدة أولاً."));
         return;
       }
+      // Remember the starting duration so Reset can restore it
+      if (!baseDurationRef.current || total > baseDurationRef.current) {
+        baseDurationRef.current = total;
+      }
       setRemainingMs(total);
       endAtRef.current = Date.now() + total;
       sessionDurationRef.current = total;
     } else if (prefs.mode === "pomodoro") {
       const phase = pomoPhaseRef.current || "work";
       setPomoTip(pickPomoHealthTip(phase === "break" ? "break" : "work"));
-      // Continue from remaining time if any (pause/resume or after refresh)
       const full = phase === "break" ? pomoBreakMs() : pomoWorkMs();
       const total = remainingMs > 0 ? remainingMs : full;
+      if (!baseDurationRef.current || phase === "work") {
+        baseDurationRef.current = full;
+      }
       setRemainingMs(total);
       endAtRef.current = Date.now() + total;
       sessionDurationRef.current = total;
     } else {
-      // stopwatch: resume from accumulated if any
       startedAtRef.current = Date.now();
       sessionDurationRef.current = 0;
     }
@@ -993,32 +1000,58 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
   }
 
   function reset() {
+    // Restore to the value this session started with — do NOT kill bubble / PiP
     runningRef.current = false;
     setRunning(false);
     endAtRef.current = null;
     startedAtRef.current = null;
     accumulatedRef.current = 0;
     setElapsedMs(0);
-    const total = parseHms(hours, mins, secs);
+    setDoneFlash(false);
+    setPomoAwaiting(null);
+    stopAmbient();
+
+    let restore = 0;
     if (prefs.mode === "pomodoro") {
       pomoPhaseRef.current = "work";
       setPomoPhase("work");
       pomoCycleRef.current = 1;
       setPomoCycle(1);
-      setPomoAwaiting(null);
-      setRemainingMs(pomoWorkMs());
+      restore = baseDurationRef.current || pomoWorkMs();
+      baseDurationRef.current = restore;
+    } else if (prefs.mode === "countdown") {
+      restore =
+        baseDurationRef.current ||
+        parseHms(hours, mins, secs) ||
+        25 * 60 * 1000;
     } else {
-      setRemainingMs(prefs.mode === "countdown" ? (total || 25 * 60 * 1000) : 0);
+      // stopwatch
+      restore = 0;
     }
-    setDoneFlash(false);
-    clearLiveState();
-    setShowSettings(true);
-    stopAmbient();
+    setRemainingMs(restore);
+
+    // Keep live state so bubble / mini window stay alive (paused at start value)
+    try {
+      saveLiveState({
+        mode: prefs.mode,
+        running: false,
+        remainingMs: restore,
+        elapsedMs: 0,
+        endAt: null,
+        startedAt: null,
+        accumulated: 0,
+        pomoPhase: "work",
+        pomoCycle: 1,
+        updatedAt: Date.now(),
+      });
+    } catch (_) {}
+    // Do not open settings, do not clearLiveState, do not change viewMode
   }
 
   function applyDuration() {
     const total = parseHms(hours, mins, secs);
     setRemainingMs(total);
+    baseDurationRef.current = total; // new chosen duration becomes the Reset target
     if (running && prefs.mode === "countdown") {
       endAtRef.current = Date.now() + total;
     }

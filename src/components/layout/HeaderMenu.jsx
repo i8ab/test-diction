@@ -33,7 +33,7 @@ export default function HeaderMenu({
   iconStyle = "outline", onChangeIconStyle = null,
   motionSpeed = "normal", onChangeMotionSpeed = null,
   examVisual = false, onChangeExamVisual = null,
-  remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
+  remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder, onClearReminderSlots,
   reminderTitle, onChangeReminderTitle,
   reminderMessage, onChangeReminderMessage,
   reminderMessages = [], onChangeReminderMessages = null,
@@ -316,6 +316,7 @@ export default function HeaderMenu({
         onEnableReminders={onEnableReminders}
         onDisableReminders={onDisableReminders}
         onTestReminder={onTestReminder}
+        onClearReminderSlots={onClearReminderSlots}
         reminderTitle={reminderTitle}
         onChangeReminderTitle={onChangeReminderTitle}
         reminderMessage={reminderMessage}

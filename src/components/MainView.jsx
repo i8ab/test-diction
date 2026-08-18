@@ -72,7 +72,7 @@ export default function MainView({
   appIsAr, appLang = "en", onToggleAppLang, onChangeAppLang,
   deviceMode = null, onChangeDeviceMode, uiScale = 1, onChangeUiScale,
   sessionStart,
-  remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
+  remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder, onClearReminderSlots,
   reminderTitle, onChangeReminderTitle,
   reminderMessage, onChangeReminderMessage, reminderMessages = [], onChangeReminderMessages = null,
   reminderIntervalHours, onChangeReminderIntervalHours,
@@ -690,7 +690,7 @@ export default function MainView({
                 iconStyle={iconStyle} onChangeIconStyle={onChangeIconStyle}
                 motionSpeed={motionSpeed} onChangeMotionSpeed={onChangeMotionSpeed}
                 examVisual={examVisual} onChangeExamVisual={onChangeExamVisual}
-                remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={onEnableReminders} onDisableReminders={onDisableReminders} onTestReminder={onTestReminder}
+                remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={onEnableReminders} onDisableReminders={onDisableReminders} onTestReminder={onTestReminder} onClearReminderSlots={onClearReminderSlots}
                 reminderTitle={reminderTitle} onChangeReminderTitle={onChangeReminderTitle}
                 reminderMessage={reminderMessage} onChangeReminderMessage={onChangeReminderMessage} reminderMessages={reminderMessages} onChangeReminderMessages={onChangeReminderMessages}
                 reminderIntervalHours={reminderIntervalHours} onChangeReminderIntervalHours={onChangeReminderIntervalHours}

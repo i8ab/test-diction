@@ -292,45 +292,63 @@ export default function SettingsModal({
               />
 
               <Section title={T("System", "النظام")} />
-              {/* App update / hard refresh — primary control in installed PWA */}
-              <Row
-                tint="#19A7CE"
-                icon={
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <polyline points="23 4 23 10 17 10" />
-                    <polyline points="1 20 1 14 7 14" />
-                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                  </svg>
+              {/* App update / hard refresh — only useful in installed PWA (browser already has refresh) */}
+              {(() => {
+                let isPwa = false;
+                try {
+                  isPwa = !!(
+                    (typeof window !== "undefined" && window.navigator && window.navigator.standalone) ||
+                    (typeof window !== "undefined" &&
+                      window.matchMedia &&
+                      window.matchMedia("(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)").matches) ||
+                    (typeof document !== "undefined" &&
+                      document.documentElement.getAttribute("data-pwa-standalone") === "1")
+                  );
+                } catch (_) {
+                  isPwa = false;
                 }
-                label={T("Sync / refresh app", "مزامنة / تحديث التطبيق")}
-                onClick={async () => {
-                  try {
-                    if (typeof window.__forceAppRefresh === "function") {
-                      await window.__forceAppRefresh();
-                      return;
+                if (!isPwa) return null;
+                return (
+                  <Row
+                    tint="#19A7CE"
+                    icon={
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <polyline points="23 4 23 10 17 10" />
+                        <polyline points="1 20 1 14 7 14" />
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                      </svg>
                     }
-                    if ("serviceWorker" in navigator) {
+                    label={T("Sync / refresh app", "مزامنة / تحديث التطبيق")}
+                    onClick={async () => {
                       try {
-                        const reg = await navigator.serviceWorker.getRegistration();
-                        if (reg) {
-                          await reg.update();
-                          if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
+                        if (typeof window.__forceAppRefresh === "function") {
+                          await window.__forceAppRefresh();
+                          return;
                         }
-                      } catch (_) {}
+                        if ("serviceWorker" in navigator) {
+                          try {
+                            const reg = await navigator.serviceWorker.getRegistration();
+                            if (reg) {
+                              await reg.update();
+                              if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
+                            }
+                          } catch (_) {}
+                        }
+                        const u = new URL(window.location.href);
+                        u.searchParams.set("_r", String(Date.now()));
+                        window.location.replace(u.toString());
+                      } catch (_) {
+                        try { window.location.reload(); } catch (__) {}
+                      }
+                    }}
+                    trailing={
+                      <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                        {T("Update", "تحديث")}
+                      </span>
                     }
-                    const u = new URL(window.location.href);
-                    u.searchParams.set("_r", String(Date.now()));
-                    window.location.replace(u.toString());
-                  } catch (_) {
-                    try { window.location.reload(); } catch (__) {}
-                  }
-                }}
-                trailing={
-                  <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
-                    {T("Update", "تحديث")}
-                  </span>
-                }
-              />
+                  />
+                );
+              })()}
               {/* ========== Notifications — opens small modal ========== */}
               {(onEnableReminders || onDisableReminders) && (
                 <Row

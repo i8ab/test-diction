@@ -223,6 +223,7 @@ export default function DictionaryApp() {
     handleChangeReminderIntervalHours,
     enableReminders,
     disableReminders,
+    clearReminderSlots,
     testReminderPush,
   } = useStudyReminders(accountCode, showToast);
 
@@ -1675,7 +1676,7 @@ useEffect(() => {
       examVisual={examVisual} onChangeExamVisual={setExamVisual}
       appIsAr={appIsAr} appLang={appLang} onToggleAppLang={toggleAppLang} onChangeAppLang={setAppLang}
       sessionStart={sessionStartRef.current}
-      remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={enableReminders} onDisableReminders={disableReminders} onTestReminder={testReminderPush}
+      remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={enableReminders} onDisableReminders={disableReminders} onTestReminder={testReminderPush} onClearReminderSlots={clearReminderSlots}
       reminderTitle={reminderTitle} onChangeReminderTitle={handleChangeReminderTitle}
       reminderMessage={reminderMessage} onChangeReminderMessage={handleChangeReminderMessage} reminderMessages={reminderMessages} onChangeReminderMessages={handleChangeReminderMessages}
       reminderIntervalHours={reminderIntervalHours} onChangeReminderIntervalHours={handleChangeReminderIntervalHours}

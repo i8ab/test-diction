@@ -124,19 +124,55 @@ export default async function handler(req, res) {
           body = null;
         }
       }
-      const { code, subscription, prefsOnly } = body || {};
+      const { code, subscription, prefsOnly, resetSlots } = body || {};
       if (!code) {
         return res.status(400).json({ error: "Missing code." });
       }
 
-      const prefs = normalizePrefs(body || {});
-      await redisCommand("SET", `${PREFS_PREFIX}${code}`, JSON.stringify(prefs));
+      // Wipe schedule markers so the next cron tick can fire immediately
+      // (no "tooSoon" / stuck msgIndex). Does not touch subscriptions or prefs.
+      if (resetSlots) {
+        await redisCommand("DEL", `twoTongues:push:lastSent:${code}`);
+        await redisCommand("DEL", `twoTongues:push:lastSlot:${code}`);
+        await redisCommand("DEL", `twoTongues:push:msgIndex:${code}`);
+        if (prefsOnly || !subscription) {
+          return res.status(200).json({ ok: true, slotsCleared: true });
+        }
+      }
+
+      // prefsOnly without message fields: leave existing prefs untouched
+      const hasPrefFields =
+        body.message != null ||
+        body.messages != null ||
+        body.title != null ||
+        body.intervalHours != null ||
+        body.intervalDays != null;
+
+      let prefs = null;
+      if (hasPrefFields || (!prefsOnly && !resetSlots)) {
+        prefs = normalizePrefs(body || {});
+        await redisCommand("SET", `${PREFS_PREFIX}${code}`, JSON.stringify(prefs));
+      } else if (prefsOnly) {
+        // Still return current prefs for the client
+        try {
+          const raw = await redisCommand("GET", `${PREFS_PREFIX}${code}`);
+          prefs = raw
+            ? normalizePrefs(typeof raw === "string" ? JSON.parse(raw) : raw)
+            : normalizePrefs({});
+        } catch (_) {
+          prefs = normalizePrefs({});
+        }
+        return res.status(200).json({ ok: true, prefs, slotsCleared: !!resetSlots });
+      }
 
       if (prefsOnly) {
-        return res.status(200).json({ ok: true, prefs });
+        return res.status(200).json({ ok: true, prefs, slotsCleared: !!resetSlots });
       }
 
       if (!subscription || !subscription.endpoint) {
+        if (resetSlots) {
+          return res.status(200).json({ ok: true, slotsCleared: true, prefs });
+        }
         return res.status(400).json({ error: "Missing code or subscription." });
       }
 
@@ -145,6 +181,7 @@ export default async function handler(req, res) {
         ok: true,
         prefs,
         deviceCount: list.length,
+        slotsCleared: !!resetSlots,
       });
     }
 

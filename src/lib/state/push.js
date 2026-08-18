@@ -194,6 +194,32 @@ export async function savePushPrefs(accountCode, prefs) {
 }
 
 /**
+ * Clear reminder schedule markers (lastSent / lastSlot / message rotation index)
+ * so the next cron can fire on a clean slate. Does not disable push or prefs.
+ */
+export async function resetPushSlots(accountCode) {
+  if (!accountCode) return { ok: false, error: "no_code" };
+  try {
+    const r = await fetch("/api/push-subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: accountCode,
+        prefsOnly: true,
+        resetSlots: true,
+      }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      return { ok: false, error: data.error || `HTTP ${r.status}` };
+    }
+    return { ok: true, slotsCleared: !!data.slotsCleared };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  }
+}
+
+/**
  * Fetch reminder prefs from the server (shared across all devices for this account).
  * Returns normalized prefs or null on failure / missing.
  */

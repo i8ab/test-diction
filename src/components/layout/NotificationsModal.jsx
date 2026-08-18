@@ -16,6 +16,7 @@ export default function NotificationsModal({
   onEnableReminders = null,
   onDisableReminders = null,
   onTestReminder = null,
+  onClearReminderSlots = null,
   reminderTitle = "",
   onChangeReminderTitle = null,
   reminderMessage = "",
@@ -150,7 +151,7 @@ export default function NotificationsModal({
                           fontSize: 13, fontWeight: 600, color: "var(--ink)",
                         }}
                       >
-                        <span>{remindersOn ? T( "Reminders: On", "التذكيرات: مفعّلة") : T( "Reminders: Off", "التذكيرات: متوقفة")}</span>
+                        <span>{remindersOn ? T( "Reminders: On (this device)", "التذكيرات: مفعّلة (الجهاز ده)") : T( "Reminders: Off (this device)", "التذكيرات: متوقفة (الجهاز ده)")}</span>
                         <span style={{
                           width: 36, height: 20, borderRadius: 10, position: "relative", flexShrink: 0,
                           background: remindersOn ? "#34c759" : "rgba(var(--border-rgb),0.35)",
@@ -166,8 +167,8 @@ export default function NotificationsModal({
 
                       <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.4, padding: "0 2px" }}>
                         {T(
-                          "Reminders fire on the clock (e.g. 6:00, 7:00, 8:00), not at random minutes. Pick how many hours between those hours.",
-                          "التذكيرات على رأس الساعة (مثلاً 6:00 و 7:00 و 8:00) مش في دقايق عشوائية. اختار كل كام ساعة بين المواعيد دي.")}
+                          "On/Off is per device: turning off here does not stop reminders on your other phones. Reminders fire on the clock (e.g. 6:00, 7:00). Pick how many hours between those hours.",
+                          "التفعيل/الإيقاف للجهاز ده بس: لو وقّفت هنا، التليفونات التانية تفضل تستلم عادي. التذكيرات على رأس الساعة (مثلاً 6:00 و 7:00). اختار كل كام ساعة بين المواعيد دي.")}
                       </div>
 
                       <div>
@@ -316,6 +317,37 @@ export default function NotificationsModal({
                           <BellIcon size={14} />
                           {T( "Send test notification", "ابعت إشعار تجريبي")}
                         </button>
+                      )}
+
+                      {onClearReminderSlots && (
+                        <button
+                          type="button"
+                          disabled={remindersBusy}
+                          onClick={() => onClearReminderSlots && onClearReminderSlots()}
+                          className="touch-target"
+                          style={{
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                            width: "100%", padding: "10px 12px", minHeight: 44, borderRadius: 10,
+                            cursor: remindersBusy ? "default" : "pointer",
+                            border: "1px solid rgba(var(--border-rgb),0.22)",
+                            background: "var(--input-bg)",
+                            fontSize: 13, fontWeight: 700, color: "var(--ink)",
+                            opacity: remindersBusy ? 0.6 : 1,
+                          }}
+                        >
+                          {T(
+                            "Clear schedule (start fresh)",
+                            "مسح الجدولة (ابدأ من نضافة)"
+                          )}
+                        </button>
+                      )}
+                      {onClearReminderSlots && (
+                        <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.4, padding: "0 2px", marginTop: -4 }}>
+                          {T(
+                            "Wipes the last-sent slot and message rotation so the next reminder can fire cleanly. Does not turn notifications off.",
+                            "بيمسح آخر موعد اتبعت والعدّاد بتاع الرسائل عشان التذكير الجاي يشتغل من أول وجديد. مش بيطفي الإشعارات."
+                          )}
+                        </div>
                       )}
 
                       {/* Admin: broadcast push to every subscribed user */}

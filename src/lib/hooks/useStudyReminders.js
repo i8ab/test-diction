@@ -7,6 +7,7 @@ import {
   savePushPrefs,
   fetchPushPrefs,
   applyPushPrefsLocally,
+  resetPushSlots,
   loadRemindersEnabled,
   saveRemindersEnabled,
   loadReminderMessage,
@@ -203,6 +204,8 @@ export function useStudyReminders(accountCode, showToast) {
     setRemindersBusy(false);
   }, [accountCode, remindersBusy, getReminderPrefs]);
 
+  // Turns off push on *this device only*. Other phones for the same account
+  // keep their subscriptions and keep receiving reminders.
   const disableReminders = useCallback(async () => {
     if (remindersBusy) return;
     setRemindersOn(false);
@@ -213,6 +216,32 @@ export function useStudyReminders(accountCode, showToast) {
     } catch (_) {}
     setRemindersBusy(false);
   }, [accountCode, remindersBusy]);
+
+  const clearReminderSlots = useCallback(async () => {
+    if (!accountCode) {
+      if (typeof showToast === "function") showToast("سجّل الدخول أولاً / Sign in first");
+      return { ok: false };
+    }
+    setRemindersBusy(true);
+    try {
+      const result = await resetPushSlots(accountCode);
+      if (typeof showToast === "function") {
+        if (result.ok) {
+          showToast(
+            "تم مسح الجدولة — التذكير الجاي هيشتغل من أول وجديد / Schedule cleared — next reminder starts fresh"
+          );
+        } else {
+          showToast(result.error || "فشل مسح السلوتات / Could not clear slots");
+        }
+      }
+      return result;
+    } catch (_) {
+      if (typeof showToast === "function") showToast("خطأ شبكة / Network error");
+      return { ok: false };
+    } finally {
+      setRemindersBusy(false);
+    }
+  }, [accountCode, showToast]);
 
   const testReminderPush = useCallback(async () => {
     if (!accountCode) {
@@ -282,6 +311,7 @@ export function useStudyReminders(accountCode, showToast) {
     handleChangeReminderIntervalHours,
     enableReminders,
     disableReminders,
+    clearReminderSlots,
     testReminderPush,
   };
 }

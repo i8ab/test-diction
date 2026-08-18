@@ -283,6 +283,37 @@ export default function DictionaryApp() {
     };
   }, []);
 
+  // Hard force-refresh: unregister every SW, wipe Cache Storage, then reload.
+  // Call from console:  window.__forceAppRefresh()
+  // or from any button. Survives "I cleared data and still can't refresh".
+  useEffect(() => {
+    window.__forceAppRefresh = async () => {
+      try {
+        if ("serviceWorker" in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((r) => r.unregister()));
+        }
+      } catch (_) {}
+      try {
+        if (window.caches) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        }
+      } catch (_) {}
+      try {
+        // Bust any sticky query so the next navigation is not served from disk cache
+        const u = new URL(window.location.href);
+        u.searchParams.set("_r", String(Date.now()));
+        window.location.replace(u.toString());
+      } catch (_) {
+        window.location.reload();
+      }
+    };
+    return () => {
+      try { delete window.__forceAppRefresh; } catch (_) {}
+    };
+  }, []);
+
   // Registers the offline service worker (see /sw.js).
   // updateViaCache: "none" + explicit reg.update() so a normal browser
   // refresh (or pull-to-refresh) actually picks up a newly deployed SW/shell

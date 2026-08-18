@@ -16,6 +16,7 @@ const CODES_SET_KEY = "twoTongues:push:codes";
 const SUB_PREFIX = "twoTongues:push:sub:";
 const PREFS_PREFIX = "twoTongues:push:prefs:";
 const LAST_SENT_PREFIX = "twoTongues:push:lastSent:";
+const LAST_SLOT_PREFIX = "twoTongues:push:lastSlot:";
 const MSG_INDEX_PREFIX = "twoTongues:push:msgIndex:";
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -186,8 +187,31 @@ async function getLastSent(code) {
 
 async function setLastSent(code, ts) {
   try {
-    // Keep for 60 days so stale keys don't accumulate forever
     await redisCommand("SET", `${LAST_SENT_PREFIX}${code}`, String(ts), "EX", 60 * 24 * 3600);
+  } catch (_) {}
+}
+
+/** Clock-aligned slot id: changes every `intervalHours` whole hours (UTC epoch hours). */
+function hourSlotId(nowMs, intervalHours) {
+  const step = Math.max(1, Number(intervalHours) || 1);
+  const hoursSinceEpoch = Math.floor(nowMs / HOUR_MS);
+  return Math.floor(hoursSinceEpoch / step);
+}
+
+async function getLastSlot(code) {
+  try {
+    const raw = await redisCommand("GET", `${LAST_SLOT_PREFIX}${code}`);
+    if (raw == null || raw === "") return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function setLastSlot(code, slot) {
+  try {
+    await redisCommand("SET", `${LAST_SLOT_PREFIX}${code}`, String(slot), "EX", 60 * 24 * 3600);
   } catch (_) {}
 }
 
@@ -242,6 +266,11 @@ export default async function handler(req, res) {
     let sent = 0, skipped = 0, expired = 0, failed = 0;
     const reasons = { noSub: 0, badSub: 0, dupEndpoint: 0, tooSoon: 0, sendError: 0 };
     const errors = [];
+    // Per-account trace (code + message # + outcome) so you can verify everyone
+    const details = [];
+    const pushDetail = (row) => {
+      if (details.length < 80) details.push(row);
+    };
     // Same device under multiple account codes → only one push per endpoint
     const seenEndpoints = new Set();
 
@@ -250,31 +279,42 @@ export default async function handler(req, res) {
       const prefs = await loadPrefs(code);
 
       const subRaw = await redisCommand("GET", `${SUB_PREFIX}${code}`);
-      if (!subRaw) { skipped++; reasons.noSub++; continue; }
+      if (!subRaw) {
+        skipped++; reasons.noSub++;
+        pushDetail({ code, status: "skipped", reason: "noSub" });
+        continue;
+      }
       let subscription;
       try {
         subscription = typeof subRaw === "string" ? JSON.parse(subRaw) : subRaw;
       } catch (_) {
-        skipped++;
-        reasons.badSub++;
+        skipped++; reasons.badSub++;
+        pushDetail({ code, status: "skipped", reason: "badSub" });
         continue;
       }
 
       const endpoint = subscription && subscription.endpoint;
-      if (!endpoint) { skipped++; reasons.badSub++; continue; }
+      if (!endpoint) {
+        skipped++; reasons.badSub++;
+        pushDetail({ code, status: "skipped", reason: "badSub" });
+        continue;
+      }
       if (seenEndpoints.has(endpoint)) {
-        skipped++;
-        reasons.dupEndpoint++;
+        skipped++; reasons.dupEndpoint++;
+        pushDetail({ code, status: "skipped", reason: "dupEndpoint" });
         continue;
       }
       seenEndpoints.add(endpoint);
 
-      // Respect per-user intervalHours
+      // Clock-hour slots (not "lastSent + N hours") so reminders land on a
+      // regular grid: with hourly cron + interval 1 → ~17:00, 18:00, 19:00…
+      // Enabling at 17:15 does not shift the grid to :15 past each hour.
       const intervalHours = prefs.intervalHours || DEFAULT_INTERVAL_HOURS;
-      const lastSent = await getLastSent(code);
-      if (lastSent != null && (now - lastSent) < intervalHours * HOUR_MS) {
-        skipped++;
-        reasons.tooSoon++;
+      const slot = hourSlotId(now, intervalHours);
+      const lastSlot = await getLastSlot(code);
+      if (lastSlot != null && lastSlot === slot) {
+        skipped++; reasons.tooSoon++;
+        pushDetail({ code, status: "skipped", reason: "tooSoon", slot, intervalHours });
         continue;
       }
 
@@ -314,22 +354,37 @@ export default async function handler(req, res) {
         renotify: true,
       };
 
+      const msgIndex = list.length ? (nextIdx === 0 ? list.length : nextIdx) : 0; // 1-based index just sent
+      const msgIndex0 = list.length ? (nextIdx - 1 + list.length) % list.length : -1;
       const result = await sendPush(subscription, payload);
       if (result.ok) {
         sent++;
+        await setLastSlot(code, slot);
         await setLastSent(code, now);
         if (list.length) {
           try { await redisCommand("SET", `${MSG_INDEX_PREFIX}${code}`, String(nextIdx)); } catch (_) {}
         }
+        pushDetail({
+          code,
+          status: "sent",
+          slot,
+          intervalHours,
+          messageIndex: msgIndex0 + 1,
+          messageTotal: list.length || 1,
+          title: String(title).slice(0, 80),
+          bodyPreview: String(body).slice(0, 100),
+        });
       } else if (result.expired) {
         expired++;
         await redisCommand("DEL", `${SUB_PREFIX}${code}`);
         await redisCommand("SREM", CODES_SET_KEY, code);
         await redisCommand("DEL", `${LAST_SENT_PREFIX}${code}`);
+        pushDetail({ code, status: "expired" });
       } else {
         skipped++;
         failed++;
         reasons.sendError++;
+        pushDetail({ code, status: "skipped", reason: "sendError", error: result.error || result.message || "send_failed" });
         if (errors.length < 5) {
           errors.push({ code, error: result.error || result.message || "send_failed" });
         }
@@ -338,7 +393,9 @@ export default async function handler(req, res) {
 
     const body = {
       sent, skipped, expired, failed, logsCleared,
-      codes: codes.length, reasons, errors: errors.length ? errors : undefined,
+      codes: codes.length, reasons,
+      errors: errors.length ? errors : undefined,
+      details, // per-account: code, status, messageIndex, bodyPreview, …
     };
     console.log("[push-send-reminders]", JSON.stringify(body));
     return res.status(200).json(body);

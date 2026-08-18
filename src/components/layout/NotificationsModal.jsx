@@ -166,8 +166,8 @@ export default function NotificationsModal({
 
                       <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.4, padding: "0 2px" }}>
                         {T(
-                          "Reminders repeat based on the interval you choose below.",
-                          "التذكيرات بتتكرر حسب المعدل اللي هتختاره تحت.")}
+                          "Reminders fire on the clock (e.g. 6:00, 7:00, 8:00), not at random minutes. Pick how many hours between those hours.",
+                          "التذكيرات على رأس الساعة (مثلاً 6:00 و 7:00 و 8:00) مش في دقايق عشوائية. اختار كل كام ساعة بين المواعيد دي.")}
                       </div>
 
                       <div>
@@ -177,8 +177,8 @@ export default function NotificationsModal({
                           onChange={(e) => onChangeReminderIntervalHours && onChangeReminderIntervalHours(Number(e.target.value))}
                           style={{ ...fieldInput, cursor: "pointer" }}
                         >
-                          <option value={1}>{T("Every 1 hour", "كل ساعة")}</option>
-                          <option value={2}>{T("Every 2 hours", "كل ساعتين")}</option>
+                          <option value={1}>{T("Every hour (on the hour)", "كل ساعة (على رأس الساعة)")}</option>
+                          <option value={2}>{T("Every 2 hours (on the hour)", "كل ساعتين (على رأس الساعة)")}</option>
                           <option value={3}>{T("Every 3 hours", "كل 3 ساعات")}</option>
                           <option value={6}>{T("Every 6 hours", "كل 6 ساعات")}</option>
                           <option value={12}>{T("Every 12 hours", "كل 12 ساعة")}</option>

@@ -1821,8 +1821,20 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
                     key={m.id}
                     type="button"
                     onClick={() => {
+                      if (m.id === prefs.mode) return;
+                      // Don't kill a running session when browsing settings
+                      if (runningRef.current || running) {
+                        setErrorMsg(
+                          tr(
+                            isAr,
+                            "Pause the timer first, then change the mode.",
+                            "وقف التايمر الأول، بعدين غيّر الوضع."
+                          )
+                        );
+                        return;
+                      }
+                      setErrorMsg("");
                       updatePref({ mode: m.id });
-                      setRunning(false);
                       endAtRef.current = null;
                       startedAtRef.current = null;
                       accumulatedRef.current = 0;
@@ -1831,6 +1843,7 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
                       if (m.id === "countdown") {
                         const total = parseHms(hours, mins, secs) || 25 * 60 * 1000;
                         setRemainingMs(total);
+                        baseDurationRef.current = total;
                       } else if (m.id === "pomodoro") {
                         pomoPhaseRef.current = "work";
                         setPomoPhase("work");
@@ -1838,8 +1851,10 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
                         setPomoCycle(1);
                         const w = Math.max(1, Number(prefs.pomoWorkMin) || 25) * 60 * 1000;
                         setRemainingMs(w);
+                        baseDurationRef.current = w;
                       } else {
                         setRemainingMs(0);
+                        baseDurationRef.current = 0;
                       }
                     }}
                     style={{

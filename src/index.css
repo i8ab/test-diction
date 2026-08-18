@@ -2,9 +2,9 @@
     margin: 0;
     padding: 0;
     background-color: var(--paper);
-    /* Allow browser pull-to-refresh (was none — that killed refresh on mobile).
-       Fixed bg layer still uses overscroll-behavior: none so the photo doesn't bounce. */
-    overscroll-behavior-y: auto;
+    /* No pull-to-refresh: updates go through the in-app Sync button (PWA)
+       or the browser chrome refresh when not installed. */
+    overscroll-behavior-y: none;
   }
   body {
     margin: 0;
@@ -16,7 +16,7 @@
     position: relative;
     z-index: 0;
     min-height: 100dvh;
-    overscroll-behavior-y: auto;
+    overscroll-behavior-y: none;
   }
   /* Fixed background layer — locked size so mobile URL bar show/hide
      does NOT rescale the photo (cover recalculating on dvh change).
@@ -3226,4 +3226,17 @@ html[data-theme="light"] .tt-bot,
 html[data-theme="light"] .tt-fold-bot {
   background: linear-gradient(180deg, #ddd8ce 0%, #e8e4dc 100%);
   border-top-color: rgba(0, 0, 0, 0.2);
+}
+
+
+/* PWA sync / refresh button (installed app only) */
+@keyframes pwaSyncSpin {
+  to { transform: rotate(360deg); }
+}
+.pwa-sync-btn:active {
+  transform: scale(0.96);
+}
+@media (max-width: 380px) {
+  .pwa-sync-btn-label { display: none; }
+  .pwa-sync-btn { padding: 8px !important; }
 }

@@ -34,7 +34,18 @@ export default async function handler(req, res) {
   try {
     // find all accounts that have prefs
     const Redis = (await import("ioredis")).default;
-    const redis = new Redis(process.env.REDIS_URL || process.env.UPSTASH_REDIS_URL);
+    const url = process.env.REDIS_URL || process.env.UPSTASH_REDIS_URL;
+    if (!url) {
+      return res.status(500).json({ error: "Redis not configured. Set REDIS_URL or UPSTASH_REDIS_URL." });
+    }
+    const redis = new Redis(url, {
+      maxRetriesPerRequest: 1,
+      connectTimeout: 8000,
+      commandTimeout: 8000,
+      enableReadyCheck: false,
+      lazyConnect: false,
+      retryStrategy: (times) => (times > 2 ? null : Math.min(times * 200, 1000)),
+    });
 
     const keys = [];
     let cursor = "0";

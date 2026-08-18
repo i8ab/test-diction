@@ -115,6 +115,26 @@ export function useAppPreferences() {
     try {
       localStorage.setItem(THEME_KEY, theme);
     } catch (_) {}
+    // Match Android/iOS system status bar to the bottom toolbar (not brass beige).
+    // Dark → deep paper; light → soft paper. Prevents the tan "balloon" strip.
+    try {
+      const dark = resolved === "dark";
+      const color = dark ? "#0E1A20" : "#FAFDFE";
+      let meta = document.querySelector('meta[name="theme-color"]');
+      if (!meta) {
+        meta = document.createElement("meta");
+        meta.setAttribute("name", "theme-color");
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute("content", color);
+      let apple = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+      if (!apple) {
+        apple = document.createElement("meta");
+        apple.setAttribute("name", "apple-mobile-web-app-status-bar-style");
+        document.head.appendChild(apple);
+      }
+      apple.setAttribute("content", dark ? "black-translucent" : "default");
+    } catch (_) {}
   }, [theme]);
 
   // Follow OS dark/light when preference is "system"
@@ -127,7 +147,16 @@ export function useAppPreferences() {
       return undefined;
     }
     const apply = () => {
-      document.documentElement.setAttribute("data-theme", resolveTheme("system"));
+      const resolved = resolveTheme("system");
+      document.documentElement.setAttribute("data-theme", resolved);
+      try {
+        const dark = resolved === "dark";
+        const color = dark ? "#0E1A20" : "#FAFDFE";
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute("content", color);
+        const apple = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+        if (apple) apple.setAttribute("content", dark ? "black-translucent" : "default");
+      } catch (_) {}
     };
     apply();
     try {

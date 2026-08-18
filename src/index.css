@@ -1613,11 +1613,12 @@ html[data-device="mobile"] body::after {
   z-index: 10000;
   height: env(safe-area-inset-top, 0px);
   pointer-events: none;
-  background: color-mix(in srgb, var(--paper, #faf8f5) 92%, transparent);
+  /* Same recipe as .mobile-bottom-nav so top system strip matches bottom tools */
+  background: color-mix(in srgb, var(--paper, #0E1A20) 92%, transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgba(var(--border-rgb), 0.10);
-  box-shadow: 0 6px 16px -14px rgba(0, 0, 0, 0.12);
+  border-bottom: 1px solid rgba(var(--border-rgb), 0.14);
+  box-shadow: 0 8px 24px -16px rgba(0, 0, 0, 0.18);
 }
 /* Mobile bottom navigation bar */
 .mobile-bottom-nav {

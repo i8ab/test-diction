@@ -1,22 +1,19 @@
-// Test endpoint — send one push to the caller's subscription now, using the
-// same final payload shape the real reminder cron would send (custom title/
-// body from Redis prefs, or values the client passes in the body).
+// Test endpoint — send one push to the caller's device subscription(s) now.
 //
 // POST body: {
 //   code: "<personal account code>",
-//   title?: string,   // optional override (e.g. live preview before saving)
-//   body?: string,    // optional override
+//   title?: string,
+//   body?: string,
+//   endpoint?: string,  // optional: only this device; otherwise all devices
 // }
-// Requires Redis + VAPID env vars, same as the daily cron.
 
 import { redisConfigured, redisCommand } from "../lib/redis.js";
 import { sendPush, vapidConfigured } from "../lib/webpush.js";
-
-const SUB_PREFIX = "twoTongues:push:sub:";
-const PREFS_PREFIX = "twoTongues:push:prefs:";
+import { PREFS_PREFIX, loadSubs, removeExpiredEndpoint } from "../lib/pushSubs.js";
 
 const DEFAULT_TITLE = "وقت المراجعة! / Time to review!";
-const DEFAULT_BODY = "عدّى وقت من غير ما تراجع — يلا نراجع شوية. / It's been a while since you studied — time for a quick review.";
+const DEFAULT_BODY =
+  "عدّى وقت من غير ما تراجع — يلا نراجع شوية. / It's been a while since you studied — time for a quick review.";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -33,7 +30,11 @@ export default async function handler(req, res) {
 
   let body = req.body;
   if (typeof body === "string") {
-    try { body = JSON.parse(body); } catch (e) { body = null; }
+    try {
+      body = JSON.parse(body);
+    } catch (e) {
+      body = null;
+    }
   }
   const code = body && typeof body.code === "string" ? body.code.trim() : "";
   if (!code) {
@@ -41,36 +42,33 @@ export default async function handler(req, res) {
   }
 
   try {
-    const subRaw = await redisCommand("GET", `${SUB_PREFIX}${code}`);
-    if (!subRaw) {
+    let subscriptions = await loadSubs(code);
+    const onlyEndpoint =
+      body && typeof body.endpoint === "string" ? body.endpoint.trim() : "";
+    if (onlyEndpoint) {
+      subscriptions = subscriptions.filter((s) => s.endpoint === onlyEndpoint);
+    }
+    if (!subscriptions.length) {
       return res.status(404).json({
         error: "no_subscription",
-        message: "No push subscription saved for this account. Turn reminders On first and allow notifications.",
+        message:
+          "No push subscription saved for this account. Turn reminders On first and allow notifications.",
       });
     }
 
-    let subscription;
-    try {
-      subscription = typeof subRaw === "string" ? JSON.parse(subRaw) : subRaw;
-    } catch (e) {
-      return res.status(500).json({ error: "Invalid stored subscription." });
-    }
-
-    // Prefer explicit title/body from the client (live preview of what they
-    // typed), then fall back to saved Redis prefs, then defaults.
     let prefs = {};
     try {
       const prefsRaw = await redisCommand("GET", `${PREFS_PREFIX}${code}`);
       if (prefsRaw) prefs = typeof prefsRaw === "string" ? JSON.parse(prefsRaw) : prefsRaw;
-    } catch (_) { /* ignore */ }
+    } catch (_) {
+      /* ignore */
+    }
 
     const clientTitle = body && typeof body.title === "string" ? body.title.trim() : "";
     const clientBody = body && typeof body.body === "string" ? body.body.trim() : "";
     const title = clientTitle || (prefs && prefs.title) || DEFAULT_TITLE;
     const notifBody = clientBody || (prefs && prefs.message) || DEFAULT_BODY;
 
-    // Unique tag every time so repeated tests with the same title/body still
-    // show a new OS notification (SW collapses identical tags when renotify=false).
     const payload = {
       title,
       body: notifBody,
@@ -79,22 +77,37 @@ export default async function handler(req, res) {
       renotify: true,
     };
 
-    const result = await sendPush(subscription, payload);
-    if (result.ok) {
-      return res.status(200).json({ ok: true, payload });
+    let sent = 0;
+    let lastError = null;
+    for (const subscription of subscriptions) {
+      const result = await sendPush(subscription, payload);
+      if (result.ok) {
+        sent++;
+      } else if (result.expired) {
+        await removeExpiredEndpoint(code, subscription.endpoint);
+        lastError = "subscription_expired";
+      } else {
+        lastError = result.error || result.message || "send_failed";
+      }
     }
-    if (result.expired) {
-      try {
-        await redisCommand("DEL", `${SUB_PREFIX}${code}`);
-        await redisCommand("SREM", "twoTongues:push:codes", code);
-      } catch (_) { /* ignore */ }
-      return res.status(410).json({ error: "subscription_expired", message: "Subscription expired — turn reminders Off then On again." });
+
+    if (sent > 0) {
+      return res.status(200).json({ ok: true, payload, sent, devices: subscriptions.length });
+    }
+    if (lastError === "subscription_expired") {
+      return res.status(410).json({
+        error: "subscription_expired",
+        message: "Subscription expired — turn reminders Off then On again.",
+      });
     }
     return res.status(502).json({
-      error: result.error || "send_failed",
-      message: result.message || result.error || "send_failed",
+      error: lastError || "send_failed",
+      message: lastError || "send_failed",
     });
   } catch (e) {
-    return res.status(500).json({ error: "Server error sending test push.", message: String((e && e.message) || e) });
+    return res.status(500).json({
+      error: "Server error sending test push.",
+      message: String((e && e.message) || e),
+    });
   }
 }

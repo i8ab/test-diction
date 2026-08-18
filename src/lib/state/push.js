@@ -147,19 +147,29 @@ export async function subscribeToPush(accountCode, prefs = {}) {
 }
 
 export async function unsubscribeFromPush(accountCode) {
+  let endpoint = "";
   try {
     if (pushSupported()) {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
-      if (sub) await sub.unsubscribe();
+      if (sub) {
+        try {
+          endpoint = sub.endpoint || "";
+        } catch (_) {}
+        await sub.unsubscribe();
+      }
     }
   } catch (_) {}
   try {
     if (accountCode) {
+      // Remove only this device; keep prefs + other phones for the same account
       await fetch("/api/push-subscribe", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: accountCode }),
+        body: JSON.stringify({
+          code: accountCode,
+          ...(endpoint ? { endpoint } : {}),
+        }),
       });
     }
   } catch (_) {}
@@ -180,6 +190,47 @@ export async function savePushPrefs(accountCode, prefs) {
         ...prefsFromObject(prefs),
       }),
     });
+  } catch (_) {}
+}
+
+/**
+ * Fetch reminder prefs from the server (shared across all devices for this account).
+ * Returns normalized prefs or null on failure / missing.
+ */
+export async function fetchPushPrefs(accountCode) {
+  if (!accountCode) return null;
+  try {
+    const r = await fetch(
+      `/api/push-subscribe?code=${encodeURIComponent(accountCode)}&_t=${Date.now()}`,
+      {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+      }
+    );
+    if (!r.ok) return null;
+    const data = await r.json().catch(() => null);
+    if (!data || !data.prefs) return null;
+    return prefsFromObject(data.prefs);
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Write server prefs into localStorage so offline UI matches cloud. */
+export function applyPushPrefsLocally(accountCode, prefs) {
+  if (!accountCode || !prefs) return;
+  const n = prefsFromObject(prefs);
+  try {
+    if (n.title) saveReminderTitle(n.title, accountCode);
+    else saveReminderTitle("", accountCode);
+    if (n.messages && n.messages.length) {
+      saveReminderMessages(n.messages, accountCode);
+    } else if (n.message) {
+      saveReminderMessages([n.message], accountCode);
+    }
+    if (ALLOWED_INTERVAL_HOURS.includes(n.intervalHours)) {
+      saveReminderIntervalHours(n.intervalHours, accountCode);
+    }
   } catch (_) {}
 }
 

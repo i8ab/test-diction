@@ -5,6 +5,8 @@ import {
   subscribeToPush,
   unsubscribeFromPush,
   savePushPrefs,
+  fetchPushPrefs,
+  applyPushPrefsLocally,
   loadRemindersEnabled,
   saveRemindersEnabled,
   loadReminderMessage,
@@ -37,6 +39,8 @@ export function useStudyReminders(accountCode, showToast) {
 
   // Reload this account's own notification prefs whenever the signed-in
   // account changes — never reuse another account's title/body/on-state.
+  // 1) Show local cache immediately (fast / offline)
+  // 2) Then pull cloud prefs so phone B matches phone A
   useEffect(() => {
     if (!accountCode) {
       setRemindersOn(false);
@@ -51,17 +55,45 @@ export function useStudyReminders(accountCode, showToast) {
     setReminderMessage(loadReminderMessage(accountCode));
     setReminderMessages(loadReminderMessages(accountCode));
     setReminderIntervalHours(loadReminderIntervalHours(accountCode));
+
+    let cancelled = false;
+    (async () => {
+      const cloud = await fetchPushPrefs(accountCode);
+      if (cancelled || !cloud) return;
+      // Prefer cloud when it has real content (messages / title / interval)
+      const hasCloudContent =
+        (cloud.messages && cloud.messages.length) ||
+        (cloud.title && cloud.title.trim()) ||
+        (cloud.message && cloud.message.trim());
+      if (!hasCloudContent) return;
+      applyPushPrefsLocally(accountCode, cloud);
+      setReminderTitle(cloud.title || "");
+      setReminderMessage(cloud.message || (cloud.messages && cloud.messages[0]) || "");
+      setReminderMessages(
+        cloud.messages && cloud.messages.length
+          ? cloud.messages
+          : cloud.message
+            ? [cloud.message]
+            : []
+      );
+      if (cloud.intervalHours) setReminderIntervalHours(cloud.intervalHours);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [accountCode]);
 
   const schedulePrefsSave = useCallback(
     (next) => {
       if (prefsSaveTimerRef.current) clearTimeout(prefsSaveTimerRef.current);
       prefsSaveTimerRef.current = setTimeout(() => {
-        if (!accountCode || !remindersOn) return;
+        // Always sync prefs to the server so other devices see the same
+        // title/messages/interval — even if push is currently off on this phone.
+        if (!accountCode) return;
         savePushPrefs(accountCode, next).catch(() => {});
       }, 700);
     },
-    [accountCode, remindersOn]
+    [accountCode]
   );
 
   const getReminderPrefs = useCallback(
@@ -78,9 +110,14 @@ export function useStudyReminders(accountCode, showToast) {
     (title) => {
       setReminderTitle(title);
       if (accountCode) saveReminderTitle(title, accountCode);
-      schedulePrefsSave({ title, message: reminderMessage, intervalHours: reminderIntervalHours });
+      schedulePrefsSave({
+        title,
+        message: reminderMessages[0] || reminderMessage,
+        messages: reminderMessages,
+        intervalHours: reminderIntervalHours,
+      });
     },
-    [accountCode, reminderMessage, reminderIntervalHours, schedulePrefsSave]
+    [accountCode, reminderMessage, reminderMessages, reminderIntervalHours, schedulePrefsSave]
   );
 
   const handleChangeReminderMessage = useCallback(

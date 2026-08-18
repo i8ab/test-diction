@@ -18,9 +18,7 @@
 
 import { redisConfigured, redisCommand } from "../lib/redis.js";
 import { sendPush, vapidConfigured } from "../lib/webpush.js";
-
-const CODES_SET_KEY = "twoTongues:push:codes";
-const SUB_PREFIX = "twoTongues:push:sub:";
+import { CODES_SET_KEY, loadSubs, removeExpiredEndpoint } from "../lib/pushSubs.js";
 
 async function fetchRecord(req) {
   const proto = req.headers["x-forwarded-proto"] || "https";
@@ -86,36 +84,34 @@ export default async function handler(req, res) {
     const seenEndpoints = new Set();
 
     for (const code of codes) {
-      const subRaw = await redisCommand("GET", `${SUB_PREFIX}${code}`);
-      if (!subRaw) { skipped++; continue; }
-      let subscription;
-      try {
-        subscription = typeof subRaw === "string" ? JSON.parse(subRaw) : subRaw;
-      } catch (e) {
+      const subscriptions = await loadSubs(code);
+      if (!subscriptions.length) {
         skipped++;
         continue;
       }
 
-      const endpoint = subscription && subscription.endpoint;
-      if (!endpoint) { skipped++; continue; }
-      if (seenEndpoints.has(endpoint)) {
-        // Same browser already queued for this broadcast — skip the duplicate
-        // account-code row. Leave Redis as-is (subscribe path cleans stale
-        // ownership); we just don't send twice.
-        skipped++;
-        continue;
-      }
-      seenEndpoints.add(endpoint);
+      for (const subscription of subscriptions) {
+        const endpoint = subscription && subscription.endpoint;
+        if (!endpoint) {
+          skipped++;
+          continue;
+        }
+        if (seenEndpoints.has(endpoint)) {
+          // Same browser already queued for this broadcast — skip duplicate
+          skipped++;
+          continue;
+        }
+        seenEndpoints.add(endpoint);
 
-      const result = await sendPush(subscription, payload);
-      if (result.ok) {
-        sent++;
-      } else if (result.expired) {
-        expired++;
-        await redisCommand("DEL", `${SUB_PREFIX}${code}`);
-        await redisCommand("SREM", CODES_SET_KEY, code);
-      } else {
-        skipped++;
+        const result = await sendPush(subscription, payload);
+        if (result.ok) {
+          sent++;
+        } else if (result.expired) {
+          expired++;
+          await removeExpiredEndpoint(code, endpoint);
+        } else {
+          skipped++;
+        }
       }
     }
 

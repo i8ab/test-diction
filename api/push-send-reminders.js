@@ -11,10 +11,13 @@
 
 import { redisConfigured, redisCommand } from "../lib/redis.js";
 import { sendPush, vapidConfigured } from "../lib/webpush.js";
+import {
+  CODES_SET_KEY,
+  PREFS_PREFIX,
+  loadSubs,
+  removeExpiredEndpoint,
+} from "../lib/pushSubs.js";
 
-const CODES_SET_KEY = "twoTongues:push:codes";
-const SUB_PREFIX = "twoTongues:push:sub:";
-const PREFS_PREFIX = "twoTongues:push:prefs:";
 const LAST_SENT_PREFIX = "twoTongues:push:lastSent:";
 const LAST_SLOT_PREFIX = "twoTongues:push:lastSlot:";
 const MSG_INDEX_PREFIX = "twoTongues:push:msgIndex:";
@@ -278,33 +281,12 @@ export default async function handler(req, res) {
       const account = accounts.find((a) => a.code === code) || null;
       const prefs = await loadPrefs(code);
 
-      const subRaw = await redisCommand("GET", `${SUB_PREFIX}${code}`);
-      if (!subRaw) {
+      const subscriptions = await loadSubs(code);
+      if (!subscriptions.length) {
         skipped++; reasons.noSub++;
         pushDetail({ code, status: "skipped", reason: "noSub" });
         continue;
       }
-      let subscription;
-      try {
-        subscription = typeof subRaw === "string" ? JSON.parse(subRaw) : subRaw;
-      } catch (_) {
-        skipped++; reasons.badSub++;
-        pushDetail({ code, status: "skipped", reason: "badSub" });
-        continue;
-      }
-
-      const endpoint = subscription && subscription.endpoint;
-      if (!endpoint) {
-        skipped++; reasons.badSub++;
-        pushDetail({ code, status: "skipped", reason: "badSub" });
-        continue;
-      }
-      if (seenEndpoints.has(endpoint)) {
-        skipped++; reasons.dupEndpoint++;
-        pushDetail({ code, status: "skipped", reason: "dupEndpoint" });
-        continue;
-      }
-      seenEndpoints.add(endpoint);
 
       // Clock-hour slots (not "lastSent + N hours") so reminders land on a
       // regular grid: with hourly cron + interval 1 → ~17:00, 18:00, 19:00…
@@ -354,11 +336,42 @@ export default async function handler(req, res) {
         renotify: true,
       };
 
-      const msgIndex = list.length ? (nextIdx === 0 ? list.length : nextIdx) : 0; // 1-based index just sent
       const msgIndex0 = list.length ? (nextIdx - 1 + list.length) % list.length : -1;
-      const result = await sendPush(subscription, payload);
-      if (result.ok) {
-        sent++;
+      let anySent = false;
+      let anyAlive = false;
+
+      for (const subscription of subscriptions) {
+        const endpoint = subscription && subscription.endpoint;
+        if (!endpoint) {
+          skipped++; reasons.badSub++;
+          continue;
+        }
+        if (seenEndpoints.has(endpoint)) {
+          skipped++; reasons.dupEndpoint++;
+          continue;
+        }
+        seenEndpoints.add(endpoint);
+
+        const result = await sendPush(subscription, payload);
+        if (result.ok) {
+          sent++;
+          anySent = true;
+          anyAlive = true;
+        } else if (result.expired) {
+          expired++;
+          await removeExpiredEndpoint(code, endpoint);
+        } else {
+          skipped++;
+          failed++;
+          reasons.sendError++;
+          anyAlive = true; // keep trying later; device may recover
+          if (errors.length < 5) {
+            errors.push({ code, error: result.error || result.message || "send_failed" });
+          }
+        }
+      }
+
+      if (anySent) {
         await setLastSlot(code, slot);
         await setLastSent(code, now);
         if (list.length) {
@@ -369,25 +382,21 @@ export default async function handler(req, res) {
           status: "sent",
           slot,
           intervalHours,
+          devices: subscriptions.length,
           messageIndex: msgIndex0 + 1,
           messageTotal: list.length || 1,
           title: String(title).slice(0, 80),
           bodyPreview: String(body).slice(0, 100),
         });
-      } else if (result.expired) {
-        expired++;
-        await redisCommand("DEL", `${SUB_PREFIX}${code}`);
-        await redisCommand("SREM", CODES_SET_KEY, code);
-        await redisCommand("DEL", `${LAST_SENT_PREFIX}${code}`);
-        pushDetail({ code, status: "expired" });
+      } else if (!anyAlive) {
+        pushDetail({ code, status: "expired", devices: subscriptions.length });
       } else {
-        skipped++;
-        failed++;
-        reasons.sendError++;
-        pushDetail({ code, status: "skipped", reason: "sendError", error: result.error || result.message || "send_failed" });
-        if (errors.length < 5) {
-          errors.push({ code, error: result.error || result.message || "send_failed" });
-        }
+        pushDetail({
+          code,
+          status: "skipped",
+          reason: "sendError",
+          devices: subscriptions.length,
+        });
       }
     }
 

@@ -155,27 +155,33 @@ function FlipDigit({ value, color }) {
   const [current, setCurrent] = useState(String(value));
   const [previous, setPrevious] = useState(String(value));
   const [animKey, setAnimKey] = useState(0);
+  const [bottomShowsNew, setBottomShowsNew] = useState(true);
 
   useEffect(() => {
     const next = String(value);
     if (next === current) return undefined;
     setPrevious(current);
     setCurrent(next);
-    // bump key so the CSS animation always restarts, even on rapid 1s ticks
+    setBottomShowsNew(false); // bottom stays on old digit while flap falls
     setAnimKey((k) => k + 1);
-    return undefined;
+    // after the flap finishes (~0.45s), reveal new digit on the bottom half
+    const t = setTimeout(() => setBottomShowsNew(true), 420);
+    return () => clearTimeout(t);
   }, [value, current]);
 
   return (
     <div className="flip-digit" style={{ color: color || "inherit" }} aria-hidden>
       <div className="flip-digit-card">
+        {/* Static top half always shows the NEW digit */}
         <div className="flip-digit-half top">
           <div className="flip-digit-glyph">{current}</div>
         </div>
+        {/* Static bottom half: old digit while animating, then new */}
         <div className="flip-digit-half bottom">
-          <div className="flip-digit-glyph">{current}</div>
+          <div className="flip-digit-glyph">{bottomShowsNew ? current : previous}</div>
         </div>
         <div className="flip-digit-hinge" />
+        {/* Flap carries the OLD digit and folds down */}
         {animKey > 0 && (
           <div key={animKey} className="flip-digit-flap animating">
             <div className="flip-digit-glyph">{previous}</div>

@@ -261,7 +261,7 @@ export default function DictionaryApp() {
           accounts: accountsRef.current,
           logs: logsRef.current,
           siteBanner: siteBannerRef.current,
-          examConfig: examConfigRef.current,
+          examConfig: examConfigRef.current, academicUnits: academicUnitsRef.current,
           academicUnits: academicUnitsRef.current,
           version: recordVersionRef.current,
         });

@@ -4,7 +4,7 @@
   "description": "Bacaloria Community — bilingual vocabulary dictionary and study tools.",
   "start_url": "/",
   "scope": "/",
-  "display": "standalone",
+  "display": "minimal-ui",
   "background_color": "#faf6ee",
   "theme_color": "#b08d57",
   "icons": [

@@ -2646,12 +2646,27 @@ html[data-has-bg-image="1"] .word-card {
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
-/* Mobile: cards more solid so page photo stays a real background, not a melted soup */
-html[data-device="mobile"][data-has-bg-image="1"] .entry-card,
-html[data-device="mobile"][data-has-bg-image="1"] .word-card {
+/* Mobile + background image: keep cards readable but still honor card-clarity.
+   Previously forced ~97% solid which broke the user preference for clear/glass. */
+html[data-device="mobile"][data-has-bg-image="1"][data-card-clarity="opaque"] .entry-card,
+html[data-device="mobile"][data-has-bg-image="1"][data-card-clarity="opaque"] .word-card,
+html[data-device="mobile"][data-has-bg-image="1"]:not([data-card-clarity]) .entry-card,
+html[data-device="mobile"][data-has-bg-image="1"]:not([data-card-clarity]) .word-card {
   background-color: color-mix(in srgb, var(--card) 97%, transparent) !important;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
+}
+html[data-device="mobile"][data-has-bg-image="1"][data-card-clarity="glass"] .entry-card,
+html[data-device="mobile"][data-has-bg-image="1"][data-card-clarity="glass"] .word-card {
+  background-color: color-mix(in srgb, var(--card) 78%, transparent) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+html[data-device="mobile"][data-has-bg-image="1"][data-card-clarity="clear"] .entry-card,
+html[data-device="mobile"][data-has-bg-image="1"][data-card-clarity="clear"] .word-card {
+  background-color: color-mix(in srgb, var(--card) 52%, transparent) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* ── Ruled notebook: LTR (English) margin line on the left ── */

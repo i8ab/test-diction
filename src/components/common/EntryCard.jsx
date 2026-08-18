@@ -199,8 +199,8 @@ function EntryCard({
       }
       dir={cfg.dir}
       style={{
-        /* background owned by CSS (card surface + clarity) */
-        background: "var(--card)",
+        /* background owned by CSS (card surface + clarity) — do NOT set background here
+           or it forces solid and breaks data-card-clarity="clear" especially on mobile scroll */
         border: "1px solid rgba(var(--border-rgb),0.12)",
         borderInlineStart: `4px solid ${isStudied ? "var(--success)" : cfg.accent}`,
         borderRadius: touchy ? 16 : 12,

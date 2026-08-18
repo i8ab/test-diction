@@ -16,6 +16,7 @@ import {
   PREFS_PREFIX,
   loadSubs,
   removeExpiredEndpoint,
+  addInboxItem,
 } from "../lib/pushSubs.js";
 
 const LAST_SENT_PREFIX = "twoTongues:push:lastSent:";
@@ -377,6 +378,17 @@ export default async function handler(req, res) {
         if (list.length) {
           try { await redisCommand("SET", `${MSG_INDEX_PREFIX}${code}`, String(nextIdx)); } catch (_) {}
         }
+        // Account-level inbox so the in-app bell stays in sync across devices
+        try {
+          await addInboxItem(code, {
+            type: "push",
+            title,
+            body,
+            url: "/",
+            at: now,
+            id: `reminder-${code}-${slot}`,
+          });
+        } catch (_) {}
         pushDetail({
           code,
           status: "sent",

@@ -10,6 +10,7 @@ import {
   clearInbox,
   removeInboxItem,
   pushInboxItem,
+  syncInboxFromServer,
 } from "../../lib/state/inbox";
 import { achievementById } from "../../lib/state/achievements";
 
@@ -73,7 +74,11 @@ export default function InboxBell({
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+    // Pull account-level inbox so deletes/adds from other devices show up here
+    if (accountCode) {
+      syncInboxFromServer(accountCode).then(() => refresh()).catch(() => {});
+    }
+  }, [refresh, accountCode]);
 
   // Live updates when inbox changes (same tab or SW postMessage handler)
   useEffect(() => {
@@ -177,6 +182,9 @@ export default function InboxBell({
   function openPanel() {
     setOpen(true);
     refresh();
+    if (accountCode) {
+      syncInboxFromServer(accountCode).then(() => refresh()).catch(() => {});
+    }
   }
 
   function closePanel() {

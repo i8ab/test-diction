@@ -18,7 +18,7 @@
 
 import { redisConfigured, redisCommand } from "../lib/redis.js";
 import { sendPush, vapidConfigured } from "../lib/webpush.js";
-import { CODES_SET_KEY, loadSubs, removeExpiredEndpoint } from "../lib/pushSubs.js";
+import { CODES_SET_KEY, loadSubs, removeExpiredEndpoint, addInboxItem } from "../lib/pushSubs.js";
 
 async function fetchRecord(req) {
   const proto = req.headers["x-forwarded-proto"] || "https";
@@ -90,6 +90,7 @@ export default async function handler(req, res) {
         continue;
       }
 
+      let anySentForCode = false;
       for (const subscription of subscriptions) {
         const endpoint = subscription && subscription.endpoint;
         if (!endpoint) {
@@ -106,12 +107,26 @@ export default async function handler(req, res) {
         const result = await sendPush(subscription, payload);
         if (result.ok) {
           sent++;
+          anySentForCode = true;
         } else if (result.expired) {
           expired++;
           await removeExpiredEndpoint(code, endpoint);
         } else {
           skipped++;
         }
+      }
+      // One inbox row per account (not per device) so the bell stays in sync
+      if (anySentForCode) {
+        try {
+          await addInboxItem(code, {
+            type: "admin",
+            title: payload.title,
+            body: payload.body,
+            url: "/",
+            at: Date.now(),
+            id: tag,
+          });
+        } catch (_) {}
       }
     }
 

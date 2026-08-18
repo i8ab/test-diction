@@ -151,42 +151,58 @@ function formatMs(ms) {
   return `${pad(m)}:${pad(s)}`;
 }
 
-/** Single flip-card digit — flaps on every value change (every second for the seconds digit). */
+/**
+ * Classic split-flap digit (flipclock.us style):
+ * top static = new digit, bottom static = old then new,
+ * upper flap folds old digit down, lower flap unfolds new digit up.
+ */
 function FlipDigit({ value, color }) {
   const [current, setCurrent] = useState(String(value));
   const [previous, setPrevious] = useState(String(value));
   const [animKey, setAnimKey] = useState(0);
-  const [bottomShowsNew, setBottomShowsNew] = useState(true);
+  const [phase, setPhase] = useState("idle"); // idle | top | bottom
 
   useEffect(() => {
     const next = String(value);
     if (next === current) return undefined;
     setPrevious(current);
     setCurrent(next);
-    setBottomShowsNew(false); // bottom stays on old digit while flap falls
+    setPhase("top");
     setAnimKey((k) => k + 1);
-    // after the flap finishes (~0.45s), reveal new digit on the bottom half
-    const t = setTimeout(() => setBottomShowsNew(true), 420);
-    return () => clearTimeout(t);
+    const t1 = setTimeout(() => setPhase("bottom"), 300);
+    const t2 = setTimeout(() => setPhase("idle"), 600);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [value, current]);
 
+  const bottomDigit = phase === "idle" || phase === "bottom" ? current : previous;
+
   return (
-    <div className="flip-digit" style={{ color: color || "inherit" }} aria-hidden>
+    <div className="flip-digit" style={{ color: color || "#fff" }} aria-hidden>
       <div className="flip-digit-card">
-        {/* Static top half always shows the NEW digit */}
         <div className="flip-digit-half top">
           <div className="flip-digit-glyph">{current}</div>
         </div>
-        {/* Static bottom half: old digit while animating, then new */}
         <div className="flip-digit-half bottom">
-          <div className="flip-digit-glyph">{bottomShowsNew ? current : previous}</div>
+          <div className="flip-digit-glyph">{bottomDigit}</div>
         </div>
         <div className="flip-digit-hinge" />
-        {/* Flap carries the OLD digit and folds down */}
-        {animKey > 0 && (
-          <div key={animKey} className="flip-digit-flap animating">
-            <div className="flip-digit-glyph">{previous}</div>
-          </div>
+        {animKey > 0 && phase !== "idle" && (
+          <>
+            <div
+              key={`up-${animKey}`}
+              className={`flip-digit-flap flip-digit-flap-top${phase === "top" ? " animating-top" : " done-top"}`}
+            >
+              <div className="flip-digit-glyph">{previous}</div>
+            </div>
+            {phase === "bottom" && (
+              <div key={`lo-${animKey}`} className="flip-digit-flap flip-digit-flap-bottom animating-bottom">
+                <div className="flip-digit-glyph">{current}</div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

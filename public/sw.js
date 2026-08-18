@@ -127,14 +127,36 @@ self.addEventListener("push", (event) => {
   const tag = data.tag || `tt-${(data.title || "").slice(0, 40)}|${(data.body || "").slice(0, 80)}`;
   const renotify = data.renotify === true || (typeof tag === "string" && tag.startsWith("test-"));
   event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
-      tag,
-      renotify,
-      data: { url: data.url || "/" },
-    })
+    (async () => {
+      await self.registration.showNotification(data.title, {
+        body: data.body,
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        tag,
+        renotify,
+        data: { url: data.url || "/" },
+      });
+      // Forward to open app tabs so the in-app inbox can collect the same push
+      try {
+        const clientsArr = await self.clients.matchAll({
+          type: "window",
+          includeUncontrolled: true,
+        });
+        const payload = {
+          type: "INBOX_PUSH",
+          title: data.title || "",
+          body: data.body || "",
+          url: data.url || "/",
+          at: Date.now(),
+          notifType: (typeof tag === "string" && tag.startsWith("broadcast-"))
+            ? "admin"
+            : "push",
+        };
+        for (const c of clientsArr) {
+          try { c.postMessage(payload); } catch (_) {}
+        }
+      } catch (_) {}
+    })()
   );
 });
 

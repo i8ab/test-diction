@@ -32,6 +32,7 @@ import SiteBanner from "./layout/SiteBanner";
 import WordListPanel from "./layout/WordListPanel";
 import EntryFiltersBar from "./layout/EntryFiltersBar";
 import AccountRequestsModal, { AccountRequestsButton } from "./layout/AccountRequestsModal";
+import InboxBell from "./layout/InboxBell";
 import MobileBottomNav from "./layout/MobileBottomNav";
 import MainViewOverlays from "./layout/MainViewOverlays";
 import ToolShell from "./layout/ToolShell";
@@ -652,6 +653,12 @@ export default function MainView({
                 size={40}
                 onClick={onOpenAccount}
                 title={tr(appIsAr, "My account", "حسابي")}
+              />
+              <InboxBell
+                accountCode={accountCode}
+                isAr={appIsAr}
+                appLang={appLang}
+                siteBanner={siteBanner}
               />
               {isAdmin && (
                 <>

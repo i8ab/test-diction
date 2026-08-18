@@ -152,72 +152,75 @@ function formatMs(ms) {
 }
 
 /**
- * Reliable split-flap digit — explicit halves (works with any font).
- * Top flap folds down (old), bottom flap unfolds (new).
+ * Split-flap digit — always-mounted layers (digitalclock.live motion).
+ * Static top/bottom show the current digit.
+ * On change: top flap (old) rotates down, bottom flap (new) rotates up.
  */
 function FlipDigit({ value, color }) {
-  const [curr, setCurr] = useState(String(value));
-  const [prev, setPrev] = useState(String(value));
-  const [active, setActive] = useState(false);
-  const lockRef = useRef(false);
-  const currRef = useRef(String(value));
+  const next = String(value);
+  const [display, setDisplay] = useState(next);
+  const [from, setFrom] = useState(next);
+  const [go, setGo] = useState(false);
+  const busy = useRef(false);
+  const pending = useRef(null);
+  const displayRef = useRef(next);
+
+  const runFlip = (target) => {
+    if (target === displayRef.current) return;
+    busy.current = true;
+    setFrom(displayRef.current);
+    setDisplay(target);
+    displayRef.current = target;
+    setGo(false);
+    // force style flush then start CSS animation
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setGo(true);
+        setTimeout(() => {
+          setGo(false);
+          busy.current = false;
+          if (pending.current != null && pending.current !== displayRef.current) {
+            const p = pending.current;
+            pending.current = null;
+            runFlip(p);
+          } else {
+            pending.current = null;
+          }
+        }, 700);
+      });
+    });
+  };
 
   useEffect(() => {
-    const next = String(value);
-    if (next === currRef.current) return undefined;
-
-    if (lockRef.current) {
-      // Mid-animation: snap to latest when current flip ends
-      currRef.current = next;
-      setCurr(next);
-      setPrev(next);
-      return undefined;
+    if (next === displayRef.current) return;
+    if (busy.current) {
+      pending.current = next;
+      return;
     }
-
-    lockRef.current = true;
-    setPrev(currRef.current);
-    setCurr(next);
-    currRef.current = next;
-    setActive(false);
-
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => setActive(true));
-    });
-    const t = setTimeout(() => {
-      setActive(false);
-      lockRef.current = false;
-    }, 600);
-
-    return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-      clearTimeout(t);
-    };
-  }, [value]);
+    runFlip(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [next]);
 
   return (
     <div
-      className={`tt-flip${active ? " is-flipping" : ""}`}
+      className={`tt-flip${go ? " tt-go" : ""}`}
       style={color ? { color } : undefined}
       aria-hidden
     >
-      <div className="tt-flip-half tt-flip-upper">
-        <span className="tt-flip-num">{curr}</span>
+      {/* Static base — always the new/current digit */}
+      <div className="tt-top">
+        <span>{display}</span>
       </div>
-      <div className="tt-flip-half tt-flip-lower">
-        <span className="tt-flip-num">{active ? prev : curr}</span>
+      <div className="tt-bot">
+        <span>{go ? from : display}</span>
       </div>
-      {active && (
-        <>
-          <div className="tt-flap tt-flap-top">
-            <span className="tt-flip-num">{prev}</span>
-          </div>
-          <div className="tt-flap tt-flap-bot">
-            <span className="tt-flip-num">{curr}</span>
-          </div>
-        </>
-      )}
+      {/* Folding layers */}
+      <div className="tt-fold-top">
+        <span>{from}</span>
+      </div>
+      <div className="tt-fold-bot">
+        <span>{display}</span>
+      </div>
     </div>
   );
 }

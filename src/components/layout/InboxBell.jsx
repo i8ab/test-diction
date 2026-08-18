@@ -1,530 +1,189 @@
-import { useState, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
-import { tr } from "../../lib/config/i18n";
-import { BellIcon, XIcon } from "../common/Icons";
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  loadInbox,
-  unreadCount,
+  fetchInbox,
   markInboxRead,
-  markAllInboxRead,
+  deleteInboxItems,
   clearInbox,
-  removeInboxItem,
-  pushInboxItem,
+  getLocalCache,
+  setLocalCache,
 } from "../../lib/state/inbox";
-import { achievementById } from "../../lib/state/achievements";
-
-function formatWhen(at, isAr) {
-  if (!at) return "";
-  const d = new Date(at);
-  const now = Date.now();
-  const diff = Math.max(0, now - at);
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return isAr ? "الآن" : "Just now";
-  if (mins < 60) return isAr ? `منذ ${mins} د` : `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return isAr ? `منذ ${hours} س` : `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return isAr ? `منذ ${days} ي` : `${days}d ago`;
-  try {
-    return d.toLocaleDateString(isAr ? "ar" : "en", {
-      month: "short",
-      day: "numeric",
-    });
-  } catch (_) {
-    return "";
-  }
-}
-
-function typeLabel(type, isAr) {
-  const map = {
-    push: isAr ? "إشعار" : "Push",
-    achievement: isAr ? "إنجاز" : "Achievement",
-    banner: isAr ? "إعلان" : "Announcement",
-    system: isAr ? "نظام" : "System",
-    admin: isAr ? "أدمن" : "Admin",
-  };
-  return map[type] || map.system;
-}
 
 /**
- * Header bell: badge of unread in-app notifications + list panel.
+ * Header bell – shows unread count, opens dropdown with synced inbox.
+ * All mutations (read / delete / clear) go to the server → other devices see the change.
  */
-export default function InboxBell({
-  accountCode = null,
-  isAr = false,
-  appLang = "en",
-  siteBanner = null,
-}) {
-  const lang = appLang || (isAr ? "ar" : "en");
-  const T = (en, ar) => tr(lang, en, ar);
+export default function InboxBell({ code }) {
   const [open, setOpen] = useState(false);
-  const [items, setItems] = useState(() => loadInbox(accountCode));
-  const [unread, setUnread] = useState(() => unreadCount(accountCode));
+  const [inbox, setInbox] = useState([]);
+  const [unread, setUnread] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-  const refresh = useCallback(() => {
-    if (!accountCode) {
-      setItems([]);
-      setUnread(0);
-      return;
+  const load = useCallback(async () => {
+    if (!code) return;
+    setLoading(true);
+    // show cache instantly
+    const cached = getLocalCache(code);
+    if (cached.length) {
+      setInbox(cached);
+      setUnread(cached.filter((i) => !i.read).length);
     }
-    setItems(loadInbox(accountCode));
-    setUnread(unreadCount(accountCode));
-  }, [accountCode]);
+    // then refresh from server
+    const data = await fetchInbox(code);
+    setInbox(data.inbox);
+    setUnread(data.unread);
+    setLocalCache(code, data.inbox);
+    setLoading(false);
+  }, [code]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    load();
+    // refresh every 30s while open, or on focus
+    const onFocus = () => load();
+    window.addEventListener("focus", onFocus);
+    const t = setInterval(load, 30000);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      clearInterval(t);
+    };
+  }, [load]);
 
-  // Live updates when inbox changes (same tab or SW postMessage handler)
+  // also listen for custom event (when a push arrives while app is open)
   useEffect(() => {
-    function onInbox(e) {
-      const code = e?.detail?.accountCode;
-      if (code && accountCode && code !== accountCode) return;
-      refresh();
-    }
-    window.addEventListener("twotongues:inbox", onInbox);
-    return () => window.removeEventListener("twotongues:inbox", onInbox);
-  }, [accountCode, refresh]);
+    const handler = () => load();
+    window.addEventListener("twotongues:inbox", handler);
+    return () => window.removeEventListener("twotongues:inbox", handler);
+  }, [load]);
 
-  // Capture push payloads that the SW forwards to open clients
-  useEffect(() => {
-    if (!accountCode || typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
-      return;
-    }
-    function onSwMessage(event) {
-      const data = event?.data;
-      if (!data || data.type !== "INBOX_PUSH") return;
-      pushInboxItem(accountCode, {
-        type: data.notifType || "push",
-        title: data.title || T("Notification", "إشعار"),
-        body: data.body || "",
-        url: data.url || "/",
-        at: data.at || Date.now(),
-      });
-      refresh();
-    }
-    navigator.serviceWorker.addEventListener("message", onSwMessage);
-    return () => navigator.serviceWorker.removeEventListener("message", onSwMessage);
-  }, [accountCode, refresh, T]);
+  const handleMarkAllRead = async () => {
+    const data = await markInboxRead(code, null);
+    setInbox(data.inbox);
+    setUnread(data.unread);
+    setLocalCache(code, data.inbox);
+  };
 
-  // Achievements → inbox (event may carry ids[] only)
-  useEffect(() => {
-    if (!accountCode) return;
-    function onAchievement(e) {
-      const detail = e?.detail || {};
-      const ids = Array.isArray(detail.ids)
-        ? detail.ids
-        : detail.id
-          ? [detail.id]
-          : [];
-      if (ids.length) {
-        for (const rawId of ids) {
-          const id = String(rawId);
-          let meta = null;
-          try {
-            meta = achievementById(id);
-          } catch (_) {
-            meta = null;
-          }
-          const title =
-            (meta && (isAr ? meta.ar || meta.en : meta.en || meta.ar)) ||
-            detail.title ||
-            (isAr ? "إنجاز جديد!" : "New achievement!");
-          const body =
-            (meta && (isAr ? meta.descAr || meta.descEn : meta.descEn || meta.descAr)) ||
-            detail.body ||
-            "";
-          pushInboxItem(accountCode, {
-            type: "achievement",
-            title,
-            body: body || "",
-            id: `ach-${id}`,
-          });
-        }
-      } else {
-        pushInboxItem(accountCode, {
-          type: "achievement",
-          title: detail.title || (isAr ? "إنجاز جديد!" : "New achievement!"),
-          body: detail.body || "",
-        });
-      }
-      refresh();
-    }
-    window.addEventListener("twotongues:achievement", onAchievement);
-    return () => window.removeEventListener("twotongues:achievement", onAchievement);
-  }, [accountCode, isAr, refresh]);
+  const handleClearAll = async () => {
+    if (!window.confirm("مسح كل الإشعارات من كل الأجهزة؟")) return;
+    const data = await clearInbox(code);
+    setInbox(data.inbox);
+    setUnread(data.unread);
+    setLocalCache(code, data.inbox);
+  };
 
-  // New/changed site banner → one inbox item (deduped by banner text)
-  useEffect(() => {
-    if (!accountCode || !siteBanner || !siteBanner.enabled || !siteBanner.message) return;
-    const key = `banner-${String(siteBanner.message).slice(0, 80)}`;
-    try {
-      const seen = sessionStorage.getItem("twoTongues.bannerSeen." + accountCode);
-      if (seen === key) return;
-      sessionStorage.setItem("twoTongues.bannerSeen." + accountCode, key);
-    } catch (_) {}
-    pushInboxItem(accountCode, {
-      type: "banner",
-      title: isAr ? "إعلان الموقع" : "Site announcement",
-      body: String(siteBanner.message).slice(0, 300),
-      id: key,
-    });
-    refresh();
-  }, [accountCode, siteBanner, isAr, refresh]);
+  const handleDeleteOne = async (id) => {
+    const data = await deleteInboxItems(code, [id]);
+    setInbox(data.inbox);
+    setUnread(data.unread);
+    setLocalCache(code, data.inbox);
+  };
 
-  if (!accountCode) return null;
+  const handleOpen = () => {
+    setOpen((v) => !v);
+    if (!open) load();
+  };
 
-  function openPanel() {
-    setOpen(true);
-    refresh();
-  }
-
-  function closePanel() {
-    setOpen(false);
-  }
-
-  function onItemClick(item) {
-    if (!item.read) {
-      markInboxRead(accountCode, item.id);
-      refresh();
-    }
-  }
-
-  function onMarkAll() {
-    markAllInboxRead(accountCode);
-    refresh();
-  }
-
-  function onClearAll() {
-    clearInbox(accountCode);
-    refresh();
-  }
-
-  function onRemove(id) {
-    removeInboxItem(accountCode, id);
-    refresh();
-  }
+  if (!code) return null;
 
   return (
-    <>
+    <div className="relative">
       <button
-        type="button"
-        onClick={openPanel}
-        title={T("Notifications", "الإشعارات")}
-        aria-label={T("Notifications", "الإشعارات")}
-        className="lift-hover touch-target"
-        style={{
-          position: "relative",
-          width: 36,
-          height: 36,
-          borderRadius: 10,
-          border: "1px solid rgba(var(--border-rgb),0.25)",
-          background: "none",
-          color: "var(--icon-muted)",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
+        onClick={handleOpen}
+        className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+        aria-label="الإشعارات"
       >
-        <BellIcon size={16} />
+        {/* Bell icon */}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-6 w-6 text-gray-700 dark:text-gray-200"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+          />
+        </svg>
+
         {unread > 0 && (
-          <span
-            style={{
-              position: "absolute",
-              top: -3,
-              insetInlineEnd: -3,
-              minWidth: 16,
-              height: 16,
-              borderRadius: 8,
-              background: "var(--danger)",
-              color: "#fff",
-              fontSize: 10,
-              fontWeight: 700,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "0 4px",
-              lineHeight: 1,
-            }}
-          >
+          <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
             {unread > 99 ? "99+" : unread}
           </span>
         )}
       </button>
 
-      {open &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            className="modal-backdrop"
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 5300,
-              background: "rgba(0,0,0,0.45)",
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "center",
-              padding: "max(16px, env(safe-area-inset-top)) 16px 16px",
-            }}
-            onClick={closePanel}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label={T("Notifications", "الإشعارات")}
-              className="modal-card"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                width: "100%",
-                maxWidth: 400,
-                maxHeight: "min(85dvh, 640px)",
-                marginTop: 48,
-                overflow: "hidden",
-                display: "flex",
-                flexDirection: "column",
-                background: "var(--card)",
-                color: "var(--ink)",
-                borderRadius: 16,
-                boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)",
-                border: "1px solid rgba(var(--border-rgb),0.14)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "14px 16px",
-                  borderBottom: "1px solid rgba(var(--border-rgb),0.12)",
-                  flexShrink: 0,
-                  gap: 8,
-                }}
-              >
-                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>
-                  {T("Notifications", "الإشعارات")}
-                  {unread > 0 ? (
-                    <span
-                      style={{
-                        marginInlineStart: 8,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: "var(--danger)",
-                      }}
-                    >
-                      {unread}
-                    </span>
-                  ) : null}
-                </h2>
-                <button
-                  type="button"
-                  onClick={closePanel}
-                  aria-label={T("Close", "إغلاق")}
-                  style={{
-                    border: "none",
-                    background: "var(--input-bg)",
-                    borderRadius: 10,
-                    width: 36,
-                    height: 36,
-                    cursor: "pointer",
-                    color: "var(--icon-muted)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <XIcon size={18} />
-                </button>
-              </div>
+      {open && (
+        <>
+          {/* backdrop */}
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
 
-              {items.length > 0 && (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    padding: "8px 16px",
-                    borderBottom: "1px solid rgba(var(--border-rgb),0.08)",
-                    flexShrink: 0,
-                  }}
-                >
+          <div className="absolute left-0 mt-2 w-80 max-h-[70vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50">
+            <div className="sticky top-0 bg-white dark:bg-gray-900 px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+              <span className="font-semibold text-sm">الإشعارات</span>
+              <div className="flex gap-2 text-xs">
+                {unread > 0 && (
                   <button
-                    type="button"
-                    onClick={onMarkAll}
-                    style={{
-                      flex: 1,
-                      minHeight: 36,
-                      borderRadius: 10,
-                      border: "1px solid rgba(var(--border-rgb),0.2)",
-                      background: "var(--input-bg)",
-                      color: "var(--ink)",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                    }}
+                    onClick={handleMarkAllRead}
+                    className="text-blue-600 hover:underline"
                   >
-                    {T("Mark all read", "تعليم الكل كمقروء")}
+                    تعليم الكل كمقروء
                   </button>
+                )}
+                {inbox.length > 0 && (
                   <button
-                    type="button"
-                    onClick={onClearAll}
-                    style={{
-                      flex: 1,
-                      minHeight: 36,
-                      borderRadius: 10,
-                      border: "1px solid rgba(var(--border-rgb),0.2)",
-                      background: "var(--input-bg)",
-                      color: "var(--danger, #e5484d)",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                    }}
+                    onClick={handleClearAll}
+                    className="text-red-500 hover:underline"
                   >
-                    {T("Clear all", "مسح الكل")}
+                    مسح الكل
                   </button>
-                </div>
-              )}
-
-              <div
-                style={{
-                  flex: 1,
-                  minHeight: 0,
-                  overflowY: "auto",
-                  WebkitOverflowScrolling: "touch",
-                }}
-              >
-                {items.length === 0 ? (
-                  <div
-                    style={{
-                      padding: "40px 20px",
-                      textAlign: "center",
-                      color: "var(--muted)",
-                      fontSize: 14,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {T(
-                      "No notifications yet. Study reminders and announcements will show up here.",
-                      "مفيش إشعارات لسه. تذكيرات المذاكرة والإعلانات هتظهر هنا."
-                    )}
-                  </div>
-                ) : (
-                  <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                    {items.map((item) => (
-                      <li
-                        key={item.id}
-                        onClick={() => onItemClick(item)}
-                        style={{
-                          padding: "12px 16px",
-                          borderBottom: "1px solid rgba(var(--border-rgb),0.08)",
-                          background: item.read
-                            ? "transparent"
-                            : "rgba(var(--accent-1-rgb, 25, 167, 206), 0.06)",
-                          cursor: "pointer",
-                          display: "flex",
-                          gap: 10,
-                          alignItems: "flex-start",
-                        }}
-                      >
-                        <span
-                          style={{
-                            flexShrink: 0,
-                            marginTop: 4,
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            background: item.read
-                              ? "transparent"
-                              : "var(--accent-1, #19A7CE)",
-                          }}
-                        />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              gap: 8,
-                              marginBottom: 2,
-                            }}
-                          >
-                            <span
-                              style={{
-                                fontSize: 10.5,
-                                fontWeight: 700,
-                                letterSpacing: "0.03em",
-                                textTransform: "uppercase",
-                                color: "var(--muted)",
-                              }}
-                            >
-                              {typeLabel(item.type, isAr)}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: 11,
-                                color: "var(--muted)",
-                                flexShrink: 0,
-                              }}
-                            >
-                              {formatWhen(item.at, isAr)}
-                            </span>
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 13.5,
-                              fontWeight: item.read ? 600 : 700,
-                              color: "var(--ink)",
-                              lineHeight: 1.35,
-                            }}
-                            dir="auto"
-                          >
-                            {item.title}
-                          </div>
-                          {item.body ? (
-                            <div
-                              style={{
-                                fontSize: 12.5,
-                                color: "var(--muted-strong)",
-                                lineHeight: 1.4,
-                                marginTop: 3,
-                              }}
-                              dir="auto"
-                            >
-                              {item.body}
-                            </div>
-                          ) : null}
-                        </div>
-                        <button
-                          type="button"
-                          title={T("Remove", "حذف")}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRemove(item.id);
-                          }}
-                          style={{
-                            flexShrink: 0,
-                            width: 28,
-                            height: 28,
-                            borderRadius: 8,
-                            border: "none",
-                            background: "transparent",
-                            color: "var(--muted)",
-                            cursor: "pointer",
-                            fontSize: 16,
-                            lineHeight: 1,
-                          }}
-                        >
-                          ×
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
                 )}
               </div>
             </div>
-          </div>,
-          document.body
-        )}
-    </>
+
+            {loading && inbox.length === 0 ? (
+              <div className="p-6 text-center text-gray-400 text-sm">جاري التحميل...</div>
+            ) : inbox.length === 0 ? (
+              <div className="p-6 text-center text-gray-400 text-sm">لا توجد إشعارات</div>
+            ) : (
+              <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                {inbox.map((item) => (
+                  <li
+                    key={item.id}
+                    className={`px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 ${
+                      !item.read ? "bg-blue-50/50 dark:bg-blue-900/10" : ""
+                    }`}
+                  >
+                    <div className="flex justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          {!item.read && (
+                            <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                          )}
+                          <p className="font-medium text-sm truncate">{item.title}</p>
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">
+                          {item.body}
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          {new Date(item.ts).toLocaleString("ar-EG")}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteOne(item.id)}
+                        className="text-gray-400 hover:text-red-500 text-lg leading-none px-1"
+                        title="حذف"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 }

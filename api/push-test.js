@@ -1,113 +1,81 @@
-// Test endpoint — send one push to the caller's device subscription(s) now.
-//
-// POST body: {
-//   code: "<personal account code>",
-//   title?: string,
-//   body?: string,
-//   endpoint?: string,  // optional: only this device; otherwise all devices
-// }
+/**
+ * Test push to current account (all its devices) + add to Inbox
+ */
 
-import { redisConfigured, redisCommand } from "../lib/redis.js";
-import { sendPush, vapidConfigured } from "../lib/webpush.js";
-import { PREFS_PREFIX, loadSubs, removeExpiredEndpoint } from "../lib/pushSubs.js";
+import webpush from "web-push";
+import { getSubs, addInboxItem } from "../lib/pushSubs.js";
 
-const DEFAULT_TITLE = "وقت المراجعة! / Time to review!";
-const DEFAULT_BODY =
-  "عدّى وقت من غير ما تراجع — يلا نراجع شوية. / It's been a while since you studied — time for a quick review.";
+webpush.setVapidDetails(
+  process.env.VAPID_SUBJECT || "mailto:admin@example.com",
+  process.env.VAPID_PUBLIC_KEY || process.env.VITE_VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(200).end();
 
-  if (!redisConfigured()) {
-    return res.status(501).json({ error: "Redis not configured." });
-  }
-  if (!vapidConfigured()) {
-    return res.status(501).json({ error: "VAPID keys not configured." });
-  }
-
-  let body = req.body;
-  if (typeof body === "string") {
-    try {
-      body = JSON.parse(body);
-    } catch (e) {
-      body = null;
-    }
-  }
-  const code = body && typeof body.code === "string" ? body.code.trim() : "";
-  if (!code) {
-    return res.status(400).json({ error: "Missing code." });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
   try {
-    let subscriptions = await loadSubs(code);
-    const onlyEndpoint =
-      body && typeof body.endpoint === "string" ? body.endpoint.trim() : "";
-    if (onlyEndpoint) {
-      subscriptions = subscriptions.filter((s) => s.endpoint === onlyEndpoint);
-    }
-    if (!subscriptions.length) {
-      return res.status(404).json({
-        error: "no_subscription",
-        message:
-          "No push subscription saved for this account. Turn reminders On first and allow notifications.",
-      });
-    }
+    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    const { code, title = "اختبار", body: msgBody = "هذا إشعار تجريبي" } = body;
 
-    let prefs = {};
-    try {
-      const prefsRaw = await redisCommand("GET", `${PREFS_PREFIX}${code}`);
-      if (prefsRaw) prefs = typeof prefsRaw === "string" ? JSON.parse(prefsRaw) : prefsRaw;
-    } catch (_) {
-      /* ignore */
-    }
+    if (!code) return res.status(400).json({ error: "code required" });
 
-    const clientTitle = body && typeof body.title === "string" ? body.title.trim() : "";
-    const clientBody = body && typeof body.body === "string" ? body.body.trim() : "";
-    const title = clientTitle || (prefs && prefs.title) || DEFAULT_TITLE;
-    const notifBody = clientBody || (prefs && prefs.message) || DEFAULT_BODY;
+    const subs = await getSubs(code);
+    if (!subs.length) return res.status(404).json({ error: "no subscriptions" });
 
-    const payload = {
+    const payload = JSON.stringify({
       title,
-      body: notifBody,
-      url: "/",
-      tag: `test-${Date.now().toString(36)}`,
-      renotify: true,
-    };
+      body: msgBody,
+      icon: "/icon-192.png",
+      data: { url: "/", type: "test" },
+    });
 
     let sent = 0;
-    let lastError = null;
-    for (const subscription of subscriptions) {
-      const result = await sendPush(subscription, payload);
-      if (result.ok) {
+    let failed = 0;
+    const stillValid = [];
+
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification(sub, payload);
         sent++;
-      } else if (result.expired) {
-        await removeExpiredEndpoint(code, subscription.endpoint);
-        lastError = "subscription_expired";
-      } else {
-        lastError = result.error || result.message || "send_failed";
+        stillValid.push(sub);
+      } catch (err) {
+        failed++;
+        if (err.statusCode !== 404 && err.statusCode !== 410) {
+          stillValid.push(sub);
+        }
       }
     }
 
-    if (sent > 0) {
-      return res.status(200).json({ ok: true, payload, sent, devices: subscriptions.length });
+    // update subs if needed
+    if (stillValid.length !== subs.length) {
+      const { saveSubs } = await import("../lib/pushSubs.js");
+      await saveSubs(code, stillValid);
     }
-    if (lastError === "subscription_expired") {
-      return res.status(410).json({
-        error: "subscription_expired",
-        message: "Subscription expired — turn reminders Off then On again.",
+
+    // add to synced inbox
+    if (sent > 0) {
+      await addInboxItem(code, {
+        title,
+        body: msgBody,
+        type: "test",
+        ts: Date.now(),
       });
     }
-    return res.status(502).json({
-      error: lastError || "send_failed",
-      message: lastError || "send_failed",
+
+    return res.status(200).json({
+      ok: true,
+      sent,
+      failed,
+      devices: stillValid.length,
     });
-  } catch (e) {
-    return res.status(500).json({
-      error: "Server error sending test push.",
-      message: String((e && e.message) || e),
-    });
+  } catch (err) {
+    console.error("push-test error:", err);
+    return res.status(500).json({ error: err.message });
   }
 }

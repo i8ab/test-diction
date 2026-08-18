@@ -1,122 +1,99 @@
-// Admin-only: send one Web Push notification to every account that has an
-// active push subscription (same Redis set as the daily study reminders).
-//
-// POST body: {
-//   adminCode: "<personal code of an admin account>",
-//   title: string,
-//   body: string,
-// }
-//
-// Verifies the caller is an admin by looking up adminCode in the shared
-// JSONBin accounts list. No shared secret beyond that — anyone who knows an
-// admin personal code can already do everything in the Admin panel.
-//
-// IMPORTANT — endpoint dedup: the same browser/device can end up registered
-// under several account codes (user switched accounts, re-enabled reminders,
-// etc.). Without dedup, one physical device would receive the broadcast once
-// per code that points at its push endpoint → double/triple notifications.
+/**
+ * Admin broadcast to ALL accounts that have subscriptions
+ * Also adds the message to every account's synced Inbox
+ */
 
-import { redisConfigured, redisCommand } from "../lib/redis.js";
-import { sendPush, vapidConfigured } from "../lib/webpush.js";
-import { CODES_SET_KEY, loadSubs, removeExpiredEndpoint } from "../lib/pushSubs.js";
+import webpush from "web-push";
+import { getSubs, addInboxItem, saveSubs } from "../lib/pushSubs.js";
 
-async function fetchRecord(req) {
-  const proto = req.headers["x-forwarded-proto"] || "https";
-  const host = req.headers.host;
-  const r = await fetch(`${proto}://${host}/api/jsonbin`, { cache: "no-store" });
-  if (!r.ok) throw new Error("Could not load dictionary record");
-  return r.json();
-}
+webpush.setVapidDetails(
+  process.env.VAPID_SUBJECT || "mailto:admin@example.com",
+  process.env.VAPID_PUBLIC_KEY || process.env.VITE_VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(200).end();
 
-  if (!redisConfigured()) {
-    return res.status(501).json({ error: "Redis not configured." });
-  }
-  if (!vapidConfigured()) {
-    return res.status(501).json({ error: "VAPID keys not configured." });
-  }
-
-  let body = req.body;
-  if (typeof body === "string") {
-    try { body = JSON.parse(body); } catch (e) { body = null; }
-  }
-
-  const adminCode = body && typeof body.adminCode === "string" ? body.adminCode.trim() : "";
-  const title = body && typeof body.title === "string" ? body.title.trim().slice(0, 120) : "";
-  const notifBody = body && typeof body.body === "string" ? body.body.trim().slice(0, 300) : "";
-
-  if (!adminCode) {
-    return res.status(400).json({ error: "Missing adminCode." });
-  }
-  if (!title && !notifBody) {
-    return res.status(400).json({ error: "Provide a title or body." });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
   try {
-    const record = await fetchRecord(req);
-    const accounts = record.accounts || [];
-    const admin = accounts.find((a) => a.code === adminCode && a.role === "admin");
-    if (!admin) {
-      return res.status(403).json({ error: "Not authorized — admin account required." });
+    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    const { adminCode, title = "إعلان", body: msgBody = "" } = body;
+
+    // simple admin check
+    if (!adminCode || adminCode !== process.env.ADMIN_CODE) {
+      return res.status(403).json({ error: "admin only" });
     }
 
-    const codes = (await redisCommand("SMEMBERS", CODES_SET_KEY)) || [];
-    if (!codes.length) {
-      return res.status(200).json({ sent: 0, skipped: 0, expired: 0, message: "No push subscriptions." });
-    }
+    const Redis = (await import("ioredis")).default;
+    const redis = new Redis(process.env.REDIS_URL || process.env.UPSTASH_REDIS_URL);
 
-    const tag = `broadcast-${Date.now().toString(36)}`;
-    const payload = {
-      title: title || "Two Tongues",
-      body: notifBody || "",
-      url: "/",
-      tag, // service worker uses this so OS collapses duplicates
-    };
+    // all accounts that have subs
+    const keys = [];
+    let cursor = "0";
+    do {
+      const [next, found] = await redis.scan(cursor, "MATCH", "push:subs:*", "COUNT", 100);
+      cursor = next;
+      keys.push(...found);
+    } while (cursor !== "0");
 
-    let sent = 0, skipped = 0, expired = 0;
-    // One send per unique push endpoint — same device under multiple account
-    // codes must only ring once.
-    const seenEndpoints = new Set();
+    let totalSent = 0;
+    let totalFailed = 0;
+    let accounts = 0;
 
-    for (const code of codes) {
-      const subscriptions = await loadSubs(code);
-      if (!subscriptions.length) {
-        skipped++;
-        continue;
-      }
+    const payload = JSON.stringify({
+      title,
+      body: msgBody,
+      icon: "/icon-192.png",
+      data: { url: "/", type: "broadcast" },
+    });
 
-      for (const subscription of subscriptions) {
-        const endpoint = subscription && subscription.endpoint;
-        if (!endpoint) {
-          skipped++;
-          continue;
-        }
-        if (seenEndpoints.has(endpoint)) {
-          // Same browser already queued for this broadcast — skip duplicate
-          skipped++;
-          continue;
-        }
-        seenEndpoints.add(endpoint);
+    for (const key of keys) {
+      const code = key.replace("push:subs:", "");
+      const subs = await getSubs(code);
+      if (!subs.length) continue;
 
-        const result = await sendPush(subscription, payload);
-        if (result.ok) {
-          sent++;
-        } else if (result.expired) {
-          expired++;
-          await removeExpiredEndpoint(code, endpoint);
-        } else {
-          skipped++;
+      accounts++;
+      const stillValid = [];
+
+      for (const sub of subs) {
+        try {
+          await webpush.sendNotification(sub, payload);
+          totalSent++;
+          stillValid.push(sub);
+        } catch (err) {
+          totalFailed++;
+          if (err.statusCode !== 404 && err.statusCode !== 410) {
+            stillValid.push(sub);
+          }
         }
       }
+
+      if (stillValid.length !== subs.length) {
+        await saveSubs(code, stillValid);
+      }
+
+      // add to this account's inbox
+      await addInboxItem(code, {
+        title,
+        body: msgBody,
+        type: "broadcast",
+        ts: Date.now(),
+      });
     }
 
-    return res.status(200).json({ sent, skipped, expired });
-  } catch (e) {
-    return res.status(500).json({ error: "Failed to broadcast push.", message: String((e && e.message) || e) });
+    return res.status(200).json({
+      ok: true,
+      accounts,
+      sent: totalSent,
+      failed: totalFailed,
+    });
+  } catch (err) {
+    console.error("push-broadcast error:", err);
+    return res.status(500).json({ error: err.message });
   }
 }

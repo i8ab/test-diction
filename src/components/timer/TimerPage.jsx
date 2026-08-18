@@ -152,44 +152,72 @@ function formatMs(ms) {
 }
 
 /**
- * Exact digitalclock.live flip digit structure + animation.
- * .flip > .digital.front[data-number] + .digital.back[data-number]
- * Halves via ::before/::after; .running triggers frontFlipDown / backFlipDown.
+ * Reliable split-flap digit — explicit halves (works with any font).
+ * Top flap folds down (old), bottom flap unfolds (new).
  */
 function FlipDigit({ value, color }) {
-  const [front, setFront] = useState(String(value));
-  const [back, setBack] = useState(String(value));
-  const [running, setRunning] = useState(false);
-  const flippingRef = useRef(false);
+  const [curr, setCurr] = useState(String(value));
+  const [prev, setPrev] = useState(String(value));
+  const [active, setActive] = useState(false);
+  const lockRef = useRef(false);
+  const currRef = useRef(String(value));
 
   useEffect(() => {
     const next = String(value);
-    if (next === front) return undefined;
-    if (flippingRef.current) return undefined;
+    if (next === currRef.current) return undefined;
 
-    flippingRef.current = true;
-    setBack(next);
-    setRunning(false);
-    const raf = requestAnimationFrame(() => setRunning(true));
+    if (lockRef.current) {
+      // Mid-animation: snap to latest when current flip ends
+      currRef.current = next;
+      setCurr(next);
+      setPrev(next);
+      return undefined;
+    }
+
+    lockRef.current = true;
+    setPrev(currRef.current);
+    setCurr(next);
+    currRef.current = next;
+    setActive(false);
+
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setActive(true));
+    });
     const t = setTimeout(() => {
-      setFront(next);
-      setRunning(false);
-      flippingRef.current = false;
-    }, 620);
+      setActive(false);
+      lockRef.current = false;
+    }, 600);
+
     return () => {
-      cancelAnimationFrame(raf);
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
       clearTimeout(t);
     };
-  }, [value, front]);
+  }, [value]);
 
   return (
     <div
-      className={`flip${running ? " running" : ""}`}
+      className={`tt-flip${active ? " is-flipping" : ""}`}
       style={color ? { color } : undefined}
       aria-hidden
     >
-      <div className="digital front" data-number={front} />
-      <div className="digital back" data-number={back} />
+      <div className="tt-flip-half tt-flip-upper">
+        <span className="tt-flip-num">{curr}</span>
+      </div>
+      <div className="tt-flip-half tt-flip-lower">
+        <span className="tt-flip-num">{active ? prev : curr}</span>
+      </div>
+      {active && (
+        <>
+          <div className="tt-flap tt-flap-top">
+            <span className="tt-flip-num">{prev}</span>
+          </div>
+          <div className="tt-flap tt-flap-bot">
+            <span className="tt-flip-num">{curr}</span>
+          </div>
+        </>
+      )}
     </div>
   );
 }

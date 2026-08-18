@@ -3052,17 +3052,17 @@ html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
   background-repeat: no-repeat, repeat !important;
 }
 
-/* ── Flip-clock — exact digitalclock.live mechanism ── */
+/* ── Flip-clock digits (explicit halves — any font) ── */
 .flip-clock {
   display: inline-flex;
   align-items: center;
-  gap: 0.1em;
+  gap: 0.12em;
   direction: ltr;
   font-variant-numeric: tabular-nums;
   user-select: none;
 }
 .flip-clock-sep {
-  font-weight: 700;
+  font-weight: 800;
   opacity: 0.9;
   padding: 0 0.06em;
   line-height: 1.25em;
@@ -3070,126 +3070,115 @@ html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
   font-size: 0.85em;
 }
 
-/* Card shell (matches .flip on digitalclock.live) */
-.flip {
+.tt-flip {
   position: relative;
-  width: 0.72em;
-  height: 1.25em;
-  margin: 0 0.02em;
-  font-weight: 700;
-  line-height: 1.22em;
-  text-align: center;
+  width: 0.7em;
+  height: 1.2em;
   border-radius: 0.1em;
-  background: #000;
-  border: 1px solid #1c1c1c;
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+  background: #111;
+  box-shadow: 0 4px 14px -4px rgba(0, 0, 0, 0.55);
+  perspective: 400px;
+  -webkit-perspective: 400px;
+  font-weight: 800;
+  line-height: 1;
+  overflow: hidden;
 }
 
-/* front + back layers */
-.flip .digital {
-  position: absolute;
-  inset: 0;
-}
-
-/* ::before = top half, ::after = bottom half — content from data-number */
-.flip .digital::before,
-.flip .digital::after {
-  content: attr(data-number);
+.tt-flip-half {
   position: absolute;
   left: 0;
-  right: 0;
+  width: 100%;
+  height: 50%;
   overflow: hidden;
-  background: #1c1c1c;
-  color: inherit;
-  font-size: 1em;
-  font-weight: 700;
-  perspective: 200px;
-  -webkit-perspective: 200px;
-}
-.flip .digital::before {
-  top: 0;
-  bottom: 50%;
-  line-height: 1.22em;
-  border-radius: 0.08em 0.08em 0 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  transform-origin: 50% 100%;
-  -webkit-transform-origin: 50% 100%;
-}
-.flip .digital::after {
-  top: 50%;
-  bottom: 0;
-  line-height: 0;
-  border-radius: 0 0 0.08em 0.08em;
-  transform-origin: 50% 0;
-  -webkit-transform-origin: 50% 0;
-}
-
-/* z stacking (digitalclock.live) */
-.flip .digital.back::before,
-.flip .digital.front::after {
   z-index: 1;
 }
-.flip .digital.back::after {
-  z-index: 2;
+.tt-flip-upper {
+  top: 0;
+  background: #1f1f1f;
+  border-radius: 0.1em 0.1em 0 0;
 }
-.flip .digital.front::before {
-  z-index: 3;
-}
-
-/* Back bottom half starts flipped (waiting to land) */
-.flip .digital.back::after {
-  transform: rotateX(0.5turn);
-  -webkit-transform: rotateX(0.5turn);
-  transform-origin: center top;
-  -webkit-transform-origin: center top;
+.tt-flip-lower {
+  bottom: 0;
+  background: #141414;
+  border-radius: 0 0 0.1em 0.1em;
+  border-top: 1px solid rgba(0, 0, 0, 0.65);
 }
 
-/* Running: top of front folds down; bottom of back unfolds */
-.flip.running .digital.front::before {
-  animation: frontFlipDown 0.6s ease-in-out forwards;
-  -webkit-animation: frontFlipDown 0.6s ease-in-out forwards;
+.tt-flip-num {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 200%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.tt-flip-upper .tt-flip-num {
+  top: 0;
+}
+.tt-flip-lower .tt-flip-num {
+  bottom: 0;
+}
+
+/* Animated flaps */
+.tt-flap {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  overflow: hidden;
+  z-index: 5;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  box-shadow: 0 -2px 6px rgba(255, 255, 255, 0.15);
-  transform-origin: center bottom;
-  -webkit-transform-origin: center bottom;
+  transform-style: preserve-3d;
 }
-.flip.running .digital.back::after {
-  animation: backFlipDown 0.6s ease-in-out forwards;
-  -webkit-animation: backFlipDown 0.6s ease-in-out forwards;
+.tt-flap-top {
+  top: 0;
+  background: #1f1f1f;
+  border-radius: 0.1em 0.1em 0 0;
+  transform-origin: bottom center;
+  animation: ttFlapTop 0.3s ease-in forwards;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
 }
-
-@keyframes frontFlipDown {
-  to {
-    transform: rotateX(0.5turn);
-  }
+.tt-flap-top .tt-flip-num {
+  top: 0;
 }
-@-webkit-keyframes frontFlipDown {
-  to {
-    -webkit-transform: rotateX(0.5turn);
-  }
+.tt-flap-bot {
+  bottom: 0;
+  background: #141414;
+  border-radius: 0 0 0.1em 0.1em;
+  transform-origin: top center;
+  transform: rotateX(90deg);
+  animation: ttFlapBot 0.3s ease-out 0.3s forwards;
+  border-top: 1px solid rgba(0, 0, 0, 0.65);
 }
-@keyframes backFlipDown {
-  to {
-    transform: rotateX(0);
-  }
-}
-@-webkit-keyframes backFlipDown {
-  to {
-    -webkit-transform: rotateX(0);
-  }
+.tt-flap-bot .tt-flip-num {
+  bottom: 0;
 }
 
-html[data-theme="light"] .flip {
-  background: #f8f9fa;
-  border-color: #e5e5e5;
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.12);
+@keyframes ttFlapTop {
+  from { transform: rotateX(0deg); }
+  to   { transform: rotateX(-90deg); }
 }
-html[data-theme="light"] .flip .digital::before,
-html[data-theme="light"] .flip .digital::after {
-  background: #e5e5e5;
-  color: #222;
+@keyframes ttFlapBot {
+  from { transform: rotateX(90deg); }
+  to   { transform: rotateX(0deg); }
 }
-html[data-theme="light"] .flip .digital::before {
-  border-bottom-color: #ced4da;
+
+html[data-theme="light"] .tt-flip {
+  background: #e8e4dc;
+  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.2);
 }
+html[data-theme="light"] .tt-flip-upper,
+html[data-theme="light"] .tt-flap-top {
+  background: #f3f0e8;
+}
+html[data-theme="light"] .tt-flip-lower,
+html[data-theme="light"] .tt-flap-bot {
+  background: #ddd8ce;
+  border-top-color: rgba(0, 0, 0, 0.18);
+}
+

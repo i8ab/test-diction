@@ -67,8 +67,9 @@ export default function NotificationsModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          action: "clearAllSchedules",
+          code: myAccountCode,
           adminCode: myAccountCode,
-          resetSlotsAll: true,
         }),
       });
       const data = await r.json().catch(() => ({}));

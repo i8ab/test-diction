@@ -215,8 +215,10 @@ export default function DictionaryApp() {
     remindersBusy,
     reminderTitle,
     reminderMessage,
+    reminderIntervalHours,
     handleChangeReminderTitle,
     handleChangeReminderMessage,
+    handleChangeReminderIntervalHours,
     enableReminders,
     disableReminders,
     testReminderPush,
@@ -1587,6 +1589,7 @@ export default function DictionaryApp() {
       remindersOn={remindersOn} remindersBusy={remindersBusy} onEnableReminders={enableReminders} onDisableReminders={disableReminders} onTestReminder={testReminderPush}
       reminderTitle={reminderTitle} onChangeReminderTitle={handleChangeReminderTitle}
       reminderMessage={reminderMessage} onChangeReminderMessage={handleChangeReminderMessage}
+      reminderIntervalHours={reminderIntervalHours} onChangeReminderIntervalHours={handleChangeReminderIntervalHours}
     />
   );
 }

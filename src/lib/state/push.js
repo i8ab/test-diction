@@ -1,12 +1,16 @@
 // Web Push subscription helpers + local reminder prefs.
 // API contract (api/push-subscribe.js):
-//   POST { code, subscription?, prefsOnly?, title?, message?, intervalDays? }
+//   POST { code, subscription?, prefsOnly?, title?, message?, intervalHours? }
 //   DELETE { code }
 
 const REMINDERS_KEY = "twoTongues.remindersEnabled.";
 const TITLE_KEY = "twoTongues.reminderTitle.";
 const MSG_KEY = "twoTongues.reminderMessage.";
+const INTERVAL_KEY = "twoTongues.reminderIntervalHours.";
 const SUB_KEY = "twoTongues.pushSub.";
+
+export const ALLOWED_INTERVAL_HOURS = [1, 2, 3, 6, 12, 24];
+export const DEFAULT_INTERVAL_HOURS = 24;
 
 export function pushSupported() {
   return (
@@ -36,7 +40,6 @@ function urlBase64ToUint8Array(base64String) {
 
 function getVapidPublicKey() {
   try {
-    // Vite injects env at build time
     const k = import.meta.env && import.meta.env.VITE_VAPID_PUBLIC_KEY;
     return k && String(k).trim() ? String(k).trim() : "";
   } catch (_) {
@@ -45,11 +48,20 @@ function getVapidPublicKey() {
 }
 
 function prefsFromObject(prefs = {}) {
+  let intervalHours = DEFAULT_INTERVAL_HOURS;
+  if (typeof prefs.intervalHours === "number" && ALLOWED_INTERVAL_HOURS.includes(prefs.intervalHours)) {
+    intervalHours = prefs.intervalHours;
+  } else if (typeof prefs.intervalDays === "number") {
+    // Legacy fallback
+    const h = Math.max(1, Math.round(prefs.intervalDays * 24));
+    intervalHours = ALLOWED_INTERVAL_HOURS.reduce((best, v) =>
+      Math.abs(v - h) < Math.abs(best - h) ? v : best
+    , 24);
+  }
   return {
     title: typeof prefs.title === "string" ? prefs.title : "",
     message: typeof prefs.message === "string" ? prefs.message : "",
-    intervalDays:
-      typeof prefs.intervalDays === "number" ? prefs.intervalDays : 1,
+    intervalHours,
   };
 }
 
@@ -58,7 +70,6 @@ export async function subscribeToPush(accountCode, prefs = {}) {
   if (!accountCode) return { ok: false, reason: "no_code", error: "no_code" };
 
   try {
-    // Request permission first
     let perm = Notification.permission;
     if (perm !== "granted") {
       perm = await Notification.requestPermission();
@@ -80,7 +91,7 @@ export async function subscribeToPush(accountCode, prefs = {}) {
           ok: false,
           reason: "no_vapid",
           error: "no_vapid",
-          message: "VITE_VAPID_PUBLIC_KEY missing",
+          message: "VAPID public key missing",
         };
       }
       sub = await reg.pushManager.subscribe({
@@ -89,25 +100,24 @@ export async function subscribeToPush(accountCode, prefs = {}) {
       });
     }
 
-    const body = {
+    const payload = {
       code: accountCode,
       subscription: sub.toJSON(),
       ...prefsFromObject(prefs),
     };
 
-    const res = await fetch("/api/push-subscribe", {
+    const r = await fetch("/api/push-subscribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     });
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
       return {
         ok: false,
-        reason: data.error || `http_${res.status}`,
-        error: data.error || `http_${res.status}`,
-        message: data.message || data.error,
+        reason: "server",
+        error: data.error || "server_error",
+        message: data.message || data.error || `HTTP ${r.status}`,
       };
     }
 
@@ -115,22 +125,23 @@ export async function subscribeToPush(accountCode, prefs = {}) {
       localStorage.setItem(SUB_KEY + accountCode, JSON.stringify(sub.toJSON()));
     } catch (_) {}
 
-    return { ok: true, subscription: sub };
+    return { ok: true, subscription: sub, prefs: data.prefs };
   } catch (e) {
     return {
       ok: false,
-      reason: String(e && e.message ? e.message : e),
-      error: String(e && e.message ? e.message : e),
+      reason: "exception",
+      error: String((e && e.message) || e),
     };
   }
 }
 
 export async function unsubscribeFromPush(accountCode) {
-  if (!pushSupported()) return;
   try {
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    if (sub) await sub.unsubscribe();
+    if (pushSupported()) {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) await sub.unsubscribe();
+    }
   } catch (_) {}
   try {
     if (accountCode) {
@@ -201,6 +212,26 @@ export function loadReminderMessage(accountCode) {
 export function saveReminderMessage(message, accountCode) {
   try {
     localStorage.setItem(MSG_KEY + accountCode, message || "");
+  } catch (_) {}
+}
+
+export function loadReminderIntervalHours(accountCode) {
+  try {
+    const raw = localStorage.getItem(INTERVAL_KEY + accountCode);
+    const n = Number(raw);
+    if (ALLOWED_INTERVAL_HOURS.includes(n)) return n;
+    return DEFAULT_INTERVAL_HOURS;
+  } catch (_) {
+    return DEFAULT_INTERVAL_HOURS;
+  }
+}
+
+export function saveReminderIntervalHours(hours, accountCode) {
+  try {
+    const n = Number(hours);
+    if (ALLOWED_INTERVAL_HOURS.includes(n)) {
+      localStorage.setItem(INTERVAL_KEY + accountCode, String(n));
+    }
   } catch (_) {}
 }
 

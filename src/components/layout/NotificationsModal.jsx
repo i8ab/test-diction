@@ -20,6 +20,8 @@ export default function NotificationsModal({
   onChangeReminderTitle = null,
   reminderMessage = "",
   onChangeReminderMessage = null,
+  reminderIntervalHours = 24,
+  onChangeReminderIntervalHours = null,
   isAdmin = false,
   myAccountCode = null,
 }) {
@@ -162,8 +164,24 @@ export default function NotificationsModal({
 
                       <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.4, padding: "0 2px" }}>
                         {T(
-                          "Daily reminder at 5:00 AM (Egypt time), even if you studied.",
-                          "تذكير يومي الساعة 5:00 صباحًا (توقيت مصر)، حتى لو ذاكرت.")}
+                          "Reminders repeat based on the interval you choose below.",
+                          "التذكيرات بتتكرر حسب المعدل اللي هتختاره تحت.")}
+                      </div>
+
+                      <div>
+                        <label style={fieldLabel}>{T("Repeat every", "كل قد إيه")}</label>
+                        <select
+                          value={reminderIntervalHours || 24}
+                          onChange={(e) => onChangeReminderIntervalHours && onChangeReminderIntervalHours(Number(e.target.value))}
+                          style={{ ...fieldInput, cursor: "pointer" }}
+                        >
+                          <option value={1}>{T("Every 1 hour", "كل ساعة")}</option>
+                          <option value={2}>{T("Every 2 hours", "كل ساعتين")}</option>
+                          <option value={3}>{T("Every 3 hours", "كل 3 ساعات")}</option>
+                          <option value={6}>{T("Every 6 hours", "كل 6 ساعات")}</option>
+                          <option value={12}>{T("Every 12 hours", "كل 12 ساعة")}</option>
+                          <option value={24}>{T("Every 24 hours (once a day)", "كل 24 ساعة (مرة في اليوم)")}</option>
+                        </select>
                       </div>
 
                       <div>

@@ -11,7 +11,10 @@ import {
   saveReminderMessage,
   loadReminderTitle,
   saveReminderTitle,
+  loadReminderIntervalHours,
+  saveReminderIntervalHours,
   buildReminderPayload,
+  DEFAULT_INTERVAL_HOURS,
 } from "../state/push";
 
 /**
@@ -26,6 +29,7 @@ export function useStudyReminders(accountCode, showToast) {
   const [remindersBusy, setRemindersBusy] = useState(false);
   const [reminderTitle, setReminderTitle] = useState("");
   const [reminderMessage, setReminderMessage] = useState("");
+  const [reminderIntervalHours, setReminderIntervalHours] = useState(DEFAULT_INTERVAL_HOURS);
   const prefsSaveTimerRef = useRef(null);
 
   // Reload this account's own notification prefs whenever the signed-in
@@ -35,11 +39,13 @@ export function useStudyReminders(accountCode, showToast) {
       setRemindersOn(false);
       setReminderTitle("");
       setReminderMessage("");
+      setReminderIntervalHours(DEFAULT_INTERVAL_HOURS);
       return;
     }
     setRemindersOn(loadRemindersEnabled(accountCode));
     setReminderTitle(loadReminderTitle(accountCode));
     setReminderMessage(loadReminderMessage(accountCode));
+    setReminderIntervalHours(loadReminderIntervalHours(accountCode));
   }, [accountCode]);
 
   const schedulePrefsSave = useCallback(
@@ -57,26 +63,37 @@ export function useStudyReminders(accountCode, showToast) {
     () => ({
       title: reminderTitle,
       message: reminderMessage,
+      intervalHours: reminderIntervalHours,
     }),
-    [reminderTitle, reminderMessage]
+    [reminderTitle, reminderMessage, reminderIntervalHours]
   );
 
   const handleChangeReminderTitle = useCallback(
     (title) => {
       setReminderTitle(title);
       if (accountCode) saveReminderTitle(title, accountCode);
-      schedulePrefsSave({ title, message: reminderMessage });
+      schedulePrefsSave({ title, message: reminderMessage, intervalHours: reminderIntervalHours });
     },
-    [accountCode, reminderMessage, schedulePrefsSave]
+    [accountCode, reminderMessage, reminderIntervalHours, schedulePrefsSave]
   );
 
   const handleChangeReminderMessage = useCallback(
     (message) => {
       setReminderMessage(message);
       if (accountCode) saveReminderMessage(message, accountCode);
-      schedulePrefsSave({ title: reminderTitle, message });
+      schedulePrefsSave({ title: reminderTitle, message, intervalHours: reminderIntervalHours });
     },
-    [accountCode, reminderTitle, schedulePrefsSave]
+    [accountCode, reminderTitle, reminderIntervalHours, schedulePrefsSave]
+  );
+
+  const handleChangeReminderIntervalHours = useCallback(
+    (hours) => {
+      const n = Number(hours);
+      setReminderIntervalHours(n);
+      if (accountCode) saveReminderIntervalHours(n, accountCode);
+      schedulePrefsSave({ title: reminderTitle, message: reminderMessage, intervalHours: n });
+    },
+    [accountCode, reminderTitle, reminderMessage, schedulePrefsSave]
   );
 
   // On load, if the person previously opted in AND permission is still
@@ -121,22 +138,16 @@ export function useStudyReminders(accountCode, showToast) {
   }, [accountCode, remindersBusy, getReminderPrefs]);
 
   const disableReminders = useCallback(async () => {
+    if (remindersBusy) return;
     setRemindersOn(false);
     if (accountCode) saveRemindersEnabled(accountCode, false);
+    setRemindersBusy(true);
+    try {
+      await unsubscribeFromPush(accountCode);
+    } catch (_) {}
     setRemindersBusy(false);
-    // Unsubscribe in the background — UI is already off, no lag.
-    if (accountCode) {
-      try {
-        await unsubscribeFromPush(accountCode);
-      } catch (_) {
-        /* ignore */
-      }
-    }
-  }, [accountCode]);
+  }, [accountCode, remindersBusy]);
 
-  // Test push — sends the FINAL notification shape (custom title/body the
-  // user typed, or the default if empty) so they can preview exactly what
-  // the real reminder will look like.
   const testReminderPush = useCallback(async () => {
     if (!accountCode) {
       if (typeof showToast === "function") showToast("سجّل الدخول أولاً / Sign in first");
@@ -197,8 +208,10 @@ export function useStudyReminders(accountCode, showToast) {
     remindersBusy,
     reminderTitle,
     reminderMessage,
+    reminderIntervalHours,
     handleChangeReminderTitle,
     handleChangeReminderMessage,
+    handleChangeReminderIntervalHours,
     enableReminders,
     disableReminders,
     testReminderPush,

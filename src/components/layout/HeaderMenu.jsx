@@ -36,6 +36,7 @@ export default function HeaderMenu({
   remindersOn, remindersBusy, onEnableReminders, onDisableReminders, onTestReminder,
   reminderTitle, onChangeReminderTitle,
   reminderMessage, onChangeReminderMessage,
+  reminderIntervalHours, onChangeReminderIntervalHours,
   pendingAccounts = [],
   onApproveRequest,
   onRejectRequest,
@@ -318,6 +319,8 @@ export default function HeaderMenu({
         onChangeReminderTitle={onChangeReminderTitle}
         reminderMessage={reminderMessage}
         onChangeReminderMessage={onChangeReminderMessage}
+        reminderIntervalHours={reminderIntervalHours}
+        onChangeReminderIntervalHours={onChangeReminderIntervalHours}
         isAdmin={isAdmin}
         myAccountCode={myAccountCode}
       />

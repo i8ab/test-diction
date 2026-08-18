@@ -1,18 +1,13 @@
-// Called once a day by Vercel Cron (see vercel.json — 04:00 UTC = 7:00 AM Egypt (Hobby ±1h → arrives ~8 AM)
-// in summer EEST/UTC+3; with Hobby's ±1h window it lands around 8 AM).
-// Sends a REAL push notification to every account that has an active push
-// subscription (api/push-subscribe.js). No once-per-day lock — every run
-// (scheduled or manual) attempts delivery so testing stays flexible.
-// Study activity is intentionally ignored: this is a fixed daily nudge.
+// Called by Vercel Cron (or external cron like cron-job.org) on a schedule.
+// With external cron every hour, each user receives a reminder according to
+// their own intervalHours preference (1 / 2 / 3 / 6 / 12 / 24).
 //
-// Per-account prefs (custom title/message) live in Redis under
+// Per-account prefs (custom title/message + intervalHours) live in Redis under
 // twoTongues:push:prefs:<code> — set via api/push-subscribe.js.
+// Last-sent timestamp lives under twoTongues:push:lastSent:<code>.
 //
-// Protect this endpoint so randoms on the internet can't trigger mass
-// notifications: set CRON_SECRET in Vercel env vars, and Vercel's Cron
-// automatically sends it as `Authorization: Bearer <CRON_SECRET>`.
-//
-// Set in Vercel: CRON_SECRET (any random string)
+// Protect this endpoint: set CRON_SECRET in Vercel env vars.
+// External cron must send: Authorization: Bearer <CRON_SECRET>
 
 import { redisConfigured, redisCommand } from "../lib/redis.js";
 import { sendPush, vapidConfigured } from "../lib/webpush.js";
@@ -20,9 +15,11 @@ import { sendPush, vapidConfigured } from "../lib/webpush.js";
 const CODES_SET_KEY = "twoTongues:push:codes";
 const SUB_PREFIX = "twoTongues:push:sub:";
 const PREFS_PREFIX = "twoTongues:push:prefs:";
-const DAY_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_INTERVAL_DAYS = 1;
-const ALLOWED_DAYS = new Set([1, 2, 3, 5, 7]);
+const LAST_SENT_PREFIX = "twoTongues:push:lastSent:";
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+const DEFAULT_INTERVAL_HOURS = 24;
+const ALLOWED_HOURS = new Set([1, 2, 3, 6, 12, 24]);
 
 const DEFAULT_TITLE = "وقت المراجعة! / Time to review!";
 const DEFAULT_BODY_TEMPLATE = (daysSince) =>
@@ -85,7 +82,6 @@ async function fetchRecordDirect() {
 
 async function clearStaleLogsDirect(record) {
   try {
-    // Keep only activity from the last 24 hours; delete everything older.
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
     const logs = record.logs || [];
     const hasStale = logs.some((entry) => (entry.at || 0) < cutoff);
@@ -142,22 +138,53 @@ async function clearStaleLogsDirect(record) {
 async function loadPrefs(code) {
   try {
     const raw = await redisCommand("GET", `${PREFS_PREFIX}${code}`);
-    if (!raw) return { intervalDays: DEFAULT_INTERVAL_DAYS, message: "", title: "" };
+    if (!raw) return { intervalHours: DEFAULT_INTERVAL_HOURS, message: "", title: "" };
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    let days = DEFAULT_INTERVAL_DAYS;
-    if (ALLOWED_DAYS.has(parsed.intervalDays)) days = parsed.intervalDays;
-    else if (typeof parsed.intervalHours === "number") {
-      const d = Math.max(1, Math.round(parsed.intervalHours / 24));
-      if (ALLOWED_DAYS.has(d)) days = d;
+
+    let hours = DEFAULT_INTERVAL_HOURS;
+    if (ALLOWED_HOURS.has(parsed.intervalHours)) {
+      hours = parsed.intervalHours;
+    } else if (typeof parsed.intervalHours === "number") {
+      // Snap to nearest allowed
+      const allowed = [1, 2, 3, 6, 12, 24];
+      hours = allowed.reduce((best, v) =>
+        Math.abs(v - parsed.intervalHours) < Math.abs(best - parsed.intervalHours) ? v : best
+      , 24);
+    } else if (typeof parsed.intervalDays === "number") {
+      // Legacy conversion
+      const h = Math.max(1, Math.round(parsed.intervalDays * 24));
+      const allowed = [1, 2, 3, 6, 12, 24];
+      hours = allowed.reduce((best, v) =>
+        Math.abs(v - h) < Math.abs(best - h) ? v : best
+      , 24);
     }
+
     return {
-      intervalDays: days,
+      intervalHours: hours,
       message: typeof parsed.message === "string" ? parsed.message : "",
       title: typeof parsed.title === "string" ? parsed.title : "",
     };
   } catch (e) {
-    return { intervalDays: DEFAULT_INTERVAL_DAYS, message: "", title: "" };
+    return { intervalHours: DEFAULT_INTERVAL_HOURS, message: "", title: "" };
   }
+}
+
+async function getLastSent(code) {
+  try {
+    const raw = await redisCommand("GET", `${LAST_SENT_PREFIX}${code}`);
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function setLastSent(code, ts) {
+  try {
+    // Keep for 60 days so stale keys don't accumulate forever
+    await redisCommand("SET", `${LAST_SENT_PREFIX}${code}`, String(ts), "EX", 60 * 24 * 3600);
+  } catch (_) {}
 }
 
 export default async function handler(req, res) {
@@ -209,15 +236,12 @@ export default async function handler(req, res) {
     const now = Date.now();
 
     let sent = 0, skipped = 0, expired = 0, failed = 0;
-    const reasons = { noSub: 0, badSub: 0, dupEndpoint: 0, sendError: 0 };
+    const reasons = { noSub: 0, badSub: 0, dupEndpoint: 0, tooSoon: 0, sendError: 0 };
     const errors = [];
     // Same device under multiple account codes → only one push per endpoint
-    // (still kept — otherwise one phone gets N identical banners).
     const seenEndpoints = new Set();
 
     for (const code of codes) {
-      // Subscription alone is enough. Account lookup is only used for
-      // days-since-studied in the default body text.
       const account = accounts.find((a) => a.code === code) || null;
       const prefs = await loadPrefs(code);
 
@@ -241,6 +265,15 @@ export default async function handler(req, res) {
       }
       seenEndpoints.add(endpoint);
 
+      // Respect per-user intervalHours
+      const intervalHours = prefs.intervalHours || DEFAULT_INTERVAL_HOURS;
+      const lastSent = await getLastSent(code);
+      if (lastSent != null && (now - lastSent) < intervalHours * HOUR_MS) {
+        skipped++;
+        reasons.tooSoon++;
+        continue;
+      }
+
       const studiedAt = (account && account.studiedAt) || {};
       const values = Object.values(studiedAt);
       const lastStudied = values.length ? Math.max(...values) : null;
@@ -254,8 +287,6 @@ export default async function handler(req, res) {
           : DEFAULT_BODY_TEMPLATE(Math.max(1, daysSince || 1));
       }
 
-      // Unique tag + renotify every time so a re-run always shows a fresh banner
-      // (SW collapses identical tags when renotify is false).
       const payload = {
         title,
         body,
@@ -267,10 +298,12 @@ export default async function handler(req, res) {
       const result = await sendPush(subscription, payload);
       if (result.ok) {
         sent++;
+        await setLastSent(code, now);
       } else if (result.expired) {
         expired++;
         await redisCommand("DEL", `${SUB_PREFIX}${code}`);
         await redisCommand("SREM", CODES_SET_KEY, code);
+        await redisCommand("DEL", `${LAST_SENT_PREFIX}${code}`);
       } else {
         skipped++;
         failed++;
@@ -285,7 +318,6 @@ export default async function handler(req, res) {
       sent, skipped, expired, failed, logsCleared,
       codes: codes.length, reasons, errors: errors.length ? errors : undefined,
     };
-    // Visible in Vercel → Logs → Messages column (the 200 alone is not enough).
     console.log("[push-send-reminders]", JSON.stringify(body));
     return res.status(200).json(body);
   } catch (e) {

@@ -124,6 +124,63 @@ export default async function handler(req, res) {
           body = null;
         }
       }
+
+      // ── Admin: clear schedule slots for EVERY subscribed account ────────
+      // Body: { adminCode, resetSlotsAll: true }
+      // Does not remove subscriptions or prefs — only lastSent/lastSlot/msgIndex.
+      if (body && body.resetSlotsAll) {
+        const adminCode =
+          typeof body.adminCode === "string" ? body.adminCode.trim() : "";
+        if (!adminCode) {
+          return res.status(400).json({ error: "Missing adminCode." });
+        }
+        try {
+          const proto = req.headers["x-forwarded-proto"] || "https";
+          const host = req.headers.host;
+          const r = await fetch(`${proto}://${host}/api/jsonbin`, {
+            cache: "no-store",
+          });
+          if (!r.ok) {
+            return res.status(502).json({ error: "Could not verify admin." });
+          }
+          const record = await r.json();
+          const accounts = record.accounts || [];
+          const admin = accounts.find(
+            (a) => a.code === adminCode && a.role === "admin"
+          );
+          if (!admin) {
+            return res
+              .status(403)
+              .json({ error: "Not authorized — admin account required." });
+          }
+        } catch (e) {
+          return res.status(502).json({
+            error: "Could not verify admin.",
+            message: String((e && e.message) || e),
+          });
+        }
+
+        const codes = (await redisCommand("SMEMBERS", CODES_SET_KEY)) || [];
+        let cleared = 0;
+        for (const c of codes) {
+          if (!c) continue;
+          try {
+            await redisCommand("DEL", `twoTongues:push:lastSent:${c}`);
+            await redisCommand("DEL", `twoTongues:push:lastSlot:${c}`);
+            await redisCommand("DEL", `twoTongues:push:msgIndex:${c}`);
+            cleared++;
+          } catch (_) {
+            /* continue */
+          }
+        }
+        return res.status(200).json({
+          ok: true,
+          slotsClearedAll: true,
+          cleared,
+          total: codes.length,
+        });
+      }
+
       const { code, subscription, prefsOnly, resetSlots } = body || {};
       if (!code) {
         return res.status(400).json({ error: "Missing code." });

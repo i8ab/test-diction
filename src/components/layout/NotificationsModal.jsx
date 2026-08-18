@@ -55,6 +55,39 @@ export default function NotificationsModal({
   const [pushBody, setPushBody] = useState("");
   const [pushSending, setPushSending] = useState(false);
   const [pushResult, setPushResult] = useState("");
+  const [slotsClearing, setSlotsClearing] = useState(false);
+  const [slotsResult, setSlotsResult] = useState("");
+
+  async function clearAllSlotsAdmin() {
+    if (!myAccountCode || !isAdmin) return;
+    setSlotsClearing(true);
+    setSlotsResult("");
+    try {
+      const r = await fetch("/api/push-subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminCode: myAccountCode,
+          resetSlotsAll: true,
+        }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setSlotsResult(data.error || T("Clear failed.", "فشل المسح."));
+      } else {
+        setSlotsResult(
+          tr(
+            isAr,
+            `Cleared schedule for ${data.cleared || 0} account(s).`,
+            `اتمسحت الجدولة لـ ${data.cleared || 0} حساب.`
+          )
+        );
+      }
+    } catch (_) {
+      setSlotsResult(T("Network error — try again.", "خطأ في الشبكة — حاول مرة أخرى."));
+    }
+    setSlotsClearing(false);
+  }
 
   async function sendBroadcast(e) {
     e && e.preventDefault();
@@ -414,6 +447,42 @@ export default function NotificationsModal({
                             {pushSending ? <LoaderIcon size={14} /> : <BellIcon size={14} />}
                             {T( "Send to everyone", "إرسال للجميع")}
                           </button>
+
+                          <button
+                            type="button"
+                            disabled={slotsClearing}
+                            className="touch-target"
+                            onClick={clearAllSlotsAdmin}
+                            style={{
+                              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                              width: "100%", padding: "10px 12px", minHeight: 44, borderRadius: 10,
+                              cursor: slotsClearing ? "default" : "pointer",
+                              border: "1px solid rgba(var(--border-rgb),0.22)",
+                              background: "var(--input-bg)",
+                              fontSize: 13, fontWeight: 700, color: "var(--ink)",
+                              opacity: slotsClearing ? 0.6 : 1,
+                            }}
+                          >
+                            {slotsClearing ? <LoaderIcon size={14} /> : null}
+                            {T(
+                              "Clear ALL schedules (every account)",
+                              "مسح جدولة الكل (كل الحسابات)"
+                            )}
+                          </button>
+                          <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.4 }}>
+                            {T(
+                              "Admin only: resets last-sent slots for every device so the next reminder can fire cleanly. Does not turn notifications off.",
+                              "للأدمن فقط: بيمسح سلوتات آخر إرسال لكل الأجهزة عشان التذكير الجاي يشتغل من نضافة. مش بيطفي الإشعارات."
+                            )}
+                          </div>
+                          {slotsResult && (
+                            <div style={{
+                              fontSize: 12, lineHeight: 1.4,
+                              color: /fail|فشل|error|خطأ|authorized|Unauthorized|Not authorized/i.test(slotsResult) ? "var(--danger)" : "var(--success)",
+                            }}>
+                              {slotsResult}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

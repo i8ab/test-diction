@@ -675,19 +675,8 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
           try { ambientRef.current && ambientRef.current.stop(); } catch {}
           ambientRef.current = null;
           try {
-            const phase = pomoPhaseRef.current;
-            const cycle = pomoCycleRef.current;
-            const ms = sessionDurationRef.current || 0;
-            const mins = ms > 0 ? Math.max(1, Math.round(ms / 60000)) : 0;
-            if (mins > 0) {
-              logTimerSession({
-                minutes: mins,
-                mode: prefs.mode === "pomodoro" ? "pomodoro" : "countdown",
-                phase: prefs.mode === "pomodoro" ? phase : null,
-                cycle: prefs.mode === "pomodoro" ? cycle : null,
-              });
-              refreshTimerLog();
-            }
+            // Credit any remaining whole minutes from this run (partial sessions already flushed live)
+            endCreditClock();
             sessionDurationRef.current = 0;
           } catch (_) {}
           endAtRef.current = null;
@@ -734,6 +723,33 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, [running, prefs.mode, broadcastState]);
+
+  // Live credit: every 60s while running
+  useEffect(() => {
+    if (!running) return undefined;
+    const id = setInterval(() => flushTimerCredit(), 60000);
+    return () => clearInterval(id);
+  }, [running]);
+
+  // Flush credit when leaving the page / tab; resume clock when coming back
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        if (runningRef.current) flushTimerCredit();
+      } else if (document.visibilityState === "visible") {
+        if (runningRef.current) beginCreditClock();
+      }
+    };
+    const onPageHide = () => {
+      if (runningRef.current) endCreditClock();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, []);
 
   // Push state to popup + localStorage — throttled to cut lag
   useEffect(() => {
@@ -782,6 +798,7 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
       try {
         startAmbient();
       } catch (_) {}
+      beginCreditClock();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -895,9 +912,44 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
     } catch {}
   }
 
-  const sessionDurationRef = useRef(0); // ms credited when countdown completes
+  const sessionDurationRef = useRef(0); // planned length of current segment
   /** Full duration this segment started from — Reset restores this without killing the bubble. */
   const baseDurationRef = useRef(0);
+  /**
+   * Live session credit: record study minutes while the timer runs (not only on complete).
+   * lastCreditAtRef = wall-clock when we last credited / started / resumed.
+   */
+  const lastCreditAtRef = useRef(null);
+
+  function flushTimerCredit() {
+    try {
+      if (!lastCreditAtRef.current) return;
+      const now = Date.now();
+      const delta = Math.max(0, now - lastCreditAtRef.current);
+      const mins = Math.floor(delta / 60000);
+      if (mins <= 0) return;
+      lastCreditAtRef.current = lastCreditAtRef.current + mins * 60000;
+      const mode = prefsRef.current?.mode || prefs.mode;
+      const phase = pomoPhaseRef.current || null;
+      const cycle = pomoCycleRef.current || null;
+      logTimerSession({
+        minutes: mins,
+        mode: mode === "pomodoro" ? "pomodoro" : mode === "stopwatch" ? "stopwatch" : "countdown",
+        phase: mode === "pomodoro" ? phase : null,
+        cycle: mode === "pomodoro" ? cycle : null,
+      });
+      refreshTimerLog();
+    } catch (_) {}
+  }
+
+  function beginCreditClock() {
+    lastCreditAtRef.current = Date.now();
+  }
+
+  function endCreditClock() {
+    flushTimerCredit();
+    lastCreditAtRef.current = null;
+  }
 
   function pomoWorkMs() {
     return Math.max(1, Number(prefs.pomoWorkMin) || 25) * 60 * 1000;
@@ -942,6 +994,7 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
     setRunning(true);
     setShowSettings(false);
     startAmbient();
+    beginCreditClock();
     // Persist immediately so a refresh mid-second keeps the correct endAt
     try {
       saveLiveState({
@@ -1016,6 +1069,7 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
     runningRef.current = false;
     setRunning(false);
     stopAmbient();
+    endCreditClock();
   }
 
   function reset() {
@@ -1029,6 +1083,7 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
     setDoneFlash(false);
     setPomoAwaiting(null);
     stopAmbient();
+    endCreditClock();
 
     let restore = 0;
     if (prefs.mode === "pomodoro") {
@@ -1070,11 +1125,14 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
   /** Apply a new duration (ms). Works while running — restarts the segment from the new total. */
   function applyNewDuration(totalMs) {
     const total = Math.max(0, Number(totalMs) || 0);
+    // Credit time already spent on the previous duration before switching
+    if (runningRef.current) endCreditClock();
     setRemainingMs(total);
     baseDurationRef.current = total;
     sessionDurationRef.current = total;
     if (runningRef.current && (prefs.mode === "countdown" || prefs.mode === "pomodoro")) {
       endAtRef.current = Date.now() + total;
+      beginCreditClock();
       try {
         saveLiveState({
           mode: prefs.mode,
@@ -1867,6 +1925,7 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
                       setDoneFlash(false);
                       setPomoAwaiting(null);
                       stopAmbient();
+                      endCreditClock();
                       updatePref({ mode: m.id });
                       if (m.id === "countdown") {
                         const total = parseHms(hours, mins, secs) || 25 * 60 * 1000;

@@ -286,7 +286,26 @@ export default function DictionaryApp() {
   // Hard force-refresh: unregister every SW, wipe Cache Storage, then reload.
   // Call from console:  window.__forceAppRefresh()
   // or from any button. Survives "I cleared data and still can't refresh".
+    // Mark installed-PWA on <html> so CSS can disable pull-to-refresh only there
+  // (covers iOS navigator.standalone as well as display-mode media).
   useEffect(() => {
+    const apply = () => {
+      try {
+        const pwa = !!(window.navigator.standalone ||
+          window.matchMedia("(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)").matches);
+        document.documentElement.setAttribute("data-pwa-standalone", pwa ? "1" : "0");
+      } catch (_) {}
+    };
+    apply();
+    let mq;
+    try {
+      mq = window.matchMedia("(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)");
+      mq.addEventListener?.("change", apply);
+      return () => mq.removeEventListener?.("change", apply);
+    } catch (_) {}
+  }, []);
+
+useEffect(() => {
     window.__forceAppRefresh = async () => {
       try {
         if ("serviceWorker" in navigator) {

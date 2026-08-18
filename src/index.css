@@ -3052,155 +3052,144 @@ html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
   background-repeat: no-repeat, repeat !important;
 }
 
-/* ── Flip-clock digits (digitalclock.live style) ── */
+/* ── Flip-clock — exact digitalclock.live mechanism ── */
 .flip-clock {
   display: inline-flex;
   align-items: center;
-  gap: 0.14em;
+  gap: 0.1em;
   direction: ltr;
   font-variant-numeric: tabular-nums;
   user-select: none;
 }
 .flip-clock-sep {
-  font-weight: 800;
+  font-weight: 700;
   opacity: 0.9;
-  padding: 0 0.08em;
-  line-height: 1.4em;
+  padding: 0 0.06em;
+  line-height: 1.25em;
   align-self: center;
-  font-size: 0.9em;
+  font-size: 0.85em;
 }
 
-/* One digit card */
-.flip-unit {
+/* Card shell (matches .flip on digitalclock.live) */
+.flip {
   position: relative;
-  width: 0.7em;
-  height: 1.2em;
-  font-weight: 800;
-  line-height: 1;
-  perspective: 300px;
-  border-radius: 0.12em;
-  background: #1a1a1a;
-  box-shadow: 0 6px 20px -6px rgba(0, 0, 0, 0.55);
+  width: 0.72em;
+  height: 1.25em;
+  margin: 0 0.02em;
+  font-weight: 700;
+  line-height: 1.22em;
+  text-align: center;
+  border-radius: 0.1em;
+  background: #000;
+  border: 1px solid #1c1c1c;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
 }
-.flip-unit-top,
-.flip-unit-bottom {
+
+/* front + back layers */
+.flip .digital {
+  position: absolute;
+  inset: 0;
+}
+
+/* ::before = top half, ::after = bottom half — content from data-number */
+.flip .digital::before,
+.flip .digital::after {
+  content: attr(data-number);
   position: absolute;
   left: 0;
-  width: 100%;
-  height: 50%;
+  right: 0;
   overflow: hidden;
+  background: #1c1c1c;
+  color: inherit;
+  font-size: 1em;
+  font-weight: 700;
+  perspective: 200px;
+  -webkit-perspective: 200px;
+}
+.flip .digital::before {
+  top: 0;
+  bottom: 50%;
+  line-height: 1.22em;
+  border-radius: 0.08em 0.08em 0 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  transform-origin: 50% 100%;
+  -webkit-transform-origin: 50% 100%;
+}
+.flip .digital::after {
+  top: 50%;
+  bottom: 0;
+  line-height: 0;
+  border-radius: 0 0 0.08em 0.08em;
+  transform-origin: 50% 0;
+  -webkit-transform-origin: 50% 0;
+}
+
+/* z stacking (digitalclock.live) */
+.flip .digital.back::before,
+.flip .digital.front::after {
   z-index: 1;
 }
-.flip-unit-top {
-  top: 0;
-  background: #222;
-  border-radius: 0.12em 0.12em 0 0;
-}
-.flip-unit-bottom {
-  bottom: 0;
-  background: #141414;
-  border-radius: 0 0 0.12em 0.12em;
-  border-top: 1px solid rgba(0, 0, 0, 0.55);
-}
-.flip-unit-top span,
-.flip-unit-bottom span {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: 200%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-.flip-unit-top span {
-  top: 0;
-}
-.flip-unit-bottom span {
-  bottom: 0;
-}
-
-/* Folding card — full height, pivots on the middle seam */
-.flip-unit-fold {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 4;
-  transform-style: preserve-3d;
-  transform-origin: center center;
-  animation: flipUnitFold 0.6s ease-in-out forwards;
-  pointer-events: none;
-}
-.flip-unit-fold-front,
-.flip-unit-fold-back {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: 50%;
-  overflow: hidden;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-}
-.flip-unit-fold-front {
-  top: 0;
-  background: #222;
-  border-radius: 0.12em 0.12em 0 0;
-  transform: rotateX(0deg);
+.flip .digital.back::after {
   z-index: 2;
 }
-.flip-unit-fold-back {
-  top: 0;
-  background: #141414;
-  border-radius: 0 0 0.12em 0.12em;
-  /* pre-rotated so its "face" is the bottom half of the new digit */
-  transform: rotateX(180deg);
-  z-index: 1;
-}
-.flip-unit-fold-front span,
-.flip-unit-fold-back span {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: 200%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-.flip-unit-fold-front span {
-  top: 0;
-}
-.flip-unit-fold-back span {
-  /* show lower half of digit on the back face */
-  bottom: 0;
-  transform: rotateX(180deg);
+.flip .digital.front::before {
+  z-index: 3;
 }
 
-@keyframes flipUnitFold {
-  0% {
-    transform: rotateX(0deg);
+/* Back bottom half starts flipped (waiting to land) */
+.flip .digital.back::after {
+  transform: rotateX(0.5turn);
+  -webkit-transform: rotateX(0.5turn);
+  transform-origin: center top;
+  -webkit-transform-origin: center top;
+}
+
+/* Running: top of front folds down; bottom of back unfolds */
+.flip.running .digital.front::before {
+  animation: frontFlipDown 0.6s ease-in-out forwards;
+  -webkit-animation: frontFlipDown 0.6s ease-in-out forwards;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-shadow: 0 -2px 6px rgba(255, 255, 255, 0.15);
+  transform-origin: center bottom;
+  -webkit-transform-origin: center bottom;
+}
+.flip.running .digital.back::after {
+  animation: backFlipDown 0.6s ease-in-out forwards;
+  -webkit-animation: backFlipDown 0.6s ease-in-out forwards;
+}
+
+@keyframes frontFlipDown {
+  to {
+    transform: rotateX(0.5turn);
   }
-  100% {
-    transform: rotateX(-180deg);
+}
+@-webkit-keyframes frontFlipDown {
+  to {
+    -webkit-transform: rotateX(0.5turn);
+  }
+}
+@keyframes backFlipDown {
+  to {
+    transform: rotateX(0);
+  }
+}
+@-webkit-keyframes backFlipDown {
+  to {
+    -webkit-transform: rotateX(0);
   }
 }
 
-html[data-theme="light"] .flip-unit {
-  background: #e8e4dc;
-  box-shadow: 0 4px 14px -4px rgba(0, 0, 0, 0.25);
+html[data-theme="light"] .flip {
+  background: #f8f9fa;
+  border-color: #e5e5e5;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.12);
 }
-html[data-theme="light"] .flip-unit-top,
-html[data-theme="light"] .flip-unit-fold-front {
-  background: #f2efe8;
+html[data-theme="light"] .flip .digital::before,
+html[data-theme="light"] .flip .digital::after {
+  background: #e5e5e5;
+  color: #222;
 }
-html[data-theme="light"] .flip-unit-bottom,
-html[data-theme="light"] .flip-unit-fold-back {
-  background: #ddd8ce;
-}
-html[data-theme="light"] .flip-unit-bottom {
-  border-top-color: rgba(0, 0, 0, 0.15);
+html[data-theme="light"] .flip .digital::before {
+  border-bottom-color: #ced4da;
 }

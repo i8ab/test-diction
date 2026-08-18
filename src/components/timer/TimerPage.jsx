@@ -152,58 +152,44 @@ function formatMs(ms) {
 }
 
 /**
- * Split-flap digit (digitalclock.live style).
- * Static top/bottom halves + one folding card (front=old, back=new) with rotateX.
+ * Exact digitalclock.live flip digit structure + animation.
+ * .flip > .digital.front[data-number] + .digital.back[data-number]
+ * Halves via ::before/::after; .running triggers frontFlipDown / backFlipDown.
  */
 function FlipDigit({ value, color }) {
-  const [from, setFrom] = useState(String(value));
-  const [to, setTo] = useState(String(value));
-  const [play, setPlay] = useState(false);
-  const [tick, setTick] = useState(0);
+  const [front, setFront] = useState(String(value));
+  const [back, setBack] = useState(String(value));
+  const [running, setRunning] = useState(false);
+  const flippingRef = useRef(false);
 
   useEffect(() => {
     const next = String(value);
-    if (next === to) return undefined;
-    setFrom(to);
-    setTo(next);
-    setPlay(false);
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => {
-        setPlay(true);
-        setTick((t) => t + 1);
-      });
-    });
-    const done = setTimeout(() => setPlay(false), 650);
+    if (next === front) return undefined;
+    if (flippingRef.current) return undefined;
+
+    flippingRef.current = true;
+    setBack(next);
+    setRunning(false);
+    const raf = requestAnimationFrame(() => setRunning(true));
+    const t = setTimeout(() => {
+      setFront(next);
+      setRunning(false);
+      flippingRef.current = false;
+    }, 620);
     return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-      clearTimeout(done);
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
     };
-  }, [value, to]);
+  }, [value, front]);
 
   return (
     <div
-      className={`flip-unit${play ? " play" : ""}`}
-      style={{ color: color || "#fff" }}
+      className={`flip${running ? " running" : ""}`}
+      style={color ? { color } : undefined}
       aria-hidden
     >
-      <div className="flip-unit-top">
-        <span>{to}</span>
-      </div>
-      <div className="flip-unit-bottom">
-        <span>{play ? from : to}</span>
-      </div>
-      {play && (
-        <div key={tick} className="flip-unit-fold">
-          <div className="flip-unit-fold-front">
-            <span>{from}</span>
-          </div>
-          <div className="flip-unit-fold-back">
-            <span>{to}</span>
-          </div>
-        </div>
-      )}
+      <div className="digital front" data-number={front} />
+      <div className="digital back" data-number={back} />
     </div>
   );
 }

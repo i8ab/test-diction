@@ -70,3 +70,108 @@ export async function saveRecord(record, expectedVersion) {
   const data = await res.json().catch(() => ({}));
   return typeof data.version === "number" ? data.version : expectedVersion + 1;
 }
+
+/**
+ * Fast path: update accounts (+ optional remove/approve codes) without
+ * rewriting the entire dictionary (entries/logs/banners).
+ */
+export async function saveAccountsOnly(
+  {
+    accounts,
+    removeAccountCodes,
+    approveAccountCodes,
+  },
+  expectedVersion
+) {
+  const headers = { "Content-Type": "application/json" };
+  const res = await fetch("/api/jsonbin", {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({
+      scope: "accounts",
+      accounts: accounts || [],
+      ...(removeAccountCodes?.length ? { removeAccountCodes } : {}),
+      ...(approveAccountCodes?.length ? { approveAccountCodes } : {}),
+      expectedVersion,
+    }),
+  });
+  if (res.status === 401) {
+    throw new Error("unauthorized");
+  }
+  if (res.status === 409) {
+    const data = await res.json().catch(() => null);
+    throw new SaveConflictError(
+      data || {
+        entries: [],
+        accounts: [],
+        logs: [],
+        siteBanner: null,
+        examConfig: null,
+        academicUnits: null,
+        version: expectedVersion,
+      }
+    );
+  }
+  if (!res.ok) throw new Error("save failed");
+  const data = await res.json().catch(() => ({}));
+  return typeof data.version === "number" ? data.version : expectedVersion + 1;
+}
+
+async function putScoped(body, expectedVersion) {
+  const headers = { "Content-Type": "application/json" };
+  const res = await fetch("/api/jsonbin", {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({ ...body, expectedVersion }),
+  });
+  if (res.status === 401) throw new Error("unauthorized");
+  if (res.status === 409) {
+    const data = await res.json().catch(() => null);
+    throw new SaveConflictError(
+      data || {
+        entries: [],
+        accounts: [],
+        logs: [],
+        siteBanner: null,
+        examConfig: null,
+        academicUnits: null,
+        version: expectedVersion,
+      }
+    );
+  }
+  if (!res.ok) throw new Error("save failed");
+  return res.json().catch(() => ({}));
+}
+
+/** Patch only selected fields on one account (birthDate, path, name, …). */
+export async function patchAccountFields(code, patch, expectedVersion) {
+  const data = await putScoped(
+    { scope: "accountPatch", code, patch: patch || {} },
+    expectedVersion
+  );
+  return {
+    version: typeof data.version === "number" ? data.version : expectedVersion + 1,
+    account: data.account || null,
+  };
+}
+
+/** Create/update a single dictionary entry — does not rewrite the whole list. */
+export async function patchEntry(entry, expectedVersion) {
+  const data = await putScoped({ scope: "entryPatch", entry }, expectedVersion);
+  return typeof data.version === "number" ? data.version : expectedVersion + 1;
+}
+
+/** Delete a single dictionary entry by id. */
+export async function deleteEntryRemote(id, expectedVersion) {
+  const data = await putScoped({ scope: "entryDelete", id }, expectedVersion);
+  return typeof data.version === "number" ? data.version : expectedVersion + 1;
+}
+
+/** Update one settings key only (site_banner, exam_config, academic_units, …). */
+export async function patchSettings(key, value, expectedVersion) {
+  const data = await putScoped(
+    { scope: "settingsPatch", key, value },
+    expectedVersion
+  );
+  return typeof data.version === "number" ? data.version : expectedVersion + 1;
+}

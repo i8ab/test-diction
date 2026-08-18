@@ -13,7 +13,9 @@ import { generatePersonalCode } from "./storage";
 import { makeLogEntry } from "./logs";
 
 /**
- * Current user updates their own profile (name / password / avatar / gender / birthDate / bac path).
+ * Current user updates their own profile.
+ * Only fields that actually changed are sent (accountPatch) — not the whole
+ * account list and not unrelated fields.
  */
 export async function updateOwnAccount({
   newName,
@@ -31,56 +33,89 @@ export async function updateOwnAccount({
   persistAccounts,
   setName,
   showToast,
+  setAccounts,
+  recordVersionRef,
+  commitRecordVersion,
+  patchAccountFields,
 }) {
   const trimmed = (newName || "").trim();
   if (!trimmed) return { error: "Enter your name." };
-  const updates = { name: trimmed };
-  if (typeof nextAvatar === "string") {
-    updates.avatar = nextAvatar.slice(0, 400000);
+
+  const current = (accounts || []).find((a) => a && a.code === accountCode) || {};
+  const patch = {};
+
+  if (trimmed !== (current.name || "")) patch.name = trimmed;
+
+  if (typeof nextAvatar === "string" && nextAvatar !== (current.avatar || "")) {
+    patch.avatar = nextAvatar.slice(0, 400000);
   }
-  if (nextGender === "male" || nextGender === "female") {
-    updates.gender = nextGender;
-  } else if (nextGender === "") {
-    updates.gender = "";
+  if (nextGender === "male" || nextGender === "female" || nextGender === "") {
+    if (nextGender !== (current.gender || "")) patch.gender = nextGender;
   }
   if (typeof nextBirthDate === "string") {
     const bCheck = validateBirthDate(nextBirthDate);
     if (!bCheck.ok) return { error: bCheck.error };
-    updates.birthDate = bCheck.birthDate || "";
+    const bd = bCheck.birthDate || "";
+    if (bd !== (current.birthDate || "")) patch.birthDate = bd;
   }
-  // Baccalaureate path (stored on the account; private — not shown in public lists)
   if (nextBacTrack !== undefined) {
-    updates.bacTrack = typeof nextBacTrack === "string" ? nextBacTrack : "";
+    const v = typeof nextBacTrack === "string" ? nextBacTrack : "";
+    if (v !== (current.bacTrack || "")) patch.bacTrack = v;
   }
   if (nextBacGrade !== undefined) {
-    updates.bacGrade = nextBacGrade === "2" || nextBacGrade === "3" ? nextBacGrade : "";
+    const v = nextBacGrade === "2" || nextBacGrade === "3" ? nextBacGrade : "";
+    if (v !== (current.bacGrade || "")) patch.bacGrade = v;
   }
-  if (nextBacSpecialty !== undefined) {
-    updates.bacSpecialty = typeof nextBacSpecialty === "string" ? nextBacSpecialty : "";
-  }
-  if (updates.bacGrade !== "2") {
-    updates.bacSpecialty = "";
+  if (nextBacSpecialty !== undefined || patch.bacGrade !== undefined) {
+    const grade = patch.bacGrade !== undefined ? patch.bacGrade : current.bacGrade;
+    const v =
+      grade === "2"
+        ? typeof nextBacSpecialty === "string"
+          ? nextBacSpecialty
+          : current.bacSpecialty || ""
+        : "";
+    if (v !== (current.bacSpecialty || "")) patch.bacSpecialty = v;
   }
   if (newPassword) {
     const pCheck = validatePassword(newPassword);
     if (!pCheck.ok) return { error: pCheck.error };
-    updates.passwordHash = await hashPassword(pCheck.password, accountCode);
+    patch.passwordHash = await hashPassword(pCheck.password, accountCode);
   }
+
+  if (!Object.keys(patch).length) {
+    showToast(appIsAr ? "مفيش تغييرات." : "No changes to save.");
+    return { ok: true };
+  }
+
   const oldName = name;
   const nextAccounts = accounts.map((a) =>
-    a.code === accountCode ? { ...a, ...updates } : a
+    a.code === accountCode ? { ...a, ...patch } : a
   );
-  const logEntry = makeLogEntry(
-    "account_edit",
-    newPassword
-      ? `${oldName} updated their account (name/password)`
-      : `${oldName} renamed their own account to "${trimmed}"`,
-    trimmed,
-    accountCode
-  );
+  // Optimistic UI
+  if (typeof setAccounts === "function") setAccounts(nextAccounts);
+
   try {
-    await persistAccounts(nextAccounts, logEntry);
+    if (typeof patchAccountFields === "function" && recordVersionRef && commitRecordVersion) {
+      const { version } = await patchAccountFields(
+        accountCode,
+        patch,
+        recordVersionRef.current || 0
+      );
+      commitRecordVersion(version);
+    } else {
+      // Fallback: accounts-only full list path
+      const logEntry = makeLogEntry(
+        "account_edit",
+        newPassword
+          ? `${oldName} updated their account (name/password)`
+          : `${oldName} updated their account`,
+        trimmed,
+        accountCode
+      );
+      await persistAccounts(nextAccounts, logEntry);
+    }
   } catch (_) {
+    if (typeof setAccounts === "function") setAccounts(accounts);
     return {
       error: appIsAr
         ? "تعذّر حفظ التغييرات — حاول مرة أخرى."

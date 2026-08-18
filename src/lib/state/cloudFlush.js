@@ -2,11 +2,18 @@
  * Coalesced flush of pending account/entry ops to the cloud record.
  * `ctx` holds the live refs + setters from App so behavior stays identical.
  */
-import { SaveConflictError, saveRecord } from "./cloudApi";
+import {
+  SaveConflictError,
+  saveRecord,
+  saveAccountsOnly,
+  patchEntry,
+  deleteEntryRemote,
+} from "./cloudApi";
 import { saveOfflineCache, clearPendingCloudSync, markPendingCloudSync, removePendingApproveCode } from "./storage";
 import { capLogs } from "./logs";
 import { attachXpToAccounts } from "./xp";
 import { applyOps, MAX_SAVE_RETRIES } from "./cloudQueue";
+import { diffEntries, GRANULAR_ENTRY_LIMIT } from "./partialSave";
 
 export function flushPendingAccounts(ctx) {
   const {
@@ -77,12 +84,10 @@ export function flushPendingAccounts(ctx) {
           setAccounts(nextAccounts);
           const removeCodes = [...pendingRemoveCodesRef.current];
           const approveCodes = [...pendingApprovedCodesRef.current];
-          const newVersion = await saveRecord(
+          // Accounts-only scope: do not rewrite entries/logs on every profile tweak
+          const newVersion = await saveAccountsOnly(
             {
-              entries: curEntries,
               accounts: nextAccounts,
-              logs: nextLogs,
-              siteBanner: curBanner,
               ...(removeCodes.length ? { removeAccountCodes: removeCodes } : {}),
               ...(approveCodes.length ? { approveAccountCodes: approveCodes } : {}),
             },
@@ -209,6 +214,7 @@ export function flushPendingEntries(ctx) {
     setLogs,
     setSiteBanner,
     setSaveError,
+    lastSyncedEntriesRef,
   } = ctx;
 
   return enqueueSave(async () => {
@@ -224,6 +230,11 @@ export function flushPendingEntries(ctx) {
       let curUnits = academicUnitsRef?.current || null;
       let curVersion = recordVersionRef.current;
       let useOptimisticSnapshot = true;
+      // Baseline for granular diff (last successful cloud sync)
+      let syncBase =
+        lastSyncedEntriesRef?.current && Array.isArray(lastSyncedEntriesRef.current)
+          ? lastSyncedEntriesRef.current
+          : null;
 
       for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
         let nextEntries;
@@ -245,18 +256,39 @@ export function flushPendingEntries(ctx) {
         }
 
         try {
-          const newVersion = await saveRecord(
-            {
-              entries: nextEntries,
-              accounts: curAccounts,
-              logs: nextLogs,
-              siteBanner: curBanner,
-              examConfig: curExam,
-              academicUnits: curUnits,
-            },
-            curVersion
-          );
+          const baseForDiff = syncBase || curEntries;
+          const { added, updated, removed } = diffEntries(baseForDiff, nextEntries);
+          const changeCount = added.length + updated.length + removed.length;
+
+          let newVersion = curVersion;
+          if (changeCount > 0 && changeCount <= GRANULAR_ENTRY_LIMIT) {
+            // Per-word patches — do not rewrite the whole dictionary
+            for (const e of [...added, ...updated]) {
+              newVersion = await patchEntry(e, newVersion);
+            }
+            for (const id of removed) {
+              newVersion = await deleteEntryRemote(id, newVersion);
+            }
+          } else if (changeCount > GRANULAR_ENTRY_LIMIT) {
+            // Bulk (e.g. large CSV import) — full entries write once
+            newVersion = await saveRecord(
+              {
+                entries: nextEntries,
+                accounts: curAccounts,
+                logs: nextLogs,
+                siteBanner: curBanner,
+                examConfig: curExam,
+                academicUnits: curUnits,
+              },
+              curVersion
+            );
+          }
+          // changeCount === 0: nothing to push
+
           commitRecordVersion(newVersion);
+          if (lastSyncedEntriesRef) {
+            lastSyncedEntriesRef.current = nextEntries;
+          }
           saveOfflineCache({
             entries: nextEntries,
             accounts: curAccounts,
@@ -279,6 +311,8 @@ export function flushPendingEntries(ctx) {
             accountsRef.current = curAccounts;
             logsRef.current = curLogs;
             siteBannerRef.current = curBanner;
+            if (lastSyncedEntriesRef) lastSyncedEntriesRef.current = curEntries;
+            syncBase = curEntries;
             commitRecordVersion(curVersion);
             useOptimisticSnapshot = false;
             await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));

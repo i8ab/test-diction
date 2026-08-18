@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { fetchRecord, saveRecord, SaveConflictError } from "./lib/state/cloudApi";
+import { fetchRecord, saveRecord, SaveConflictError, patchAccountFields, patchSettings } from "./lib/state/cloudApi";
 import {
   loadSearchHistory, saveSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory,
   saveOfflineCache, loadOfflineCache, savePersonalCode, loadPersonalCode, clearPersonalCode,
@@ -157,6 +157,8 @@ export default function DictionaryApp() {
   // Live mirrors so a queued/coalesced save always sees the latest data,
   // not a stale React closure from when the user clicked earlier.
   const entriesRef = useRef([]);
+  /** Last entry list successfully confirmed on the server — for granular diffs. */
+  const lastSyncedEntriesRef = useRef([]);
   const accountsRef = useRef([]);
   const logsRef = useRef([]);
   const siteBannerRef = useRef(null);
@@ -547,6 +549,8 @@ export default function DictionaryApp() {
         }
 
         setEntries(rec.entries);
+        entriesRef.current = rec.entries || [];
+        lastSyncedEntriesRef.current = rec.entries || [];
         setAccounts(accountsForUi);
         accountsRef.current = accountsForUi;
         setLogs(rec.logs);
@@ -877,6 +881,7 @@ export default function DictionaryApp() {
       setSiteBanner,
       setSaveError,
       accountCode,
+      lastSyncedEntriesRef,
     };
   }
 
@@ -992,26 +997,21 @@ export default function DictionaryApp() {
     siteBannerRef.current = nextBanner;
     return enqueueSave(async () => {
       let curVersion = recordVersionRef.current;
-      let curEntries = entriesRef.current;
-      let curAccounts = accountsRef.current;
-      let curLogs = logsRef.current;
       for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
         try {
-          const newVersion = await saveRecord({ entries: curEntries, accounts: curAccounts, logs: curLogs, siteBanner: nextBanner}, curVersion);
+          const newVersion = await patchSettings("site_banner", nextBanner, curVersion);
           commitRecordVersion(newVersion);
-          saveOfflineCache({ entries: curEntries, accounts: curAccounts, logs: curLogs, siteBanner: nextBanner});
+          saveOfflineCache({
+            entries: entriesRef.current,
+            accounts: accountsRef.current,
+            logs: logsRef.current,
+            siteBanner: nextBanner,
+            examConfig: examConfigRef.current,
+            academicUnits: academicUnitsRef.current,
+          });
           return { ok: true };
         } catch (e) {
           if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
-            curEntries = e.fresh.entries || [];
-            curAccounts = e.fresh.accounts || [];
-            curLogs = e.fresh.logs || [];
-            setEntries(curEntries);
-            setAccounts(curAccounts);
-            setLogs(curLogs);
-            entriesRef.current = curEntries;
-            accountsRef.current = curAccounts;
-            logsRef.current = curLogs;
             curVersion = e.fresh.version || 0;
             commitRecordVersion(curVersion);
             await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
@@ -1035,38 +1035,21 @@ export default function DictionaryApp() {
     saveExamConfigCache(normalized);
     return enqueueSave(async () => {
       let curVersion = recordVersionRef.current;
-      let curEntries = entriesRef.current;
-      let curAccounts = accountsRef.current;
-      let curLogs = logsRef.current;
-      let curBanner = siteBannerRef.current;
       for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
         try {
-          const newVersion = await saveRecord({
-            entries: curEntries, accounts: curAccounts, logs: curLogs,
-            siteBanner: curBanner, examConfig: normalized, academicUnits: academicUnitsRef.current,
-          }, curVersion);
+          const newVersion = await patchSettings("exam_config", normalized, curVersion);
           commitRecordVersion(newVersion);
           saveOfflineCache({
-            entries: curEntries, accounts: curAccounts, logs: curLogs,
-            siteBanner: curBanner, examConfig: normalized, academicUnits: academicUnitsRef.current,
+            entries: entriesRef.current,
+            accounts: accountsRef.current,
+            logs: logsRef.current,
+            siteBanner: siteBannerRef.current,
+            examConfig: normalized,
+            academicUnits: academicUnitsRef.current,
           });
           return { ok: true };
         } catch (e) {
           if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
-            curEntries = e.fresh.entries || [];
-            curAccounts = e.fresh.accounts || [];
-            curLogs = e.fresh.logs || [];
-            if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
-            if (e.fresh.examConfig !== undefined) {
-              const freshExam = normalizeExamConfig(e.fresh.examConfig);
-              // keep our intended write; only sync other fields
-            }
-            setEntries(curEntries);
-            setAccounts(curAccounts);
-            setLogs(curLogs);
-            entriesRef.current = curEntries;
-            accountsRef.current = curAccounts;
-            logsRef.current = curLogs;
             curVersion = e.fresh.version || 0;
             commitRecordVersion(curVersion);
             await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
@@ -1091,36 +1074,21 @@ export default function DictionaryApp() {
     });
     return enqueueSave(async () => {
       let curVersion = recordVersionRef.current;
-      let curEntries = entriesRef.current;
-      let curAccounts = accountsRef.current;
-      let curLogs = logsRef.current;
-      let curBanner = siteBannerRef.current;
-      let curExam = examConfigRef.current;
       for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
         try {
-          const newVersion = await saveRecord({
-            entries: curEntries, accounts: curAccounts, logs: curLogs,
-            siteBanner: curBanner, examConfig: curExam, academicUnits: normalized,
-          }, curVersion);
+          const newVersion = await patchSettings("academic_units", normalized, curVersion);
           commitRecordVersion(newVersion);
           saveOfflineCache({
-            entries: curEntries, accounts: curAccounts, logs: curLogs,
-            siteBanner: curBanner, examConfig: curExam, academicUnits: normalized,
+            entries: entriesRef.current,
+            accounts: accountsRef.current,
+            logs: logsRef.current,
+            siteBanner: siteBannerRef.current,
+            examConfig: examConfigRef.current,
+            academicUnits: normalized,
           });
           return { ok: true };
         } catch (e) {
           if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
-            curEntries = e.fresh.entries || [];
-            curAccounts = e.fresh.accounts || [];
-            curLogs = e.fresh.logs || [];
-            if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
-            if (e.fresh.examConfig !== undefined) curExam = normalizeExamConfig(e.fresh.examConfig);
-            setEntries(curEntries);
-            setAccounts(curAccounts);
-            setLogs(curLogs);
-            entriesRef.current = curEntries;
-            accountsRef.current = curAccounts;
-            logsRef.current = curLogs;
             curVersion = e.fresh.version || 0;
             commitRecordVersion(curVersion);
             await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
@@ -1469,6 +1437,10 @@ export default function DictionaryApp() {
       persistAccounts,
       setName,
       showToast,
+      setAccounts,
+      recordVersionRef,
+      commitRecordVersion,
+      patchAccountFields,
     });
   }
 

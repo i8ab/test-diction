@@ -1,7 +1,7 @@
 /**
  * Admin approve / reject / delete account flows (optimistic UI + conflict retries).
  */
-import { SaveConflictError, saveRecord, fetchRecord } from "./cloudApi";
+import { SaveConflictError, saveRecord, saveAccountsOnly, fetchRecord } from "./cloudApi";
 import {
   saveOfflineCache,
   addPendingApproveCode,
@@ -81,12 +81,9 @@ export async function approveAccountRequest(targetCode, ctx) {
         );
         const nextLogs = capLogs([...curLogs, logEntry]);
         try {
-          const newVersion = await saveRecord(
+          const newVersion = await saveAccountsOnly(
             {
-              entries: curEntries,
               accounts: nextAccounts,
-              logs: nextLogs,
-              siteBanner: curBanner,
               approveAccountCodes: [codeKey, ...pendingApprovedCodesRef.current],
             },
             curVersion
@@ -141,12 +138,9 @@ export async function approveAccountRequest(targetCode, ctx) {
           a && String(a.code) === codeKey ? { ...a, status: "active" } : a
         );
         try {
-          const newVersion = await saveRecord(
+          const newVersion = await saveAccountsOnly(
             {
-              entries: rec.entries || entriesRef.current,
               accounts: forced,
-              logs: rec.logs || logsRef.current,
-              siteBanner: rec.siteBanner ?? siteBannerRef.current,
               approveAccountCodes: [codeKey],
             },
             rec.version || 0
@@ -213,12 +207,9 @@ export async function rejectAccountRequest(targetCode, ctx) {
       const nextAccounts = curAccounts.filter((a) => a.code !== targetCode);
       const nextLogs = capLogs([...curLogs, logEntry]);
       try {
-        const newVersion = await saveRecord(
+        const newVersion = await saveAccountsOnly(
           {
-            entries: curEntries,
             accounts: nextAccounts,
-            logs: nextLogs,
-            siteBanner: curBanner,
             removeAccountCodes: [targetCode, ...pendingRemoveCodesRef.current],
           },
           curVersion
@@ -314,12 +305,9 @@ export async function deleteAccount(targetCode, ctx) {
         const nextAccounts = curAccounts.filter((a) => a.code !== targetCode);
         const nextLogs = capLogs([...curLogs, logEntry]);
         try {
-          const newVersion = await saveRecord(
+          const newVersion = await saveAccountsOnly(
             {
-              entries: curEntries,
               accounts: nextAccounts,
-              logs: nextLogs,
-              siteBanner: curBanner,
               removeAccountCodes: [targetCode, ...pendingRemoveCodesRef.current],
             },
             curVersion

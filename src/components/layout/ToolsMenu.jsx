@@ -10,7 +10,7 @@ import {
   MessageIcon, FileTextIcon, ShuffleIcon, PenLineIcon, SparklesIcon,
   GaugeIcon, LibraryIcon, SwordsIcon, ScanTextIcon, HistoryIcon, ReportIcon,
 } from "../common/Icons";
-import { preloadMotivationDuaModal } from "../modals/lazyModals";
+import { preloadAllTools } from "../modals/lazyModals";
 
 
 /**
@@ -99,14 +99,9 @@ export default function ToolsMenu({
       });
     }
     setOpen(true);
-    // Preload heavy full-page tools so opening them feels instant
+    // Warm every tools-menu chunk so the next tap opens immediately
     try {
-      import("../timer/TimerPage");
-      import("../calendar/CalendarPage");
-      import("../todo/TodoPage");
-      import("../goals/GoalsPage");
-      import("../dashboard/DashboardPage");
-      preloadMotivationDuaModal();
+      preloadAllTools();
     } catch (_) {}
   }
 

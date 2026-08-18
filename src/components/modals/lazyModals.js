@@ -81,8 +81,13 @@ function preload(key, importer) {
   if (_preloaded.has(key)) return;
   _preloaded.add(key);
   try {
-    importer();
-  } catch (_) {}
+    importer().catch(() => {
+      // Allow a later retry if the first attempt failed (offline / stale chunk)
+      _preloaded.delete(key);
+    });
+  } catch (_) {
+    _preloaded.delete(key);
+  }
 }
 
 export function preloadAdminModal() {
@@ -105,4 +110,64 @@ export function preloadSettingsHeavy() {
   preloadAccountModal();
   preloadInfoGuideModal();
   preloadExamSettingsModal();
+}
+
+/** Most-used study tools — preload so first click opens immediately. */
+export function preloadStudyCore() {
+  preload("quiz", () => import("./QuizModal"));
+  preload("exam", () => import("./ExamModeModal"));
+  preload("flashcards", () => import("./FlashcardsModal"));
+  preload("dictation", () => import("./DictationModal"));
+  preload("wordZoom", () => import("./WordZoomModal"));
+  preload("add", () => import("./AddModal"));
+  preload("quickReview", () => import("./QuickReviewModal"));
+  preload("smartCards", () => import("./SmartCardsModal"));
+}
+
+/** Everything reachable from the tools menu. */
+export function preloadAllTools() {
+  preloadStudyCore();
+  preload("stats", () => import("./StatsModal"));
+  preload("leaderboard", () => import("./LeaderboardModal"));
+  preload("timer", () => import("../timer/TimerPage"));
+  preload("calendar", () => import("../calendar/CalendarPage"));
+  preload("todo", () => import("../todo/TodoPage"));
+  preload("goals", () => import("../goals/GoalsPage"));
+  preload("achievements", () => import("./AchievementsModal"));
+  preload("dashboard", () => import("../dashboard/DashboardPage"));
+  preload("wordLists", () => import("./WordListsModal"));
+  preload("challenge", () => import("./ChallengeModal"));
+  preload("conversation", () => import("./ConversationModal"));
+  preload("levels", () => import("./LevelsModal"));
+  preload("levelUp", () => import("./LevelUpModal"));
+  preload("progressCompare", () => import("./ProgressCompareModal"));
+  preload("textExtract", () => import("./TextExtractModal"));
+  preload("aiPdf", () => import("./AiPdfExtractModal"));
+  preload("weakness", () => import("./WeaknessReviewModal"));
+  preload("listening", () => import("./ListeningLoopModal"));
+  preload("sentence", () => import("./SentencePracticeModal"));
+  preload("weeklyReport", () => import("./WeeklyReportModal"));
+  preload("tutor", () => import("./TutorChatModal"));
+  preload("randomWord", () => import("./RandomWordModal"));
+  preloadMotivationDuaModal();
+  preload("studyDua", () => import("./StudyDuaModal"));
+  preloadSettingsHeavy();
+}
+
+/**
+ * After the main UI is idle, warm the common chunks in the background
+ * so the first real click does not wait on the network.
+ */
+export function scheduleIdlePreload(fn = preloadStudyCore) {
+  if (typeof window === "undefined") return;
+  const run = () => {
+    try {
+      fn();
+    } catch (_) {}
+  };
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(run, { timeout: 4000 });
+  } else {
+    window.setTimeout(run, 1800);
+  }
 }

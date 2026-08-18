@@ -139,7 +139,7 @@ export default function MainViewOverlays(p) {
 
   return (
     <>
-      <Suspense fallback={null}>
+      <Suspense fallback={<ModalChunkFallback label={appIsAr ? "جاري الفتح…" : "Opening…"} />}>
         {showAdd && (
           <AddModal
             cfg={cfg}
@@ -195,7 +195,7 @@ export default function MainViewOverlays(p) {
         )}
         
         {showExamSettings && isAdmin && (
-          <Suspense fallback={null}>
+          <Suspense fallback={<ModalChunkFallback label={appIsAr ? "جاري الفتح…" : "Opening…"} />}>
             <ExamSettingsModal
               examConfig={examConfig}
               onPersist={onPersistExamConfig}
@@ -206,7 +206,7 @@ export default function MainViewOverlays(p) {
         )}
 
         {showExamMode && (
-          <Suspense fallback={null}>
+          <Suspense fallback={<ModalChunkFallback label={appIsAr ? "جاري الفتح…" : "Opening…"} />}>
             <ExamModeModal
               entries={practiceEntries}
               studiedIds={studiedIds}

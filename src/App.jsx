@@ -283,15 +283,52 @@ export default function DictionaryApp() {
     };
   }, []);
 
-  // Registers the offline service worker (see /sw.js). Wrapped in feature
-  // detection + try/catch since some browsers (or non-HTTPS dev servers)
-  // don't support it — the app should keep working online-only there.
+  // Registers the offline service worker (see /sw.js).
+  // updateViaCache: "none" + explicit reg.update() so a normal browser
+  // refresh (or pull-to-refresh) actually picks up a newly deployed SW/shell
+  // instead of silently keeping a week-old worker. Also force-activates any
+  // waiting worker so the user does not need a second reload.
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      // Registration failure just means no offline app-shell caching;
-      // the localStorage data cache above still works independently.
-    });
+    let cancelled = false;
+    navigator.serviceWorker
+      .register("/sw.js", { updateViaCache: "none" })
+      .then((reg) => {
+        if (cancelled) return;
+        try { reg.update(); } catch (_) {}
+        const kick = () => {
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: "SKIP_WAITING" });
+          }
+        };
+        if (reg.waiting) kick();
+        reg.addEventListener("updatefound", () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener("statechange", () => {
+            if (nw.state === "installed" && navigator.serviceWorker.controller) {
+              kick();
+            }
+          });
+        });
+      })
+      .catch(() => {
+        // Registration failure just means no offline app-shell caching;
+        // the localStorage data cache above still works independently.
+      });
+    // When a new worker takes control, do one clean reload so the user
+    // sees the new assets without having to manually refresh twice.
+    let refreshing = false;
+    const onControllerChange = () => {
+      if (refreshing) return;
+      refreshing = true;
+      try { window.location.reload(); } catch (_) {}
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+    return () => {
+      cancelled = true;
+      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+    };
   }, []);
 
   // Once-per-day XP for opening the app while signed in

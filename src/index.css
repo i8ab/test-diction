@@ -2115,15 +2115,20 @@ html[data-device="tablet"] .word-zoom-modal {
 
 
 /* ===== Mobile features ported to tablet ===== */
+/* Transparent sticky search on tablet (same as mobile — no dark bar / blur strip) */
 html[data-device="tablet"] .mobile-sticky-search {
   position: sticky;
   top: 0;
   z-index: 70;
-  background: color-mix(in srgb, var(--paper, #faf8f5) 92%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: transparent !important;
+  background-image: none !important;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   padding-top: 8px;
   padding-bottom: 8px;
+  border-bottom: none !important;
+  box-shadow: none !important;
 }
 html[data-device="tablet"] body {
   font-size: calc(16px * var(--ui-scale, 1));

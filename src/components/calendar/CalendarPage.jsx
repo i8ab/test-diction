@@ -356,21 +356,21 @@ export default function CalendarPage({
         overflow: "hidden",
       }}
     >
-      {/* Header */}
+      {/* Header — stacked so badges never overlap the date on mobile */}
       <header
         style={{
           display: "flex",
-          alignItems: "center",
-          gap: 10,
+          flexDirection: "column",
+          gap: 8,
           padding: "12px 16px",
           borderBottom: "1px solid rgba(var(--border-rgb),0.12)",
           flexShrink: 0,
-          flexWrap: "wrap",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, flexWrap: "wrap" }}>
+        {/* Title + close/pin row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <CalendarIcon size={20} style={{ color: BRASS, flexShrink: 0 }} />
-          <div style={{ minWidth: 0 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: INK, lineHeight: 1.2 }}>
               {tr(isAr, "Study Calendar", "تقويم المذاكرة")}
             </h1>
@@ -378,19 +378,31 @@ export default function CalendarPage({
               {todayLabel}
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setViewMode("bubble")}
+            title={tr(isAr, "Minimize to floating widget", "تصغير لودجت عائم")}
+            style={headerBtn}
+          >
+            {tr(isAr, "Pin", "تثبيت")}
+          </button>
+          <button type="button" onClick={onClose} style={headerBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
+            <XIcon size={16} />
+          </button>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        {/* Badges row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <div
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: 10,
+              gap: 6,
               padding: "4px 10px",
               borderRadius: 20,
               background: "color-mix(in srgb, #e85d04 12%, transparent)",
               color: "#e85d04",
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: 700,
             }}
           >
@@ -412,7 +424,7 @@ export default function CalendarPage({
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  padding: "5px 10px",
+                  padding: "4px 10px",
                   borderRadius: 20,
                   background: done ? "color-mix(in srgb, #22c55e 14%, transparent)" : "rgba(var(--border-rgb),0.08)",
                   color: done ? "#16a34a" : "var(--muted-strong)",
@@ -427,19 +439,6 @@ export default function CalendarPage({
               </div>
             );
           })()}
-
-          <button
-            type="button"
-            onClick={() => setViewMode("bubble")}
-            title={tr(isAr, "Minimize to floating widget", "تصغير لودجت عائم")}
-            style={headerBtn}
-          >
-            {tr(isAr, "Pin", "تثبيت")}
-          </button>
-
-          <button type="button" onClick={onClose} style={headerBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
-            <XIcon size={16} />
-          </button>
         </div>
       </header>
 

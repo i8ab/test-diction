@@ -74,21 +74,21 @@ function priorityRank(p) {
   return p === "high" ? 0 : p === "medium" ? 1 : 2;
 }
 
-/** Responsive scale: mobile keeps compact; tablet/desktop get a bit more air. */
+/** Responsive scale: fill the screen on tablet/desktop; keep mobile compact. */
 function useScreenPad() {
-  const [pad, setPad] = useState({ maxW: 480, px: 14, gap: 4, titleFs: 14, rowPy: 8 });
+  const [pad, setPad] = useState({ maxW: "100%", px: 14, gap: 4, titleFs: 14, rowPy: 8 });
   useEffect(() => {
     const apply = () => {
       const w = window.innerWidth || 400;
       if (w >= 1024) {
-        // Desktop — comfortable, not huge
-        setPad({ maxW: 560, px: 20, gap: 6, titleFs: 15, rowPy: 10 });
+        // Desktop — full width with comfortable padding
+        setPad({ maxW: "100%", px: 28, gap: 8, titleFs: 15, rowPy: 10 });
       } else if (w >= 600) {
-        // Tablet
-        setPad({ maxW: 520, px: 16, gap: 5, titleFs: 14, rowPy: 9 });
+        // Tablet — full width
+        setPad({ maxW: "100%", px: 20, gap: 6, titleFs: 14, rowPy: 9 });
       } else {
-        // Mobile — same as current good look
-        setPad({ maxW: 480, px: 14, gap: 4, titleFs: 14, rowPy: 8 });
+        // Mobile
+        setPad({ maxW: "100%", px: 14, gap: 4, titleFs: 14, rowPy: 8 });
       }
     };
     apply();
@@ -167,7 +167,8 @@ export default function TodoPage({
           return;
         }
         const data = await r.json().catch(() => ({}));
-        const remote = normalizeTodoList(data.todos, { stripActive: true });
+        // Keep activeSince so the timer continues on this device
+        const remote = normalizeTodoList(data.todos, { stripActive: false });
         if (cancelled) return;
         setTodos((local) => {
           if (remote.length === 0) return local;
@@ -179,12 +180,30 @@ export default function TodoPage({
             if (!existing) {
               map.set(r.id, r);
             } else {
+              // Prefer the more recent active timer; accumulate workedMs
+              const localActive = existing.activeSince || 0;
+              const remoteActive = r.activeSince || 0;
+              const bestActive = Math.max(localActive, remoteActive) || null;
               map.set(r.id, {
                 ...existing,
                 ...r,
                 workedMs: Math.max(existing.workedMs || 0, r.workedMs || 0),
-                activeSince: existing.activeSince || null,
+                activeSince: bestActive,
               });
+            }
+          }
+          // Only one task should be actively timing
+          const actives = Array.from(map.values()).filter((t) => t.activeSince);
+          if (actives.length > 1) {
+            const keepId = actives.sort((a, b) => b.activeSince - a.activeSince)[0].id;
+            for (const [id, t] of map) {
+              if (t.activeSince && id !== keepId) {
+                map.set(id, {
+                  ...t,
+                  activeSince: null,
+                  workedMs: (t.workedMs || 0) + Math.max(0, Date.now() - t.activeSince),
+                });
+              }
             }
           }
           return Array.from(map.values());
@@ -212,12 +231,11 @@ export default function TodoPage({
     cloudSaveTimer.current = setTimeout(async () => {
       try {
         setSyncStatus("syncing");
+        // Send activeSince as-is so the timer can continue on other devices
         const payload = todos.map((t) => ({
           ...t,
-          workedMs: t.activeSince
-            ? (t.workedMs || 0) + Math.max(0, Date.now() - t.activeSince)
-            : t.workedMs || 0,
-          activeSince: null,
+          workedMs: t.workedMs || 0,
+          activeSince: t.activeSince || null,
         }));
         const r = await fetch("/api/todos", {
           method: "PUT",
@@ -257,14 +275,18 @@ export default function TodoPage({
 
   const openCount = useMemo(() => todos.filter((t) => !t.done).length, [todos]);
   const doneCount = todos.length - openCount;
+  const workingCount = useMemo(() => todos.filter((t) => !t.done && t.activeSince).length, [todos]);
 
   const visible = useMemo(() => {
     let list = todos;
     if (filter === "open") list = todos.filter((t) => !t.done);
+    else if (filter === "working") list = todos.filter((t) => !t.done && t.activeSince);
     else if (filter === "done") list = todos.filter((t) => t.done);
     else if (filter === "high") list = todos.filter((t) => !t.done && t.priority === "high");
     return [...list].sort((a, b) => {
       if (Number(a.done) !== Number(b.done)) return Number(a.done) - Number(b.done);
+      // Active (working) tasks first
+      if (!!a.activeSince !== !!b.activeSince) return a.activeSince ? -1 : 1;
       if (priorityRank(a.priority) !== priorityRank(b.priority)) return priorityRank(a.priority) - priorityRank(b.priority);
       return a.createdAt - b.createdAt;
     });
@@ -469,7 +491,8 @@ export default function TodoPage({
           </div>
         </div>
         <div style={{ fontSize: 12, fontWeight: 700, color: INK, marginBottom: 4 }}>
-          {openCount} {tr(isAr, "open", "مفتوحة")}
+          {openCount} {tr(isAr, "tasks", "مهام")}
+          {workingCount > 0 ? ` · ${workingCount} ${tr(isAr, "working", "شغّال")}` : ""}
         </div>
         {active && (
           <div style={{ fontSize: 11, color: "#30d158", fontWeight: 700, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -518,8 +541,9 @@ export default function TodoPage({
             {tr(isAr, "Tasks", "المهام")}
           </h1>
           <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, marginTop: 1 }}>
-            {openCount} {tr(isAr, "open", "مفتوحة")}
-            {doneCount > 0 ? ` · ${doneCount} ${tr(isAr, "done", "منتهية")}` : ""}
+            {openCount} {tr(isAr, "tasks", "مهام")}
+            {workingCount > 0 ? ` · ${workingCount} ${tr(isAr, "working", "شغّال")}` : ""}
+            {doneCount > 0 ? ` · ${doneCount} ${tr(isAr, "done", "خلصت")}` : ""}
             {accountCode && syncStatus === "syncing" && <span> · {tr(isAr, "sync…", "مزامنة…")}</span>}
             {accountCode && syncStatus === "ok" && <span style={{ color: "#30d158" }}> · ✓</span>}
           </div>
@@ -677,9 +701,10 @@ export default function TodoPage({
         <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
           {[
             { id: "all", label: tr(isAr, "All", "الكل") },
-            { id: "open", label: tr(isAr, "Open", "مفتوحة") },
+            { id: "open", label: tr(isAr, "Tasks", "مهام") },
+            { id: "working", label: tr(isAr, "Working", "شغّال") },
             { id: "high", label: tr(isAr, "High", "عالية") },
-            { id: "done", label: tr(isAr, "Done", "منتهية") },
+            { id: "done", label: tr(isAr, "Done", "خلصت") },
           ].map((f) => (
             <button
               key={f.id}
@@ -714,7 +739,7 @@ export default function TodoPage({
                 textDecoration: "underline",
               }}
             >
-              {tr(isAr, "Clear done", "مسح المنتهية")}
+              {tr(isAr, "Clear done", "مسح اللي خلصت")}
             </button>
           )}
         </div>
@@ -766,7 +791,7 @@ export default function TodoPage({
                     <button
                       type="button"
                       onClick={() => toggleTodo(t.id)}
-                      aria-label={t.done ? tr(isAr, "Mark open", "مفتوحة") : tr(isAr, "Mark done", "منتهية")}
+                      aria-label={t.done ? tr(isAr, "Mark as task", "إرجاع كمهمة") : tr(isAr, "Mark done", "خلصت")}
                       style={{
                         width: 22,
                         height: 22,

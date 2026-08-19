@@ -22,7 +22,8 @@ function normalizeTodo(t) {
     done: !!t.done,
     createdAt: typeof t.createdAt === "number" ? t.createdAt : Date.now(),
     workedMs: typeof t.workedMs === "number" ? Math.max(0, t.workedMs) : 0,
-    activeSince: null, // never resume a timer from another device
+    // Keep active timer so it can continue on another device
+    activeSince: typeof t.activeSince === "number" && t.activeSince > 0 ? t.activeSince : null,
     priority: ["high", "medium", "low"].includes(t.priority) ? t.priority : "medium",
     dueDate: typeof t.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.dueDate) ? t.dueDate : null,
     note: typeof t.note === "string" ? String(t.note).slice(0, 800) : "",

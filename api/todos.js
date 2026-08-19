@@ -18,14 +18,14 @@ function normalizeTodo(t) {
   if (typeof t.text !== "string" || !t.text.trim()) return null;
   return {
     id: typeof t.id === "string" && t.id ? t.id : Math.random().toString(36).slice(2) + Date.now().toString(36),
-    text: String(t.text).slice(0, 500),
+    text: String(t.text).slice(0, 70),
     done: !!t.done,
     createdAt: typeof t.createdAt === "number" ? t.createdAt : Date.now(),
     workedMs: typeof t.workedMs === "number" ? Math.max(0, t.workedMs) : 0,
     activeSince: null, // never resume a timer from another device
     priority: ["high", "medium", "low"].includes(t.priority) ? t.priority : "medium",
     dueDate: typeof t.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.dueDate) ? t.dueDate : null,
-    note: typeof t.note === "string" ? String(t.note).slice(0, 300) : "",
+    note: typeof t.note === "string" ? String(t.note).slice(0, 800) : "",
   };
 }
 

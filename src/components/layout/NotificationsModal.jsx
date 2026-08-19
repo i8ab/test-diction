@@ -3,6 +3,25 @@ import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import { XIcon, BellIcon, BellOffIcon, LoaderIcon } from "../common/Icons";
 
+function isAndroidDevice() {
+  try {
+    return /Android/i.test(navigator.userAgent || "");
+  } catch (_) {
+    return false;
+  }
+}
+
+function isStandalonePwa() {
+  try {
+    if (window.navigator.standalone) return true;
+    return window.matchMedia(
+      "(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)"
+    ).matches;
+  } catch (_) {
+    return false;
+  }
+}
+
 /**
  * Notifications settings: study reminders + admin broadcast push.
  */
@@ -203,6 +222,52 @@ export default function NotificationsModal({
                           "On/Off is per device: turning off here does not stop reminders on your other phones. Reminders fire on the clock (e.g. 6:00, 7:00). Pick how many hours between those hours.",
                           "التفعيل/الإيقاف للجهاز ده بس: لو وقّفت هنا، التليفونات التانية تفضل تستلم عادي. التذكيرات على رأس الساعة (مثلاً 6:00 و 7:00). اختار كل كام ساعة بين المواعيد دي.")}
                       </div>
+
+                      {/* Android / battery reliability tip — closes the biggest real-world gap */}
+                      {(isAndroidDevice() || !isStandalonePwa()) && (
+                        <div
+                          style={{
+                            fontSize: 12,
+                            lineHeight: 1.55,
+                            padding: "10px 12px",
+                            borderRadius: 10,
+                            border: "1px solid rgba(255, 170, 0, 0.35)",
+                            background: "rgba(255, 170, 0, 0.08)",
+                            color: "var(--ink)",
+                          }}
+                        >
+                          <div style={{ fontWeight: 800, marginBottom: 6 }}>
+                            {T(
+                              "To receive alerts when the app is closed:",
+                              "عشان الإشعار يوصلك والتطبيق مقفول:"
+                            )}
+                          </div>
+                          <ol style={{ margin: 0, paddingInlineStart: 18 }}>
+                            {!isStandalonePwa() && (
+                              <li style={{ marginBottom: 4 }}>
+                                {T(
+                                  "Install the app: browser menu → “Add to Home Screen” / “Install app”.",
+                                  "ثبّت التطبيق: من قائمة المتصفح → «إضافة إلى الشاشة الرئيسية» أو «تثبيت التطبيق»."
+                                )}
+                              </li>
+                            )}
+                            {isAndroidDevice() && (
+                              <li style={{ marginBottom: 4 }}>
+                                {T(
+                                  "Phone Settings → Battery → turn off restriction for this app (or Chrome). On Xiaomi/Huawei/Oppo look for “Battery saver” / “App launch” and allow auto-start + background.",
+                                  "إعدادات الموبايل → البطارية → شيل التقييد عن التطبيق (أو Chrome). في شاومي/هواوي/أوبو: «توفير البطارية» / «تشغيل التطبيقات» وفعّل التشغيل التلقائي + الخلفية."
+                                )}
+                              </li>
+                            )}
+                            <li>
+                              {T(
+                                "After that, use “Send test” below once to confirm.",
+                                "بعد كده استخدم «إرسال تجربة» تحت مرة عشان تتأكد."
+                              )}
+                            </li>
+                          </ol>
+                        </div>
+                      )}
 
                       <div>
                         <label style={fieldLabel}>{T("Repeat every", "كل قد إيه")}</label>

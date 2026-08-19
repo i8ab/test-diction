@@ -20,6 +20,9 @@ import {
   saveReminderIntervalHours,
   buildReminderPayload,
   DEFAULT_INTERVAL_HOURS,
+  checkNeedsResubscribeFlag,
+  clearNeedsResubscribeFlag,
+  hasActiveBrowserSubscription,
 } from "../state/push";
 
 /**
@@ -163,32 +166,154 @@ export function useStudyReminders(accountCode, showToast) {
     [accountCode, reminderTitle, reminderMessage, schedulePrefsSave]
   );
 
-  // On load, if the person previously opted in AND permission is still
-  // granted but the subscription was somehow lost (e.g. cleared site
-  // data), re-subscribe quietly so reminders keep working.
+  // Safety: never leave remindersBusy=true for more than ~25s even if a
+  // promise hangs. This is the main fix for "the dialog freezes".
+  const busySafetyTimerRef = useRef(null);
+  const setBusySafe = useCallback((on) => {
+    if (busySafetyTimerRef.current) {
+      clearTimeout(busySafetyTimerRef.current);
+      busySafetyTimerRef.current = null;
+    }
+    setRemindersBusy(!!on);
+    if (on) {
+      busySafetyTimerRef.current = setTimeout(() => {
+        setRemindersBusy(false);
+        busySafetyTimerRef.current = null;
+      }, 25000);
+    }
+  }, []);
+
+  /**
+   * Keep the push subscription healthy.
+   * Called on: account change, app becomes visible, SW says subscription changed.
+   * - If SW left a "needs resubscribe" flag → force repair.
+   * - If browser has no active subscription → create one.
+   * - Otherwise quietly re-upsert the existing one to the server
+   *   (covers the case where server lost it but browser still has it).
+   * Never shows toasts here — this is silent background maintenance.
+   */
+  const ensureSubscriptionHealthy = useCallback(
+    async (opts = {}) => {
+      const forceFromCaller = !!(opts && opts.force);
+      if (!accountCode || !pushSupported()) return;
+      // Prefer the live toggle state; also honour localStorage so a cold
+      // start right after enable still repairs even before state settles.
+      const wantsReminders =
+        remindersOn || loadRemindersEnabled(accountCode);
+      if (!wantsReminders) return;
+
+      try {
+        const status = await getPushStatus();
+        if (status !== "granted") return;
+
+        let force = forceFromCaller;
+        try {
+          if (await checkNeedsResubscribeFlag()) {
+            force = true;
+            await clearNeedsResubscribeFlag();
+          }
+        } catch (_) {}
+
+        if (!force) {
+          const hasSub = await hasActiveBrowserSubscription();
+          if (!hasSub) force = true;
+        }
+
+        await subscribeToPush(accountCode, getReminderPrefs(), { force });
+      } catch (_) {
+        /* quiet background repair — never disturb the user */
+      }
+    },
+    [accountCode, remindersOn, getReminderPrefs]
+  );
+
+  // 1) On account change / first load: repair if needed
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      if (!remindersOn || !accountCode || !pushSupported()) return;
-      const status = await getPushStatus();
-      if (status === "granted") await subscribeToPush(accountCode, getReminderPrefs());
+      if (cancelled) return;
+      await ensureSubscriptionHealthy({ force: false });
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountCode]);
+    return () => {
+      cancelled = true;
+    };
+  }, [accountCode, ensureSubscriptionHealthy]);
+
+  // 2) When the app comes back to the foreground (user reopened it after
+  //    closing / switching away): repair. This is the main fix for
+  //    "notifications stop until I open the app".
+  useEffect(() => {
+    if (!accountCode || !pushSupported()) return;
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        ensureSubscriptionHealthy({ force: false });
+      }
+    };
+    const onFocus = () => {
+      ensureSubscriptionHealthy({ force: false });
+    };
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [accountCode, ensureSubscriptionHealthy]);
+
+  // 3) Listen for SW message: pushsubscriptionchange while a tab was open
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+
+    const onMessage = (event) => {
+      const data = event && event.data;
+      if (!data || data.type !== "PUSH_SUBSCRIPTION_CHANGE") return;
+      // Force repair immediately — the old endpoint is dead
+      ensureSubscriptionHealthy({ force: true });
+    };
+
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", onMessage);
+    };
+  }, [ensureSubscriptionHealthy]);
 
   // Optimistic UI: flip the toggle immediately so the menu feels instant.
   // Network / permission work runs in the background; if enable fails
   // (permission denied, unsupported, server error) we roll the flag back.
+  // We use force:true on explicit user enable so a previously broken /
+  // stale subscription is replaced with a fresh one — this is the most
+  // reliable fix for "it says On but notifications never come".
   const enableReminders = useCallback(async () => {
     if (remindersBusy) return;
     setRemindersOn(true);
     if (accountCode) saveRemindersEnabled(accountCode, true);
-    setRemindersBusy(true);
+    setBusySafe(true);
     try {
       if (pushSupported() && accountCode) {
-        const result = await subscribeToPush(accountCode, getReminderPrefs());
+        // force:true → drop any stale browser subscription and create a new one
+        const result = await subscribeToPush(accountCode, getReminderPrefs(), { force: true });
+        if (result.ok) {
+          try { await clearNeedsResubscribeFlag(); } catch (_) {}
+        }
         if (!result.ok) {
           setRemindersOn(false);
           if (accountCode) saveRemindersEnabled(accountCode, false);
+          if (typeof showToast === "function") {
+            const err = result.error || result.reason || "";
+            if (err === "denied") {
+              showToast("الإذن مرفوض — افتح إعدادات المتصفح وفعّل الإشعارات للتطبيق");
+            } else if (err === "no_vapid") {
+              showToast("مفتاح VAPID ناقص — حط VITE_VAPID_PUBLIC_KEY في Vercel ثم redeploy");
+            } else if (err === "sw_timeout" || err === "subscribe_timeout" || err === "timeout") {
+              showToast("التفعيل استغرق وقت طويل — أقفل التطبيق وافتحه تاني ثم حاول");
+            } else if (err === "network_timeout" || result.reason === "network") {
+              showToast("مفيش إنترنت أو السيرفر مش راد — حاول تاني بعد شوية");
+            } else {
+              showToast(result.message || "فشل تفعيل الإشعارات — حاول تاني");
+            }
+          }
         }
       } else if (typeof Notification !== "undefined" && Notification.permission !== "granted") {
         const perm = await Notification.requestPermission();
@@ -200,9 +325,13 @@ export function useStudyReminders(accountCode, showToast) {
     } catch (_) {
       setRemindersOn(false);
       if (accountCode) saveRemindersEnabled(accountCode, false);
+      if (typeof showToast === "function") {
+        showToast("حصل خطأ أثناء التفعيل — حاول تاني");
+      }
+    } finally {
+      setBusySafe(false);
     }
-    setRemindersBusy(false);
-  }, [accountCode, remindersBusy, getReminderPrefs]);
+  }, [accountCode, remindersBusy, getReminderPrefs, showToast, setBusySafe]);
 
   // Turns off push on *this device only*. Other phones for the same account
   // keep their subscriptions and keep receiving reminders.
@@ -210,19 +339,21 @@ export function useStudyReminders(accountCode, showToast) {
     if (remindersBusy) return;
     setRemindersOn(false);
     if (accountCode) saveRemindersEnabled(accountCode, false);
-    setRemindersBusy(true);
+    setBusySafe(true);
     try {
       await unsubscribeFromPush(accountCode);
     } catch (_) {}
-    setRemindersBusy(false);
-  }, [accountCode, remindersBusy]);
+    finally {
+      setBusySafe(false);
+    }
+  }, [accountCode, remindersBusy, setBusySafe]);
 
   const clearReminderSlots = useCallback(async () => {
     if (!accountCode) {
       if (typeof showToast === "function") showToast("سجّل الدخول أولاً / Sign in first");
       return { ok: false };
     }
-    setRemindersBusy(true);
+    setBusySafe(true);
     try {
       const result = await resetPushSlots(accountCode);
       if (typeof showToast === "function") {
@@ -239,18 +370,21 @@ export function useStudyReminders(accountCode, showToast) {
       if (typeof showToast === "function") showToast("خطأ شبكة / Network error");
       return { ok: false };
     } finally {
-      setRemindersBusy(false);
+      setBusySafe(false);
     }
-  }, [accountCode, showToast]);
+  }, [accountCode, showToast, setBusySafe]);
 
   const testReminderPush = useCallback(async () => {
     if (!accountCode) {
       if (typeof showToast === "function") showToast("سجّل الدخول أولاً / Sign in first");
       return;
     }
+    setBusySafe(true);
     try {
       if (pushSupported()) {
-        const sub = await subscribeToPush(accountCode, getReminderPrefs());
+        // Force a fresh subscription before testing — this is the path users
+        // hit when "it was On but nothing arrived". A clean sub is the fix.
+        const sub = await subscribeToPush(accountCode, getReminderPrefs(), { force: true });
         if (!sub.ok) {
           const err = sub.error || sub.reason || "";
           if (typeof showToast === "function") {
@@ -258,12 +392,17 @@ export function useStudyReminders(accountCode, showToast) {
               showToast("الإذن مرفوض — فعّل الإشعارات من إعدادات المتصفح");
             } else if (err === "no_vapid") {
               showToast("مفتاح VAPID ناقص — حط VITE_VAPID_PUBLIC_KEY في Vercel ثم redeploy");
+            } else if (err === "sw_timeout" || err === "subscribe_timeout" || err === "timeout") {
+              showToast("التفعيل استغرق وقت طويل — أقفل وافتح التطبيق ثم حاول");
+            } else if (err === "network_timeout") {
+              showToast("مفيش إنترنت أو السيرفر مش راد — حاول تاني");
             } else {
               showToast(sub.message || "مفيش اشتراك Push — فعّل التذكيرات ووافق على الإذن");
             }
           }
           return;
         }
+        try { await clearNeedsResubscribeFlag(); } catch (_) {}
         setRemindersOn(true);
         if (accountCode) saveRemindersEnabled(accountCode, true);
       }
@@ -295,8 +434,10 @@ export function useStudyReminders(accountCode, showToast) {
       }
     } catch (_) {
       if (typeof showToast === "function") showToast("خطأ شبكة أثناء تجربة الإشعار");
+    } finally {
+      setBusySafe(false);
     }
-  }, [accountCode, getReminderPrefs, reminderTitle, reminderMessage, showToast]);
+  }, [accountCode, getReminderPrefs, reminderTitle, reminderMessage, showToast, setBusySafe]);
 
   return {
     remindersOn,

@@ -173,3 +173,125 @@ self.addEventListener("notificationclick", (event) => {
     })
   );
 });
+
+/* =============================================================================
+   PUSH SUBSCRIPTION CHANGE (critical for stability when the app is closed)
+   -----------------------------------------------------------------------------
+   Browsers periodically rotate or invalidate push subscriptions (after long
+   idle time, browser updates, clearing site data, etc.). If we don't react,
+   the server keeps the OLD dead endpoint → notifications stop arriving until
+   the user opens the app again.
+
+   Strategy (works even if the user never opens the app):
+   1) Read account code + VAPID public key that the page stored in Cache
+      when it last subscribed successfully (/__push_account_meta).
+   2) Obtain a fresh PushSubscription (prefer event.newSubscription; else
+      subscribe with the stored VAPID key).
+   3) POST the new subscription to /api/push-subscribe so the server has a
+      live endpoint again — no need for the user to open the app.
+   4) Still flag + notify open clients as a backup.
+   ============================================================================= */
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+async function readPushMetaFromCaches() {
+  try {
+    const keys = await caches.keys();
+    for (const key of keys) {
+      try {
+        const cache = await caches.open(key);
+        const res = await cache.match("/__push_account_meta");
+        if (!res) continue;
+        const data = await res.json();
+        if (data && data.code && data.vapidPublicKey) return data;
+      } catch (_) {}
+    }
+  } catch (_) {}
+  return null;
+}
+
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    (async () => {
+      // ── 1) Try to repair from the Service Worker itself (app can stay closed)
+      let repaired = false;
+      try {
+        const meta = await readPushMetaFromCaches();
+        if (meta && meta.code && meta.vapidPublicKey) {
+          let sub = event.newSubscription || null;
+          if (!sub) {
+            try {
+              sub = await self.registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(meta.vapidPublicKey),
+              });
+            } catch (_) {
+              sub = null;
+            }
+          }
+          if (sub && sub.endpoint) {
+            try {
+              const r = await fetch("/api/push-subscribe", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  code: meta.code,
+                  subscription: sub.toJSON(),
+                }),
+              });
+              if (r.ok) repaired = true;
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+
+      // ── 2) Backup: flag for the page if repair failed or meta was missing
+      if (!repaired) {
+        try {
+          const cache = await caches.open(CACHE_VERSION);
+          await cache.put(
+            new Request("/__push_needs_resubscribe"),
+            new Response(JSON.stringify({ at: Date.now() }), {
+              headers: { "Content-Type": "application/json" },
+            })
+          );
+        } catch (_) {}
+      } else {
+        // Clear any previous needs-resubscribe flag
+        try {
+          const keys = await caches.keys();
+          for (const key of keys) {
+            try {
+              const cache = await caches.open(key);
+              await cache.delete("/__push_needs_resubscribe");
+            } catch (_) {}
+          }
+        } catch (_) {}
+      }
+
+      // ── 3) Notify any open tabs so they stay in sync
+      try {
+        const clientsArr = await self.clients.matchAll({
+          type: "window",
+          includeUncontrolled: true,
+        });
+        for (const c of clientsArr) {
+          try {
+            c.postMessage({
+              type: "PUSH_SUBSCRIPTION_CHANGE",
+              at: Date.now(),
+              repaired,
+            });
+          } catch (_) {}
+        }
+      } catch (_) {}
+    })()
+  );
+});

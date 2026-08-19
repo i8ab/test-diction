@@ -14,7 +14,10 @@ import {
 } from "../../lib/state/inbox";
 import { achievementById } from "../../lib/state/achievements";
 
-const SWIPE_DELETE_THRESHOLD = 72;
+// Higher threshold + drag resistance = heavier swipe, harder to delete by accident
+const SWIPE_DELETE_THRESHOLD = 118;
+const SWIPE_DRAG_RESISTANCE = 0.42; // row moves ~42% of finger distance
+const SWIPE_AXIS_LOCK = 14; // need clearer horizontal intent before locking
 
 /**
  * Swipe-to-delete row.
@@ -61,9 +64,9 @@ function SwipeDeleteRow({ children, onDelete, isRtl, deleteLabel }) {
     const dy = e.clientY - startY.current;
 
     if (axis.current == null) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if (Math.abs(dx) < SWIPE_AXIS_LOCK && Math.abs(dy) < SWIPE_AXIS_LOCK) return;
       // Decide axis once the finger has moved enough
-      axis.current = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+      axis.current = Math.abs(dx) > Math.abs(dy) * 1.15 ? "h" : "v";
       if (axis.current === "v") {
         // Let the list scroll — abort swipe
         setDragging(false);
@@ -75,16 +78,16 @@ function SwipeDeleteRow({ children, onDelete, isRtl, deleteLabel }) {
 
     if (axis.current !== "h") return;
 
-    // Only allow movement in the delete direction; rubber-band the other way lightly
-    let next = dx;
+    // Heavier feel: row lags behind the finger (resistance)
+    let next = dx * SWIPE_DRAG_RESISTANCE;
     if (deleteSign > 0) {
       // LTR: prefer positive (right)
-      if (next < 0) next = next * 0.15;
-      next = Math.min(next, 120);
+      if (next < 0) next = next * 0.12;
+      next = Math.min(next, 160);
     } else {
       // RTL: prefer negative (left)
-      if (next > 0) next = next * 0.15;
-      next = Math.max(next, -120);
+      if (next > 0) next = next * 0.12;
+      next = Math.max(next, -160);
     }
     setOffset(next);
     e.preventDefault();
@@ -105,7 +108,7 @@ function SwipeDeleteRow({ children, onDelete, isRtl, deleteLabel }) {
         try {
           onDelete();
         } catch (_) {}
-      }, 180);
+      }, 200);
     } else {
       setOffset(0);
     }

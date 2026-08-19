@@ -225,6 +225,19 @@ self.addEventListener("pushsubscriptionchange", (event) => {
       try {
         const meta = await readPushMetaFromCaches();
         if (meta && meta.code && meta.vapidPublicKey) {
+          // Drop the old endpoint from the server so zombies don't accumulate
+          try {
+            const oldSub = event.oldSubscription;
+            const oldEndpoint = oldSub && oldSub.endpoint;
+            if (oldEndpoint) {
+              await fetch("/api/push-subscribe", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ code: meta.code, endpoint: oldEndpoint }),
+              });
+            }
+          } catch (_) {}
+
           let sub = event.newSubscription || null;
           if (!sub) {
             try {

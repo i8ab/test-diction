@@ -276,7 +276,29 @@ export async function subscribeToPush(accountCode, prefs = {}, options = {}) {
     // 3) Existing subscription handling
     let sub = await getCurrentSubscription(reg);
 
+    // When force-rotating: remove the OLD endpoint from the server FIRST,
+    // then unsubscribe locally. Otherwise every re-subscribe leaves a dead
+    // endpoint in Redis and "devices" grows (10, 20, …) for 1–2 real phones.
     if (force && sub) {
+      let oldEndpoint = "";
+      try {
+        oldEndpoint = sub.endpoint || "";
+      } catch (_) {}
+      if (oldEndpoint && accountCode) {
+        try {
+          await withTimeout(
+            fetch("/api/push-subscribe", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ code: accountCode, endpoint: oldEndpoint }),
+            }),
+            FETCH_TIMEOUT_MS,
+            "push-delete-old"
+          );
+        } catch (_) {
+          /* best-effort — still continue to create a fresh sub */
+        }
+      }
       try {
         await withTimeout(sub.unsubscribe(), 8000, "unsubscribe");
       } catch (_) {

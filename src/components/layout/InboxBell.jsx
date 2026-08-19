@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import { BellIcon, XIcon } from "../common/Icons";
@@ -13,6 +13,169 @@ import {
   syncInboxFromServer,
 } from "../../lib/state/inbox";
 import { achievementById } from "../../lib/state/achievements";
+
+const SWIPE_DELETE_THRESHOLD = 72;
+
+/**
+ * Swipe-to-delete row.
+ * Direction follows language (as requested):
+ *   - English / LTR → swipe RIGHT to delete
+ *   - Arabic / RTL  → swipe LEFT to delete
+ * Vertical scrolling of the list is preserved (only locks after a clear horizontal gesture).
+ */
+function SwipeDeleteRow({ children, onDelete, isRtl, deleteLabel }) {
+  const [offsetX, setOffsetX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [exiting, setExiting] = useState(false);
+  const startX = useRef(0);
+  const startY = useRef(0);
+  const axis = useRef(null); // null | "h" | "v"
+  const offsetRef = useRef(0);
+  const activePointer = useRef(null);
+
+  // Allowed swipe direction: positive = right, negative = left
+  const deleteSign = isRtl ? -1 : 1;
+
+  function setOffset(v) {
+    offsetRef.current = v;
+    setOffsetX(v);
+  }
+
+  function onPointerDown(e) {
+    if (exiting) return;
+    // Only primary button / touch
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    activePointer.current = e.pointerId;
+    startX.current = e.clientX;
+    startY.current = e.clientY;
+    axis.current = null;
+    setDragging(true);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (_) {}
+  }
+
+  function onPointerMove(e) {
+    if (!dragging || activePointer.current !== e.pointerId || exiting) return;
+    const dx = e.clientX - startX.current;
+    const dy = e.clientY - startY.current;
+
+    if (axis.current == null) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      // Decide axis once the finger has moved enough
+      axis.current = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+      if (axis.current === "v") {
+        // Let the list scroll — abort swipe
+        setDragging(false);
+        activePointer.current = null;
+        setOffset(0);
+        return;
+      }
+    }
+
+    if (axis.current !== "h") return;
+
+    // Only allow movement in the delete direction; rubber-band the other way lightly
+    let next = dx;
+    if (deleteSign > 0) {
+      // LTR: prefer positive (right)
+      if (next < 0) next = next * 0.15;
+      next = Math.min(next, 120);
+    } else {
+      // RTL: prefer negative (left)
+      if (next > 0) next = next * 0.15;
+      next = Math.max(next, -120);
+    }
+    setOffset(next);
+    e.preventDefault();
+  }
+
+  function finishSwipe() {
+    if (exiting) return;
+    const ox = offsetRef.current;
+    const committed =
+      (deleteSign > 0 && ox >= SWIPE_DELETE_THRESHOLD) ||
+      (deleteSign < 0 && ox <= -SWIPE_DELETE_THRESHOLD);
+
+    if (committed) {
+      setExiting(true);
+      setOffset(deleteSign * 420);
+      // Let the slide-out animation play, then remove
+      setTimeout(() => {
+        try {
+          onDelete();
+        } catch (_) {}
+      }, 180);
+    } else {
+      setOffset(0);
+    }
+    setDragging(false);
+    activePointer.current = null;
+    axis.current = null;
+  }
+
+  function onPointerUp(e) {
+    if (activePointer.current !== e.pointerId) return;
+    finishSwipe();
+  }
+
+  function onPointerCancel(e) {
+    if (activePointer.current !== e.pointerId) return;
+    setOffset(0);
+    setDragging(false);
+    activePointer.current = null;
+    axis.current = null;
+  }
+
+  const progress = Math.min(1, Math.abs(offsetX) / SWIPE_DELETE_THRESHOLD);
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        touchAction: "pan-y",
+      }}
+    >
+      {/* Delete reveal under the row */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: isRtl ? "flex-start" : "flex-end",
+          paddingInline: 20,
+          background: "var(--danger, #e5484d)",
+          color: "#fff",
+          fontSize: 13,
+          fontWeight: 800,
+          opacity: Math.max(0.35, progress),
+          pointerEvents: "none",
+        }}
+      >
+        {deleteLabel}
+      </div>
+
+      <div
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        style={{
+          position: "relative",
+          transform: `translateX(${offsetX}px)`,
+          transition: dragging || exiting ? "none" : "transform 0.2s ease",
+          background: "var(--card)",
+          willChange: "transform",
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function formatWhen(at, isAr) {
   if (!at) return "";
@@ -422,108 +585,120 @@ export default function InboxBell({
                     {items.map((item) => (
                       <li
                         key={item.id}
-                        onClick={() => onItemClick(item)}
                         style={{
-                          padding: "12px 16px",
                           borderBottom: "1px solid rgba(var(--border-rgb),0.08)",
-                          background: item.read
-                            ? "transparent"
-                            : "rgba(var(--accent-1-rgb, 25, 167, 206), 0.06)",
-                          cursor: "pointer",
-                          display: "flex",
-                          gap: 10,
-                          alignItems: "flex-start",
+                          listStyle: "none",
                         }}
                       >
-                        <span
-                          style={{
-                            flexShrink: 0,
-                            marginTop: 4,
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            background: item.read
-                              ? "transparent"
-                              : "var(--accent-1, #19A7CE)",
-                          }}
-                        />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              gap: 8,
-                              marginBottom: 2,
-                            }}
-                          >
-                            <span
-                              style={{
-                                fontSize: 10.5,
-                                fontWeight: 700,
-                                letterSpacing: "0.03em",
-                                textTransform: "uppercase",
-                                color: "var(--muted)",
-                              }}
-                            >
-                              {typeLabel(item.type, isAr)}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: 11,
-                                color: "var(--muted)",
-                                flexShrink: 0,
-                              }}
-                            >
-                              {formatWhen(item.at, isAr)}
-                            </span>
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 13.5,
-                              fontWeight: item.read ? 600 : 700,
-                              color: "var(--ink)",
-                              lineHeight: 1.35,
-                            }}
-                            dir="auto"
-                          >
-                            {item.title}
-                          </div>
-                          {item.body ? (
-                            <div
-                              style={{
-                                fontSize: 12.5,
-                                color: "var(--muted-strong)",
-                                lineHeight: 1.4,
-                                marginTop: 3,
-                              }}
-                              dir="auto"
-                            >
-                              {item.body}
-                            </div>
-                          ) : null}
-                        </div>
-                        <button
-                          type="button"
-                          title={T("Remove", "حذف")}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRemove(item.id);
-                          }}
-                          style={{
-                            flexShrink: 0,
-                            width: 28,
-                            height: 28,
-                            borderRadius: 8,
-                            border: "none",
-                            background: "transparent",
-                            color: "var(--muted)",
-                            cursor: "pointer",
-                            fontSize: 16,
-                            lineHeight: 1,
-                          }}
+                        <SwipeDeleteRow
+                          isRtl={!!isAr || lang === "ar"}
+                          deleteLabel={T("Delete", "حذف")}
+                          onDelete={() => onRemove(item.id)}
                         >
-                          ×
-                        </button>
+                          <div
+                            onClick={() => onItemClick(item)}
+                            style={{
+                              padding: "12px 16px",
+                              background: item.read
+                                ? "var(--card)"
+                                : "rgba(var(--accent-1-rgb, 25, 167, 206), 0.06)",
+                              cursor: "pointer",
+                              display: "flex",
+                              gap: 10,
+                              alignItems: "flex-start",
+                            }}
+                          >
+                            <span
+                              style={{
+                                flexShrink: 0,
+                                marginTop: 4,
+                                width: 8,
+                                height: 8,
+                                borderRadius: "50%",
+                                background: item.read
+                                  ? "transparent"
+                                  : "var(--accent-1, #19A7CE)",
+                              }}
+                            />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  gap: 8,
+                                  marginBottom: 2,
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: 10.5,
+                                    fontWeight: 700,
+                                    letterSpacing: "0.03em",
+                                    textTransform: "uppercase",
+                                    color: "var(--muted)",
+                                  }}
+                                >
+                                  {typeLabel(item.type, isAr)}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: 11,
+                                    color: "var(--muted)",
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {formatWhen(item.at, isAr)}
+                                </span>
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 13.5,
+                                  fontWeight: item.read ? 600 : 700,
+                                  color: "var(--ink)",
+                                  lineHeight: 1.35,
+                                }}
+                                dir="auto"
+                              >
+                                {item.title}
+                              </div>
+                              {item.body ? (
+                                <div
+                                  style={{
+                                    fontSize: 12.5,
+                                    color: "var(--muted-strong)",
+                                    lineHeight: 1.4,
+                                    marginTop: 3,
+                                  }}
+                                  dir="auto"
+                                >
+                                  {item.body}
+                                </div>
+                              ) : null}
+                            </div>
+                            <button
+                              type="button"
+                              title={T("Remove", "حذف")}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRemove(item.id);
+                              }}
+                              style={{
+                                flexShrink: 0,
+                                width: 28,
+                                height: 28,
+                                borderRadius: 8,
+                                border: "none",
+                                background: "transparent",
+                                color: "var(--muted)",
+                                cursor: "pointer",
+                                fontSize: 16,
+                                lineHeight: 1,
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </SwipeDeleteRow>
                       </li>
                     ))}
                   </ul>

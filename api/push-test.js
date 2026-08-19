@@ -78,12 +78,19 @@ export default async function handler(req, res) {
     };
 
     let sent = 0;
+    let expired = 0;
     let lastError = null;
-    for (const subscription of subscriptions) {
+    for (let i = 0; i < subscriptions.length; i++) {
+      const subscription = subscriptions[i];
+      // Tiny gap between devices reduces flaky rejects from the push service
+      if (i > 0) {
+        await new Promise((r) => setTimeout(r, 150));
+      }
       const result = await sendPush(subscription, payload);
       if (result.ok) {
         sent++;
       } else if (result.expired) {
+        expired++;
         await removeExpiredEndpoint(code, subscription.endpoint);
         lastError = "subscription_expired";
       } else {
@@ -92,7 +99,13 @@ export default async function handler(req, res) {
     }
 
     if (sent > 0) {
-      return res.status(200).json({ ok: true, payload, sent, devices: subscriptions.length });
+      return res.status(200).json({
+        ok: true,
+        payload,
+        sent,
+        expired,
+        devices: subscriptions.length,
+      });
     }
     if (lastError === "subscription_expired") {
       return res.status(410).json({

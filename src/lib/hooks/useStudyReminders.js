@@ -382,9 +382,13 @@ export function useStudyReminders(accountCode, showToast) {
     setBusySafe(true);
     try {
       if (pushSupported()) {
-        // Force a fresh subscription before testing — this is the path users
-        // hit when "it was On but nothing arrived". A clean sub is the fix.
-        const sub = await subscribeToPush(accountCode, getReminderPrefs(), { force: true });
+        // Only force-rotate if THIS browser has no active subscription.
+        // Forcing on every test was wiping/rotating endpoints and made
+        // multi-device delivery look random (phone↔laptop).
+        const hasSub = await hasActiveBrowserSubscription();
+        const sub = await subscribeToPush(accountCode, getReminderPrefs(), {
+          force: !hasSub,
+        });
         if (!sub.ok) {
           const err = sub.error || sub.reason || "";
           if (typeof showToast === "function") {
@@ -417,7 +421,26 @@ export function useStudyReminders(accountCode, showToast) {
       });
       const data = await r.json().catch(() => ({}));
       if (r.ok) {
-        // Success: the OS notification itself is the feedback — no in-app toast.
+        // Tell the user how many devices actually accepted the push so
+        // multi-device behaviour is visible instead of feeling random.
+        if (typeof showToast === "function") {
+          const sent = Number(data.sent) || 0;
+          const devices = Number(data.devices) || sent;
+          const expired = Number(data.expired) || 0;
+          if (sent <= 0) {
+            showToast("السيرفر مابعتش لأي جهاز — فعّل التذكيرات على كل جهاز");
+          } else if (expired > 0 || sent < devices) {
+            showToast(
+              `اتبعت لـ ${sent} من ${devices} جهاز` +
+                (expired ? ` (اتمسخ ${expired} اشتراك قديم)` : "") +
+                " — افتح الجهاز التاني وفعّل التذكيرات تاني"
+            );
+          } else if (devices === 1) {
+            showToast("اتبعت لجهاز واحد بس — لو عندك جهاز تاني افتحه وفعّل التذكيرات عليه");
+          } else {
+            showToast(`اتبعت لـ ${sent} جهاز ✓`);
+          }
+        }
       } else if (typeof showToast === "function") {
         if (data.error === "no_subscription") {
           showToast("مفيش اشتراك محفوظ — فعّل التذكيرات ووافق على الإذن");

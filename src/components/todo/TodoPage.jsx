@@ -6,26 +6,37 @@ import { XIcon, CheckIcon, PlusIcon, TrashIcon } from "../common/Icons";
 import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 const TODO_KEY = "twoTongues.todos";
+const TODO_KEY_FOR = (code) => (code ? `twoTongues.todos.${code}` : TODO_KEY);
 
-function loadTodos() {
+function normalizeTodoList(arr, { stripActive = false } = {}) {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .filter((t) => t && typeof t.text === "string")
+    .map((t) => ({
+      id: typeof t.id === "string" && t.id ? t.id : Math.random().toString(36).slice(2) + Date.now().toString(36),
+      text: String(t.text).slice(0, 500),
+      done: !!t.done,
+      createdAt: typeof t.createdAt === "number" ? t.createdAt : Date.now(),
+      workedMs: typeof t.workedMs === "number" ? Math.max(0, t.workedMs) : 0,
+      // Local: keep active timer. Cloud: never resume a timer from another device.
+      activeSince: stripActive
+        ? null
+        : typeof t.activeSince === "number"
+          ? t.activeSince
+          : null,
+      priority: ["high", "medium", "low"].includes(t.priority) ? t.priority : "medium",
+      dueDate: typeof t.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.dueDate) ? t.dueDate : null,
+      note: typeof t.note === "string" ? String(t.note).slice(0, 300) : "",
+    }))
+    .slice(0, 200);
+}
+
+function loadTodos(accountCode) {
   try {
-    const raw = localStorage.getItem(TODO_KEY);
+    const key = TODO_KEY_FOR(accountCode);
+    const raw = localStorage.getItem(key) || (!accountCode ? null : localStorage.getItem(TODO_KEY));
     if (!raw) return [];
-    const arr = JSON.parse(raw);
-    if (!Array.isArray(arr)) return [];
-    return arr
-      .filter((t) => t && typeof t.id === "string" && typeof t.text === "string")
-      .map((t) => ({
-        id: t.id,
-        text: String(t.text).slice(0, 500),
-        done: !!t.done,
-        createdAt: typeof t.createdAt === "number" ? t.createdAt : Date.now(),
-        workedMs: typeof t.workedMs === "number" ? Math.max(0, t.workedMs) : 0,
-        activeSince: typeof t.activeSince === "number" ? t.activeSince : null,
-        priority: ["high", "medium", "low"].includes(t.priority) ? t.priority : "medium",
-        dueDate: typeof t.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.dueDate) ? t.dueDate : null,
-        note: typeof t.note === "string" ? String(t.note).slice(0, 300) : "",
-      }));
+    return normalizeTodoList(JSON.parse(raw), { stripActive: false });
   } catch (_) {
     return [];
   }
@@ -41,9 +52,10 @@ function priorityRank(p) {
   return p === "high" ? 0 : p === "medium" ? 1 : 2;
 }
 
-function saveTodos(list) {
+function saveTodosLocal(list, accountCode) {
   try {
-    localStorage.setItem(TODO_KEY, JSON.stringify(list.slice(0, 200)));
+    const key = TODO_KEY_FOR(accountCode);
+    localStorage.setItem(key, JSON.stringify(list.slice(0, 200)));
   } catch (_) {}
 }
 
@@ -61,16 +73,19 @@ function formatElapsed(ms) {
 }
 
 /**
- * Simple personal to-do list (local only).
- * Full page + optional floating bubble (pin) that stays visible on the site.
+ * Personal to-do list.
+ * - Instant localStorage (per account)
+ * - Cloud sync via dedicated /api/todos (Redis key twoTongues:todos:<code>)
+ *   so it never touches the big dictionary record.
  */
 export default function TodoPage({
   onClose,
   isAr,
   onBubbleChange,
   initialBubble = false,
+  accountCode = "",
 }) {
-  const [todos, setTodos] = useState(loadTodos);
+  const [todos, setTodos] = useState(() => loadTodos(accountCode));
   const [draft, setDraft] = useState("");
   const [draftPriority, setDraftPriority] = useState("medium");
   const [draftDue, setDraftDue] = useState("");
@@ -79,8 +94,12 @@ export default function TodoPage({
   const [bubblePos, setBubblePos] = useState({ x: null, y: null });
   const [filter, setFilter] = useState("all"); // all | open | done | high
   const [nowTick, setNowTick] = useState(Date.now());
+  const [syncStatus, setSyncStatus] = useState(""); // "" | "syncing" | "ok" | "err"
   const inputRef = useRef(null);
   const dragRef = useRef(null);
+  const cloudSaveTimer = useRef(null);
+  const skipNextCloudSave = useRef(false);
+  const hydratedFromCloud = useRef(false);
 
   // Keep only the most recently started active task
   useEffect(() => {
@@ -96,9 +115,90 @@ export default function TodoPage({
     });
   }, []);
 
+  // Always persist locally (instant, offline-safe)
   useEffect(() => {
-    saveTodos(todos);
-  }, [todos]);
+    saveTodosLocal(todos, accountCode);
+  }, [todos, accountCode]);
+
+  // ── Cloud: load once when account is known ──────────────────────────────
+  useEffect(() => {
+    if (!accountCode) return;
+    let cancelled = false;
+    hydratedFromCloud.current = false;
+    (async () => {
+      try {
+        setSyncStatus("syncing");
+        const r = await fetch(`/api/todos?code=${encodeURIComponent(accountCode)}`, {
+          cache: "no-store",
+        });
+        if (!r.ok || cancelled) {
+          if (!cancelled) setSyncStatus("");
+          return;
+        }
+        const data = await r.json().catch(() => ({}));
+        const remote = normalizeTodoList(data.todos, { stripActive: true });
+        if (cancelled) return;
+        // Merge strategy: prefer the list that has more recent activity
+        // (max createdAt). If remote is empty, keep local. If local empty, take remote.
+        setTodos((local) => {
+          if (remote.length === 0) return local;
+          if (local.length === 0) return remote;
+          const localMax = Math.max(0, ...local.map((t) => t.createdAt || 0));
+          const remoteMax = Math.max(0, ...remote.map((t) => t.createdAt || 0));
+          // Simple last-writer-wins by newest task; also prefer longer list on tie
+          if (remoteMax > localMax || (remoteMax === localMax && remote.length >= local.length)) {
+            return remote;
+          }
+          return local;
+        });
+        skipNextCloudSave.current = true; // don't immediately re-upload what we just downloaded
+        hydratedFromCloud.current = true;
+        setSyncStatus("ok");
+        setTimeout(() => setSyncStatus(""), 1500);
+      } catch (_) {
+        if (!cancelled) setSyncStatus("");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountCode]);
+
+  // ── Cloud: debounced save (dedicated path — only todos) ─────────────────
+  useEffect(() => {
+    if (!accountCode) return;
+    if (skipNextCloudSave.current) {
+      skipNextCloudSave.current = false;
+      return;
+    }
+    if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
+    cloudSaveTimer.current = setTimeout(async () => {
+      try {
+        setSyncStatus("syncing");
+        // Strip live timers before upload — each device manages its own activeSince
+        const payload = todos.map((t) => ({
+          ...t,
+          activeSince: null,
+        }));
+        const r = await fetch("/api/todos", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: accountCode, todos: payload }),
+        });
+        if (r.ok) {
+          setSyncStatus("ok");
+          setTimeout(() => setSyncStatus(""), 1200);
+        } else {
+          setSyncStatus("err");
+        }
+      } catch (_) {
+        setSyncStatus("err");
+      }
+    }, 900);
+    return () => {
+      if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
+    };
+  }, [todos, accountCode]);
 
   // Live tick while any task is running
   const hasActive = todos.some((t) => t.activeSince);
@@ -135,9 +235,19 @@ export default function TodoPage({
       if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
       if (a.dueDate) return -1;
       if (b.dueDate) return 1;
-      return b.createdAt - a.createdAt;
+      return a.createdAt - b.createdAt; // oldest first so numbers stay stable
     });
   }, [todos, filter]);
+
+  // Stable sequential number for each task (based on creation order among all tasks)
+  const numberMap = useMemo(() => {
+    const sorted = [...todos].sort((a, b) => a.createdAt - b.createdAt);
+    const map = {};
+    sorted.forEach((t, i) => {
+      map[t.id] = i + 1;
+    });
+    return map;
+  }, [todos]);
 
   function addTodo(e) {
     e?.preventDefault?.();
@@ -425,6 +535,15 @@ export default function TodoPage({
             <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>
               {openCount} {tr(isAr, "open", "مفتوحة")}
               {doneCount > 0 ? ` · ${doneCount} ${tr(isAr, "done", "منتهية")}` : ""}
+              {accountCode && syncStatus === "syncing" && (
+                <span style={{ marginInlineStart: 8 }}>· {tr(isAr, "syncing…", "جاري المزامنة…")}</span>
+              )}
+              {accountCode && syncStatus === "ok" && (
+                <span style={{ marginInlineStart: 8, color: "#30d158" }}>· {tr(isAr, "synced", "متزامن")}</span>
+              )}
+              {accountCode && syncStatus === "err" && (
+                <span style={{ marginInlineStart: 8, color: "var(--danger)" }}>· {tr(isAr, "sync failed", "فشل المزامنة")}</span>
+              )}
             </div>
           </div>
         </div>
@@ -496,13 +615,31 @@ export default function TodoPage({
 
       <div style={{ padding: "12px 16px", flexShrink: 0, maxWidth: 560, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
         <form onSubmit={addTodo} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+            <textarea
               ref={inputRef}
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={tr(isAr, "New task…", "مهمة جديدة…")}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                // Keep the caret visible: scroll so the end of the text stays in view
+                const el = e.target;
+                requestAnimationFrame(() => {
+                  try {
+                    el.scrollTop = el.scrollHeight;
+                  } catch (_) {}
+                });
+              }}
+              onKeyDown={(e) => {
+                // Enter adds the task, Shift+Enter for new line
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  addTodo(e);
+                }
+              }}
+              placeholder={tr(isAr, "Write a new task… (Enter to add)", "اكتب مهمة جديدة… (Enter للإضافة)")}
               maxLength={500}
+              rows={3}
+              dir="auto"
               style={{
                 flex: 1,
                 boxSizing: "border-box",
@@ -514,6 +651,13 @@ export default function TodoPage({
                 border: "1px solid rgba(var(--border-rgb),0.2)",
                 borderRadius: 10,
                 outline: "none",
+                resize: "vertical",
+                minHeight: 72,
+                lineHeight: 1.5,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
+                unicodeBidi: "plaintext",
               }}
             />
             <button
@@ -526,7 +670,9 @@ export default function TodoPage({
                 border: "none",
                 opacity: draft.trim() ? 1 : 0.6,
                 minWidth: 48,
+                height: 44,
                 justifyContent: "center",
+                alignSelf: "flex-end",
               }}
               aria-label={tr(isAr, "Add", "إضافة")}
             >
@@ -573,6 +719,7 @@ export default function TodoPage({
               onChange={(e) => setDraftNote(e.target.value)}
               placeholder={tr(isAr, "Note (optional)", "ملاحظة (اختياري)")}
               maxLength={300}
+              dir="auto"
               style={{
                 flex: 1,
                 minWidth: 120,
@@ -696,7 +843,21 @@ export default function TodoPage({
                   {t.done ? <CheckIcon size={14} /> : null}
                 </button>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+                    <span
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 800,
+                        color: t.done ? "var(--muted)" : "var(--muted-strong)",
+                        minWidth: 22,
+                        textAlign: "center",
+                        fontFamily: "ui-monospace, monospace",
+                        flexShrink: 0,
+                        lineHeight: "22px",
+                      }}
+                    >
+                      {numberMap[t.id] ?? "–"}
+                    </span>
                     <span
                       title={isAr ? PRIORITY_META[t.priority || "medium"].ar : PRIORITY_META[t.priority || "medium"].en}
                       style={{
@@ -705,14 +866,19 @@ export default function TodoPage({
                         borderRadius: "50%",
                         background: PRIORITY_META[t.priority || "medium"].color,
                         flexShrink: 0,
+                        marginTop: 7,
                       }}
                     />
                     <span
+                      dir="auto"
                       style={{
                         fontSize: 15,
                         color: INK,
                         textDecoration: t.done ? "line-through" : "none",
                         wordBreak: "break-word",
+                        flex: 1,
+                        lineHeight: 1.4,
+                        whiteSpace: "pre-wrap",
                       }}
                     >
                       {t.text}

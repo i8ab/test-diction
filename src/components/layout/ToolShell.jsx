@@ -56,6 +56,7 @@ export default function ToolShell({
         <Suspense fallback={paperFallback}>
           <TodoPage
             isAr={appIsAr}
+            accountCode={accountCode || ""}
             initialBubble={todoBubble}
             onClose={closeTodo}
             onBubbleChange={setTodoBubble}

@@ -14,19 +14,14 @@ function normalizeTodoList(arr, { stripActive = false } = {}) {
     .filter((t) => t && typeof t.text === "string")
     .map((t) => ({
       id: typeof t.id === "string" && t.id ? t.id : Math.random().toString(36).slice(2) + Date.now().toString(36),
-      text: String(t.text).slice(0, 500),
+      text: String(t.text).slice(0, 200),
+      note: typeof t.note === "string" ? String(t.note).slice(0, 800) : "",
       done: !!t.done,
       createdAt: typeof t.createdAt === "number" ? t.createdAt : Date.now(),
       workedMs: typeof t.workedMs === "number" ? Math.max(0, t.workedMs) : 0,
-      // Local: keep active timer. Cloud: never resume a timer from another device.
-      activeSince: stripActive
-        ? null
-        : typeof t.activeSince === "number"
-          ? t.activeSince
-          : null,
+      activeSince: stripActive ? null : (typeof t.activeSince === "number" ? t.activeSince : null),
       priority: ["high", "medium", "low"].includes(t.priority) ? t.priority : "medium",
       dueDate: typeof t.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.dueDate) ? t.dueDate : null,
-      note: typeof t.note === "string" ? String(t.note).slice(0, 300) : "",
     }))
     .slice(0, 200);
 }
@@ -42,20 +37,9 @@ function loadTodos(accountCode) {
   }
 }
 
-const PRIORITY_META = {
-  high:   { en: "High",   ar: "عالية",  color: "#ef4444" },
-  medium: { en: "Medium", ar: "متوسطة", color: "#f59e0b" },
-  low:    { en: "Low",    ar: "منخفضة", color: "#22c55e" },
-};
-
-function priorityRank(p) {
-  return p === "high" ? 0 : p === "medium" ? 1 : 2;
-}
-
 function saveTodosLocal(list, accountCode) {
   try {
-    const key = TODO_KEY_FOR(accountCode);
-    localStorage.setItem(key, JSON.stringify(list.slice(0, 200)));
+    localStorage.setItem(TODO_KEY_FOR(accountCode), JSON.stringify(list.slice(0, 200)));
   } catch (_) {}
 }
 
@@ -72,12 +56,16 @@ function formatElapsed(ms) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-/**
- * Personal to-do list.
- * - Instant localStorage (per account)
- * - Cloud sync via dedicated /api/todos (Redis key twoTongues:todos:<code>)
- *   so it never touches the big dictionary record.
- */
+const PRIORITY_META = {
+  high:   { en: "High",   ar: "عالية",  color: "#ef4444" },
+  medium: { en: "Medium", ar: "متوسطة", color: "#f59e0b" },
+  low:    { en: "Low",    ar: "منخفضة", color: "#22c55e" },
+};
+
+function priorityRank(p) {
+  return p === "high" ? 0 : p === "medium" ? 1 : 2;
+}
+
 export default function TodoPage({
   onClose,
   isAr,
@@ -87,21 +75,21 @@ export default function TodoPage({
 }) {
   const [todos, setTodos] = useState(() => loadTodos(accountCode));
   const [draft, setDraft] = useState("");
+  const [draftNote, setDraftNote] = useState("");
   const [draftPriority, setDraftPriority] = useState("medium");
   const [draftDue, setDraftDue] = useState("");
-  const [draftNote, setDraftNote] = useState("");
+  const [showExtra, setShowExtra] = useState(false);
   const [viewMode, setViewMode] = useState(initialBubble ? "bubble" : "full");
   const [bubblePos, setBubblePos] = useState({ x: null, y: null });
-  const [filter, setFilter] = useState("all"); // all | open | done | high
+  const [filter, setFilter] = useState("all");
   const [nowTick, setNowTick] = useState(Date.now());
-  const [syncStatus, setSyncStatus] = useState(""); // "" | "syncing" | "ok" | "err"
+  const [syncStatus, setSyncStatus] = useState("");
+  const [expandedId, setExpandedId] = useState(null);
   const inputRef = useRef(null);
   const dragRef = useRef(null);
   const cloudSaveTimer = useRef(null);
   const skipNextCloudSave = useRef(false);
-  const hydratedFromCloud = useRef(false);
 
-  // Keep only the most recently started active task
   useEffect(() => {
     setTodos((prev) => {
       const actives = prev.filter((t) => t.activeSince);
@@ -115,69 +103,67 @@ export default function TodoPage({
     });
   }, []);
 
-  // Always persist locally (instant, offline-safe)
   useEffect(() => {
     saveTodosLocal(todos, accountCode);
   }, [todos, accountCode]);
 
-  // ── Cloud: load once when account is known ──────────────────────────────
+  // Cloud load
   useEffect(() => {
     if (!accountCode) return;
     let cancelled = false;
-    hydratedFromCloud.current = false;
     (async () => {
       try {
         setSyncStatus("syncing");
-        const r = await fetch(`/api/todos?code=${encodeURIComponent(accountCode)}`, {
-          cache: "no-store",
-        });
-        if (!r.ok || cancelled) {
-          if (!cancelled) setSyncStatus("");
-          return;
-        }
+        const r = await fetch(`/api/todos?code=${encodeURIComponent(accountCode)}`, { cache: "no-store" });
+        if (!r.ok || cancelled) { if (!cancelled) setSyncStatus(""); return; }
         const data = await r.json().catch(() => ({}));
         const remote = normalizeTodoList(data.todos, { stripActive: true });
         if (cancelled) return;
-        // Merge strategy: prefer the list that has more recent activity
-        // (max createdAt). If remote is empty, keep local. If local empty, take remote.
         setTodos((local) => {
           if (remote.length === 0) return local;
           if (local.length === 0) return remote;
-          const localMax = Math.max(0, ...local.map((t) => t.createdAt || 0));
-          const remoteMax = Math.max(0, ...remote.map((t) => t.createdAt || 0));
-          // Simple last-writer-wins by newest task; also prefer longer list on tie
-          if (remoteMax > localMax || (remoteMax === localMax && remote.length >= local.length)) {
-            return remote;
+          // Merge by id: keep higher workedMs, prefer remote done state if newer
+          const map = new Map();
+          for (const t of local) map.set(t.id, { ...t });
+          for (const r of remote) {
+            const existing = map.get(r.id);
+            if (!existing) {
+              map.set(r.id, r);
+            } else {
+              map.set(r.id, {
+                ...existing,
+                ...r,
+                workedMs: Math.max(existing.workedMs || 0, r.workedMs || 0),
+                activeSince: existing.activeSince || null,
+              });
+            }
           }
-          return local;
+          return Array.from(map.values());
         });
-        skipNextCloudSave.current = true; // don't immediately re-upload what we just downloaded
-        hydratedFromCloud.current = true;
+        skipNextCloudSave.current = true;
         setSyncStatus("ok");
-        setTimeout(() => setSyncStatus(""), 1500);
+        setTimeout(() => setSyncStatus(""), 1400);
       } catch (_) {
         if (!cancelled) setSyncStatus("");
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [accountCode]);
 
-  // ── Cloud: debounced save (dedicated path — only todos) ─────────────────
+  // Cloud save (includes workedMs + done state)
   useEffect(() => {
     if (!accountCode) return;
-    if (skipNextCloudSave.current) {
-      skipNextCloudSave.current = false;
-      return;
-    }
+    if (skipNextCloudSave.current) { skipNextCloudSave.current = false; return; }
     if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
     cloudSaveTimer.current = setTimeout(async () => {
       try {
         setSyncStatus("syncing");
-        // Strip live timers before upload — each device manages its own activeSince
         const payload = todos.map((t) => ({
           ...t,
+          // bank any running timer before upload
+          workedMs: t.activeSince
+            ? (t.workedMs || 0) + Math.max(0, Date.now() - t.activeSince)
+            : (t.workedMs || 0),
           activeSince: null,
         }));
         const r = await fetch("/api/todos", {
@@ -185,22 +171,15 @@ export default function TodoPage({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code: accountCode, todos: payload }),
         });
-        if (r.ok) {
-          setSyncStatus("ok");
-          setTimeout(() => setSyncStatus(""), 1200);
-        } else {
-          setSyncStatus("err");
-        }
+        setSyncStatus(r.ok ? "ok" : "err");
+        if (r.ok) setTimeout(() => setSyncStatus(""), 1200);
       } catch (_) {
         setSyncStatus("err");
       }
-    }, 900);
-    return () => {
-      if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
-    };
+    }, 800);
+    return () => { if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current); };
   }, [todos, accountCode]);
 
-  // Live tick while any task is running
   const hasActive = todos.some((t) => t.activeSince);
   useEffect(() => {
     if (!hasActive) return;
@@ -208,15 +187,11 @@ export default function TodoPage({
     return () => clearInterval(id);
   }, [hasActive]);
 
-  useEffect(() => {
-    onBubbleChange?.(viewMode === "bubble");
-  }, [viewMode, onBubbleChange]);
-
+  useEffect(() => { onBubbleChange?.(viewMode === "bubble"); }, [viewMode, onBubbleChange]);
   useBodyScrollLock(viewMode === "full");
-
   useEffect(() => {
     if (viewMode === "full") {
-      const t = setTimeout(() => inputRef.current?.focus?.(), 80);
+      const t = setTimeout(() => inputRef.current?.focus?.(), 60);
       return () => clearTimeout(t);
     }
   }, [viewMode]);
@@ -232,20 +207,14 @@ export default function TodoPage({
     return [...list].sort((a, b) => {
       if (Number(a.done) !== Number(b.done)) return Number(a.done) - Number(b.done);
       if (priorityRank(a.priority) !== priorityRank(b.priority)) return priorityRank(a.priority) - priorityRank(b.priority);
-      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
-      if (a.dueDate) return -1;
-      if (b.dueDate) return 1;
-      return a.createdAt - b.createdAt; // oldest first so numbers stay stable
+      return a.createdAt - b.createdAt;
     });
   }, [todos, filter]);
 
-  // Stable sequential number for each task (based on creation order among all tasks)
   const numberMap = useMemo(() => {
     const sorted = [...todos].sort((a, b) => a.createdAt - b.createdAt);
     const map = {};
-    sorted.forEach((t, i) => {
-      map[t.id] = i + 1;
-    });
+    sorted.forEach((t, i) => { map[t.id] = i + 1; });
     return map;
   }, [todos]);
 
@@ -255,19 +224,20 @@ export default function TodoPage({
     if (!text) return;
     setTodos((prev) => [{
       id: uid(),
-      text,
+      text: text.slice(0, 200),
+      note: draftNote.trim().slice(0, 800),
       done: false,
       createdAt: Date.now(),
       workedMs: 0,
       activeSince: null,
       priority: draftPriority,
       dueDate: draftDue || null,
-      note: draftNote.trim().slice(0, 300),
     }, ...prev]);
     setDraft("");
-    setDraftDue("");
     setDraftNote("");
+    setDraftDue("");
     setDraftPriority("medium");
+    setShowExtra(false);
     inputRef.current?.focus?.();
   }
 
@@ -275,14 +245,8 @@ export default function TodoPage({
     setTodos((prev) =>
       prev.map((t) => {
         if (t.id !== id) return t;
-        // Completing a task stops its timer and banks the elapsed time
         if (!t.done && t.activeSince) {
-          return {
-            ...t,
-            done: true,
-            activeSince: null,
-            workedMs: (t.workedMs || 0) + (Date.now() - t.activeSince),
-          };
+          return { ...t, done: true, activeSince: null, workedMs: (t.workedMs || 0) + (Date.now() - t.activeSince) };
         }
         return { ...t, done: !t.done };
       })
@@ -296,13 +260,8 @@ export default function TodoPage({
           if (t.done || t.activeSince) return t;
           return { ...t, activeSince: Date.now() };
         }
-        // Stop any other active task
         if (t.activeSince) {
-          return {
-            ...t,
-            activeSince: null,
-            workedMs: (t.workedMs || 0) + (Date.now() - t.activeSince),
-          };
+          return { ...t, activeSince: null, workedMs: (t.workedMs || 0) + (Date.now() - t.activeSince) };
         }
         return t;
       })
@@ -313,17 +272,14 @@ export default function TodoPage({
     setTodos((prev) =>
       prev.map((t) => {
         if (t.id !== id || !t.activeSince) return t;
-        return {
-          ...t,
-          activeSince: null,
-          workedMs: (t.workedMs || 0) + (Date.now() - t.activeSince),
-        };
+        return { ...t, activeSince: null, workedMs: (t.workedMs || 0) + (Date.now() - t.activeSince) };
       })
     );
   }
 
   function removeTodo(id) {
     setTodos((prev) => prev.filter((t) => t.id !== id));
+    if (expandedId === id) setExpandedId(null);
   }
 
   function elapsedFor(t) {
@@ -336,19 +292,17 @@ export default function TodoPage({
     setTodos((prev) => prev.filter((t) => !t.done));
   }
 
-  // Bubble drag — skip when target is a button
+  // ── Bubble (compact) ────────────────────────────────────────────────────
   const onBubblePointerDown = useCallback((e) => {
     if (e.button !== 0 && e.pointerType === "mouse") return;
     if (e.target?.closest?.("button")) return;
     const el = e.currentTarget;
     const rect = el.getBoundingClientRect();
     dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
+      startX: e.clientX, startY: e.clientY,
       origX: bubblePos.x != null ? bubblePos.x : rect.left,
       origY: bubblePos.y != null ? bubblePos.y : rect.top,
-      moved: false,
-      pointerId: e.pointerId,
+      moved: false, pointerId: e.pointerId,
     };
     try { el.setPointerCapture?.(e.pointerId); } catch (_) {}
   }, [bubblePos]);
@@ -356,13 +310,13 @@ export default function TodoPage({
   const onBubblePointerMove = useCallback((e) => {
     const d = dragRef.current;
     if (!d) return;
-    const dx = e.clientX - d.startX;
-    const dy = e.clientY - d.startY;
+    const dx = e.clientX - d.startX, dy = e.clientY - d.startY;
     if (!d.moved && Math.hypot(dx, dy) < 6) return;
     d.moved = true;
-    const x = Math.max(8, Math.min(window.innerWidth - 180, d.origX + dx));
-    const y = Math.max(8, Math.min(window.innerHeight - 120, d.origY + dy));
-    setBubblePos({ x, y });
+    setBubblePos({
+      x: Math.max(8, Math.min(window.innerWidth - 160, d.origX + dx)),
+      y: Math.max(8, Math.min(window.innerHeight - 100, d.origY + dy)),
+    });
   }, []);
 
   const onBubblePointerUp = useCallback((e) => {
@@ -373,593 +327,276 @@ export default function TodoPage({
     dragRef.current = null;
   }, []);
 
-  // ── Bubble ───────────────────────────────────────────────────────────────
   if (viewMode === "bubble") {
     const style = {
-      position: "fixed",
-      zIndex: 5500,
-      width: 176,
-      borderRadius: 14,
-      background: CARD,
-      border: "1px solid rgba(var(--border-rgb),0.18)",
-      boxShadow: "0 12px 32px -10px rgba(0,0,0,0.28)",
-      padding: "10px 10px 12px",
-      cursor: "grab",
-      userSelect: "none",
-      touchAction: "none",
-      ...(bubblePos.x != null
-        ? { left: bubblePos.x, top: bubblePos.y }
-        : { bottom: 20, insetInlineStart: 16 }),
+      position: "fixed", zIndex: 5500, width: 168, borderRadius: 12,
+      background: CARD, border: "1px solid rgba(var(--border-rgb),0.16)",
+      boxShadow: "0 10px 28px -8px rgba(0,0,0,0.25)", padding: "8px 10px 10px",
+      cursor: "grab", userSelect: "none", touchAction: "none",
+      ...(bubblePos.x != null ? { left: bubblePos.x, top: bubblePos.y } : { bottom: 18, insetInlineStart: 14 }),
     };
-
     const preview = todos.filter((t) => !t.done).slice(0, 3);
-
+    const active = todos.find((x) => x.activeSince);
     const bubble = (
-      <div
-        role="dialog"
-        aria-label={tr(isAr, "To-do list", "قائمة المهام")}
-        style={style}
-        onPointerDown={onBubblePointerDown}
-        onPointerMove={onBubblePointerMove}
-        onPointerUp={onBubblePointerUp}
-        onPointerCancel={onBubblePointerUp}
-      >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#30d158" }}>
-            <CheckIcon size={14} />
-            <span style={{ fontSize: 12, fontWeight: 700 }}>{tr(isAr, "To-do", "مهام")}</span>
-          </div>
+      <div role="dialog" aria-label={tr(isAr, "To-do list", "قائمة المهام")} style={style}
+        onPointerDown={onBubblePointerDown} onPointerMove={onBubblePointerMove}
+        onPointerUp={onBubblePointerUp} onPointerCancel={onBubblePointerUp}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#30d158" }}>{tr(isAr, "To-do", "مهام")}</span>
           <div style={{ display: "flex", gap: 2 }}>
-            <button
-              type="button"
-              title={tr(isAr, "Expand", "توسيع")}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); setViewMode("full"); }}
-              style={iconBtn}
-            >
-              <PlusIcon size={14} />
-            </button>
-            <button
-              type="button"
-              title={tr(isAr, "Close", "إغلاق")}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); onClose(); }}
-              style={iconBtn}
-            >
-              <XIcon size={14} />
-            </button>
+            <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setViewMode("full"); }} style={iconBtn}><PlusIcon size={13} /></button>
+            <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onClose(); }} style={iconBtn}><XIcon size={13} /></button>
           </div>
         </div>
-
-        <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginBottom: 6 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: INK, marginBottom: 4 }}>
           {openCount} {tr(isAr, "open", "مفتوحة")}
-          {doneCount > 0 && (
-            <span style={{ fontWeight: 500, color: "var(--muted)", marginInlineStart: 6 }}>
-              · {doneCount} {tr(isAr, "done", "منتهية")}
-            </span>
-          )}
         </div>
-
-        {(() => {
-          const active = todos.find((x) => x.activeSince);
-          if (active) {
-            return (
-              <div style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#30d158", marginBottom: 2 }}>
-                  {tr(isAr, "Working on", "شغال على")}
-                </div>
-                <div style={{ fontSize: 12, color: INK, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {active.text}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 800, fontFamily: "ui-monospace, monospace", color: "#30d158", marginTop: 4 }}>
-                  {formatElapsed(elapsedFor(active))}
-                </div>
-              </div>
-            );
-          }
-          return null;
-        })()}
-        {preview.length === 0 ? (
-          <div style={{ fontSize: 11, color: "var(--muted)" }}>
-            {tr(isAr, "No open tasks", "مفيش مهام مفتوحة")}
+        {active && (
+          <div style={{ fontSize: 11, color: "#30d158", fontWeight: 700, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            ▶ {active.text} · {formatElapsed(elapsedFor(active))}
           </div>
-        ) : (
-          <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 4 }}>
-            {preview.map((t) => (
-              <li
-                key={t.id}
-                style={{
-                  fontSize: 12,
-                  color: INK,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  padding: "3px 0",
-                }}
-              >
-                {t.activeSince ? "▶ " : "· "}{t.text}
-              </li>
-            ))}
-            {openCount > 3 && (
-              <li style={{ fontSize: 11, color: "var(--muted)" }}>+{openCount - 3}</li>
-            )}
-          </ul>
         )}
+        {preview.map((t) => (
+          <div key={t.id} style={{ fontSize: 11, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "2px 0" }}>
+            {numberMap[t.id]}. {t.text}
+          </div>
+        ))}
       </div>
     );
-
     return typeof document !== "undefined" ? createPortal(bubble, document.body) : bubble;
   }
 
-  // ── Full view ────────────────────────────────────────────────────────────
+  // ── Full view (compact professional) ────────────────────────────────────
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={tr(isAr, "To-do list", "قائمة المهام")}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 6000,
-        background: "var(--paper)",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
-      <header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "12px 16px",
-          borderBottom: "1px solid rgba(var(--border-rgb),0.12)",
-          flexShrink: 0,
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-          <span
-            style={{
-              width: 36, height: 36, borderRadius: 10,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: "color-mix(in srgb, #30d158 18%, transparent)", color: "#30d158",
-            }}
-          >
-            <CheckIcon size={18} />
-          </span>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: INK }}>
-              {tr(isAr, "To-do list", "قائمة المهام")}
-            </h1>
-            <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>
-              {openCount} {tr(isAr, "open", "مفتوحة")}
-              {doneCount > 0 ? ` · ${doneCount} ${tr(isAr, "done", "منتهية")}` : ""}
-              {accountCode && syncStatus === "syncing" && (
-                <span style={{ marginInlineStart: 8 }}>· {tr(isAr, "syncing…", "جاري المزامنة…")}</span>
-              )}
-              {accountCode && syncStatus === "ok" && (
-                <span style={{ marginInlineStart: 8, color: "#30d158" }}>· {tr(isAr, "synced", "متزامن")}</span>
-              )}
-              {accountCode && syncStatus === "err" && (
-                <span style={{ marginInlineStart: 8, color: "var(--danger)" }}>· {tr(isAr, "sync failed", "فشل المزامنة")}</span>
-              )}
-            </div>
+    <div role="dialog" aria-modal="true" aria-label={tr(isAr, "To-do list", "قائمة المهام")}
+      style={{ position: "fixed", inset: 0, zIndex: 6000, background: "var(--paper)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+      {/* Header — compact */}
+      <header style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid rgba(var(--border-rgb),0.1)", flexShrink: 0 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: INK }}>
+            {tr(isAr, "Tasks", "المهام")}
+          </h1>
+          <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, marginTop: 1 }}>
+            {openCount} {tr(isAr, "open", "مفتوحة")}
+            {doneCount > 0 ? ` · ${doneCount} ${tr(isAr, "done", "منتهية")}` : ""}
+            {accountCode && syncStatus === "syncing" && <span> · {tr(isAr, "sync…", "مزامنة…")}</span>}
+            {accountCode && syncStatus === "ok" && <span style={{ color: "#30d158" }}> · ✓</span>}
           </div>
         </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            onClick={() => setViewMode("bubble")}
-            title={tr(isAr, "Minimize to floating widget", "تصغير لودجت عائم")}
-            style={headerBtn}
-          >
-            {tr(isAr, "Pin", "تثبيت")}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const blob = new Blob([JSON.stringify({ version: 1, todos }, null, 2)], { type: "application/json" });
-              const a = document.createElement("a");
-              a.href = URL.createObjectURL(blob);
-              a.download = `todos-${new Date().toISOString().slice(0, 10)}.json`;
-              a.click();
-              URL.revokeObjectURL(a.href);
-            }}
-            style={headerBtn}
-          >
-            {tr(isAr, "Export", "تصدير")}
-          </button>
-          <label style={{ ...headerBtn, cursor: "pointer", margin: 0 }}>
-            {tr(isAr, "Import", "استيراد")}
-            <input
-              type="file"
-              accept="application/json,.json"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const file = e.target.files && e.target.files[0];
-                e.target.value = "";
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = () => {
-                  try {
-                    const data = JSON.parse(String(reader.result || "{}"));
-                    const list = Array.isArray(data) ? data : (data.todos || []);
-                    if (!Array.isArray(list)) return;
-                    const cleaned = list
-                      .filter((t) => t && typeof t.text === "string")
-                      .map((t) => ({
-                        id: typeof t.id === "string" ? t.id : Math.random().toString(36).slice(2),
-                        text: String(t.text).slice(0, 500),
-                        done: !!t.done,
-                        createdAt: typeof t.createdAt === "number" ? t.createdAt : Date.now(),
-                        workedMs: typeof t.workedMs === "number" ? t.workedMs : 0,
-                        activeSince: null,
-                        priority: ["high", "medium", "low"].includes(t.priority) ? t.priority : "medium",
-                        dueDate: typeof t.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.dueDate) ? t.dueDate : null,
-                        note: typeof t.note === "string" ? String(t.note).slice(0, 300) : "",
-                      }));
-                    setTodos(cleaned);
-                  } catch (_) {}
-                };
-                reader.readAsText(file);
-              }}
-            />
-          </label>
-          <button type="button" onClick={onClose} style={headerBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
-            <XIcon size={16} />
-          </button>
-        </div>
+        <button type="button" onClick={() => setViewMode("bubble")} style={headerBtn}>{tr(isAr, "Pin", "تثبيت")}</button>
+        <button type="button" onClick={onClose} style={headerBtn} aria-label={tr(isAr, "Close", "إغلاق")}><XIcon size={15} /></button>
       </header>
 
-      <div style={{ padding: "12px 16px", flexShrink: 0, maxWidth: 560, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
-        <form onSubmit={addTodo} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-            <textarea
+      {/* Add form — compact */}
+      <div style={{ padding: "10px 14px", flexShrink: 0, maxWidth: 520, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
+        <form onSubmit={addTodo} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input
               ref={inputRef}
               value={draft}
-              onChange={(e) => {
-                setDraft(e.target.value);
-                // Keep the caret visible: scroll so the end of the text stays in view
-                const el = e.target;
-                requestAnimationFrame(() => {
-                  try {
-                    el.scrollTop = el.scrollHeight;
-                  } catch (_) {}
-                });
-              }}
-              onKeyDown={(e) => {
-                // Enter adds the task, Shift+Enter for new line
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  addTodo(e);
-                }
-              }}
-              placeholder={tr(isAr, "Write a new task… (Enter to add)", "اكتب مهمة جديدة… (Enter للإضافة)")}
-              maxLength={500}
-              rows={3}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={tr(isAr, "Task title…", "عنوان المهمة…")}
+              maxLength={200}
               dir="auto"
               style={{
-                flex: 1,
-                boxSizing: "border-box",
-                padding: "11px 13px",
-                fontSize: 15,
-                fontFamily: "inherit",
-                color: INK,
-                background: "var(--input-bg)",
-                border: "1px solid rgba(var(--border-rgb),0.2)",
-                borderRadius: 10,
-                outline: "none",
-                resize: "vertical",
-                minHeight: 72,
-                lineHeight: 1.5,
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-                overflowWrap: "anywhere",
-                unicodeBidi: "plaintext",
+                flex: 1, boxSizing: "border-box", padding: "9px 11px", fontSize: 14,
+                fontFamily: "inherit", color: INK, background: "var(--input-bg)",
+                border: "1px solid rgba(var(--border-rgb),0.18)", borderRadius: 8,
+                outline: "none", unicodeBidi: "plaintext",
               }}
             />
-            <button
-              type="submit"
-              disabled={!draft.trim()}
-              style={{
-                ...headerBtn,
-                background: draft.trim() ? "linear-gradient(135deg, var(--accent-1), var(--accent-2))" : "var(--card)",
-                color: draft.trim() ? "#fff" : "var(--muted)",
-                border: "none",
-                opacity: draft.trim() ? 1 : 0.6,
-                minWidth: 48,
-                height: 44,
-                justifyContent: "center",
-                alignSelf: "flex-end",
-              }}
-              aria-label={tr(isAr, "Add", "إضافة")}
-            >
-              <PlusIcon size={18} />
+            <button type="submit" disabled={!draft.trim()} style={{
+              ...headerBtn,
+              background: draft.trim() ? "linear-gradient(135deg, var(--accent-1), var(--accent-2))" : "var(--card)",
+              color: draft.trim() ? "#fff" : "var(--muted)", border: "none",
+              opacity: draft.trim() ? 1 : 0.55, minWidth: 40, height: 38, justifyContent: "center",
+            }} aria-label={tr(isAr, "Add", "إضافة")}>
+              <PlusIcon size={16} />
             </button>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            {["high", "medium", "low"].map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setDraftPriority(p)}
+
+          <button type="button" onClick={() => setShowExtra((v) => !v)} style={{
+            border: "none", background: "transparent", color: "var(--muted)", fontSize: 11,
+            fontWeight: 600, cursor: "pointer", padding: "2px 0", textAlign: "start",
+          }}>
+            {showExtra ? tr(isAr, "− Hide details", "− إخفاء التفاصيل") : tr(isAr, "+ Add note / priority / date", "+ ملاحظة / أولوية / تاريخ")}
+          </button>
+
+          {showExtra && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <textarea
+                value={draftNote}
+                onChange={(e) => setDraftNote(e.target.value)}
+                placeholder={tr(isAr, "Optional description / notes…", "شرح أو ملاحظات (اختياري)…")}
+                maxLength={800}
+                rows={2}
+                dir="auto"
                 style={{
-                  padding: "4px 10px",
-                  borderRadius: 16,
-                  border: draftPriority === p ? `2px solid ${PRIORITY_META[p].color}` : "1px solid rgba(var(--border-rgb),0.2)",
-                  background: draftPriority === p ? `${PRIORITY_META[p].color}22` : "var(--card)",
-                  color: PRIORITY_META[p].color,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  cursor: "pointer",
+                  width: "100%", boxSizing: "border-box", padding: "8px 10px", fontSize: 13,
+                  fontFamily: "inherit", color: INK, background: "var(--input-bg)",
+                  border: "1px solid rgba(var(--border-rgb),0.16)", borderRadius: 8,
+                  outline: "none", resize: "vertical", lineHeight: 1.4, unicodeBidi: "plaintext",
                 }}
-              >
-                {isAr ? PRIORITY_META[p].ar : PRIORITY_META[p].en}
-              </button>
-            ))}
-            <input
-              type="date"
-              value={draftDue}
-              onChange={(e) => setDraftDue(e.target.value)}
-              title={tr(isAr, "Due date", "تاريخ الاستحقاق")}
-              style={{
-                padding: "5px 8px",
-                borderRadius: 8,
-                border: "1px solid rgba(var(--border-rgb),0.2)",
-                background: "var(--input-bg)",
-                color: INK,
-                fontSize: 12,
-                fontFamily: "inherit",
-              }}
-            />
-            <input
-              value={draftNote}
-              onChange={(e) => setDraftNote(e.target.value)}
-              placeholder={tr(isAr, "Note (optional)", "ملاحظة (اختياري)")}
-              maxLength={300}
-              dir="auto"
-              style={{
-                flex: 1,
-                minWidth: 120,
-                padding: "5px 8px",
-                borderRadius: 8,
-                border: "1px solid rgba(var(--border-rgb),0.2)",
-                background: "var(--input-bg)",
-                color: INK,
-                fontSize: 12,
-                fontFamily: "inherit",
-              }}
-            />
-          </div>
+              />
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                {["high", "medium", "low"].map((p) => (
+                  <button key={p} type="button" onClick={() => setDraftPriority(p)} style={{
+                    padding: "3px 9px", borderRadius: 14,
+                    border: draftPriority === p ? `1.5px solid ${PRIORITY_META[p].color}` : "1px solid rgba(var(--border-rgb),0.16)",
+                    background: draftPriority === p ? `${PRIORITY_META[p].color}18` : "var(--card)",
+                    color: PRIORITY_META[p].color, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                  }}>
+                    {isAr ? PRIORITY_META[p].ar : PRIORITY_META[p].en}
+                  </button>
+                ))}
+                <input type="date" value={draftDue} onChange={(e) => setDraftDue(e.target.value)}
+                  style={{ padding: "4px 7px", borderRadius: 7, border: "1px solid rgba(var(--border-rgb),0.16)", background: "var(--input-bg)", color: INK, fontSize: 12, fontFamily: "inherit" }}
+                />
+              </div>
+            </div>
+          )}
         </form>
 
-        <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+        {/* Filters — compact pills */}
+        <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
           {[
             { id: "all", label: tr(isAr, "All", "الكل") },
             { id: "open", label: tr(isAr, "Open", "مفتوحة") },
-            { id: "high", label: tr(isAr, "High priority", "أولوية عالية") },
+            { id: "high", label: tr(isAr, "High", "عالية") },
             { id: "done", label: tr(isAr, "Done", "منتهية") },
           ].map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => setFilter(f.id)}
-              style={{
-                padding: "5px 12px",
-                borderRadius: 20,
-                border: "none",
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: "pointer",
-                background: filter === f.id ? BRASS : "rgba(var(--border-rgb),0.1)",
-                color: filter === f.id ? "#fff" : "var(--muted-strong)",
-              }}
-            >
+            <button key={f.id} type="button" onClick={() => setFilter(f.id)} style={{
+              padding: "4px 10px", borderRadius: 16, border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer",
+              background: filter === f.id ? BRASS : "rgba(var(--border-rgb),0.08)",
+              color: filter === f.id ? "#fff" : "var(--muted-strong)",
+            }}>
               {f.label}
             </button>
           ))}
           {doneCount > 0 && (
-            <button
-              type="button"
-              onClick={clearDone}
-              style={{
-                marginInlineStart: "auto",
-                padding: "5px 10px",
-                border: "none",
-                background: "transparent",
-                color: "var(--danger, #e11)",
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: "pointer",
-                textDecoration: "underline",
-              }}
-            >
+            <button type="button" onClick={clearDone} style={{
+              marginInlineStart: "auto", border: "none", background: "transparent",
+              color: "var(--danger, #e11)", fontSize: 11, fontWeight: 600, cursor: "pointer", textDecoration: "underline",
+            }}>
               {tr(isAr, "Clear done", "مسح المنتهية")}
             </button>
           )}
         </div>
       </div>
 
-      <div style={{ flex: 1, overflow: "auto", padding: "0 16px 24px" }}>
-        <ul
-          style={{
-            listStyle: "none",
-            margin: "0 auto",
-            padding: 0,
-            maxWidth: 560,
-            display: "flex",
-            flexDirection: "column",
-            gap: 6,
-          }}
-        >
+      {/* List */}
+      <div style={{ flex: 1, overflow: "auto", padding: "0 14px 20px" }}>
+        <ul style={{ listStyle: "none", margin: "0 auto", padding: 0, maxWidth: 520, display: "flex", flexDirection: "column", gap: 4 }}>
           {visible.length === 0 ? (
-            <li style={{ textAlign: "center", padding: "40px 16px", color: "var(--muted)", fontSize: 14 }}>
-              {filter === "done"
-                ? tr(isAr, "No completed tasks yet.", "لسه مفيش مهام منتهية.")
-                : filter === "open"
-                ? tr(isAr, "All clear — no open tasks.", "فاضي — مفيش مهام مفتوحة.")
-                : filter === "high"
-                ? tr(isAr, "No high-priority open tasks.", "مفيش مهام مفتوحة بأولوية عالية.")
-                : tr(isAr, "Add your first task above.", "ضيف أول مهمة من فوق.")}
+            <li style={{ textAlign: "center", padding: "32px 12px", color: "var(--muted)", fontSize: 13 }}>
+              {tr(isAr, "No tasks yet.", "مفيش مهام لسه.")}
             </li>
           ) : (
-            visible.map((t) => (
-              <li
-                key={t.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "10px 12px",
+            visible.map((t) => {
+              const isOpen = expandedId === t.id;
+              const hasNote = !!(t.note && t.note.trim());
+              return (
+                <li key={t.id} style={{
                   background: CARD,
-                  border: "1px solid rgba(var(--border-rgb),0.12)",
-                  borderRadius: 12,
-                  opacity: t.done ? 0.65 : 1,
-                  borderColor: t.activeSince ? "color-mix(in srgb, #30d158 45%, transparent)" : "rgba(var(--border-rgb),0.12)",
-                  boxShadow: t.activeSince ? "0 0 0 1px color-mix(in srgb, #30d158 25%, transparent)" : undefined,
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleTodo(t.id)}
-                  aria-label={t.done ? tr(isAr, "Mark open", "إرجاع كمفتوحة") : tr(isAr, "Mark done", "تعليم كمنتهية")}
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 8,
-                    border: t.done ? "none" : "1.5px solid rgba(var(--border-rgb),0.35)",
-                    background: t.done ? "#30d158" : "transparent",
-                    color: "#fff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    flexShrink: 0,
-                    padding: 0,
-                  }}
-                >
-                  {t.done ? <CheckIcon size={14} /> : null}
-                </button>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
-                    <span
+                  border: "1px solid rgba(var(--border-rgb),0.1)",
+                  borderRadius: 10,
+                  opacity: t.done ? 0.6 : 1,
+                  borderColor: t.activeSince ? "color-mix(in srgb, #30d158 40%, transparent)" : "rgba(var(--border-rgb),0.1)",
+                  overflow: "hidden",
+                }}>
+                  {/* Main row */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px" }}>
+                    {/* Checkbox */}
+                    <button type="button" onClick={() => toggleTodo(t.id)}
+                      aria-label={t.done ? tr(isAr, "Mark open", "مفتوحة") : tr(isAr, "Mark done", "منتهية")}
                       style={{
-                        fontSize: 13,
-                        fontWeight: 800,
-                        color: t.done ? "var(--muted)" : "var(--muted-strong)",
-                        minWidth: 22,
-                        textAlign: "center",
-                        fontFamily: "ui-monospace, monospace",
-                        flexShrink: 0,
-                        lineHeight: "22px",
-                      }}
-                    >
+                        width: 22, height: 22, borderRadius: 6, flexShrink: 0, padding: 0,
+                        border: t.done ? "none" : "1.5px solid rgba(var(--border-rgb),0.3)",
+                        background: t.done ? "#30d158" : "transparent",
+                        color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+                      }}>
+                      {t.done ? <CheckIcon size={12} /> : null}
+                    </button>
+
+                    {/* Number */}
+                    <span style={{
+                      fontSize: 12, fontWeight: 800, color: "var(--muted)", minWidth: 18,
+                      textAlign: "center", fontFamily: "ui-monospace, monospace", flexShrink: 0,
+                    }}>
                       {numberMap[t.id] ?? "–"}
                     </span>
-                    <span
-                      title={isAr ? PRIORITY_META[t.priority || "medium"].ar : PRIORITY_META[t.priority || "medium"].en}
+
+                    {/* Priority dot */}
+                    <span style={{
+                      width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+                      background: PRIORITY_META[t.priority || "medium"].color,
+                    }} />
+
+                    {/* Title — tap to expand note */}
+                    <button type="button" onClick={() => hasNote ? setExpandedId(isOpen ? null : t.id) : null}
                       style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        background: PRIORITY_META[t.priority || "medium"].color,
-                        flexShrink: 0,
-                        marginTop: 7,
-                      }}
-                    />
-                    <span
-                      dir="auto"
-                      style={{
-                        fontSize: 15,
-                        color: INK,
+                        flex: 1, minWidth: 0, border: "none", background: "transparent",
+                        padding: 0, cursor: hasNote ? "pointer" : "default", textAlign: "start",
+                      }}>
+                      <span dir="auto" style={{
+                        fontSize: 14, color: INK, fontWeight: 600,
                         textDecoration: t.done ? "line-through" : "none",
-                        wordBreak: "break-word",
-                        flex: 1,
-                        lineHeight: 1.4,
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      {t.text}
-                    </span>
-                  </div>
-                  {(t.note || t.dueDate || t.activeSince || (t.workedMs || 0) > 0) && (
-                    <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                      {t.dueDate && (
-                        <span style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          color: (!t.done && t.dueDate < new Date().toISOString().slice(0, 10)) ? "var(--danger)" : "var(--muted-strong)",
+                        wordBreak: "break-word", lineHeight: 1.35, display: "block",
+                      }}>
+                        {t.text}
+                        {hasNote && (
+                          <span style={{ marginInlineStart: 5, fontSize: 10, color: "var(--muted)", fontWeight: 600 }}>
+                            {isOpen ? "▲" : "▼"}
+                          </span>
+                        )}
+                      </span>
+                      {(t.dueDate || t.activeSince || (t.workedMs || 0) > 0) && (
+                        <span style={{ display: "flex", gap: 8, marginTop: 2, fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                          {t.dueDate && <span>📅 {t.dueDate}</span>}
+                          {(t.activeSince || (t.workedMs || 0) > 0) && (
+                            <span style={{ color: t.activeSince ? "#30d158" : "var(--muted-strong)", fontFamily: "ui-monospace, monospace" }}>
+                              {t.activeSince ? "● " : ""}{formatElapsed(elapsedFor(t))}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Start / Stop */}
+                    {!t.done && (
+                      <button type="button"
+                        onClick={() => (t.activeSince ? stopTask(t.id) : startTask(t.id))}
+                        style={{
+                          border: "none", borderRadius: 7, padding: "4px 8px", fontSize: 11, fontWeight: 700,
+                          cursor: "pointer", flexShrink: 0,
+                          background: t.activeSince ? "color-mix(in srgb, #ff9f0a 20%, transparent)" : "color-mix(in srgb, #30d158 16%, transparent)",
+                          color: t.activeSince ? "#ff9f0a" : "#30d158",
                         }}>
-                          📅 {t.dueDate}
-                        </span>
-                      )}
-                      {t.note && (
-                        <span style={{ fontSize: 11, color: "var(--muted)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {t.note}
-                        </span>
-                      )}
-                      {(t.activeSince || (t.workedMs || 0) > 0) && (
-                        <span
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 700,
-                            fontFamily: "ui-monospace, 'Source Sans 3', monospace",
-                            color: t.activeSince ? "#30d158" : "var(--muted-strong)",
-                            letterSpacing: "0.02em",
-                          }}
-                        >
-                          {t.activeSince ? "● " : ""}
-                          {formatElapsed(elapsedFor(t))}
-                          {t.activeSince
-                            ? ` ${tr(isAr, "working", "شغال")}`
-                            : ` ${tr(isAr, "total", "إجمالي")}`}
-                        </span>
-                      )}
+                        {t.activeSince ? tr(isAr, "Stop", "إيقاف") : tr(isAr, "Start", "ابدأ")}
+                      </button>
+                    )}
+
+                    <button type="button" onClick={() => removeTodo(t.id)} aria-label={tr(isAr, "Delete", "حذف")}
+                      style={{ border: "none", background: "transparent", color: "var(--icon-muted)", cursor: "pointer", padding: 4, display: "flex", flexShrink: 0 }}>
+                      <TrashIcon size={14} />
+                    </button>
+                  </div>
+
+                  {/* Expandable note */}
+                  {isOpen && hasNote && (
+                    <div dir="auto" style={{
+                      padding: "0 12px 10px 48px", fontSize: 13, color: "var(--muted-strong)",
+                      lineHeight: 1.45, whiteSpace: "pre-wrap", wordBreak: "break-word",
+                      borderTop: "1px solid rgba(var(--border-rgb),0.06)",
+                      paddingTop: 8,
+                    }}>
+                      {t.note}
                     </div>
                   )}
-                </div>
-                {!t.done && (
-                  <button
-                    type="button"
-                    onClick={() => (t.activeSince ? stopTask(t.id) : startTask(t.id))}
-                    title={t.activeSince ? tr(isAr, "Stop", "إيقاف") : tr(isAr, "Start working", "ابدأ الشغل")}
-                    style={{
-                      border: "none",
-                      borderRadius: 8,
-                      padding: "6px 10px",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      flexShrink: 0,
-                      background: t.activeSince
-                        ? "color-mix(in srgb, #ff9f0a 22%, transparent)"
-                        : "color-mix(in srgb, #30d158 18%, transparent)",
-                      color: t.activeSince ? "#ff9f0a" : "#30d158",
-                    }}
-                  >
-                    {t.activeSince ? tr(isAr, "Stop", "إيقاف") : tr(isAr, "Start", "ابدأ")}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => removeTodo(t.id)}
-                  aria-label={tr(isAr, "Delete", "حذف")}
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    color: "var(--icon-muted)",
-                    cursor: "pointer",
-                    padding: 6,
-                    display: "flex",
-                    flexShrink: 0,
-                  }}
-                >
-                  <TrashIcon size={15} />
-                </button>
-              </li>
-            ))
+                </li>
+              );
+            })
           )}
         </ul>
       </div>
@@ -968,26 +605,12 @@ export default function TodoPage({
 }
 
 const iconBtn = {
-  border: "none",
-  background: "transparent",
-  color: "var(--icon-muted)",
-  padding: 4,
-  cursor: "pointer",
-  display: "inline-flex",
-  alignItems: "center",
-  borderRadius: 6,
+  border: "none", background: "transparent", color: "var(--icon-muted)",
+  padding: 3, cursor: "pointer", display: "inline-flex", alignItems: "center", borderRadius: 5,
 };
 
 const headerBtn = {
-  border: "1px solid rgba(var(--border-rgb),0.18)",
-  background: "var(--card)",
-  color: INK,
-  padding: "6px 12px",
-  borderRadius: 8,
-  cursor: "pointer",
-  fontSize: 13,
-  fontWeight: 600,
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 4,
+  border: "1px solid rgba(var(--border-rgb),0.14)", background: "var(--card)", color: INK,
+  padding: "5px 10px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontWeight: 600,
+  display: "inline-flex", alignItems: "center", gap: 3,
 };

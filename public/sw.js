@@ -21,7 +21,7 @@
    network-first, but still useful as a hard reset).
    ============================================================================= */
 
-const CACHE_VERSION = "two-tongues-v17";
+const CACHE_VERSION = "two-tongues-v18";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -118,6 +118,7 @@ self.addEventListener("push", (event) => {
   } catch (e) {
     // payload wasn't JSON — fall back to the defaults above
   }
+
   // `tag` collapses duplicate notifications with the same tag into one
   // (replaces the previous). Broadcasts send a shared tag; without it, a
   // device that was registered under two account codes would show two
@@ -126,16 +127,42 @@ self.addEventListener("push", (event) => {
   // always shows a fresh banner even with identical title/body.
   const tag = data.tag || `tt-${(data.title || "").slice(0, 40)}|${(data.body || "").slice(0, 80)}`;
   const renotify = data.renotify === true || (typeof tag === "string" && tag.startsWith("test-"));
+
   event.waitUntil(
     (async () => {
-      await self.registration.showNotification(data.title, {
-        body: data.body,
+      // Stronger, more persistent notification options so the banner is more
+      // likely to appear and stay visible even when the app is fully closed
+      // (especially on Android Chrome / non-PWA and under battery restrictions).
+      const options = {
+        body: data.body || "",
         icon: "/icons/icon-192.png",
         badge: "/icons/icon-192.png",
         tag,
-        renotify,
+        renotify: true,                 // always replace previous with same tag
+        requireInteraction: true,       // stay until user interacts (helps a lot)
+        silent: false,                  // force sound/vibration if allowed
+        vibrate: [200, 100, 200, 100, 200],
         data: { url: data.url || "/" },
-      });
+        dir: "auto",
+        lang: "ar",
+      };
+
+      try {
+        await self.registration.showNotification(data.title || "إشعار", options);
+      } catch (err) {
+        // Fallback without the stricter options if the browser rejects them
+        try {
+          await self.registration.showNotification(data.title || "إشعار", {
+            body: data.body || "",
+            icon: "/icons/icon-192.png",
+            badge: "/icons/icon-192.png",
+            tag,
+            renotify: true,
+            data: { url: data.url || "/" },
+          });
+        } catch (_) {}
+      }
+
       // Forward to open app tabs so the in-app inbox can collect the same push
       try {
         const clientsArr = await self.clients.matchAll({

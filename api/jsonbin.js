@@ -423,20 +423,62 @@ function resolveEntriesForSave(incomingEntries, currentEntries, { confirmWipe = 
   return incoming;
 }
 
+/** Extract stable word id from an entry object. */
+function entryIdOf(e) {
+  if (!e || e.id == null || e.id === "") return "";
+  return String(e.id);
+}
+
 /**
- * Safer full replace for entries:
- * - Refuses empty overwrite of non-empty DB (double-check at write time).
- * - Clears then re-inserts only when the payload is non-empty, or when an
- *   intentional wipe was confirmed (caller already allowed empty).
+ * Load all entry ids currently stored in DB (from jsonb data.id).
+ * Returns { ids: Set<string>, count: number }.
  */
-async function saveEntriesReplace(entries) {
+async function loadEntryIdSet() {
+  try {
+    const rows = await sbFetch("GET", "entries?select=data");
+    const ids = new Set();
+    for (const r of rows || []) {
+      const id = entryIdOf(r && r.data);
+      if (id) ids.add(id);
+    }
+    return { ids, count: (rows || []).length };
+  } catch (_) {
+    return { ids: new Set(), count: -1 };
+  }
+}
+
+/**
+ * Update one entry row by word id (jsonb data.id). Returns true if at least
+ * one row was updated. Uses PATCH so the row is never deleted mid-write.
+ */
+async function patchEntryByWordId(entry) {
+  const id = entryIdOf(entry);
+  if (!id) return false;
+  const updated = await sbFetch(
+    "PATCH",
+    `entries?data->>id=eq.${encodeURIComponent(id)}`,
+    { data: { ...entry, id } },
+    { Prefer: "return=representation" }
+  );
+  return Array.isArray(updated) && updated.length > 0;
+}
+
+/**
+ * Differential save for entries (no full-table clear):
+ *  1) Existing word ids → PATCH (update data in place).
+ *  2) New word ids → POST (insert).
+ *  3) DB ids missing from payload → DELETE (orphans only).
+ *
+ * Benefits vs wipe / delete+insert:
+ *  - Row stays present during update (no empty gap for that word).
+ *  - Crash mid-save cannot empty the dictionary.
+ *  - Empty payload still blocked when DB has words.
+ */
+async function saveEntriesSync(entries) {
   const list = Array.isArray(entries) ? entries : [];
-  const dbCount = await countEntriesInDb();
+  const { ids: existingIds, count: dbCount } = await loadEntryIdSet();
 
   if (list.length === 0) {
-    // Intentional empty: only clear if DB is already empty, or caller passed
-    // empty after confirmWipe. If DB has rows and we somehow got here without
-    // confirm, refuse (last line of defense).
     if (dbCount > 0) {
       const err = new Error(
         "Refusing to clear entries table: save payload is empty but DB has words."
@@ -445,15 +487,59 @@ async function saveEntriesReplace(entries) {
       err.serverCount = dbCount;
       throw err;
     }
-    return; // nothing to write
+    return;
   }
 
-  await clearTable("entries");
-  const rows = list.map((e) => ({ data: e }));
-  for (let i = 0; i < rows.length; i += 50) {
-    await sbFetch("POST", "entries", rows.slice(i, i + 50), {
-      Prefer: "return=minimal",
-    });
+  // Dedupe by id (last wins).
+  const byId = new Map();
+  for (const e of list) {
+    const id = entryIdOf(e);
+    if (!id) continue;
+    byId.set(id, { ...e, id });
+  }
+  const keepIds = new Set(byId.keys());
+
+  const toPatch = [];
+  const toInsert = [];
+  for (const [id, e] of byId) {
+    if (existingIds.has(id)) toPatch.push(e);
+    else toInsert.push(e);
+  }
+
+  // 1) Update existing words in place (PATCH).
+  for (const e of toPatch) {
+    try {
+      const ok = await patchEntryByWordId(e);
+      // Race: row vanished between id-scan and patch → insert instead.
+      if (!ok) toInsert.push(e);
+    } catch (_) {
+      toInsert.push(e);
+    }
+  }
+
+  // 2) Insert brand-new words in batches.
+  for (let i = 0; i < toInsert.length; i += 50) {
+    const chunk = toInsert.slice(i, i + 50);
+    if (!chunk.length) continue;
+    await sbFetch(
+      "POST",
+      "entries",
+      chunk.map((e) => ({ data: e })),
+      { Prefer: "return=minimal" }
+    );
+  }
+
+  // 3) Remove words no longer in the client set (orphans only).
+  for (const id of existingIds) {
+    if (keepIds.has(id)) continue;
+    try {
+      await sbFetch(
+        "DELETE",
+        `entries?data->>id=eq.${encodeURIComponent(id)}`,
+        undefined,
+        { Prefer: "return=minimal" }
+      );
+    } catch (_) {}
   }
 }
 
@@ -471,8 +557,8 @@ async function saveFullRecord(record, nextVersion) {
     { Prefer: "resolution=merge-duplicates,return=minimal" }
   );
 
-  // 2) entries — safer path (no silent empty wipe)
-  await saveEntriesReplace(record.entries);
+  // 2) entries — differential sync (no full-table wipe)
+  await saveEntriesSync(record.entries);
 
   // 3) accounts — per-code replace (no full-table clear).
   // Full clear+reinsert raced when Redis lock was missing: two concurrent
@@ -674,26 +760,29 @@ export default async function handler(req, res) {
                 error: "entryPatch requires entry object with id",
               });
             }
+            const payload = { ...entry, id: entryId };
             await bumpVersion(nextVersion);
+            // Prefer in-place UPDATE; insert only if the word does not exist yet.
+            let patched = false;
             try {
+              patched = await patchEntryByWordId(payload);
+            } catch (_) {
+              patched = false;
+            }
+            if (!patched) {
               await sbFetch(
-                "DELETE",
-                `entries?data->>id=eq.${encodeURIComponent(entryId)}`,
-                undefined,
+                "POST",
+                "entries",
+                [{ data: payload }],
                 { Prefer: "return=minimal" }
               );
-            } catch (_) {}
-            await sbFetch(
-              "POST",
-              "entries",
-              [{ data: { ...entry, id: entryId } }],
-              { Prefer: "return=minimal" }
-            );
+            }
             return res.status(200).json({
               ok: true,
               version: nextVersion,
               scope: "entryPatch",
               id: entryId,
+              updated: patched,
             });
           }
 

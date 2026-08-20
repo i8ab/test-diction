@@ -30,6 +30,8 @@ function normalizeTodoList(arr, { stripActive = false } = {}) {
           : null,
       priority: ["high", "medium", "low"].includes(t.priority) ? t.priority : "medium",
       dueDate: typeof t.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.dueDate) ? t.dueDate : null,
+      // Bumped on every local edit; used to decide which side "wins" a merge.
+      updatedAt: typeof t.updatedAt === "number" ? t.updatedAt : Date.now(),
     }))
     .slice(0, 200);
 }
@@ -154,22 +156,20 @@ export default function TodoPage({
     saveTodosLocal(todos, accountCode);
   }, [todos, accountCode]);
 
-  // Cloud load
-  useEffect(() => {
-    if (!accountCode) return;
-    let cancelled = false;
-    (async () => {
+  // Cloud load (also used by the periodic poll below)
+  const pullFromCloud = useCallback(
+    async (cancelledRef) => {
       try {
         setSyncStatus("syncing");
         const r = await fetch(`/api/todos?code=${encodeURIComponent(accountCode)}`, { cache: "no-store" });
-        if (!r.ok || cancelled) {
-          if (!cancelled) setSyncStatus("");
+        if (!r.ok || cancelledRef.current) {
+          if (!cancelledRef.current) setSyncStatus("");
           return;
         }
         const data = await r.json().catch(() => ({}));
         // Keep activeSince so the timer continues on this device
         const remote = normalizeTodoList(data.todos, { stripActive: false });
-        if (cancelled) return;
+        if (cancelledRef.current) return;
         setTodos((local) => {
           if (remote.length === 0) return local;
           if (local.length === 0) return remote;
@@ -180,16 +180,13 @@ export default function TodoPage({
             if (!existing) {
               map.set(r.id, r);
             } else {
-              // Prefer the more recent active timer; accumulate workedMs
-              const localActive = existing.activeSince || 0;
-              const remoteActive = r.activeSince || 0;
-              const bestActive = Math.max(localActive, remoteActive) || null;
-              map.set(r.id, {
-                ...existing,
-                ...r,
-                workedMs: Math.max(existing.workedMs || 0, r.workedMs || 0),
-                activeSince: bestActive,
-              });
+              // Whichever side was edited more recently wins outright —
+              // e.g. a Stop (which bumps updatedAt) always beats a stale
+              // "still active" copy, instead of picking the larger
+              // activeSince and reviving a timer that was deliberately stopped.
+              const localUpdated = existing.updatedAt || 0;
+              const remoteUpdated = r.updatedAt || 0;
+              map.set(r.id, remoteUpdated >= localUpdated ? r : existing);
             }
           }
           // Only one task should be actively timing
@@ -212,13 +209,36 @@ export default function TodoPage({
         setSyncStatus("ok");
         setTimeout(() => setSyncStatus(""), 1400);
       } catch (_) {
-        if (!cancelled) setSyncStatus("");
+        if (!cancelledRef.current) setSyncStatus("");
       }
-    })();
+    },
+    [accountCode]
+  );
+
+  useEffect(() => {
+    if (!accountCode) return;
+    const cancelledRef = { current: false };
+    pullFromCloud(cancelledRef);
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
     };
-  }, [accountCode]);
+  }, [accountCode, pullFromCloud]);
+
+  // Periodic poll so an already-open tab picks up changes (like a Stop)
+  // made on another device, without needing a manual refresh.
+  useEffect(() => {
+    if (!accountCode) return;
+    const cancelledRef = { current: false };
+    const id = setInterval(() => {
+      // Don't poll mid-typing/edit of a note field etc — only when idle enough
+      // that any pending local PUT (800ms debounce) has already gone out.
+      pullFromCloud(cancelledRef);
+    }, 5000);
+    return () => {
+      cancelledRef.current = true;
+      clearInterval(id);
+    };
+  }, [accountCode, pullFromCloud]);
 
   // Cloud save (tasks + done + workedMs)
   useEffect(() => {
@@ -330,6 +350,7 @@ export default function TodoPage({
         activeSince: null,
         priority: draftPriority,
         dueDate: draftDue || null,
+        updatedAt: Date.now(),
       },
       ...prev,
     ]);
@@ -351,9 +372,10 @@ export default function TodoPage({
             done: true,
             activeSince: null,
             workedMs: (t.workedMs || 0) + (Date.now() - t.activeSince),
+            updatedAt: Date.now(),
           };
         }
-        return { ...t, done: !t.done };
+        return { ...t, done: !t.done, updatedAt: Date.now() };
       })
     );
   }
@@ -363,13 +385,14 @@ export default function TodoPage({
       prev.map((t) => {
         if (t.id === id) {
           if (t.done || t.activeSince) return t;
-          return { ...t, activeSince: Date.now() };
+          return { ...t, activeSince: Date.now(), updatedAt: Date.now() };
         }
         if (t.activeSince) {
           return {
             ...t,
             activeSince: null,
             workedMs: (t.workedMs || 0) + (Date.now() - t.activeSince),
+            updatedAt: Date.now(),
           };
         }
         return t;
@@ -385,6 +408,7 @@ export default function TodoPage({
           ...t,
           activeSince: null,
           workedMs: (t.workedMs || 0) + (Date.now() - t.activeSince),
+          updatedAt: Date.now(),
         };
       })
     );

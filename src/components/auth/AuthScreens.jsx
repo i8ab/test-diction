@@ -84,6 +84,8 @@ function AuthScreens({
   const [showSignupPw2, setShowSignupPw2] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [pwRect, setPwRect] = useState(null);
+  // حالة نافذة اختيار الدور الموحدة (طالب / معلّم)
+  const [showRoleModal, setShowRoleModal] = useState(false);
   const loginPwWrapRef = useRef(null);
   const signupFileRef = useRef(null);
   // Local fallback so Teacher toggle works even if parent forgot to pass setSignupRole
@@ -212,19 +214,139 @@ function AuthScreens({
               />
             </div>
 
+            {/* زر تسجيل الدخول الموحد — يفتح نافذة اختيار الدور */}
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 12 }}>
-              <button type="button" onClick={() => { setAuthError(""); goToStage("login"); }} className="btn-shine touch-target" style={{ ...primaryBtnStyle, width: "auto", marginTop: 0, padding: "14px 28px", minHeight: 48 }}>
-                <LoginIcon size={16} /> {atr("Sign in", "تسجيل الدخول")}
+              <button
+                type="button"
+                onClick={() => { setAuthError(""); setShowRoleModal(true); }}
+                className="btn-shine touch-target"
+                style={{ ...primaryBtnStyle, width: "auto", marginTop: 0, padding: "14px 32px", minHeight: 48 }}
+              >
+                <LoginIcon size={16} /> {atr("Login", "تسجيل الدخول")}
               </button>
-              <button type="button" onClick={() => { setSignupError(""); pickRole("user"); goToStage("signup"); }} className="lift-hover touch-target"
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 26px", minHeight: 48, fontFamily: "'Source Sans 3', sans-serif", fontSize: 15, fontWeight: 700, color: INK, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, cursor: "pointer" }}>
+              <button
+                type="button"
+                onClick={() => { setSignupError(""); pickRole("user"); goToStage("signup"); }}
+                className="lift-hover touch-target"
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 26px", minHeight: 48, fontFamily: "'Source Sans 3', sans-serif", fontSize: 15, fontWeight: 700, color: INK, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, cursor: "pointer" }}
+              >
                 <PlusIcon size={16} /> {atr("Create account", "إنشاء حساب")}
               </button>
-              <button type="button" onClick={() => { setSignupError(""); pickRole("teacher"); goToStage("signup"); }} className="lift-hover touch-target"
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 26px", minHeight: 48, fontFamily: "'Source Sans 3', sans-serif", fontSize: 15, fontWeight: 700, color: "#fff", background: "linear-gradient(135deg, #2d6a4f, #40916c)", border: "none", borderRadius: 10, cursor: "pointer", boxShadow: "0 4px 14px -4px rgba(45,106,79,0.45)" }}>
-                <UsersIcon size={16} /> {atr("Create Account As A Teacher", "إنشاء حساب كمعلّم")}
-              </button>
             </div>
+
+            {/* نافذة منبثقة لاختيار الدور (طالب أو معلّم) */}
+            {showRoleModal && typeof document !== "undefined" && createPortal(
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="role-modal-title"
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 9999,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(0,0,0,0.55)",
+                  padding: 16,
+                }}
+                onClick={(e) => { if (e.target === e.currentTarget) setShowRoleModal(false); }}
+              >
+                <div
+                  style={{
+                    background: "var(--card)",
+                    borderRadius: 16,
+                    padding: "28px 24px",
+                    maxWidth: 360,
+                    width: "100%",
+                    boxShadow: "0 20px 40px -12px rgba(0,0,0,0.35)",
+                    border: "1px solid rgba(var(--border-rgb),0.15)",
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h2 id="role-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 600, color: INK, margin: "0 0 8px", textAlign: "center" }}>
+                    {atr("Choose your role", "اختر دورك")}
+                  </h2>
+                  <p style={{ fontSize: 14, color: "var(--muted-strong)", margin: "0 0 20px", textAlign: "center", lineHeight: 1.5 }}>
+                    {atr("Are you a student or a teacher?", "هل أنت طالب أم معلّم؟")}
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <button
+                      type="button"
+                      className="btn-shine touch-target"
+                      onClick={() => {
+                        pickRole("user");
+                        setShowRoleModal(false);
+                        setAuthError("");
+                        goToStage("login");
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 10,
+                        padding: "14px 20px",
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: "#fff",
+                        background: "var(--accent-1)",
+                        border: "none",
+                        borderRadius: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <UserIcon size={18} /> {atr("Student", "طالب")}
+                    </button>
+                    <button
+                      type="button"
+                      className="lift-hover touch-target"
+                      onClick={() => {
+                        pickRole("teacher");
+                        setShowRoleModal(false);
+                        setAuthError("");
+                        goToStage("login");
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 10,
+                        padding: "14px 20px",
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: "#fff",
+                        background: "linear-gradient(135deg, #2d6a4f, #40916c)",
+                        border: "none",
+                        borderRadius: 12,
+                        cursor: "pointer",
+                        boxShadow: "0 4px 14px -4px rgba(45,106,79,0.45)",
+                      }}
+                    >
+                      <UsersIcon size={18} /> {atr("Teacher", "معلّم")}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowRoleModal(false)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 16,
+                      padding: "10px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "var(--muted-strong)",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {atr("Cancel", "إلغاء")}
+                  </button>
+                </div>
+              </div>,
+              document.body
+            )}
           </div>
 
           <style>{`

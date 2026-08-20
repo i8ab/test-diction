@@ -224,19 +224,22 @@ export default function TodoPage({
     };
   }, [accountCode, pullFromCloud]);
 
-  // Periodic poll so an already-open tab picks up changes (like a Stop)
-  // made on another device, without needing a manual refresh.
+  // Pull the latest state when the tab/app comes back to the foreground —
+  // no recurring timer, just a one-shot check on return.
   useEffect(() => {
     if (!accountCode) return;
     const cancelledRef = { current: false };
-    const id = setInterval(() => {
-      // Don't poll mid-typing/edit of a note field etc — only when idle enough
-      // that any pending local PUT (800ms debounce) has already gone out.
-      pullFromCloud(cancelledRef);
-    }, 5000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        pullFromCloud(cancelledRef);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
     return () => {
       cancelledRef.current = true;
-      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
     };
   }, [accountCode, pullFromCloud]);
 

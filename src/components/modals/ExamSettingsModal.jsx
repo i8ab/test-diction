@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, labelStyle, inputStyle, primaryBtnStyle, errorStyle } from "../../lib/config/theme";
 import {
@@ -8,7 +8,8 @@ import {
   examItemTimestamp,
   getExamQueueInfo,
 } from "../../lib/state/exam";
-import { XIcon, FlameIcon, PlusIcon, TrashIcon } from "../common/Icons";
+import { fetchSettings } from "../../lib/state/cloudApi";
+import { XIcon, FlameIcon, PlusIcon, TrashIcon, LoaderIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 const PRESET_COLORS = ["#e85d04", "#d62828", "#146C94", "#2a9d8f", "#6a4c93", "#b08d57", "#1d3557"];
@@ -17,6 +18,7 @@ const PRESET_COLORS = ["#e85d04", "#d62828", "#146C94", "#2a9d8f", "#6a4c93", "#
  * Admin-only: manage a queue of exams.
  * Countdowns run one after another — when the current exam passes,
  * the next one in the list becomes active automatically.
+ * عزل الإجراءات: يجلب examConfig بنفسه عند الفتح إن لزم.
  */
 export default function ExamSettingsModal({ examConfig, onPersist, isAr, onClose }) {
   const initial = normalizeExamConfig(examConfig || defaultExamConfig());
@@ -29,6 +31,27 @@ export default function ExamSettingsModal({ examConfig, onPersist, isAr, onClose
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
+  const [loadingRemote, setLoadingRemote] = useState(false);
+
+  // جلب أحدث إعدادات الامتحان عند فتح المودال (طلب واحد خفيف)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoadingRemote(true);
+      try {
+        const data = await fetchSettings("exam_config");
+        if (cancelled || !data || !data.examConfig) return;
+        const fresh = normalizeExamConfig(data.examConfig);
+        setEnabled(!!fresh.enabled);
+        setExams(fresh.exams.length ? fresh.exams.map((e) => ({ ...e })) : []);
+      } catch (_) {
+        // نستخدم القيمة القادمة من الـ props / الكاش
+      } finally {
+        if (!cancelled) setLoadingRemote(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   function updateExam(id, patch) {
     setExams((list) => list.map((e) => (e.id === id ? { ...e, ...patch } : e)));

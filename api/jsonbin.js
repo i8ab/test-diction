@@ -691,13 +691,140 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === "GET") {
-      const record = await loadRecord();
-      // Always private no-store. Caching account status made admin refresh
-      // show a just-approved request as still pending for up to 2 minutes.
+      // دعم الطلبات المجزأة حسب الـ scope لتقليل حجم البيانات (عزل الإجراءات)
+      // scope اختياري — لو مش موجود يرجع السجل الكامل (للتوافق مع الكود القديم)
+      const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+      const scope = (url.searchParams.get("scope") || "full").toLowerCase();
+      const code = url.searchParams.get("code") || "";
+      const keysParam = url.searchParams.get("keys") || "";
+
       res.setHeader(
         "Cache-Control",
         "private, no-store, no-cache, max-age=0, must-revalidate"
       );
+
+      // ——— نطاقات مجزأة ———
+      if (scope === "version") {
+        const version = await loadVersionOnly();
+        return res.status(200).json({ version });
+      }
+
+      if (scope === "account" && code) {
+        const account = await loadOneAccount(code);
+        return res.status(200).json({ account: account || null });
+      }
+
+      if (scope === "accounts") {
+        const accounts = await loadAccountsDataOnly();
+        return res.status(200).json({ accounts });
+      }
+
+      if (scope === "entries") {
+        // section اختياري: en-ar | ar-ar | academic — يقلل حجم الرد
+        const sectionFilter = (url.searchParams.get("section") || "").trim();
+        const allowed = new Set(["en-ar", "ar-ar", "academic"]);
+        let entriesRows;
+        if (sectionFilter && allowed.has(sectionFilter)) {
+          // تصفية على مستوى Supabase (jsonb) لتقليل النقل
+          try {
+            entriesRows = await sbFetch(
+              "GET",
+              `entries?select=data&data->>section=eq.${encodeURIComponent(sectionFilter)}`
+            );
+          } catch (_) {
+            entriesRows = null;
+          }
+          // fallback: جلب الكل ثم تصفية محلياً لو الفلتر فشل
+          if (!entriesRows) {
+            const all = await sbFetch("GET", "entries?select=data");
+            entriesRows = (all || []).filter(
+              (r) => r && r.data && r.data.section === sectionFilter
+            );
+          }
+        } else {
+          entriesRows = await sbFetch("GET", "entries?select=data");
+        }
+        const entries = (entriesRows || []).map((r) => r.data).filter(Boolean);
+        return res.status(200).json({
+          entries,
+          section: sectionFilter || null,
+        });
+      }
+
+      if (scope === "logs") {
+        const logsRows = await sbFetch(
+          "GET",
+          "logs?select=*&order=at.desc&limit=500"
+        );
+        let logs = pruneLogsLast24h((logsRows || []).map(logFromRow));
+        logs.sort((a, b) => (a.at || 0) - (b.at || 0));
+        return res.status(200).json({ logs });
+      }
+
+      if (scope === "settings") {
+        // keys=site_banner,exam_config,academic_units,version
+        const wanted = keysParam
+          ? keysParam.split(",").map((k) => k.trim()).filter(Boolean)
+          : ["site_banner", "exam_config", "academic_units", "version"];
+        const settingsRows = await sbFetch("GET", "settings?select=key,value");
+        const out = {};
+        for (const row of settingsRows || []) {
+          if (!wanted.includes(row.key)) continue;
+          if (row.key === "version") {
+            out.version =
+              typeof row.value === "number" ? row.value : Number(row.value) || 0;
+          } else if (row.key === "site_banner") {
+            out.siteBanner = pickBanner(row.value);
+          } else if (row.key === "exam_config") {
+            out.examConfig = pickExamConfig(row.value);
+          } else if (row.key === "academic_units") {
+            out.academicUnits = pickAcademicUnits(row.value);
+          }
+        }
+        // fallback للبانر لو مش موجود في settings
+        if (wanted.includes("site_banner") && out.siteBanner == null) {
+          try {
+            const bannerRows = await sbFetch("GET", "site_banner?select=*&limit=1");
+            if (bannerRows && bannerRows[0]) out.siteBanner = pickBanner(bannerRows[0]);
+          } catch (_) {}
+        }
+        return res.status(200).json(out);
+      }
+
+      if (scope === "bootstrap") {
+        // الحد الأدنى اللازم لبدء الجلسة: settings عامة + version فقط
+        // (بدون entries ولا accounts ولا logs)
+        const settingsRows = await sbFetch("GET", "settings?select=key,value");
+        let version = 0;
+        let siteBanner = null;
+        let examConfig = null;
+        let academicUnits = null;
+        for (const row of settingsRows || []) {
+          if (row.key === "version") {
+            version =
+              typeof row.value === "number" ? row.value : Number(row.value) || 0;
+          }
+          if (row.key === "site_banner") siteBanner = pickBanner(row.value);
+          if (row.key === "exam_config") examConfig = pickExamConfig(row.value);
+          if (row.key === "academic_units")
+            academicUnits = pickAcademicUnits(row.value);
+        }
+        if (!siteBanner) {
+          try {
+            const bannerRows = await sbFetch("GET", "site_banner?select=*&limit=1");
+            if (bannerRows && bannerRows[0]) siteBanner = pickBanner(bannerRows[0]);
+          } catch (_) {}
+        }
+        return res.status(200).json({
+          version,
+          siteBanner,
+          examConfig,
+          academicUnits,
+        });
+      }
+
+      // افتراضي: السجل الكامل (للتوافق العكسي)
+      const record = await loadRecord();
       return res.status(200).json(record);
     }
 

@@ -1,5 +1,17 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { fetchRecord, saveRecord, SaveConflictError, patchAccountFields, patchSettings } from "./lib/state/cloudApi";
+import {
+  fetchBootstrap,
+  fetchMyAccount,
+  fetchAccountsOnly,
+  fetchEntriesOnly,
+  fetchLogsOnly,
+  fetchVersionOnly,
+  saveRecord,
+  saveAccountsOnly,
+  SaveConflictError,
+  patchAccountFields,
+  patchSettings,
+} from "./lib/state/cloudApi";
 import {
   loadSearchHistory, saveSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory,
   saveOfflineCache, loadOfflineCache, savePersonalCode, loadPersonalCode, clearPersonalCode,
@@ -60,14 +72,63 @@ import MainView from "./components/MainView";
 const deviceIsAr = detectDeviceIsAr();
 const savedPersonalCode = loadPersonalCode();
 
+/**
+ * لقطة أولية من الكاش المحلي — للعرض الفوري قبل الشبكة
+ * (تحسين الإحساس + تقليل انتظار الباندويث)
+ */
+function readInitialOfflineSnapshot() {
+  const cached = loadOfflineCache();
+  if (!cached) return null;
+  const hasData =
+    (Array.isArray(cached.entries) && cached.entries.length > 0) ||
+    (Array.isArray(cached.accounts) && cached.accounts.length > 0);
+  if (!hasData) return null;
+  let accounts = cached.accounts || [];
+  try {
+    const migrated = migrateAccounts(accounts);
+    accounts = migrated.accounts || accounts;
+  } catch (_) {}
+  const account =
+    savedPersonalCode && accounts.length
+      ? accounts.find((a) => a && a.code === savedPersonalCode)
+      : null;
+  const usableAccount =
+    account &&
+    account.status !== "pending" &&
+    account.status !== "rejected" &&
+    account.status !== "blocked"
+      ? account
+      : null;
+  return {
+    entries: Array.isArray(cached.entries) ? cached.entries : [],
+    accounts,
+    logs: Array.isArray(cached.logs) ? cached.logs : [],
+    siteBanner: cached.siteBanner || null,
+    examConfig: cached.examConfig || null,
+    academicUnits: cached.academicUnits || null,
+    version: typeof cached.version === "number" ? cached.version : 0,
+    cachedAt: cached.cachedAt || null,
+    usableAccount,
+  };
+}
+
+const initialOffline = readInitialOfflineSnapshot();
+
 export default function DictionaryApp() {
   // Fixed the moment this tab loaded — powers the quiz's "This session"
   // time-range option ("studied since I opened the site this time").
   const sessionStartRef = useRef(Date.now());
-  const [authStage, setAuthStage] = useState(
-    savedPersonalCode ? "restoring" : hasInviteParam() ? "signup" : "intro"
-  ); // intro | signup | pendingShown | login | restoring | in
-  const [name, setName] = useState("");
+  // لو عندنا كاش صالح لنفس الحساب → ندخل مباشرة (in) ونحدّث في الخلفية
+  // وإلا نفضل restoring لحد ما الشبكة ترد
+  const [authStage, setAuthStage] = useState(() => {
+    if (initialOffline?.usableAccount) return "in";
+    if (savedPersonalCode) return "restoring";
+    if (hasInviteParam()) return "signup";
+    return "intro";
+  }); // intro | signup | pendingShown | login | restoring | in
+  const [name, setName] = useState(
+    () => (initialOffline?.usableAccount?.name) || ""
+  );
   const [usernameInput, setUsernameInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [signupUsername, setSignupUsername] = useState("");
@@ -84,8 +145,15 @@ export default function DictionaryApp() {
   const [loggingIn, setLoggingIn] = useState(false);
   const [signupError, setSignupError] = useState("");
   const [signupSaving, setSignupSaving] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isTeacher, setIsTeacher] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(
+    () =>
+      initialOffline?.usableAccount?.role === "admin" ||
+      initialOffline?.usableAccount?.role === "teacher" ||
+      false
+  );
+  const [isTeacher, setIsTeacher] = useState(
+    () => initialOffline?.usableAccount?.role === "teacher" || false
+  );
   const [moreFeaturesOpen, setMoreFeaturesOpen] = useState(false);
   const migrationDoneRef = useRef(false);
 
@@ -134,17 +202,24 @@ export default function DictionaryApp() {
     setExamVisual,
   } = useAppPreferences();
 
-  const [entries, setEntries] = useState([]);
-  const [entriesLoaded, setEntriesLoaded] = useState(false);
+  const [entries, setEntries] = useState(
+    () => (initialOffline?.entries?.length ? initialOffline.entries : [])
+  );
+  // لو في كاش → نعتبر البيانات جاهزة للعرض فوراً
+  const [entriesLoaded, setEntriesLoaded] = useState(
+    () => !!(initialOffline?.entries?.length)
+  );
   // Tracks the version of the shared record we last read from the server —
   // sent back on every save as `expectedVersion` so the server can detect
   // (and reject) a write that would silently clobber someone else's change
   // made in between. See the concurrency comment in api/jsonbin.js.
-  const [recordVersion, setRecordVersion] = useState(0);
+  const [recordVersion, setRecordVersion] = useState(
+    () => initialOffline?.version || 0
+  );
   // Always keep a ref in sync so concurrent saves (two toggles in a row, two
   // tabs, quiz answers firing back-to-back) never send a stale expectedVersion
   // just because React hasn't re-rendered the useCallback closure yet.
-  const recordVersionRef = useRef(0);
+  const recordVersionRef = useRef(initialOffline?.version || 0);
   function commitRecordVersion(v) {
     const n = typeof v === "number" ? v : 0;
     recordVersionRef.current = n;
@@ -158,12 +233,12 @@ export default function DictionaryApp() {
   const enqueueSave = saveQueueRef.current.enqueueSave;
   // Live mirrors so a queued/coalesced save always sees the latest data,
   // not a stale React closure from when the user clicked earlier.
-  const entriesRef = useRef([]);
+  const entriesRef = useRef(initialOffline?.entries || []);
   /** Last entry list successfully confirmed on the server — for granular diffs. */
-  const lastSyncedEntriesRef = useRef([]);
-  const accountsRef = useRef([]);
-  const logsRef = useRef([]);
-  const siteBannerRef = useRef(null);
+  const lastSyncedEntriesRef = useRef(initialOffline?.entries || []);
+  const accountsRef = useRef(initialOffline?.accounts || []);
+  const logsRef = useRef(initialOffline?.logs || []);
+  const siteBannerRef = useRef(initialOffline?.siteBanner || null);
   // Batch rapid studied/favorite/quiz ops into a single network write.
   const pendingAccountOpsRef = useRef([]);
   const pendingEntryOpsRef = useRef([]);
@@ -175,20 +250,52 @@ export default function DictionaryApp() {
   const pendingApprovedCodesRef = useRef(new Set(loadPendingApproveCodes()));
   const [loadError, setLoadError] = useState("");
   const [isOffline, setIsOffline] = useState(false);
-  const [offlineCachedAt, setOfflineCachedAt] = useState(null);
-  const [accounts, setAccounts] = useState([]);
-  const [accountsLoaded, setAccountsLoaded] = useState(false);
-  const [logs, setLogs] = useState([]);
-  const [logsLoaded, setLogsLoaded] = useState(false);
-  const [siteBanner, setSiteBanner] = useState(null); // admin-published site-wide announcement
-  const [examConfig, setExamConfig] = useState(() => loadExamConfigCache()); // admin-published exam countdown
-  const examConfigRef = useRef(loadExamConfigCache());
-  const [academicUnits, setAcademicUnits] = useState(() => loadAcademicUnitsCache());
-  const academicUnitsRef = useRef(loadAcademicUnitsCache());
-  const [activeUnitId, setActiveUnitId] = useState(() =>
-    loadActiveAcademicUnitId(loadAcademicUnitsCache())
+  const [offlineCachedAt, setOfflineCachedAt] = useState(
+    () => initialOffline?.cachedAt || null
   );
-  const [accountCode, setAccountCode] = useState(""); // this browser's signed-in account's personal code
+  const [accounts, setAccounts] = useState(
+    () => initialOffline?.accounts || []
+  );
+  const [accountsLoaded, setAccountsLoaded] = useState(
+    () => !!(initialOffline?.accounts?.length)
+  );
+  const [logs, setLogs] = useState(() => initialOffline?.logs || []);
+  const [logsLoaded, setLogsLoaded] = useState(
+    () => !!(initialOffline?.logs?.length)
+  );
+  const [siteBanner, setSiteBanner] = useState(
+    () => initialOffline?.siteBanner || null
+  ); // admin-published site-wide announcement
+  const [examConfig, setExamConfig] = useState(() =>
+    normalizeExamConfig(
+      initialOffline?.examConfig || loadExamConfigCache() || defaultExamConfig()
+    )
+  ); // admin-published exam countdown
+  const examConfigRef = useRef(
+    normalizeExamConfig(
+      initialOffline?.examConfig || loadExamConfigCache() || defaultExamConfig()
+    )
+  );
+  const [academicUnits, setAcademicUnits] = useState(() =>
+    normalizeAcademicUnits(
+      initialOffline?.academicUnits || loadAcademicUnitsCache()
+    )
+  );
+  const academicUnitsRef = useRef(
+    normalizeAcademicUnits(
+      initialOffline?.academicUnits || loadAcademicUnitsCache()
+    )
+  );
+  const [activeUnitId, setActiveUnitId] = useState(() =>
+    loadActiveAcademicUnitId(
+      normalizeAcademicUnits(
+        initialOffline?.academicUnits || loadAcademicUnitsCache()
+      )
+    )
+  );
+  const [accountCode, setAccountCode] = useState(
+    () => initialOffline?.usableAccount?.code || ""
+  ); // this browser's signed-in account's personal code
   const [vaultAccounts, setVaultAccounts] = useState(() => loadAccountVault());
   const [mainAccountCode, setMainAccountCodeState] = useState(() => getMainAccountCode());
   const [linkMode, setLinkMode] = useState(false);
@@ -199,7 +306,16 @@ export default function DictionaryApp() {
     } catch (_) {}
     return "en-ar";
   });
+  // الأقسام اللي اتجلبت من الشبكة في هذه الجلسة (لتجنب إعادة الجلب)
+  const loadedSectionsRef = useRef(new Set());
   const [query, setQuery] = useState("");
+
+  /** دمج كلمات قسم معيّن مع القائمة الحالية دون لمس باقي الأقسام */
+  function mergeSectionEntries(current, sectionEntries, sec) {
+    const others = (current || []).filter((e) => e && e.section !== sec);
+    const incoming = Array.isArray(sectionEntries) ? sectionEntries : [];
+    return [...others, ...incoming];
+  }
   const [showAdd, setShowAdd] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
@@ -527,8 +643,9 @@ useEffect(() => {
     }
     migrationDoneRef.current = true;
     try {
-      const newVersion = await saveRecord(
-        { entries: rec.entries || [], accounts: migrated, logs: rec.logs || [], siteBanner: rec.siteBanner || null, examConfig: rec.examConfig || examConfigRef.current, academicUnits: rec.academicUnits || academicUnitsRef.current},
+      // كتابة جزئية: الحسابات فقط (بدون إعادة إرسال القاموس كامل)
+      const newVersion = await saveAccountsOnly(
+        { accounts: migrated },
         rec.version || 0
       );
       return { ...rec, accounts: migrated, version: newVersion };
@@ -542,9 +659,80 @@ useEffect(() => {
   useEffect(() => {
     (async () => {
       try {
-        // Always fresh — cached GETs were resurfacing just-approved accounts
-        // as status:"pending" after admin refresh (CDN / browser cache).
-        let rec = await fetchRecord({ fresh: true });
+        // ============================================================
+        // مرحلة 1 من عزل الإجراءات: جلب مجزأ بدل السجل الكامل
+        // نجمع البيانات من عدة طلبات خفيفة ثم نبني كائن rec متوافق
+        // مع المنطق الحالي (الدمج / الموافقات / الجلسات)
+        // ============================================================
+        let rec;
+
+        // لو في كود شخصي محفوظ → نجيب الحساب أولاً عشان نعرف هل هو أدمن
+        const personalCode = savedPersonalCode || loadPersonalCode();
+        // القسم الحالي فقط أولاً (توفير باندويث) — باقي الأقسام عند التبديل أو prefetch
+        let primarySection = "en-ar";
+        try {
+          const s = localStorage.getItem("twoTongues.section");
+          if (s === "en-ar" || s === "ar-ar" || s === "academic") primarySection = s;
+        } catch (_) {}
+
+        if (personalCode) {
+          // طلبات متوازية: الحساب + الإعدادات العامة + كلمات القسم الحالي فقط
+          const [myAccount, bootstrap, sectionEntries] = await Promise.all([
+            fetchMyAccount(personalCode).catch(() => null),
+            fetchBootstrap().catch(() => ({})),
+            fetchEntriesOnly({ section: primarySection }).catch(() => []),
+          ]);
+
+          const isPrivileged =
+            myAccount &&
+            (myAccount.role === "admin" || myAccount.role === "teacher");
+
+          // الحسابات الكاملة واللوجات فقط للأدمن/المعلم
+          let accounts = myAccount ? [myAccount] : [];
+          let logs = [];
+          if (isPrivileged) {
+            const [allAccounts, allLogs] = await Promise.all([
+              fetchAccountsOnly().catch(() => []),
+              fetchLogsOnly().catch(() => []),
+            ]);
+            accounts = allAccounts.length ? allAccounts : accounts;
+            logs = allLogs;
+          }
+
+          // ادمج مع كاش الأقسام الأخرى عشان ما تختفيش لحد ما تتجلب
+          const offlineEntries = (loadOfflineCache()?.entries) || entriesRef.current || [];
+          const entries = mergeSectionEntries(offlineEntries, sectionEntries, primarySection);
+          loadedSectionsRef.current.add(primarySection);
+
+          rec = {
+            entries: entries || [],
+            accounts,
+            logs,
+            siteBanner: bootstrap.siteBanner || null,
+            examConfig: bootstrap.examConfig || null,
+            academicUnits: bootstrap.academicUnits || null,
+            version: typeof bootstrap.version === "number" ? bootstrap.version : 0,
+          };
+        } else {
+          // مستخدم مش مسجل → إعدادات عامة + قسم واحد فقط
+          const [bootstrap, sectionEntries] = await Promise.all([
+            fetchBootstrap().catch(() => ({})),
+            fetchEntriesOnly({ section: primarySection }).catch(() => []),
+          ]);
+          const offlineEntries = (loadOfflineCache()?.entries) || entriesRef.current || [];
+          const entries = mergeSectionEntries(offlineEntries, sectionEntries, primarySection);
+          loadedSectionsRef.current.add(primarySection);
+          rec = {
+            entries: entries || [],
+            accounts: [],
+            logs: [],
+            siteBanner: bootstrap.siteBanner || null,
+            examConfig: bootstrap.examConfig || null,
+            academicUnits: bootstrap.academicUnits || null,
+            version: typeof bootstrap.version === "number" ? bootstrap.version : 0,
+          };
+        }
+
         rec = await ensureMigratedAccounts(rec);
 
         // If user reloaded while a studied/favorite save was still in flight,
@@ -583,15 +771,9 @@ useEffect(() => {
               const cleaned = (rec.accounts || []).filter(
                 (a) => a && a.code && !drop.has(String(a.code))
               );
-              const newVersion = await saveRecord(
-                {
-                  entries: rec.entries || [],
-                  accounts: cleaned,
-                  logs: rec.logs || [],
-                  siteBanner: rec.siteBanner || null,
-                  examConfig: rec.examConfig || examConfigRef.current, academicUnits: rec.academicUnits || academicUnitsRef.current,
-                  removeAccountCodes: stillOnServer,
-                },
+              // كتابة جزئية: accounts + remove فقط
+              const newVersion = await saveAccountsOnly(
+                { accounts: cleaned, removeAccountCodes: stillOnServer },
                 rec.version || 0
               );
               commitRecordVersion(newVersion);
@@ -621,13 +803,10 @@ useEffect(() => {
           });
           if (stillPendingOnServer.length) {
             try {
-              const newVersion = await saveRecord(
+              // كتابة جزئية: accounts + approve فقط
+              const newVersion = await saveAccountsOnly(
                 {
-                  entries: rec.entries || [],
                   accounts: accountsForUi,
-                  logs: rec.logs || [],
-                  siteBanner: rec.siteBanner || null,
-                  examConfig: rec.examConfig || examConfigRef.current, academicUnits: rec.academicUnits || academicUnitsRef.current,
                   approveAccountCodes: stillPendingOnServer,
                 },
                 rec.version || 0
@@ -657,6 +836,34 @@ useEffect(() => {
         saveOfflineCache({ ...rec, accounts: accountsForUi });
         setIsOffline(false);
 
+        // prefetch هادئ لباقي الأقسام بعد ما الواجهة تشتغل (ما يعيقش الفتح)
+        const remaining = ["en-ar", "ar-ar", "academic"].filter(
+          (s) => !loadedSectionsRef.current.has(s)
+        );
+        if (remaining.length) {
+          const runPrefetch = () => {
+            remaining.forEach((sec, i) => {
+              setTimeout(async () => {
+                if (loadedSectionsRef.current.has(sec)) return;
+                try {
+                  const list = await fetchEntriesOnly({ section: sec });
+                  loadedSectionsRef.current.add(sec);
+                  setEntries((prev) => {
+                    const mergedList = mergeSectionEntries(prev, list, sec);
+                    entriesRef.current = mergedList;
+                    return mergedList;
+                  });
+                } catch (_) {}
+              }, 2500 + i * 1500); // متباعد عشان ما نضغطش الشبكة
+            });
+          };
+          if (typeof requestIdleCallback === "function") {
+            requestIdleCallback(runPrefetch, { timeout: 8000 });
+          } else {
+            setTimeout(runPrefetch, 4000);
+          }
+        }
+
         if (merged) {
           // Push merged progress to cloud in the background (version may race;
           // flushPendingAccounts-style retries handle conflicts).
@@ -667,13 +874,10 @@ useEffect(() => {
               accountsToSave = accountsToSave.filter((a) => a && a.code && !drop.has(String(a.code)));
             }
             const removeCodes = [...pendingRemoveCodesRef.current];
-            const newVersion = await saveRecord(
+            // كتابة جزئية: تقدّم الحسابات فقط (studied/favorites) بدون القاموس
+            const newVersion = await saveAccountsOnly(
               {
-                entries: rec.entries || [],
                 accounts: accountsToSave,
-                logs: rec.logs || [],
-                siteBanner: rec.siteBanner || null,
-                examConfig: rec.examConfig || examConfigRef.current, academicUnits: rec.academicUnits || academicUnitsRef.current,
                 ...(removeCodes.length ? { removeAccountCodes: removeCodes } : {}),
               },
               rec.version || 0
@@ -691,8 +895,46 @@ useEffect(() => {
         if (savedPersonalCode) {
           let account = rec.accounts.find((a) => a.code === savedPersonalCode);
           if (!account) {
+            // مسار نادر: الحساب مش موجود في النتيجة الأولى — إعادة جلب مجزأة
             try {
-              const freshRec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
+              let primarySec = "en-ar";
+              try {
+                const s = localStorage.getItem("twoTongues.section");
+                if (s === "en-ar" || s === "ar-ar" || s === "academic") primarySec = s;
+              } catch (_) {}
+              const [freshAccount, bootstrap, sectionEntries] = await Promise.all([
+                fetchMyAccount(savedPersonalCode, { fresh: true }).catch(() => null),
+                fetchBootstrap({ fresh: true }).catch(() => ({})),
+                fetchEntriesOnly({ fresh: true, section: primarySec }).catch(() => []),
+              ]);
+              const entries = mergeSectionEntries(
+                entriesRef.current || [],
+                sectionEntries,
+                primarySec
+              );
+              loadedSectionsRef.current.add(primarySec);
+              const isPriv =
+                freshAccount &&
+                (freshAccount.role === "admin" || freshAccount.role === "teacher");
+              let accountsList = freshAccount ? [freshAccount] : [];
+              let logsList = [];
+              if (isPriv) {
+                const [allAcc, allLogs] = await Promise.all([
+                  fetchAccountsOnly({ fresh: true }).catch(() => []),
+                  fetchLogsOnly({ fresh: true }).catch(() => []),
+                ]);
+                if (allAcc.length) accountsList = allAcc;
+                logsList = allLogs;
+              }
+              const freshRec = await ensureMigratedAccounts({
+                entries: entries || [],
+                accounts: accountsList,
+                logs: logsList,
+                siteBanner: bootstrap.siteBanner || null,
+                examConfig: bootstrap.examConfig || null,
+                academicUnits: bootstrap.academicUnits || null,
+                version: typeof bootstrap.version === "number" ? bootstrap.version : 0,
+              });
               rec = freshRec;
               setEntries(freshRec.entries);
               setAccounts(freshRec.accounts);
@@ -749,8 +991,10 @@ useEffect(() => {
                     a.code === code ? { ...a, sessionId: sid, sessionAt: stamped } : a
                   );
                   try {
-                    const newVersion = await saveRecord(
-                      { entries: rec.entries, accounts: nextAccounts, logs: rec.logs, siteBanner: rec.siteBanner || null},
+                    // كتابة جزئية: حقول الجلسة فقط على حساب واحد
+                    const newVersion = await patchAccountFields(
+                      code,
+                      { sessionId: sid, sessionAt: stamped },
                       ver
                     );
                     setAccounts(nextAccounts);
@@ -908,6 +1152,23 @@ useEffect(() => {
     try { import("./components/modals/AdminModal"); } catch (_) {}
     setShowAdmin(true);
     pushHistory({ showAdmin: true });
+    // للأدمن: تأكد إن كل الأقسام متحمّلة (نسخ احتياطي / إحصائيات)
+    const missing = ["en-ar", "ar-ar", "academic"].filter(
+      (s) => !loadedSectionsRef.current.has(s)
+    );
+    if (missing.length) {
+      (async () => {
+        try {
+          // جلب كامل مرة واحدة أخف من 3 طلبات لو ناقص أكتر من قسم
+          const all = await fetchEntriesOnly({ fresh: true });
+          ["en-ar", "ar-ar", "academic"].forEach((s) =>
+            loadedSectionsRef.current.add(s)
+          );
+          setEntries(all);
+          entriesRef.current = all;
+        } catch (_) {}
+      })();
+    }
   }
 
   const closeAdminModal = useCallback(() => {
@@ -923,6 +1184,25 @@ useEffect(() => {
     try { localStorage.setItem("twoTongues.section", nextSection); } catch (_) {}
     setQuery("");
     pushHistory({ section: nextSection });
+    // جلب القسم عند الحاجة فقط (ما يتجلبش مرتين في نفس الجلسة)
+    if (
+      (nextSection === "en-ar" || nextSection === "ar-ar" || nextSection === "academic") &&
+      !loadedSectionsRef.current.has(nextSection)
+    ) {
+      (async () => {
+        try {
+          const sectionEntries = await fetchEntriesOnly({ section: nextSection });
+          loadedSectionsRef.current.add(nextSection);
+          setEntries((prev) => {
+            const merged = mergeSectionEntries(prev, sectionEntries, nextSection);
+            entriesRef.current = merged;
+            return merged;
+          });
+        } catch (_) {
+          /* نستخدم الكاش المحلي للقسم إن وُجد */
+        }
+      })();
+    }
   }
 
   // Shared conflict handler: on a version mismatch, adopt the server's
@@ -1045,8 +1325,8 @@ useEffect(() => {
     return flushPendingAccounts();
   }, []);
 
-  // For events that don't touch entries/accounts (sign in/out) — still saved
-  // into the same shared record so it stays in sync with everything else.
+  // أحداث اللوج (sign in/out) — ما زال saveRecord كامل لأن الـ API
+  // لا يدعم scope=logs للكتابة بعد. نادر الحدوث؛ بقية المسارات جزئية.
   const persistLogs = useCallback(async (next) => {
     setLogs(next);
     logsRef.current = next;
@@ -1414,10 +1694,49 @@ useEffect(() => {
 
     async function softSync() {
       try {
-        const rec = await fetchRecord({ fresh: true });
+        // 1) فحص الإصدار أولاً — لو مفيش تغيير نوفر الباندويث بالكامل
+        const remoteVersion = await fetchVersionOnly({ fresh: true }).catch(() => null);
         if (cancelled) return;
+        if (
+          typeof remoteVersion === "number" &&
+          remoteVersion === recordVersionRef.current &&
+          remoteVersion > 0
+        ) {
+          // لا تغيير على السيرفر — لا نجلب شيء آخر
+          return;
+        }
+
+        // 2) في حالة التغيير: جلب مجزأ خفيف (بدون entries — تبقى من الكاش/الفتح)
+        const isPrivileged = isAdmin || isTeacher;
+        const [myAccount, bootstrap, accountsList] = await Promise.all([
+          fetchMyAccount(accountCode, { fresh: true }).catch(() => null),
+          fetchBootstrap({ fresh: true }).catch(() => ({})),
+          isPrivileged
+            ? fetchAccountsOnly({ fresh: true }).catch(() => [])
+            : Promise.resolve(null),
+        ]);
+        if (cancelled) return;
+
+        // بناء قائمة حسابات مناسبة للصلاحية
+        let list = [];
+        if (isPrivileged && Array.isArray(accountsList) && accountsList.length) {
+          list = accountsList;
+        } else if (myAccount) {
+          list = [myAccount];
+        }
+
+        const rec = {
+          entries: entriesRef.current || [],
+          accounts: list,
+          logs: logsRef.current || [],
+          siteBanner: bootstrap.siteBanner !== undefined ? bootstrap.siteBanner : siteBannerRef.current,
+          examConfig: bootstrap.examConfig,
+          academicUnits: bootstrap.academicUnits,
+          version: typeof bootstrap.version === "number" ? bootstrap.version : recordVersionRef.current,
+        };
+
         if (rec.accounts) {
-          let list = rec.accounts;
+          // list already prepared above
           // Hide accounts we intentionally deleted even if a brief race still
           // returns them; prune localStorage once the server dropped them.
           if (pendingRemoveCodesRef.current.size) {
@@ -1466,14 +1785,9 @@ useEffect(() => {
                     ? { ...a, status: "active" }
                     : a
                 );
-                const newVersion = await saveRecord(
-                  {
-                    entries: rec.entries || entriesRef.current,
-                    accounts: forced,
-                    logs: rec.logs || logsRef.current,
-                    siteBanner: rec.siteBanner !== undefined ? rec.siteBanner : siteBannerRef.current,
-                    approveAccountCodes: stillPending,
-                  },
+                // كتابة جزئية: موافقات الحسابات فقط
+                const newVersion = await saveAccountsOnly(
+                  { accounts: forced, approveAccountCodes: stillPending },
                   typeof rec.version === "number" ? rec.version : recordVersionRef.current
                 );
                 commitRecordVersion(newVersion);
@@ -1501,7 +1815,8 @@ useEffect(() => {
     }
 
     // No focus/visibility listeners (screenshot & app-switch were logging people out).
-    const interval = setInterval(softSync, 120000);
+    // كل 3 دقائق + فحص version أولاً → توفير باندويث مع بقاء البيانات حديثة
+    const interval = setInterval(softSync, 180000);
     return () => {
       cancelled = true;
       clearInterval(interval);

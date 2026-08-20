@@ -3,7 +3,12 @@
  * Kept as plain async functions (not a hook) because they need many
  * cloud/state setters from the parent. Behavior matches the original 1:1.
  */
-import { fetchRecord, saveRecord, SaveConflictError } from "./cloudApi";
+import {
+  fetchRecord,
+  saveAccountsOnly,
+  patchAccountFields,
+  SaveConflictError,
+} from "./cloudApi";
 import {
   validateUsername,
   validatePassword,
@@ -180,14 +185,9 @@ export async function performSignup(p) {
             code
           ),
         ]);
-        const newVersion = await saveRecord(
-          {
-            entries: rec.entries,
-            accounts: nextAccounts,
-            logs: nextLogs,
-            siteBanner: rec.siteBanner || null,
-            mergeAccounts: true,
-          },
+        // كتابة جزئية: الحسابات فقط — لا نعيد إرسال القاموس عند التسجيل
+        const newVersion = await saveAccountsOnly(
+          { accounts: nextAccounts },
           rec.version
         );
         setEntries(rec.entries);
@@ -251,14 +251,9 @@ export async function performSignup(p) {
             code
           ),
         ]);
-        const newVersion = await saveRecord(
-          {
-            entries: rec.entries,
-            accounts: nextAccounts,
-            logs: nextLogs,
-            siteBanner: rec.siteBanner || null,
-            mergeAccounts: true,
-          },
+        // كتابة جزئية: الحسابات فقط — لا نعيد إرسال القاموس عند التسجيل
+        const newVersion = await saveAccountsOnly(
+          { accounts: nextAccounts },
           rec.version
         );
         setEntries(rec.entries);
@@ -494,12 +489,23 @@ export async function performLogin(p) {
   (async () => {
     if (shouldUpgradeHash) {
       try {
-        const newVersion = await saveRecord(
-          { entries, accounts: curAccounts, logs, siteBanner },
-          recordVersionRef.current
-        );
-        setAccounts(curAccounts);
-        commitRecordVersion(newVersion);
+        const upgraded = curAccounts.find((a) => a.code === accountCodeLogin);
+        // كتابة جزئية: تحديث هاش كلمة المرور للحساب فقط
+        if (upgraded) {
+          const newVersion = await patchAccountFields(
+            accountCodeLogin,
+            {
+              passwordHash: upgraded.passwordHash,
+              passwordSalt: upgraded.passwordSalt,
+              passwordAlgo: upgraded.passwordAlgo,
+            },
+            recordVersionRef.current
+          );
+          setAccounts(curAccounts);
+          commitRecordVersion(newVersion);
+        } else {
+          setAccounts(curAccounts);
+        }
       } catch (_) {
         setAccounts(curAccounts);
       }

@@ -1,10 +1,12 @@
 // Modern admin panel: accounts, activity log, invite & backup tools.
+// عزل الإجراءات: المودال يجلب الحسابات والسجلات بنفسه عبر useAdminAccounts.
 import { useState, useEffect, useMemo } from "react";
 import { tr } from "../../lib/config/i18n";
 import { formatBacSummary } from "../../lib/config/baccalaureate";
 import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { translateAdminError, LOG_ACTION_META, LOG_SECTIONS } from "../../lib/state/logs";
 import { downloadFullBackup } from "../../lib/utils/backupUtils";
+import { useAdminAccounts } from "../../lib/hooks/useAdminAccounts";
 import {
   XIcon, CheckIcon, LoaderIcon, PlusIcon, EditIcon, TrashIcon, LinkIcon,
   BookIcon, ChevronIcon, CopyIcon, DownloadIcon, UsersIcon, SettingsIcon,
@@ -52,7 +54,20 @@ function StatPill({ label, value, accent }) {
   );
 }
 
-function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClose, onAdd, onEdit, onDelete, isAr, onOpenAiPdf }) {
+function AdminModal({
+  // props اختيارية كقيمة أولية / بعد التعديلات — المودال يجلب بياناته بنفسه
+  accounts: accountsProp,
+  entries,
+  myAccountCode,
+  logs: logsProp,
+  onClearLogs,
+  onClose,
+  onAdd,
+  onEdit,
+  onDelete,
+  isAr,
+  onOpenAiPdf,
+}) {
   const [backupDone, setBackupDone] = useState(false);
   const [tab, setTab] = useState("accounts"); // accounts | log | tools
   const [mode, setMode] = useState("list"); // list | add | edit | added
@@ -71,6 +86,41 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
   const [confirmClearLogs, setConfirmClearLogs] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [query, setQuery] = useState("");
+
+  // ——— جلب مستقل عبر hook (عزل الإجراءات) ———
+  const {
+    accounts: fetchedAccounts,
+    logs: fetchedLogs,
+    loading: loadingData,
+    error: fetchError,
+    setAccounts,
+    setLogs,
+  } = useAdminAccounts({ enabled: true });
+
+  // نفضّل البيانات المجلبة؛ ونستخدم props كـ fallback بعد عمليات الأب
+  const accounts =
+    fetchedAccounts.length > 0
+      ? fetchedAccounts
+      : Array.isArray(accountsProp)
+        ? accountsProp
+        : [];
+  const logs =
+    fetchedLogs.length > 0
+      ? fetchedLogs
+      : Array.isArray(logsProp)
+        ? logsProp
+        : [];
+  const loadError = fetchError
+    ? tr(isAr, "Could not load admin data.", "تعذر تحميل بيانات الإدارة.")
+    : "";
+
+  // مزامنة props الواردة بعد عمليات الإضافة/التعديل/الحذف من الأب
+  useEffect(() => {
+    if (Array.isArray(accountsProp) && accountsProp.length) setAccounts(accountsProp);
+  }, [accountsProp, setAccounts]);
+  useEffect(() => {
+    if (Array.isArray(logsProp)) setLogs(logsProp);
+  }, [logsProp, setLogs]);
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -289,6 +339,17 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
               <XIcon size={18} />
             </button>
           </div>
+
+          {/* مؤشر تحميل البيانات الخاصة بلوحة الإدارة */}
+          {loadingData && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, color: "var(--muted)", fontSize: 13, fontWeight: 600 }}>
+              <LoaderIcon size={16} />
+              {tr(isAr, "Loading admin data…", "جاري تحميل بيانات الإدارة…")}
+            </div>
+          )}
+          {loadError && !loadingData && (
+            <div style={{ marginTop: 12, color: "var(--danger)", fontSize: 13, fontWeight: 600 }}>{loadError}</div>
+          )}
 
           {mode === "list" && (
             <>

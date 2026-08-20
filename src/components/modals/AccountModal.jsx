@@ -143,8 +143,9 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
       setSaving(false);
       return;
     }
-    // Validate bac path if partially filled
-    if (bacTrack || bacGrade) {
+    // Validate bac path if partially filled (students only — teachers have no track/grade)
+    const isTeacherAccount = account.role === "teacher";
+    if (!isTeacherAccount && (bacTrack || bacGrade)) {
       if (!bacTrack || !BAC_TRACKS.some((t) => t.id === bacTrack)) {
         setError(T("Choose a baccalaureate track.", "اختَر مسار البكالوريا."));
         setSaving(false);
@@ -170,9 +171,13 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
       avatar: avatar || "",
       gender: gender || "",
       birthDate: bCheck.birthDate,
-      bacTrack: bacTrack || "",
-      bacGrade: bacGrade || "",
-      bacSpecialty: bacGrade === "2" ? (bacSpecialty || "") : "",
+      ...(isTeacherAccount
+        ? { bacTrack: "", bacGrade: "", bacSpecialty: "" }
+        : {
+            bacTrack: bacTrack || "",
+            bacGrade: bacGrade || "",
+            bacSpecialty: bacGrade === "2" ? (bacSpecialty || "") : "",
+          }),
     });
     setSaving(false);
     if (result && result.error) {
@@ -548,63 +553,67 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
             {T("Optional — leave empty to clear.", "اختياري — اتركه فاضي لمسحه.")}
           </div>
 
-          {/* Baccalaureate path — stored on the account; user can customize */}
-          <label style={{ ...labelStyle, marginTop: 14 }} htmlFor="account-bac-track">
-            {T("Baccalaureate track", "مسار البكالوريا")}
-          </label>
-          <select
-            id="account-bac-track"
-            value={bacTrack || ""}
-            onChange={(e) => {
-              const v = e.target.value;
-              setBacTrack(v);
-              setBacSpecialty("");
-            }}
-            style={{ ...inputStyle, borderRadius: 12, fontFamily: "inherit" }}
-          >
-            <option value="">{T("Not set", "غير محدد")}</option>
-            {BAC_TRACKS.map((t) => (
-              <option key={t.id} value={t.id}>{isAr ? t.ar : t.en}</option>
-            ))}
-          </select>
-          <label style={{ ...labelStyle, marginTop: 12 }} htmlFor="account-bac-grade">
-            {T("Grade", "الصف")}
-          </label>
-          <select
-            id="account-bac-grade"
-            value={bacGrade || ""}
-            onChange={(e) => {
-              setBacGrade(e.target.value);
-              if (e.target.value !== "2") setBacSpecialty("");
-            }}
-            style={{ ...inputStyle, borderRadius: 12, fontFamily: "inherit" }}
-          >
-            <option value="">{T("Not set", "غير محدد")}</option>
-            {BAC_GRADES.map((g) => (
-              <option key={g.id} value={g.id}>{isAr ? g.ar : g.en}</option>
-            ))}
-          </select>
-          {bacGrade === "2" && bacTrack && (
+          {/* Baccalaureate path — students only; teachers have no track/grade */}
+          {account.role !== "teacher" && (
             <>
-              <label style={{ ...labelStyle, marginTop: 12 }} htmlFor="account-bac-specialty">
-                {T("Specialty (grade 2)", "التخصص (الصف الثاني)")}
+              <label style={{ ...labelStyle, marginTop: 14 }} htmlFor="account-bac-track">
+                {T("Baccalaureate track", "مسار البكالوريا")}
               </label>
               <select
-                id="account-bac-specialty"
-                value={bacSpecialty || ""}
-                onChange={(e) => setBacSpecialty(e.target.value)}
+                id="account-bac-track"
+                value={bacTrack || ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setBacTrack(v);
+                  setBacSpecialty("");
+                }}
                 style={{ ...inputStyle, borderRadius: 12, fontFamily: "inherit" }}
               >
-                <option value="">{T("Select…", "اختَر…")}</option>
-                {getSpecialtyOptions(bacTrack).map((s) => (
-                  <option key={s.id} value={s.id}>{isAr ? s.ar : s.en}</option>
+                <option value="">{T("Not set", "غير محدد")}</option>
+                {BAC_TRACKS.map((t) => (
+                  <option key={t.id} value={t.id}>{isAr ? t.ar : t.en}</option>
                 ))}
               </select>
+              <label style={{ ...labelStyle, marginTop: 12 }} htmlFor="account-bac-grade">
+                {T("Grade", "الصف")}
+              </label>
+              <select
+                id="account-bac-grade"
+                value={bacGrade || ""}
+                onChange={(e) => {
+                  setBacGrade(e.target.value);
+                  if (e.target.value !== "2") setBacSpecialty("");
+                }}
+                style={{ ...inputStyle, borderRadius: 12, fontFamily: "inherit" }}
+              >
+                <option value="">{T("Not set", "غير محدد")}</option>
+                {BAC_GRADES.map((g) => (
+                  <option key={g.id} value={g.id}>{isAr ? g.ar : g.en}</option>
+                ))}
+              </select>
+              {bacGrade === "2" && bacTrack && (
+                <>
+                  <label style={{ ...labelStyle, marginTop: 12 }} htmlFor="account-bac-specialty">
+                    {T("Specialty (grade 2)", "التخصص (الصف الثاني)")}
+                  </label>
+                  <select
+                    id="account-bac-specialty"
+                    value={bacSpecialty || ""}
+                    onChange={(e) => setBacSpecialty(e.target.value)}
+                    style={{ ...inputStyle, borderRadius: 12, fontFamily: "inherit" }}
+                  >
+                    <option value="">{T("Select…", "اختَر…")}</option>
+                    {getSpecialtyOptions(bacTrack).map((s) => (
+                      <option key={s.id} value={s.id}>{isAr ? s.ar : s.en}</option>
+                    ))}
+                  </select>
+                </>
+              )}
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4, marginBottom: 4 }}>
+                {T("Your path is private — only you and admins (when editing your account) can see it.", "مسارك خاص — أنت والأدمن (لما يفتح حسابك) بس يشوفوه.")}
+              </div>
             </>
           )}
-          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4, marginBottom: 4 }}>
-            {T("Your path is private — only you and admins (when editing your account) can see it.", "مسارك خاص — أنت والأدمن (لما يفتح حسابك) بس يشوفوه.")}
-          </div>
 
           {(account.role === "admin" || account.role === "teacher") && (
             <>

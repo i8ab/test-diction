@@ -232,7 +232,7 @@ export async function adminEditAccount({
   await persistAccounts(nextAccounts, logEntry);
   if (targetCode === accountCode) {
     setName(trimmedName);
-    setIsAdmin(nextRole === "admin");
+    setIsAdmin(nextRole === "admin" || nextRole === "teacher");
   }
   return { ok: true };
 }

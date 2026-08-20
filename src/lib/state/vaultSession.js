@@ -34,7 +34,7 @@ export function switchToVaultAccount({
 
   setAccountCode(entry.code);
   setName(entry.name || "");
-  setIsAdmin(entry.role === "admin");
+  setIsAdmin(entry.role === "admin" || entry.role === "teacher");
   if (typeof setIsTeacher === "function") setIsTeacher(entry.role === "teacher");
   savePersonalCode(entry.code);
   setShowAccount(false);
@@ -44,7 +44,7 @@ export function switchToVaultAccount({
   const live = (accounts || []).find((a) => a.code === entry.code);
   if (live) {
     setName(live.name || entry.name || "");
-    setIsAdmin(live.role === "admin");
+    setIsAdmin(live.role === "admin" || live.role === "teacher");
     if (typeof setIsTeacher === "function") setIsTeacher(live.role === "teacher");
   }
   return { ok: true };

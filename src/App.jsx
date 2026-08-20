@@ -720,7 +720,7 @@ useEffect(() => {
             // screenshot → visibility, or another device). Multi-device is OK;
             // explicit Sign out is the only way out.
             setName(account.name);
-            setIsAdmin(account.role === "admin");
+            setIsAdmin(account.role === "admin" || account.role === "teacher");
             setIsTeacher(account.role === "teacher");
             setAccountCode(account.code);
             // مزامنة سريعة للخزنة بعد استعادة الجلسة
@@ -801,7 +801,7 @@ useEffect(() => {
             const account = migrated.find((a) => a.code === savedPersonalCode);
             if (account && account.status !== "pending" && account.status !== "rejected" && account.status !== "blocked") {
               setName(account.name);
-              setIsAdmin(account.role === "admin");
+              setIsAdmin(account.role === "admin" || account.role === "teacher");
               setIsTeacher(account.role === "teacher");
               setAccountCode(account.code);
               setAuthStage("in");

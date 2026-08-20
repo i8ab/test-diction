@@ -818,7 +818,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                   {(() => {
                     const editing = accounts.find((a) => a.code === editingCode);
                     if (!editing) return null;
-                    const bacLine = formatBacSummary(editing, isAr);
+                    const bacLine = editing.role === "teacher" ? "" : formatBacSummary(editing, isAr);
                     const hasGender = editing.gender === "male" || editing.gender === "female";
                     const hasBirth = editing.birthDate && /^\d{4}-\d{2}-\d{2}$/.test(String(editing.birthDate));
                     if (!bacLine && !hasGender && !hasBirth) return null;

@@ -446,7 +446,7 @@ export async function performLogin(p) {
 
   // Enter the app immediately — network writes must never block the UI.
   setName(account.name);
-  setIsAdmin(account.role === "admin");
+  setIsAdmin(account.role === "admin" || account.role === "teacher");
   if (typeof setIsTeacher === "function") setIsTeacher(account.role === "teacher");
   setAccountCode(account.code);
   savePersonalCode(account.code);

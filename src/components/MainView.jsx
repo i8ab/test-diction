@@ -654,7 +654,7 @@ export default function MainView({
                 onClick={onOpenAccount}
                 title={tr(appIsAr, "My account", "حسابي")}
               />
-              {isTeacher && !isAdmin && (
+              {isTeacher && (
                 <span
                   title={tr(appIsAr, "Teacher mode", "وضع المعلّم")}
                   style={{

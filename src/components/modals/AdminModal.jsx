@@ -19,6 +19,21 @@ function initials(name) {
   return (p[0][0] + p[p.length - 1][0]).toUpperCase();
 }
 
+
+/** Normalize stored role for UI (legacy "user" → student). */
+function normalizeAccountRole(role) {
+  if (role === "admin") return "admin";
+  if (role === "teacher") return "teacher";
+  return "student";
+}
+
+function accountRoleLabel(role, isAr) {
+  const r = normalizeAccountRole(role);
+  if (r === "admin") return tr(isAr, "Admin", "مسؤول");
+  if (r === "teacher") return tr(isAr, "Teacher", "معلّم");
+  return tr(isAr, "Student", "طالب");
+}
+
 function StatPill({ label, value, accent }) {
   return (
     <div
@@ -43,7 +58,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
   const [mode, setMode] = useState("list"); // list | add | edit | added
   const [editingCode, setEditingCode] = useState(null);
   const [formName, setFormName] = useState("");
-  const [formRole, setFormRole] = useState("user");
+  const [formRole, setFormRole] = useState("student");
   const [formStatus, setFormStatus] = useState("active");
   const [formUsername, setFormUsername] = useState("");
   const [error, setError] = useState("");
@@ -75,7 +90,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
   function startAdd() {
     setFormName("");
     setFormUsername("");
-    setFormRole("user");
+    setFormRole("student");
     setError("");
     setMode("add");
   }
@@ -83,7 +98,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
     setEditingCode(account.code);
     setFormName(account.name);
     setFormUsername(account.username || "");
-    setFormRole(account.role === "admin" ? "admin" : account.role === "teacher" ? "teacher" : "user");
+    setFormRole(normalizeAccountRole(account.role));
     setFormStatus(account.status === "blocked" ? "blocked" : (account.status === "pending" ? "pending" : "active"));
     setError("");
     setMode("edit");
@@ -400,9 +415,9 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                           color: "#fff",
                           overflow: "hidden",
                           background:
-                            a.role === "admin"
+                            normalizeAccountRole(a.role) === "admin"
                               ? `linear-gradient(135deg, ${BRASS}, #c9a227)`
-                              : a.role === "teacher"
+                              : normalizeAccountRole(a.role) === "teacher"
                               ? "linear-gradient(135deg, #2d6a4f, #40916c)"
                               : "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
                         }}
@@ -443,8 +458,8 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                         <div style={{ fontSize: 12, color: "var(--muted-strong)", fontFamily: "ui-monospace, monospace", marginTop: 2 }} dir="ltr">
                           @{a.username || "—"}
                         </div>
-                        <div style={{ fontSize: 11.5, fontWeight: 700, color: a.role === "admin" ? BRASS : a.role === "teacher" ? "var(--accent-1)" : "var(--muted)", marginTop: 2 }}>
-                          {a.role === "admin" ? tr(isAr, "Admin", "مسؤول") : a.role === "teacher" ? tr(isAr, "Teacher", "معلّم") : tr(isAr, "User", "مستخدم")}
+                        <div style={{ fontSize: 11.5, fontWeight: 700, color: normalizeAccountRole(a.role) === "admin" ? BRASS : normalizeAccountRole(a.role) === "teacher" ? "var(--accent-1)" : "var(--muted)", marginTop: 2 }}>
+                          {accountRoleLabel(a.role, isAr)}
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
@@ -790,11 +805,11 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
               </label>
               <select
                 id="acct-form-role"
-                value={formRole}
+                value={normalizeAccountRole(formRole)}
                 onChange={(e) => setFormRole(e.target.value)}
                 style={{ ...inputStyle, borderRadius: 12, fontFamily: "inherit" }}
               >
-                <option value="user">{tr(isAr, "User / Student", "مستخدم / طالب")}</option>
+                <option value="student">{tr(isAr, "Student", "طالب")}</option>
                 <option value="teacher">{tr(isAr, "Teacher", "معلّم")}</option>
                 <option value="admin">{tr(isAr, "Admin", "مسؤول")}</option>
               </select>

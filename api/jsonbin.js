@@ -385,6 +385,78 @@ async function clearTable(table) {
   });
 }
 
+/**
+ * Count rows currently in `entries` (lightweight head-style select).
+ * Used to refuse accidental wipe when client sends an empty word list.
+ */
+async function countEntriesInDb() {
+  try {
+    const rows = await sbFetch("GET", "entries?select=id");
+    return Array.isArray(rows) ? rows.length : 0;
+  } catch (_) {
+    return -1; // unknown — be conservative in caller
+  }
+}
+
+/**
+ * Guard: never replace a non-empty dictionary with an empty one unless the
+ * client explicitly opts in (`confirmWipeEntries: true`).
+ * Returns the entries array that should be written.
+ * Throws an Error with code EMPTY_ENTRIES_WIPE_BLOCKED when blocked.
+ */
+function resolveEntriesForSave(incomingEntries, currentEntries, { confirmWipe = false } = {}) {
+  const incoming = Array.isArray(incomingEntries) ? incomingEntries : null;
+  const current = Array.isArray(currentEntries) ? currentEntries : [];
+
+  // Client omitted entries → keep whatever is already on the server.
+  if (incoming === null) return current;
+
+  if (incoming.length === 0 && current.length > 0 && !confirmWipe) {
+    const err = new Error(
+      "Refusing to wipe the dictionary: client sent 0 words but the server still has entries. " +
+        "Pass confirmWipeEntries:true only for an intentional full clear."
+    );
+    err.code = "EMPTY_ENTRIES_WIPE_BLOCKED";
+    err.serverCount = current.length;
+    throw err;
+  }
+  return incoming;
+}
+
+/**
+ * Safer full replace for entries:
+ * - Refuses empty overwrite of non-empty DB (double-check at write time).
+ * - Clears then re-inserts only when the payload is non-empty, or when an
+ *   intentional wipe was confirmed (caller already allowed empty).
+ */
+async function saveEntriesReplace(entries) {
+  const list = Array.isArray(entries) ? entries : [];
+  const dbCount = await countEntriesInDb();
+
+  if (list.length === 0) {
+    // Intentional empty: only clear if DB is already empty, or caller passed
+    // empty after confirmWipe. If DB has rows and we somehow got here without
+    // confirm, refuse (last line of defense).
+    if (dbCount > 0) {
+      const err = new Error(
+        "Refusing to clear entries table: save payload is empty but DB has words."
+      );
+      err.code = "EMPTY_ENTRIES_WIPE_BLOCKED";
+      err.serverCount = dbCount;
+      throw err;
+    }
+    return; // nothing to write
+  }
+
+  await clearTable("entries");
+  const rows = list.map((e) => ({ data: e }));
+  for (let i = 0; i < rows.length; i += 50) {
+    await sbFetch("POST", "entries", rows.slice(i, i + 50), {
+      Prefer: "return=minimal",
+    });
+  }
+}
+
 async function saveFullRecord(record, nextVersion) {
   // 1) Upsert version + site_banner
   await sbFetch(
@@ -399,16 +471,8 @@ async function saveFullRecord(record, nextVersion) {
     { Prefer: "resolution=merge-duplicates,return=minimal" }
   );
 
-  // 2) entries
-  await clearTable("entries");
-  if (record.entries?.length) {
-    const rows = record.entries.map((e) => ({ data: e }));
-    for (let i = 0; i < rows.length; i += 50) {
-      await sbFetch("POST", "entries", rows.slice(i, i + 50), {
-        Prefer: "return=minimal",
-      });
-    }
-  }
+  // 2) entries — safer path (no silent empty wipe)
+  await saveEntriesReplace(record.entries);
 
   // 3) accounts — per-code replace (no full-table clear).
   // Full clear+reinsert raced when Redis lock was missing: two concurrent
@@ -882,8 +946,30 @@ export default async function handler(req, res) {
           );
         }
 
+        // Entries: never allow a stale/empty client to wipe the shared dictionary.
+        // - omitted body.entries → keep server copy
+        // - body.entries: [] with server non-empty → 409 unless confirmWipeEntries
+        let nextEntries;
+        try {
+          nextEntries = resolveEntriesForSave(body.entries, current.entries || [], {
+            confirmWipe: body.confirmWipeEntries === true,
+          });
+        } catch (guardErr) {
+          if (guardErr && guardErr.code === "EMPTY_ENTRIES_WIPE_BLOCKED") {
+            return res.status(409).json({
+              error: "empty_entries_wipe_blocked",
+              message:
+                guardErr.message ||
+                "Refusing to wipe the dictionary with an empty word list.",
+              serverCount: guardErr.serverCount || (current.entries || []).length,
+              ...current,
+            });
+          }
+          throw guardErr;
+        }
+
         const payload = {
-          entries: Array.isArray(body.entries) ? body.entries : current.entries || [],
+          entries: nextEntries,
           accounts: nextAccounts,
           logs: pruneLogsLast24h(Array.isArray(body.logs) ? body.logs : []),
           siteBanner: nextBanner,
@@ -892,7 +978,19 @@ export default async function handler(req, res) {
           version: nextVersion,
         };
 
-        await saveFullRecord(payload, nextVersion);
+        try {
+          await saveFullRecord(payload, nextVersion);
+        } catch (saveErr) {
+          if (saveErr && saveErr.code === "EMPTY_ENTRIES_WIPE_BLOCKED") {
+            return res.status(409).json({
+              error: "empty_entries_wipe_blocked",
+              message: saveErr.message,
+              serverCount: saveErr.serverCount,
+              ...current,
+            });
+          }
+          throw saveErr;
+        }
         return res.status(200).json({ ok: true, version: nextVersion });
       } finally {
         if (useLock && lockToken) await releaseLock(LOCK_KEY, lockToken);

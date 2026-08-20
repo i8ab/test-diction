@@ -448,19 +448,53 @@ async function loadEntryIdSet() {
 }
 
 /**
- * Update one entry row by word id (jsonb data.id). Returns true if at least
- * one row was updated. Uses PATCH so the row is never deleted mid-write.
+ * Find DB row primary keys for a word id stored in jsonb `data.id`.
+ * GET then PATCH by integer PK is more reliable than filtering PATCH on jsonb.
+ */
+async function findEntryRowIdsByWordId(wordId) {
+  if (!wordId) return [];
+  try {
+    const rows = await sbFetch(
+      "GET",
+      `entries?data->>id=eq.${encodeURIComponent(wordId)}&select=id`
+    );
+    if (!Array.isArray(rows) || !rows.length) return [];
+    return rows.map((r) => r.id).filter((id) => id != null);
+  } catch (_) {
+    return [];
+  }
+}
+
+/**
+ * Update existing word in place (PATCH by table primary key).
+ * Returns true if at least one row was updated.
  */
 async function patchEntryByWordId(entry) {
-  const id = entryIdOf(entry);
-  if (!id) return false;
-  const updated = await sbFetch(
-    "PATCH",
-    `entries?data->>id=eq.${encodeURIComponent(id)}`,
-    { data: { ...entry, id } },
-    { Prefer: "return=representation" }
-  );
-  return Array.isArray(updated) && updated.length > 0;
+  const wordId = entryIdOf(entry);
+  if (!wordId) return false;
+  const rowIds = await findEntryRowIdsByWordId(wordId);
+  if (!rowIds.length) return false;
+
+  const body = { data: { ...entry, id: wordId } };
+  for (const pk of rowIds) {
+    await sbFetch("PATCH", `entries?id=eq.${encodeURIComponent(String(pk))}`, body, {
+      Prefer: "return=minimal",
+    });
+  }
+  // Duplicates with same data.id: keep first, drop the rest
+  if (rowIds.length > 1) {
+    for (let i = 1; i < rowIds.length; i++) {
+      try {
+        await sbFetch(
+          "DELETE",
+          `entries?id=eq.${encodeURIComponent(String(rowIds[i]))}`,
+          undefined,
+          { Prefer: "return=minimal" }
+        );
+      } catch (_) {}
+    }
+  }
+  return true;
 }
 
 /**

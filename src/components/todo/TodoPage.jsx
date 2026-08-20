@@ -88,37 +88,6 @@ async function checkOthersPresent(accountCode, deviceId) {
   }
 }
 
-const DEVICE_ID_KEY = "twoTongues.deviceId";
-function getDeviceId() {
-  try {
-    let id = localStorage.getItem(DEVICE_ID_KEY);
-    if (!id) {
-      id = (crypto?.randomUUID?.() || uid());
-      localStorage.setItem(DEVICE_ID_KEY, id);
-    }
-    return id;
-  } catch (_) {
-    return uid();
-  }
-}
-
-// Tiny check-in: "is any other device on this account active right now?"
-// Used to decide whether the (bigger) todos GET is worth doing at all.
-async function checkOthersPresent(accountCode, deviceId) {
-  try {
-    const r = await fetch("/api/presence", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: accountCode, deviceId }),
-    });
-    if (!r.ok) return true; // fail safe: assume others might be there
-    const data = await r.json().catch(() => ({}));
-    return !!data.others;
-  } catch (_) {
-    return true; // fail safe
-  }
-}
-
 function formatElapsed(ms) {
   const totalSec = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(totalSec / 3600);

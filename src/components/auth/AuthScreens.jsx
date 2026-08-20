@@ -72,6 +72,7 @@ function AuthScreens({
   signupBacTrack = "", setSignupBacTrack,
   signupBacGrade = "", setSignupBacGrade,
   signupBacSpecialty = "", setSignupBacSpecialty,
+  signupRole = "user", setSignupRole,
   signupError, setSignupError, signupSaving, handleSignup,
   usernameInput, setUsernameInput,
   passwordInput, setPasswordInput,
@@ -201,9 +202,13 @@ function AuthScreens({
               <button type="button" onClick={() => { setAuthError(""); goToStage("login"); }} className="btn-shine touch-target" style={{ ...primaryBtnStyle, width: "auto", marginTop: 0, padding: "14px 28px", minHeight: 48 }}>
                 <LoginIcon size={16} /> {atr("Sign in", "تسجيل الدخول")}
               </button>
-              <button type="button" onClick={() => { setSignupError(""); goToStage("signup"); }} className="lift-hover touch-target"
+              <button type="button" onClick={() => { setSignupError(""); if (typeof setSignupRole === "function") setSignupRole("user"); goToStage("signup"); }} className="lift-hover touch-target"
                 style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 26px", minHeight: 48, fontFamily: "'Source Sans 3', sans-serif", fontSize: 15, fontWeight: 700, color: INK, background: "var(--card)", border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 10, cursor: "pointer" }}>
                 <PlusIcon size={16} /> {atr("Create account", "إنشاء حساب")}
+              </button>
+              <button type="button" onClick={() => { setSignupError(""); if (typeof setSignupRole === "function") setSignupRole("teacher"); goToStage("signup"); }} className="lift-hover touch-target"
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 26px", minHeight: 48, fontFamily: "'Source Sans 3', sans-serif", fontSize: 15, fontWeight: 700, color: "#fff", background: "linear-gradient(135deg, #2d6a4f, #40916c)", border: "none", borderRadius: 10, cursor: "pointer", boxShadow: "0 4px 14px -4px rgba(45,106,79,0.45)" }}>
+                <UsersIcon size={16} /> {atr("Create Account As A Teacher", "إنشاء حساب كمعلّم")}
               </button>
             </div>
           </div>
@@ -257,12 +262,62 @@ function AuthScreens({
             <BrandMark size="md" showUnderline />
           </div>
           <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "14px 0 18px", lineHeight: 1.55 }}>
-            {atr(
-              "Pick a display name, a unique username, and a password. An admin must approve your request before you can sign in.",
-              "اختَر اسمًا ظاهرًا ويوزرنيم فريدًا وكلمة مرور. لازم الأدمن يوافق على طلبك قبل ما تقدر تسجّل دخول."
-            )}
+            {signupRole === "teacher"
+              ? atr(
+                  "Create a teacher account. An admin must approve your request before you can sign in.",
+                  "أنشئ حساب معلّم. لازم الأدمن يوافق على طلبك قبل ما تقدر تسجّل دخول."
+                )
+              : atr(
+                  "Pick a display name, a unique username, and a password. An admin must approve your request before you can sign in.",
+                  "اختَر اسمًا ظاهرًا ويوزرنيم فريدًا وكلمة مرور. لازم الأدمن يوافق على طلبك قبل ما تقدر تسجّل دخول."
+                )}
           </p>
           <form onSubmit={handleSignup}>
+            <div className="auth-field-1" style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>{atr("Account type", "نوع الحساب")}</label>
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setSignupRole && setSignupRole("user")}
+                  className="touch-target"
+                  style={{
+                    flex: 1,
+                    padding: "12px 14px",
+                    minHeight: 44,
+                    borderRadius: 12,
+                    border: signupRole !== "teacher" ? "2px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.2)",
+                    background: signupRole !== "teacher" ? "var(--accent-1-soft)" : "var(--input-bg)",
+                    color: INK,
+                    fontWeight: 700,
+                    fontSize: 14,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {atr("Student", "طالب")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSignupRole && setSignupRole("teacher")}
+                  className="touch-target"
+                  style={{
+                    flex: 1,
+                    padding: "12px 14px",
+                    minHeight: 44,
+                    borderRadius: 12,
+                    border: signupRole === "teacher" ? "2px solid #2d6a4f" : "1px solid rgba(var(--border-rgb),0.2)",
+                    background: signupRole === "teacher" ? "rgba(45,106,79,0.12)" : "var(--input-bg)",
+                    color: signupRole === "teacher" ? "#2d6a4f" : INK,
+                    fontWeight: 700,
+                    fontSize: 14,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {atr("Teacher", "معلّم")}
+                </button>
+              </div>
+            </div>
             <div className="auth-field-1">
               <label style={labelStyle} htmlFor="signup-name">{atr("Display name", "الاسم الظاهر")}</label>
               <input id="signup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={atr("e.g. Omar", "مثال: عمر")} style={authInputStyle} autoFocus autoCapitalize="words" autoCorrect="off" />
@@ -381,7 +436,9 @@ function AuthScreens({
             </div>
 
 
-            {/* مسار البكالوريا + الصف + المادة التخصصية */}
+            {/* مسار البكالوريا + الصف + المادة التخصصية — للطلاب فقط */}
+            {signupRole !== "teacher" && (
+              <>
             <div className="auth-field-1" style={{ marginTop: 16, marginBottom: 4 }}>
               <label style={labelStyle} htmlFor="signup-bac-track">
                 {atr("Baccalaureate track", "مسار البكالوريا")}
@@ -456,6 +513,17 @@ function AuthScreens({
                 </div>
               );
             })()}
+
+              </>
+            )}
+            {signupRole === "teacher" && (
+              <div style={{ marginTop: 14, marginBottom: 8, padding: "12px 14px", borderRadius: 12, background: "rgba(45,106,79,0.08)", border: "1px solid rgba(45,106,79,0.2)", fontSize: 13, color: "var(--muted-strong)", lineHeight: 1.55 }}>
+                {atr(
+                  "Teacher accounts skip student baccalaureate fields. After approval you'll have Teacher mode tools.",
+                  "حسابات المعلّمين لا تحتاج حقول البكالوريا. بعد الموافقة ستتوفر لك أدوات وضع المعلّم."
+                )}
+              </div>
+            )}
 
             <div className="auth-field-2">
               <label style={labelStyle} htmlFor="signup-username"><UserIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Username", "اسم المستخدم")}</label>

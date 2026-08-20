@@ -48,7 +48,7 @@ import { scheduleIdlePreload, preloadStudyCore, preloadMotivationDuaModal } from
 import { consumeSessionOpenTool, setSessionOpenTool } from "../lib/state/sessionUi";
 
 export default function MainView({
-  name, isAdmin, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
+  name, isAdmin, isTeacher = false, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
   showAdd, onOpenAdd, onCloseAdd, persistEntries, saveError, onLogout,
   accounts, accountCode, logs, onClearLogs, studiedIds, studiedAt, onToggleStudied, favoriteIds, onToggleFavorite, showAccount, onOpenAccount, onCloseAccount, onUpdateOwnAccount,
   srsBox, srsDueAt, srsStats = {}, wordPriorities = {}, onSetWordPriority, quizHistory, onRecordSrsAnswer, onSaveQuizResult, onDictationRoundFinished,
@@ -654,6 +654,23 @@ export default function MainView({
                 onClick={onOpenAccount}
                 title={tr(appIsAr, "My account", "حسابي")}
               />
+              {isTeacher && !isAdmin && (
+                <span
+                  title={tr(appIsAr, "Teacher mode", "وضع المعلّم")}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: "0.02em",
+                    color: "#fff",
+                    background: "linear-gradient(135deg, #2d6a4f, #40916c)",
+                    padding: "4px 10px",
+                    borderRadius: 999,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {tr(appIsAr, "Teacher", "معلّم")}
+                </span>
+              )}
               <InboxBell
                 accountCode={accountCode}
                 isAr={appIsAr}

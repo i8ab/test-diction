@@ -57,6 +57,68 @@ function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
+const DEVICE_ID_KEY = "twoTongues.deviceId";
+function getDeviceId() {
+  try {
+    let id = localStorage.getItem(DEVICE_ID_KEY);
+    if (!id) {
+      id = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : uid();
+      localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
+  } catch (_) {
+    return uid();
+  }
+}
+
+// Tiny check-in: "is any other device on this account active right now?"
+// Used to decide whether the (bigger) todos GET is worth doing at all.
+async function checkOthersPresent(accountCode, deviceId) {
+  try {
+    const r = await fetch("/api/presence", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: accountCode, deviceId }),
+    });
+    if (!r.ok) return true; // fail safe: assume others might be there
+    const data = await r.json().catch(() => ({}));
+    return !!data.others;
+  } catch (_) {
+    return true; // fail safe
+  }
+}
+
+const DEVICE_ID_KEY = "twoTongues.deviceId";
+function getDeviceId() {
+  try {
+    let id = localStorage.getItem(DEVICE_ID_KEY);
+    if (!id) {
+      id = (crypto?.randomUUID?.() || uid());
+      localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
+  } catch (_) {
+    return uid();
+  }
+}
+
+// Tiny check-in: "is any other device on this account active right now?"
+// Used to decide whether the (bigger) todos GET is worth doing at all.
+async function checkOthersPresent(accountCode, deviceId) {
+  try {
+    const r = await fetch("/api/presence", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: accountCode, deviceId }),
+    });
+    if (!r.ok) return true; // fail safe: assume others might be there
+    const data = await r.json().catch(() => ({}));
+    return !!data.others;
+  } catch (_) {
+    return true; // fail safe
+  }
+}
+
 function formatElapsed(ms) {
   const totalSec = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(totalSec / 3600);
@@ -138,6 +200,8 @@ export default function TodoPage({
   const dragRef = useRef(null);
   const cloudSaveTimer = useRef(null);
   const skipNextCloudSave = useRef(false);
+  const deviceIdRef = useRef(null);
+  if (deviceIdRef.current === null) deviceIdRef.current = getDeviceId();
 
   useEffect(() => {
     setTodos((prev) => {
@@ -215,14 +279,26 @@ export default function TodoPage({
     [accountCode]
   );
 
+  // Only bother pulling (GET) if another device has checked in on this
+  // account recently. Saving (PUT, below) is never gated by this — it
+  // always fires so changes are never lost, just possibly not fetched yet.
+  const pullIfOthersPresent = useCallback(
+    async (cancelledRef) => {
+      const others = await checkOthersPresent(accountCode, deviceIdRef.current);
+      if (cancelledRef.current) return;
+      if (others) pullFromCloud(cancelledRef);
+    },
+    [accountCode, pullFromCloud]
+  );
+
   useEffect(() => {
     if (!accountCode) return;
     const cancelledRef = { current: false };
-    pullFromCloud(cancelledRef);
+    pullIfOthersPresent(cancelledRef);
     return () => {
       cancelledRef.current = true;
     };
-  }, [accountCode, pullFromCloud]);
+  }, [accountCode, pullIfOthersPresent]);
 
   // Pull the latest state when the tab/app comes back to the foreground —
   // no recurring timer, just a one-shot check on return.
@@ -231,7 +307,7 @@ export default function TodoPage({
     const cancelledRef = { current: false };
     const onVisible = () => {
       if (document.visibilityState === "visible") {
-        pullFromCloud(cancelledRef);
+        pullIfOthersPresent(cancelledRef);
       }
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -241,7 +317,7 @@ export default function TodoPage({
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
     };
-  }, [accountCode, pullFromCloud]);
+  }, [accountCode, pullIfOthersPresent]);
 
   // Cloud save (tasks + done + workedMs)
   useEffect(() => {

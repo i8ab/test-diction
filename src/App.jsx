@@ -79,11 +79,13 @@ export default function DictionaryApp() {
   const [signupBacTrack, setSignupBacTrack] = useState("");
   const [signupBacGrade, setSignupBacGrade] = useState(""); // "2" | "3"
   const [signupBacSpecialty, setSignupBacSpecialty] = useState("");
+  const [signupRole, setSignupRole] = useState("user"); // "user" | "teacher"
   const [authError, setAuthError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
   const [signupError, setSignupError] = useState("");
   const [signupSaving, setSignupSaving] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isTeacher, setIsTeacher] = useState(false);
   const [moreFeaturesOpen, setMoreFeaturesOpen] = useState(false);
   const migrationDoneRef = useRef(false);
 
@@ -719,10 +721,11 @@ useEffect(() => {
             // explicit Sign out is the only way out.
             setName(account.name);
             setIsAdmin(account.role === "admin");
+            setIsTeacher(account.role === "teacher");
             setAccountCode(account.code);
             // مزامنة سريعة للخزنة بعد استعادة الجلسة
             try {
-              const v = upsertVaultAccount(account, { allowMulti: account.role === "admin" });
+              const v = upsertVaultAccount(account, { allowMulti: account.role === "admin" || account.role === "teacher" });
               setVaultAccounts(v);
               setMainAccountCodeState(getMainAccountCode() || account.code);
             } catch (_) {}
@@ -799,6 +802,7 @@ useEffect(() => {
             if (account && account.status !== "pending" && account.status !== "rejected" && account.status !== "blocked") {
               setName(account.name);
               setIsAdmin(account.role === "admin");
+              setIsTeacher(account.role === "teacher");
               setAccountCode(account.code);
               setAuthStage("in");
               syncBaseHistory("in");
@@ -1244,7 +1248,7 @@ useEffect(() => {
     await saveQuizResult({ result, accountCode, persistAccounts });
   }
 
-  async function handleSignup(e) {
+  async function handleSignup(e, roleOverride) {
     return performSignup({
       e,
       name,
@@ -1257,6 +1261,7 @@ useEffect(() => {
       signupBacTrack,
       signupBacGrade,
       signupBacSpecialty,
+      signupRole: roleOverride === "teacher" || roleOverride === "user" ? roleOverride : signupRole,
       appIsAr,
       ensureMigratedAccounts,
       commitRecordVersion,
@@ -1270,6 +1275,7 @@ useEffect(() => {
       setSignupBacTrack,
       setSignupBacGrade,
       setSignupBacSpecialty,
+      setSignupRole,
       setAccounts,
       setEntries,
       setLogs,
@@ -1305,6 +1311,7 @@ useEffect(() => {
       setExamConfig,
       setName,
       setIsAdmin,
+      setIsTeacher,
       setAccountCode,
       setVaultAccounts,
       setLinkMode,
@@ -1325,6 +1332,7 @@ useEffect(() => {
       setAccountCode,
       setName,
       setIsAdmin,
+      setIsTeacher,
       setShowAccount,
       setShowAdmin,
       setShowAdd,
@@ -1383,6 +1391,7 @@ useEffect(() => {
       setMainAccountCodeState,
       setName,
       setIsAdmin,
+      setIsTeacher,
       setAccountCode,
       setUsernameInput,
       setPasswordInput,
@@ -1610,6 +1619,7 @@ useEffect(() => {
         signupBacTrack={signupBacTrack} setSignupBacTrack={setSignupBacTrack}
         signupBacGrade={signupBacGrade} setSignupBacGrade={setSignupBacGrade}
         signupBacSpecialty={signupBacSpecialty} setSignupBacSpecialty={setSignupBacSpecialty}
+        signupRole={signupRole} setSignupRole={setSignupRole}
         signupError={signupError} setSignupError={setSignupError} signupSaving={signupSaving} handleSignup={handleSignup}
         usernameInput={usernameInput} setUsernameInput={setUsernameInput}
         passwordInput={passwordInput} setPasswordInput={setPasswordInput}
@@ -1633,7 +1643,7 @@ useEffect(() => {
 
   return (
     <MainView
-      name={name} isAdmin={isAdmin} entries={entries} entriesLoaded={entriesLoaded} loadError={loadError}
+      name={name} isAdmin={isAdmin} isTeacher={isTeacher} entries={entries} entriesLoaded={entriesLoaded} loadError={loadError}
       isOffline={isOffline} offlineCachedAt={offlineCachedAt}
       deviceMode={deviceMode} onChangeDeviceMode={setDeviceMode} uiScale={uiScale} onChangeUiScale={setUiScale}
       section={section} onChangeSection={changeSection} query={query} setQuery={setQuery}

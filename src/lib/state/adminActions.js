@@ -145,7 +145,8 @@ export async function adminAddAccount({
     return { error: "That username is already taken." };
   }
   const code = generatePersonalCode();
-  const nextRole = role === "admin" ? "admin" : "user";
+  const nextRole = role === "admin" ? "admin" : role === "teacher" ? "teacher" : "user";
+  const roleLabel = nextRole === "admin" ? "Admin" : nextRole === "teacher" ? "Teacher" : "User";
   const passwordHash = await hashPassword(code, code);
   const nextAccounts = [
     ...accounts,
@@ -161,7 +162,7 @@ export async function adminAddAccount({
   ];
   const logEntry = makeLogEntry(
     "account_add",
-    `${name} added account "${trimmed}" (@${uCheck.username}, ${nextRole === "admin" ? "Admin" : "User"})`,
+    `${name} added account "${trimmed}" (@${uCheck.username}, ${roleLabel})`,
     name,
     accountCode
   );
@@ -183,7 +184,9 @@ export async function adminEditAccount({
 }) {
   const trimmedName = (updates.name || "").trim();
   if (!trimmedName) return { error: "Enter a name." };
-  const nextRole = updates.role === "admin" ? "admin" : "user";
+  const nextRole =
+    updates.role === "admin" ? "admin" : updates.role === "teacher" ? "teacher" : "user";
+  const roleLabel = nextRole === "admin" ? "Admin" : nextRole === "teacher" ? "Teacher" : "User";
   let nextUsername;
   if (updates.username != null) {
     const uCheck = validateUsername(updates.username);
@@ -222,7 +225,7 @@ export async function adminEditAccount({
   });
   const logEntry = makeLogEntry(
     "account_edit",
-    `${name} edited account "${(target && target.name) || targetCode}" → name: "${trimmedName}", role: ${nextRole === "admin" ? "Admin" : "User"}, access: ${nextStatus}`,
+    `${name} edited account "${(target && target.name) || targetCode}" → name: "${trimmedName}", role: ${roleLabel}, access: ${nextStatus}`,
     name,
     accountCode
   );
@@ -232,4 +235,11 @@ export async function adminEditAccount({
     setIsAdmin(nextRole === "admin");
   }
   return { ok: true };
+}
+
+/** Normalize role string for display / storage */
+export function normalizeRole(role) {
+  if (role === "admin") return "admin";
+  if (role === "teacher") return "teacher";
+  return "user";
 }

@@ -22,6 +22,7 @@ export function switchToVaultAccount({
   setAccountCode,
   setName,
   setIsAdmin,
+  setIsTeacher,
   setShowAccount,
   setShowAdmin,
   setShowAdd,
@@ -34,6 +35,7 @@ export function switchToVaultAccount({
   setAccountCode(entry.code);
   setName(entry.name || "");
   setIsAdmin(entry.role === "admin");
+  if (typeof setIsTeacher === "function") setIsTeacher(entry.role === "teacher");
   savePersonalCode(entry.code);
   setShowAccount(false);
   setShowAdmin(false);
@@ -43,6 +45,7 @@ export function switchToVaultAccount({
   if (live) {
     setName(live.name || entry.name || "");
     setIsAdmin(live.role === "admin");
+    if (typeof setIsTeacher === "function") setIsTeacher(live.role === "teacher");
   }
   return { ok: true };
 }
@@ -145,6 +148,7 @@ export function performLogout({
   setMainAccountCodeState,
   setName,
   setIsAdmin,
+  setIsTeacher,
   setAccountCode,
   setUsernameInput,
   setPasswordInput,
@@ -169,6 +173,7 @@ export function performLogout({
   }
   setName("");
   setIsAdmin(false);
+  if (typeof setIsTeacher === "function") setIsTeacher(false);
   setAccountCode("");
   setUsernameInput("");
   setPasswordInput("");

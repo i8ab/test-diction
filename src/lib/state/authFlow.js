@@ -41,6 +41,7 @@ export async function performSignup(p) {
     signupBacTrack,
     signupBacGrade,
     signupBacSpecialty,
+    signupRole = "user",
     appIsAr,
     ensureMigratedAccounts,
     commitRecordVersion,
@@ -54,6 +55,7 @@ export async function performSignup(p) {
     setSignupBacTrack,
     setSignupBacGrade,
     setSignupBacSpecialty,
+    setSignupRole,
     setAccounts,
     setEntries,
     setLogs,
@@ -95,23 +97,26 @@ export async function performSignup(p) {
     return;
   }
 
-  const track = getBacTrack(signupBacTrack);
-  if (!track) {
-    setSignupError(appIsAr ? "اختَر مسار البكالوريا." : "Please select your baccalaureate track.");
-    return;
-  }
-  if (signupBacGrade !== "2" && signupBacGrade !== "3") {
-    setSignupError(appIsAr ? "اختَر الصف (ثاني أو ثالث ثانوي)." : "Please select your grade (2nd or 3rd secondary).");
-    return;
-  }
+  const isTeacherSignup = signupRole === "teacher";
   let bacSpecialty = "";
-  if (signupBacGrade === "2") {
-    const opts = getSpecialtyOptions(signupBacTrack);
-    if (!opts.some((o) => o.id === signupBacSpecialty)) {
-      setSignupError(appIsAr ? "اختَر المادة التخصصية." : "Please select your specialized subject.");
+  if (!isTeacherSignup) {
+    const track = getBacTrack(signupBacTrack);
+    if (!track) {
+      setSignupError(appIsAr ? "اختَر مسار البكالوريا." : "Please select your baccalaureate track.");
       return;
     }
-    bacSpecialty = signupBacSpecialty;
+    if (signupBacGrade !== "2" && signupBacGrade !== "3") {
+      setSignupError(appIsAr ? "اختَر الصف (ثاني أو ثالث ثانوي)." : "Please select your grade (2nd or 3rd secondary).");
+      return;
+    }
+    if (signupBacGrade === "2") {
+      const opts = getSpecialtyOptions(signupBacTrack);
+      if (!opts.some((o) => o.id === signupBacSpecialty)) {
+        setSignupError(appIsAr ? "اختَر المادة التخصصية." : "Please select your specialized subject.");
+        return;
+      }
+      bacSpecialty = signupBacSpecialty;
+    }
   }
 
   setSignupSaving(true);
@@ -125,20 +130,25 @@ export async function performSignup(p) {
     return;
   }
 
+  const roleLabel = isTeacherSignup ? "teacher" : "user";
   const newAccount = {
     name: trimmedName,
     username: uCheck.username,
     passwordHash,
     code,
-    role: "user",
+    role: roleLabel,
     status: "pending",
     createdAt: Date.now(),
     ...(signupAvatar ? { avatar: signupAvatar } : {}),
     gender: signupGender,
     ...(bCheck.birthDate ? { birthDate: bCheck.birthDate } : {}),
-    bacTrack: signupBacTrack,
-    bacGrade: signupBacGrade,
-    ...(bacSpecialty ? { bacSpecialty } : {}),
+    ...(isTeacherSignup
+      ? {}
+      : {
+          bacTrack: signupBacTrack,
+          bacGrade: signupBacGrade,
+          ...(bacSpecialty ? { bacSpecialty } : {}),
+        }),
   };
 
   try {
@@ -165,7 +175,7 @@ export async function performSignup(p) {
           ...(rec.logs || []),
           makeLogEntry(
             "account_add",
-            `${trimmedName} (@${uCheck.username}) requested an account`,
+            `${trimmedName} (@${uCheck.username}) requested a ${roleLabel} account`,
             trimmedName,
             code
           ),
@@ -194,6 +204,7 @@ export async function performSignup(p) {
         if (typeof setSignupBacTrack === "function") setSignupBacTrack("");
         if (typeof setSignupBacGrade === "function") setSignupBacGrade("");
         if (typeof setSignupBacSpecialty === "function") setSignupBacSpecialty("");
+        if (typeof setSignupRole === "function") setSignupRole("user");
         goToStage("pendingShown");
         return;
       } catch (err) {
@@ -235,7 +246,7 @@ export async function performSignup(p) {
           ...(rec.logs || []),
           makeLogEntry(
             "account_add",
-            `${trimmedName} (@${uCheck.username}) requested an account`,
+            `${trimmedName} (@${uCheck.username}) requested a ${roleLabel} account`,
             trimmedName,
             code
           ),
@@ -264,6 +275,7 @@ export async function performSignup(p) {
         if (typeof setSignupBacTrack === "function") setSignupBacTrack("");
         if (typeof setSignupBacGrade === "function") setSignupBacGrade("");
         if (typeof setSignupBacSpecialty === "function") setSignupBacSpecialty("");
+        if (typeof setSignupRole === "function") setSignupRole("user");
         goToStage("pendingShown");
         return;
       } catch (_) {
@@ -315,6 +327,7 @@ export async function performLogin(p) {
     setExamConfig,
     setName,
     setIsAdmin,
+    setIsTeacher,
     setAccountCode,
     setVaultAccounts,
     setLinkMode,
@@ -434,6 +447,7 @@ export async function performLogin(p) {
   // Enter the app immediately — network writes must never block the UI.
   setName(account.name);
   setIsAdmin(account.role === "admin");
+  if (typeof setIsTeacher === "function") setIsTeacher(account.role === "teacher");
   setAccountCode(account.code);
   savePersonalCode(account.code);
   let linking = false;
@@ -441,7 +455,7 @@ export async function performLogin(p) {
     linking = sessionStorage.getItem("twoTongues.linkMode") === "1";
   } catch (_) {}
   const nextVault = upsertVaultAccount(account, {
-    allowMulti: account.role === "admin" || linking || linkMode,
+    allowMulti: account.role === "admin" || account.role === "teacher" || linking || linkMode,
   });
   setVaultAccounts(nextVault);
   try {

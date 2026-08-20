@@ -606,10 +606,12 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
             {T("Your path is private — only you and admins (when editing your account) can see it.", "مسارك خاص — أنت والأدمن (لما يفتح حسابك) بس يشوفوه.")}
           </div>
 
-          {account.role === "admin" && (
+          {(account.role === "admin" || account.role === "teacher") && (
             <>
               <label style={labelStyle}>{T("Role", "الدور")}</label>
-              <div style={{ ...inputStyle, background: "var(--input-bg)", color: BRASS, fontWeight: 600, borderRadius: 12 }}>{T("Admin", "مسؤول")}</div>
+              <div style={{ ...inputStyle, background: account.role === "admin" ? "var(--input-bg)" : "rgba(45,106,79,0.1)", color: account.role === "admin" ? BRASS : "#2d6a4f", fontWeight: 600, borderRadius: 12 }}>
+                {account.role === "admin" ? T("Admin", "مسؤول") : T("Teacher", "معلّم")}
+              </div>
             </>
           )}
 

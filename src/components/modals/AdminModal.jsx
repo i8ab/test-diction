@@ -83,7 +83,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
     setEditingCode(account.code);
     setFormName(account.name);
     setFormUsername(account.username || "");
-    setFormRole(account.role === "admin" ? "admin" : "user");
+    setFormRole(account.role === "admin" ? "admin" : account.role === "teacher" ? "teacher" : "user");
     setFormStatus(account.status === "blocked" ? "blocked" : (account.status === "pending" ? "pending" : "active"));
     setError("");
     setMode("edit");
@@ -158,6 +158,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
     return {
       total: list.length,
       admins: list.filter((a) => a.role === "admin").length,
+      teachers: list.filter((a) => a.role === "teacher").length,
       pending: list.filter((a) => a.status === "pending").length,
       words: (entries || []).length,
     };
@@ -279,6 +280,7 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
               <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
                 <StatPill label={tr(isAr, "Accounts", "حسابات")} value={stats.total} accent="var(--accent-1)" />
                 <StatPill label={tr(isAr, "Admins", "مسؤولون")} value={stats.admins} accent={BRASS} />
+                <StatPill label={tr(isAr, "Teachers", "معلّمون")} value={stats.teachers} accent="var(--accent-1)" />
                 <StatPill label={tr(isAr, "Pending", "معلّق")} value={stats.pending} accent={stats.pending ? "var(--danger)" : "var(--muted)"} />
                 <StatPill label={tr(isAr, "Words", "كلمات")} value={stats.words} />
               </div>
@@ -400,6 +402,8 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                           background:
                             a.role === "admin"
                               ? `linear-gradient(135deg, ${BRASS}, #c9a227)`
+                              : a.role === "teacher"
+                              ? "linear-gradient(135deg, #2d6a4f, #40916c)"
                               : "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
                         }}
                         aria-hidden="true"
@@ -439,8 +443,8 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                         <div style={{ fontSize: 12, color: "var(--muted-strong)", fontFamily: "ui-monospace, monospace", marginTop: 2 }} dir="ltr">
                           @{a.username || "—"}
                         </div>
-                        <div style={{ fontSize: 11.5, fontWeight: 700, color: a.role === "admin" ? BRASS : "var(--muted)", marginTop: 2 }}>
-                          {a.role === "admin" ? tr(isAr, "Admin", "مسؤول") : tr(isAr, "User", "مستخدم")}
+                        <div style={{ fontSize: 11.5, fontWeight: 700, color: a.role === "admin" ? BRASS : a.role === "teacher" ? "var(--accent-1)" : "var(--muted)", marginTop: 2 }}>
+                          {a.role === "admin" ? tr(isAr, "Admin", "مسؤول") : a.role === "teacher" ? tr(isAr, "Teacher", "معلّم") : tr(isAr, "User", "مستخدم")}
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
@@ -790,7 +794,8 @@ function AdminModal({ accounts, entries, myAccountCode, logs, onClearLogs, onClo
                 onChange={(e) => setFormRole(e.target.value)}
                 style={{ ...inputStyle, borderRadius: 12, fontFamily: "inherit" }}
               >
-                <option value="user">{tr(isAr, "User", "مستخدم")}</option>
+                <option value="user">{tr(isAr, "User / Student", "مستخدم / طالب")}</option>
+                <option value="teacher">{tr(isAr, "Teacher", "معلّم")}</option>
                 <option value="admin">{tr(isAr, "Admin", "مسؤول")}</option>
               </select>
               {mode === "edit" && (

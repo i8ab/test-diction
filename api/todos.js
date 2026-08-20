@@ -27,6 +27,7 @@ function normalizeTodo(t) {
     priority: ["high", "medium", "low"].includes(t.priority) ? t.priority : "medium",
     dueDate: typeof t.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.dueDate) ? t.dueDate : null,
     note: typeof t.note === "string" ? String(t.note).slice(0, 800) : "",
+    updatedAt: typeof t.updatedAt === "number" ? t.updatedAt : Date.now(),
   };
 }
 

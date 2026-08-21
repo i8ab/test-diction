@@ -21,8 +21,8 @@
    network-first, but still useful as a hard reset).
    ============================================================================= */
 
-const CACHE_VERSION = "two-tongues-v19";
-const NAVIGATION_TIMEOUT_MS = 1200;
+const CACHE_VERSION = "two-tongues-v20";
+const NAVIGATION_TIMEOUT_MS = 8000;
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -72,6 +72,26 @@ self.addEventListener("fetch", (event) => {
   // background on some later visit.
   const isNavigation = request.mode === "navigate" || request.headers.get("accept")?.includes("text/html");
   if (isNavigation) {
+    // Explicit reload / hard-refresh must always hit the network so the user
+    // can refresh normally even while the previous load was still pending.
+    const isReload =
+      request.cache === "reload" ||
+      request.headers.get("cache-control") === "no-cache" ||
+      request.headers.get("pragma") === "no-cache";
+    if (isReload) {
+      event.respondWith(
+        fetch(request)
+          .then((res) => {
+            if (res && res.ok) {
+              const clone = res.clone();
+              caches.open(CACHE_VERSION).then((cache) => cache.put("/index.html", clone));
+            }
+            return res;
+          })
+          .catch(() => caches.match("/index.html").then((cached) => cached || Promise.reject()))
+      );
+      return;
+    }
     event.respondWith(
       Promise.race([
         fetch(request),

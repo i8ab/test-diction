@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from "react";
 import {
   fetchBootstrap,
   fetchMyAccount,
@@ -66,8 +66,20 @@ import {
 import { capLogs, makeLogEntry } from "./lib/state/logs";
 import { LoaderIcon } from "./components/common/Icons";
 import { Shell } from "./components/layout/Shell";
-import AuthScreens from "./components/auth/AuthScreens";
-import MainView from "./components/MainView";
+
+// تحميل كسول للمكونات الكبيرة — يقلل حجم الحزمة الأولية ويسرّع First Paint
+const AuthScreens = lazy(() => import("./components/auth/AuthScreens"));
+const MainView = lazy(() => import("./components/MainView"));
+
+function AppLoadingFallback() {
+  return (
+    <Shell>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--muted-strong)", minHeight: 120 }}>
+        <LoaderIcon size={18} /><span>…</span>
+      </div>
+    </Shell>
+  );
+}
 
 const deviceIsAr = detectDeviceIsAr();
 const savedPersonalCode = loadPersonalCode();
@@ -1921,26 +1933,28 @@ useEffect(() => {
 
   if (authStage !== "in") {
     return (
-      <AuthScreens
-        authStage={authStage} appIsAr={appIsAr} appLang={appLang} atr={atr} theme={theme} toggleTheme={toggleTheme} toggleAppLang={toggleAppLang} onChangeAppLang={setAppLang} deviceMode={deviceMode} onChangeDeviceMode={setDeviceMode}
-        moreFeaturesOpen={moreFeaturesOpen} setMoreFeaturesOpen={setMoreFeaturesOpen} goToStage={goToStage}
-        name={name} setName={setName}
-        signupUsername={signupUsername} setSignupUsername={setSignupUsername}
-        signupPassword={signupPassword} setSignupPassword={setSignupPassword}
-        signupPassword2={signupPassword2} setSignupPassword2={setSignupPassword2}
-        signupAvatar={signupAvatar} setSignupAvatar={setSignupAvatar}
-        signupGender={signupGender} setSignupGender={setSignupGender}
-        signupBirthDate={signupBirthDate} setSignupBirthDate={setSignupBirthDate}
-        signupBacTrack={signupBacTrack} setSignupBacTrack={setSignupBacTrack}
-        signupBacGrade={signupBacGrade} setSignupBacGrade={setSignupBacGrade}
-        signupBacSpecialty={signupBacSpecialty} setSignupBacSpecialty={setSignupBacSpecialty}
-        signupRole={signupRole} setSignupRole={setSignupRole}
-        signupError={signupError} setSignupError={setSignupError} signupSaving={signupSaving} handleSignup={handleSignup}
-        usernameInput={usernameInput} setUsernameInput={setUsernameInput}
-        passwordInput={passwordInput} setPasswordInput={setPasswordInput}
-        authError={authError} setAuthError={setAuthError} loggingIn={loggingIn} handleLogin={handleLogin}
-        linkMode={linkMode} onCancelLink={cancelLinkAccount}
-      />
+      <Suspense fallback={<AppLoadingFallback />}>
+        <AuthScreens
+          authStage={authStage} appIsAr={appIsAr} appLang={appLang} atr={atr} theme={theme} toggleTheme={toggleTheme} toggleAppLang={toggleAppLang} onChangeAppLang={setAppLang} deviceMode={deviceMode} onChangeDeviceMode={setDeviceMode}
+          moreFeaturesOpen={moreFeaturesOpen} setMoreFeaturesOpen={setMoreFeaturesOpen} goToStage={goToStage}
+          name={name} setName={setName}
+          signupUsername={signupUsername} setSignupUsername={setSignupUsername}
+          signupPassword={signupPassword} setSignupPassword={setSignupPassword}
+          signupPassword2={signupPassword2} setSignupPassword2={setSignupPassword2}
+          signupAvatar={signupAvatar} setSignupAvatar={setSignupAvatar}
+          signupGender={signupGender} setSignupGender={setSignupGender}
+          signupBirthDate={signupBirthDate} setSignupBirthDate={setSignupBirthDate}
+          signupBacTrack={signupBacTrack} setSignupBacTrack={setSignupBacTrack}
+          signupBacGrade={signupBacGrade} setSignupBacGrade={setSignupBacGrade}
+          signupBacSpecialty={signupBacSpecialty} setSignupBacSpecialty={setSignupBacSpecialty}
+          signupRole={signupRole} setSignupRole={setSignupRole}
+          signupError={signupError} setSignupError={setSignupError} signupSaving={signupSaving} handleSignup={handleSignup}
+          usernameInput={usernameInput} setUsernameInput={setUsernameInput}
+          passwordInput={passwordInput} setPasswordInput={setPasswordInput}
+          authError={authError} setAuthError={setAuthError} loggingIn={loggingIn} handleLogin={handleLogin}
+          linkMode={linkMode} onCancelLink={cancelLinkAccount}
+        />
+      </Suspense>
     );
   }
 
@@ -1957,6 +1971,7 @@ useEffect(() => {
   }
 
   return (
+    <Suspense fallback={<AppLoadingFallback />}>
     <MainView
       name={name} isAdmin={isAdmin} isTeacher={isTeacher} entries={entries} entriesLoaded={entriesLoaded} loadError={loadError}
       isOffline={isOffline} offlineCachedAt={offlineCachedAt}
@@ -2006,6 +2021,7 @@ useEffect(() => {
       reminderMessage={reminderMessage} onChangeReminderMessage={handleChangeReminderMessage} reminderMessages={reminderMessages} onChangeReminderMessages={handleChangeReminderMessages}
       reminderIntervalHours={reminderIntervalHours} onChangeReminderIntervalHours={handleChangeReminderIntervalHours}
     />
+    </Suspense>
   );
 }
 

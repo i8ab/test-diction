@@ -208,9 +208,10 @@ function Shell({ children }) {
       {/* Static soft washes — no continuous animation (avoids jank on login) */}
       <div className="auth-orb" style={{ width: 300, height: 300, top: "-8%", insetInlineStart: "-6%", background: "radial-gradient(circle, color-mix(in srgb, var(--accent-1) 50%, transparent) 0%, transparent 70%)", animation: "none", opacity: 0.4, willChange: "auto" }} />
       <div className="auth-orb" style={{ width: 240, height: 240, bottom: "-8%", insetInlineEnd: "-4%", background: "radial-gradient(circle, color-mix(in srgb, var(--accent-2) 40%, transparent) 0%, transparent 70%)", animation: "none", opacity: 0.35, willChange: "auto" }} />
-      <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      {/* main landmark لتحسين إمكانية الوصول (Accessibility) */}
+      <main style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
         {children}
-      </div>
+      </main>
     </div>
   );
 }

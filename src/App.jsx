@@ -14,7 +14,7 @@ import {
 } from "./lib/state/cloudApi";
 import {
   loadSearchHistory, saveSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory,
-  saveOfflineCache, loadOfflineCache, savePersonalCode, loadPersonalCode, clearPersonalCode,
+  saveOfflineCache, loadOfflineCache, loadOfflineMeta, savePersonalCode, loadPersonalCode, clearPersonalCode,
   markPendingCloudSync, clearPendingCloudSync, mergeOfflineProgress,
   loadPendingRemoveCodes, savePendingRemoveCodes, addPendingRemoveCode, removePendingRemoveCode,
   loadPendingApproveCodes, addPendingApproveCode, removePendingApproveCode,
@@ -82,14 +82,19 @@ const deviceIsAr = detectDeviceIsAr();
 const savedPersonalCode = loadPersonalCode();
 
 /**
- * لقطة أولية من الكاش المحلي — للعرض الفوري قبل الشبكة
- * (تحسين الإحساس + تقليل انتظار الباندويث)
+ * Fast startup snapshot — reads only lightweight metadata (accounts, config).
+ * Dictionary entries are loaded lazily in a useEffect after first paint so
+ * JSON-parsing megabytes of word data never blocks React's initial render.
  */
 function readInitialOfflineSnapshot() {
-  const cached = loadOfflineCache();
-  if (!cached) return null;
+  // Try fast meta first (split key written by saveOfflineCache)
+  let cached = loadOfflineMeta();
+  // Backward compat: fall back to full cache if meta key doesn't exist yet
+  if (!cached) {
+    cached = loadOfflineCache();
+    if (!cached) return null;
+  }
   const hasData =
-    (Array.isArray(cached.entries) && cached.entries.length > 0) ||
     (Array.isArray(cached.accounts) && cached.accounts.length > 0);
   if (!hasData) return null;
   let accounts = cached.accounts || [];
@@ -109,7 +114,7 @@ function readInitialOfflineSnapshot() {
       ? account
       : null;
   return {
-    entries: Array.isArray(cached.entries) ? cached.entries : [],
+    entries: [], // ← populated lazily after first paint
     accounts,
     logs: Array.isArray(cached.logs) ? cached.logs : [],
     siteBanner: cached.siteBanner || null,
@@ -361,6 +366,22 @@ export default function DictionaryApp() {
       sessionStorage.removeItem("twoTongues.accessCode");
     } catch (_) {}
   }, []);
+
+  // Hydrate dictionary entries from the full offline cache AFTER first paint
+  // so JSON-parsing the (potentially large) entries array never blocks React's
+  // initial render and FCP fires as soon as auth metadata is ready.
+  useEffect(() => {
+    if (entries.length > 0) return; // already populated (e.g. from network)
+    requestAnimationFrame(() => {
+      try {
+        const cached = loadOfflineCache();
+        if (cached && Array.isArray(cached.entries) && cached.entries.length > 0) {
+          setEntries(cached.entries);
+          setEntriesLoaded(true);
+        }
+      } catch (_) {}
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { entriesRef.current = entries; }, [entries]);
   useEffect(() => { accountsRef.current = accounts; }, [accounts]);

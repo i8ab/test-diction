@@ -940,11 +940,28 @@ export function applyExamVisual(on) {
   } catch (_) {}
 }
 
+const OFFLINE_META_KEY = "twoTongues.offlineMeta";
+
 export function saveOfflineCache(rec) {
+  const stamped = { ...rec, cachedAt: Date.now() };
+  try {
+    localStorage.setItem(OFFLINE_KEY, JSON.stringify(stamped));
+  } catch (_) {}
+  // Also save lightweight metadata (accounts, config — NOT entries) for
+  // fast synchronous reads at startup so React can auth-instantly without
+  // JSON-parsing megabytes of dictionary data.
   try {
     localStorage.setItem(
-      OFFLINE_KEY,
-      JSON.stringify({ ...rec, cachedAt: Date.now() })
+      OFFLINE_META_KEY,
+      JSON.stringify({
+        accounts: stamped.accounts,
+        logs: stamped.logs,
+        siteBanner: stamped.siteBanner,
+        examConfig: stamped.examConfig,
+        academicUnits: stamped.academicUnits,
+        version: stamped.version,
+        cachedAt: stamped.cachedAt,
+      })
     );
   } catch (_) {}
 }
@@ -952,6 +969,17 @@ export function saveOfflineCache(rec) {
 export function loadOfflineCache() {
   try {
     const raw = localStorage.getItem(OFFLINE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Fast synchronous read — metadata only (no dictionary entries). */
+export function loadOfflineMeta() {
+  try {
+    const raw = localStorage.getItem(OFFLINE_META_KEY);
     if (!raw) return null;
     return JSON.parse(raw);
   } catch (_) {

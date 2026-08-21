@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { tr } from "../config/i18n";
 import {
   loadSavedAccent,
@@ -99,11 +99,6 @@ export function useAppPreferences() {
     saveDeviceMode(mode);
     applyDeviceModeToDom(mode);
   }, []);
-
-  useEffect(() => {
-    const effective = deviceMode || guessDeviceMode();
-    applyDeviceModeToDom(effective);
-  }, [deviceMode]);
 
   // --- Theme (light / dark / system) ---
   const [theme, setTheme] = useState(loadSavedTheme);
@@ -216,12 +211,6 @@ export function useAppPreferences() {
     } catch (_) {}
   }, []);
 
-  useEffect(() => {
-    try {
-      document.documentElement.style.setProperty("--ui-scale", String(uiScale));
-    } catch (_) {}
-  }, [uiScale]);
-
   // --- Fonts ---
   const [latinFont, setLatinFontState] = useState(loadLatinFont);
   const [arabicFont, setArabicFontState] = useState(loadArabicFont);
@@ -230,17 +219,15 @@ export function useAppPreferences() {
     if (!id) return;
     setLatinFontState(id);
     saveLatinFont(id);
-  }, []);
+    applyFonts(id, arabicFont);
+  }, [arabicFont]);
 
   const setArabicFont = useCallback((id) => {
     if (!id) return;
     setArabicFontState(id);
     saveArabicFont(id);
-  }, []);
-
-  useEffect(() => {
-    applyFonts(latinFont, arabicFont);
-  }, [latinFont, arabicFont]);
+    applyFonts(latinFont, id);
+  }, [latinFont]);
 
   // --- Reduced motion ---
   const [reducedMotion, setReducedMotionState] = useState(loadReducedMotion);
@@ -251,10 +238,6 @@ export function useAppPreferences() {
     saveReducedMotion(v);
     applyReducedMotion(v);
   }, []);
-
-  useEffect(() => {
-    applyReducedMotion(reducedMotion);
-  }, [reducedMotion]);
 
   // --- UI sounds ---
   const [uiSounds, setUiSoundsState] = useState(loadUiSounds);
@@ -281,7 +264,6 @@ export function useAppPreferences() {
     saveCardSurface(id);
     applyCardSurface(id);
   }, []);
-  useEffect(() => { applyCardSurface(cardSurface); }, [cardSurface]);
 
   // --- Header style (solid / glass / clear) ---
   const [headerStyle, setHeaderStyleState] = useState(loadHeaderStyle);
@@ -290,7 +272,6 @@ export function useAppPreferences() {
     saveHeaderStyle(id);
     applyHeaderStyle(id);
   }, []);
-  useEffect(() => { applyHeaderStyle(headerStyle); }, [headerStyle]);
 
   // --- Card clarity: fixed to Clear (high transparency). Choice removed. ---
   const cardClarity = "clear";
@@ -298,7 +279,6 @@ export function useAppPreferences() {
     saveCardClarity("clear");
     applyCardClarity("clear");
   }, []);
-  useEffect(() => { applyCardClarity("clear"); }, []);
 
   // --- Modal style ---
   const [modalStyle, setModalStyleState] = useState(loadModalStyle);
@@ -307,7 +287,6 @@ export function useAppPreferences() {
     saveModalStyle(id);
     applyModalStyle(id);
   }, []);
-  useEffect(() => { applyModalStyle(modalStyle); }, [modalStyle]);
 
   // --- Icon style: fixed to outline. Choice removed. ---
   const iconStyle = "outline";
@@ -315,7 +294,6 @@ export function useAppPreferences() {
     saveIconStyle("outline");
     applyIconStyle("outline");
   }, []);
-  useEffect(() => { applyIconStyle("outline"); }, []);
 
   // --- Motion speed: fixed to normal. Setting removed. ---
   const motionSpeed = "normal";
@@ -323,7 +301,6 @@ export function useAppPreferences() {
     saveMotionSpeed("normal");
     applyMotionSpeed("normal");
   }, []);
-  useEffect(() => { applyMotionSpeed("normal"); }, []);
 
   // --- Exam visual ---
   const [examVisual, setExamVisualState] = useState(loadExamVisual);
@@ -333,7 +310,31 @@ export function useAppPreferences() {
     saveExamVisual(v);
     applyExamVisual(v);
   }, []);
-  useEffect(() => { applyExamVisual(examVisual); }, [examVisual]);
+
+  // ── Batched initial DOM paint ──────────────────────────────────────────
+  // Apply ALL cosmetic preferences in a single rAF so the browser does ONE
+  // style recalculation instead of 10+ separate ones on mount.
+  const initialPaintDone = useRef(false);
+  useEffect(() => {
+    if (initialPaintDone.current) return;
+    initialPaintDone.current = true;
+    requestAnimationFrame(() => {
+      applyCardSurface(cardSurface);
+      applyHeaderStyle(headerStyle);
+      applyCardClarity("clear");
+      applyModalStyle(modalStyle);
+      applyIconStyle("outline");
+      applyMotionSpeed("normal");
+      applyExamVisual(examVisual);
+      applyReducedMotion(reducedMotion);
+      applyFonts(latinFont, arabicFont);
+      applyDeviceModeToDom(deviceMode || guessDeviceMode());
+      try {
+        document.documentElement.style.setProperty("--ui-scale", String(uiScale));
+      } catch (_) {}
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     appLang,

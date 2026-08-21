@@ -19,6 +19,15 @@
 <!-- Load non-critical web fonts without blocking the first paint. System fallbacks render immediately. -->
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet"></noscript>
+<!-- Critical theme detection — runs synchronously before first paint to prevent flash. -->
+<script>
+try{
+  var t=localStorage.getItem('twoTongues.theme')||'light';
+  var r=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme:dark)').matches)?'dark':'light';
+  document.documentElement.setAttribute('data-theme',r);
+  document.documentElement.setAttribute('data-theme-pref',t);
+}catch(e){}
+</script>
 </head>
 <body>
 <!-- Lightweight HTML shell paints before React and reserves the first viewport. -->
@@ -31,11 +40,45 @@
   </main>
 </div>
 <style>
-  #initial-shell { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: #f6f1e8; color: #18232a; }
-  .initial-shell-card { width: min(420px, 100%); min-height: 150px; display: grid; place-content: center; gap: 10px; text-align: center; border: 1px solid rgba(24,35,42,.12); border-radius: 18px; background: rgba(255,255,255,.72); box-shadow: 0 12px 34px rgba(24,35,42,.08); font-family: system-ui, sans-serif; }
-  .initial-shell-brand { display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 20px; }
-  .initial-shell-card p { margin: 0; color: #58636a; font-size: 14px; }
-  @media (prefers-color-scheme: dark) { #initial-shell { background: #10191f; color: #f6f1e8; } .initial-shell-card { background: rgba(28,39,46,.86); border-color: rgba(255,255,255,.14); } .initial-shell-card p { color: #b4bec3; } }
+  /* ── Critical CSS variables (light + dark) ── inlined so the browser
+     can paint correct theme colors before the external CSS file loads. */
+  :root {
+    --paper: #FAFDFE; --card: #FFFFFF; --ink: #146C94;
+    --accent-1: #19A7CE; --accent-1-soft: #D3E7EF;
+    --accent-2: #146C94; --accent-2-soft: #E4EEF2;
+    --muted: #7FA3B5; --muted-strong: #4A7C93; --icon-muted: #6E93A6;
+    --input-bg: #F6F1F1; --border-rgb: 20,108,148;
+    --success: #2D8C69; --success-bg: #E4F2ED; --success-border-rgb: 45,140,105;
+    --danger: #8A3A3A; --danger-bg: #F6E7E5; --danger-border: #E3B9B4;
+    --focus-rgb: 25,167,206; --meaning: #22C55E;
+    --font-latin: "Source Sans 3", system-ui, sans-serif;
+    --font-arabic: "Amiri", "Times New Roman", serif;
+  }
+  html[data-theme="dark"] {
+    --paper: #0E1A20; --card: #16262E; --ink: #E8F4F8;
+    --accent-1: #3FC1E8; --accent-1-soft: #163642;
+    --accent-2: #6BAFD1; --accent-2-soft: #142A34;
+    --muted: #7FA0AF; --muted-strong: #9BC0D0; --icon-muted: #8CB2C2;
+    --input-bg: #1D2E36; --border-rgb: 140,190,205;
+    --success: #59D0A2; --success-bg: #123527; --success-border-rgb: 89,208,162;
+    --danger: #F0A99E; --danger-bg: #3A211E; --danger-border: #6B3A34;
+    --focus-rgb: 63,193,232; --meaning: #4ADE80;
+  }
+  * { box-sizing: border-box; }
+  html { margin: 0; padding: 0; background-color: var(--paper); overscroll-behavior-y: none; }
+  body { margin: 0; padding: 0; background-color: transparent; background-image: none;
+    font-family: var(--font-latin); position: relative; z-index: 0; min-height: 100dvh; overscroll-behavior-y: none;
+    transition: background 0.35s ease, background-color 0.35s ease; }
+  body::before { content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100lvh; min-height: 100%;
+    z-index: -1; pointer-events: none; background-color: var(--paper);
+    background-image: var(--app-bg, none), var(--app-bg-image, none);
+    background-size: cover, cover; background-position: center top, center top;
+    background-repeat: no-repeat, no-repeat; transform: translateZ(0); will-change: auto; overscroll-behavior: none; }
+  input:focus, textarea:focus { border-color: var(--accent-1) !important; box-shadow: 0 0 0 3px rgba(var(--focus-rgb),0.18); outline: none; }
+  #initial-shell { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: var(--paper); color: var(--ink); }
+  .initial-shell-card { width: min(420px, 100%); min-height: 150px; display: grid; place-content: center; gap: 10px; text-align: center; border: 1px solid rgba(var(--border-rgb),.12); border-radius: 18px; background: var(--card); box-shadow: 0 12px 34px rgba(24,35,42,.08); font-family: var(--font-latin); }
+  .initial-shell-brand { display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 20px; color: var(--ink); }
+  .initial-shell-card p { margin: 0; color: var(--muted); font-size: 14px; }
 </style>
 <script type="module" src="/src/main.jsx"></script>
 </body>

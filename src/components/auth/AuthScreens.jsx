@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import "./auth.css";
 // Full-screen auth flow: intro landing, signup (name + username + password),
 // pending-approval screen, restoring-session spinner, and login
 // (username + password).

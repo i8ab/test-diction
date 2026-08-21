@@ -187,14 +187,6 @@
   @keyframes scaleIn { from { opacity: 0; transform: scale(0.92) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
   @keyframes scaleInUp { from { opacity: 0; transform: scale(0.92) translateY(-10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
   @keyframes popIn { 0% { opacity: 0; transform: scale(0.85); } 60% { opacity: 1; transform: scale(1.03); } 100% { transform: scale(1); } }
-  @keyframes floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
-  @keyframes floatSlow { 0%, 100% { transform: translate(0,0) scale(1); } 50% { transform: translate(14px,-18px) scale(1.06); } }
-  @keyframes auroraShift { 0% { transform: translate(-6%, -4%) rotate(0deg) scale(1); } 50% { transform: translate(6%, 4%) rotate(8deg) scale(1.12); } 100% { transform: translate(-6%, -4%) rotate(0deg) scale(1); } }
-  @keyframes shimmerSweep { 0% { transform: translateX(-140%) skewX(-18deg); } 100% { transform: translateX(240%) skewX(-18deg); } }
-  @keyframes pulseGlow { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.03); } }
-  @keyframes badgeSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-  @keyframes staggerIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes gradientMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
   @keyframes underlineGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
   /* Fast modal open on ALL devices — no blur, near-instant enter */
@@ -241,21 +233,7 @@
     display: none !important;
   }
 
-  .auth-card { animation: fadeInUp 0.55s cubic-bezier(0.22,1,0.36,1) both; }
-  .auth-field-1 { animation: staggerIn 0.5s ease both 0.08s; }
-  .auth-field-2 { animation: staggerIn 0.5s ease both 0.16s; }
-  .auth-field-3 { animation: staggerIn 0.5s ease both 0.24s; }
-  .auth-badge { animation: floatY 4.5s ease-in-out infinite; }
-  /* These orbs sit behind the intro screen and animate forever. They used to
-     carry `filter: blur(46px)`, which forces the browser to recompute an
-     expensive blur on a ~500px region on every single animation frame — with
-     three of them animating at once, that's the main reason the intro screen
-     felt janky/slow, especially on phones. The radial-gradient they're
-     painted with already fades out to transparent, so it reads as "soft"
-     without needing a live blur filter at all. `will-change` hints the
-     browser to composite the translate/scale on the GPU instead of
-     repainting layout each frame. */
-  .auth-orb { position: absolute; border-radius: 50%; opacity: 0.55; pointer-events: none; animation: floatSlow 10s ease-in-out infinite; will-change: transform; }
+  /* Auth-specific styles moved to components/auth/auth.css (lazy-loaded) */
 
   /* ================= Calm global button system =================
      Light feedback only — no global lift, no bounce, no blend-mode

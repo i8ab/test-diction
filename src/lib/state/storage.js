@@ -944,12 +944,9 @@ const OFFLINE_META_KEY = "twoTongues.offlineMeta";
 
 export function saveOfflineCache(rec) {
   const stamped = { ...rec, cachedAt: Date.now() };
-  try {
-    localStorage.setItem(OFFLINE_KEY, JSON.stringify(stamped));
-  } catch (_) {}
-  // Also save lightweight metadata (accounts, config — NOT entries) for
-  // fast synchronous reads at startup so React can auth-instantly without
-  // JSON-parsing megabytes of dictionary data.
+  // ── Lightweight meta write (immediate, small payload) ─────────────
+  // Fast synchronous write of accounts + config only (no dictionary entries).
+  // Powers fast startup reads without JSON-parsing megabytes.
   try {
     localStorage.setItem(
       OFFLINE_META_KEY,
@@ -964,6 +961,45 @@ export function saveOfflineCache(rec) {
       })
     );
   } catch (_) {}
+  // ── Heavy full-cache write (deferred to idle) ───────────────────
+  // JSON-stringify + localStorage.setItem of the entire dictionary can
+  // block the main thread for 50-200 ms. Defer to the next idle window
+  // so it never extends a long task or delays user interaction.
+  _scheduleFullCacheWrite(stamped);
+}
+
+let _fullCacheTimer = null;
+let _pendingStamped = null;
+function _scheduleFullCacheWrite(stamped) {
+  // Debounce: collapse rapid saves into a single idle write.
+  if (_fullCacheTimer !== null) {
+    if (typeof cancelIdleCallback === "function") cancelIdleCallback(_fullCacheTimer);
+    else clearTimeout(_fullCacheTimer);
+  }
+  _pendingStamped = stamped;
+  const write = () => {
+    _fullCacheTimer = null;
+    _pendingStamped = null;
+    try { localStorage.setItem(OFFLINE_KEY, JSON.stringify(stamped)); } catch (_) {}
+  };
+  if (typeof requestIdleCallback === "function") {
+    _fullCacheTimer = requestIdleCallback(write, { timeout: 15000 });
+  } else {
+    _fullCacheTimer = setTimeout(write, 3000);
+  }
+}
+
+/** Flush any pending deferred full-cache write immediately (for pagehide). */
+export function flushFullCacheSync() {
+  if (_fullCacheTimer !== null) {
+    if (typeof cancelIdleCallback === "function") cancelIdleCallback(_fullCacheTimer);
+    else clearTimeout(_fullCacheTimer);
+    _fullCacheTimer = null;
+  }
+  if (_pendingStamped) {
+    try { localStorage.setItem(OFFLINE_KEY, JSON.stringify(_pendingStamped)); } catch (_) {}
+    _pendingStamped = null;
+  }
 }
 
 export function loadOfflineCache() {

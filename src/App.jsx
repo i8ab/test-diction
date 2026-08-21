@@ -14,7 +14,7 @@ import {
 } from "./lib/state/cloudApi";
 import {
   loadSearchHistory, saveSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory,
-  saveOfflineCache, loadOfflineCache, loadOfflineMeta, savePersonalCode, loadPersonalCode, clearPersonalCode,
+  saveOfflineCache, loadOfflineCache, loadOfflineMeta, flushFullCacheSync, savePersonalCode, loadPersonalCode, clearPersonalCode,
   markPendingCloudSync, clearPendingCloudSync, mergeOfflineProgress,
   loadPendingRemoveCodes, savePendingRemoveCodes, addPendingRemoveCode, removePendingRemoveCode,
   loadPendingApproveCodes, addPendingApproveCode, removePendingApproveCode,
@@ -413,6 +413,8 @@ export default function DictionaryApp() {
           academicUnits: academicUnitsRef.current,
           version: recordVersionRef.current,
         });
+        // Force the deferred full-cache write to happen NOW (page is closing)
+        flushFullCacheSync();
         if (
           pendingAccountOpsRef.current.length > 0 ||
           pendingEntryOpsRef.current.length > 0
@@ -718,6 +720,23 @@ useEffect(() => {
   useEffect(() => {
     (async () => {
       try {
+        // ── Load offline entries ONCE before any merge ──────────────
+        // The rAF-deferred effect (above) may have already populated
+        // entriesRef.current. Use it first; fall back to a single
+        // loadOfflineCache() call so we never JSON-parse twice.
+        let offlineEntries = entriesRef.current;
+        if (!offlineEntries || offlineEntries.length === 0) {
+          try {
+            const fullCache = loadOfflineCache();
+            offlineEntries = (fullCache && fullCache.entries) || [];
+            if (offlineEntries.length > 0) {
+              entriesRef.current = offlineEntries;
+              setEntries(offlineEntries);
+              setEntriesLoaded(true);
+            }
+          } catch (_) {}
+        }
+
         // ============================================================
         // مرحلة 1 من عزل الإجراءات: جلب مجزأ بدل السجل الكامل
         // نجمع البيانات من عدة طلبات خفيفة ثم نبني كائن rec متوافق
@@ -759,7 +778,6 @@ useEffect(() => {
           }
 
           // ادمج مع كاش الأقسام الأخرى عشان ما تختفيش لحد ما تتجلب
-          const offlineEntries = (loadOfflineCache()?.entries) || entriesRef.current || [];
           const entries = mergeSectionEntries(offlineEntries, sectionEntries, primarySection);
           loadedSectionsRef.current.add(primarySection);
 
@@ -778,7 +796,6 @@ useEffect(() => {
             fetchBootstrap().catch(() => ({})),
             fetchEntriesOnly({ section: primarySection }).catch(() => []),
           ]);
-          const offlineEntries = (loadOfflineCache()?.entries) || entriesRef.current || [];
           const entries = mergeSectionEntries(offlineEntries, sectionEntries, primarySection);
           loadedSectionsRef.current.add(primarySection);
           rec = {
@@ -796,7 +813,8 @@ useEffect(() => {
 
         // If user reloaded while a studied/favorite save was still in flight,
         // offline cache holds the newer progress — merge it back and re-save.
-        const offline = loadOfflineCache();
+        // Use lightweight meta (accounts + cachedAt only, no entries) for speed.
+        const offline = loadOfflineMeta() || loadOfflineCache();
         const { accounts: mergedAccounts, merged } = mergeOfflineProgress(rec.accounts || [], offline);
         if (merged) {
           rec = { ...rec, accounts: mergedAccounts };

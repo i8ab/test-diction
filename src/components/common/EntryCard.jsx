@@ -211,6 +211,8 @@ function EntryCard({
         flexDirection: "column",
         gap: 0,
         animation: "fadeInUp 0.35s ease both",
+        contentVisibility: "auto",
+        containIntrinsicSize: "0 132px",
       }}
     >
       {/* Content — expands on tap; actions are outside this zone */}

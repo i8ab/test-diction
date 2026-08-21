@@ -44,7 +44,7 @@ import { useEntrySearch } from "../lib/hooks/useEntrySearch";
 import { useStudyShortcuts } from "../lib/hooks/useStudyShortcuts";
 import { useListPagination } from "../lib/hooks/useListPagination";
 import WelcomeOnboardingModal, { hasSeenWelcome, markWelcomeSeen } from "./modals/WelcomeOnboardingModal";
-import { scheduleIdlePreload, preloadStudyCore, preloadMotivationDuaModal } from "./modals/lazyModals";
+import { scheduleIdlePreload, preloadStudyCore } from "./modals/lazyModals";
 import { consumeSessionOpenTool, setSessionOpenTool } from "../lib/state/sessionUi";
 
 export default function MainView({
@@ -259,10 +259,10 @@ export default function MainView({
     return () => clearTimeout(t);
   }, [accountCode]);
 
-  // Warm common study chunks + Motivation/Du'a in the background so first open is instant
+  // Warm only the most-used study chunks after the first idle period. Keep the
+  // secondary Motivation/Du'a chunk on-demand to avoid competing with startup.
   useEffect(() => {
     scheduleIdlePreload(preloadStudyCore);
-    scheduleIdlePreload(preloadMotivationDuaModal);
   }, []);
 
   const [showDictation, setShowDictation] = useState(() => restored.tool === "dictation");
@@ -349,45 +349,6 @@ export default function MainView({
     }
     window.addEventListener("twotongues:open-achievements", onOpenAchievements);
     return () => window.removeEventListener("twotongues:open-achievements", onOpenAchievements);
-  }, []);
-
-  // Prefetch lazy modal chunks in idle time so the *first* open feels instant
-  // (second open was already fast because the chunk was cached).
-  useEffect(() => {
-    let cancelled = false;
-    const run = () => {
-      if (cancelled) return;
-      // Warm the most-used practice modals; browser will cache the modules.
-      const warm = [
-        () => import("./modals/DictationModal"),
-        () => import("./modals/QuizModal"),
-        () => import("./modals/ExamModeModal"),
-        () => import("./modals/FlashcardsModal"),
-        () => import("./modals/QuickReviewModal"),
-        () => import("./modals/RandomWordModal"),
-        () => import("./modals/SmartCardsModal"),
-        () => import("./modals/StatsModal"),
-      ];
-      warm.forEach((fn, i) => {
-        setTimeout(() => {
-          if (!cancelled) fn().catch(() => {});
-        }, 400 + i * 180);
-      });
-    };
-    let idleId;
-    if (typeof window !== "undefined" && window.requestIdleCallback) {
-      idleId = window.requestIdleCallback(run, { timeout: 3500 });
-    } else {
-      idleId = setTimeout(run, 1800);
-    }
-    return () => {
-      cancelled = true;
-      if (typeof window !== "undefined" && window.cancelIdleCallback && typeof idleId === "number") {
-        try { window.cancelIdleCallback(idleId); } catch (_) {}
-      } else {
-        clearTimeout(idleId);
-      }
-    };
   }, []);
 
   const blockingActivity =

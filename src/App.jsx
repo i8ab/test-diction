@@ -537,33 +537,50 @@ useEffect(() => {
     } catch (_) {}
   }, [accountCode, accountsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Silent backfill: persist any achievement levels already earned by live
-  // stats but missing from account.achievements[] (e.g. progress from before
-  // unlock hooks existed). No Minecraft toast — user already did the work.
+  // Silent backfill: this is maintenance work, not part of the first render.
+  // Run it when the browser is idle so login and the dictionary stay responsive.
   useEffect(() => {
     if (!accountCode || accountCode === "guest" || !accountsLoaded) return;
-    const acct = accounts.find((a) => a.code === accountCode);
-    if (!acct) return;
-    try {
-      let dictationRounds = 0;
-      try { dictationRounds = Number(localStorage.getItem("twoTongues.dictationRounds." + accountCode) || 0); } catch (_) {}
-      const box = {};
-      for (const id of Object.keys(acct.srsStats || {})) box[id] = srsLevelFromStats(acct.srsStats[id]);
-      const before = (acct.achievements || []).length;
-      const updated = unlockAchievements(
-        acct,
-        {
-          streak: computeStreak(acct.studiedAt || {}),
-          srsBox: box,
-          timerMinutesTotal: getTodayTimerMinutes(),
-          dictationRounds,
-        },
-        { notify: false }
-      );
-      if ((updated.achievements || []).length > before) {
-        persistAccounts((cur) => cur.map((a) => (a.code === accountCode ? { ...a, achievements: updated.achievements } : a)));
+    let cancelled = false;
+    let idleId = null;
+    const run = () => {
+      if (cancelled) return;
+      const acct = accounts.find((a) => a.code === accountCode);
+      if (!acct) return;
+      try {
+        let dictationRounds = 0;
+        try { dictationRounds = Number(localStorage.getItem("twoTongues.dictationRounds." + accountCode) || 0); } catch (_) {}
+        const box = {};
+        for (const id of Object.keys(acct.srsStats || {})) box[id] = srsLevelFromStats(acct.srsStats[id]);
+        const before = (acct.achievements || []).length;
+        const updated = unlockAchievements(
+          acct,
+          {
+            streak: computeStreak(acct.studiedAt || {}),
+            srsBox: box,
+            timerMinutesTotal: getTodayTimerMinutes(),
+            dictationRounds,
+          },
+          { notify: false }
+        );
+        if ((updated.achievements || []).length > before) {
+          persistAccounts((cur) => cur.map((a) => (a.code === accountCode ? { ...a, achievements: updated.achievements } : a)));
+        }
+      } catch (_) {}
+    };
+    if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+      idleId = window.requestIdleCallback(run, { timeout: 5000 });
+    } else {
+      idleId = setTimeout(run, 1800);
+    }
+    return () => {
+      cancelled = true;
+      if (typeof window !== "undefined" && window.cancelIdleCallback && idleId !== null) {
+        window.cancelIdleCallback(idleId);
+      } else if (idleId !== null) {
+        clearTimeout(idleId);
       }
-    } catch (_) {}
+    };
   }, [accountCode, accountsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Guest mode removed intentionally — sign-in required.

@@ -8,9 +8,23 @@ import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 const TODO_KEY = "twoTongues.todos";
 const TODO_KEY_FOR = (code) => (code ? `twoTongues.todos.${code}` : TODO_KEY);
 
-/** Title stays on one line. Anything longer is moved to the note. */
-const TITLE_MAX = 70;
+/** Full title is shown (wraps on small screens). Soft cap for storage only. */
+const TITLE_MAX = 200;
 const NOTE_MAX = 800;
+const SUBTASK_MAX = 120;
+const SUBTASKS_PER_TODO = 30;
+
+function normalizeSubtasks(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((s) => s && typeof s.text === "string" && s.text.trim())
+    .map((s) => ({
+      id: typeof s.id === "string" && s.id ? s.id : Math.random().toString(36).slice(2) + Date.now().toString(36),
+      text: String(s.text).trim().slice(0, SUBTASK_MAX),
+      done: !!s.done,
+    }))
+    .slice(0, SUBTASKS_PER_TODO);
+}
 
 function normalizeTodoList(arr, { stripActive = false } = {}) {
   if (!Array.isArray(arr)) return [];
@@ -32,6 +46,7 @@ function normalizeTodoList(arr, { stripActive = false } = {}) {
       dueDate: typeof t.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.dueDate) ? t.dueDate : null,
       // Bumped on every local edit; used to decide which side "wins" a merge.
       updatedAt: typeof t.updatedAt === "number" ? t.updatedAt : Date.now(),
+      subtasks: normalizeSubtasks(t.subtasks),
     }))
     .slice(0, 200);
 }
@@ -165,6 +180,7 @@ export default function TodoPage({
   const [nowTick, setNowTick] = useState(Date.now());
   const [syncStatus, setSyncStatus] = useState("");
   const [expandedId, setExpandedId] = useState(null);
+  const [subDraft, setSubDraft] = useState({}); // { [todoId]: string }
   const inputRef = useRef(null);
   const dragRef = useRef(null);
   const cloudSaveTimer = useRef(null);
@@ -399,6 +415,7 @@ export default function TodoPage({
         priority: draftPriority,
         dueDate: draftDue || null,
         updatedAt: Date.now(),
+        subtasks: [],
       },
       ...prev,
     ]);
@@ -466,6 +483,52 @@ export default function TodoPage({
     setTodos((prev) => prev.filter((t) => t.id !== id));
     if (expandedId === id) setExpandedId(null);
   }
+
+  function addSubtask(todoId, text) {
+    const cleaned = String(text || "").trim().slice(0, SUBTASK_MAX);
+    if (!cleaned) return;
+    setTodos((prev) =>
+      prev.map((t) => {
+        if (t.id !== todoId) return t;
+        const list = Array.isArray(t.subtasks) ? t.subtasks : [];
+        if (list.length >= SUBTASKS_PER_TODO) return t;
+        return {
+          ...t,
+          subtasks: [...list, { id: uid(), text: cleaned, done: false }],
+          updatedAt: Date.now(),
+        };
+      })
+    );
+  }
+
+  function toggleSubtask(todoId, subId) {
+    setTodos((prev) =>
+      prev.map((t) => {
+        if (t.id !== todoId) return t;
+        const list = Array.isArray(t.subtasks) ? t.subtasks : [];
+        return {
+          ...t,
+          subtasks: list.map((s) => (s.id === subId ? { ...s, done: !s.done } : s)),
+          updatedAt: Date.now(),
+        };
+      })
+    );
+  }
+
+  function removeSubtask(todoId, subId) {
+    setTodos((prev) =>
+      prev.map((t) => {
+        if (t.id !== todoId) return t;
+        const list = Array.isArray(t.subtasks) ? t.subtasks : [];
+        return {
+          ...t,
+          subtasks: list.filter((s) => s.id !== subId),
+          updatedAt: Date.now(),
+        };
+      })
+    );
+  }
+
 
   function elapsedFor(t) {
     const base = t.workedMs || 0;
@@ -567,12 +630,12 @@ export default function TodoPage({
           {workingCount > 0 ? ` · ${workingCount} ${tr(isAr, "working", "شغّال")}` : ""}
         </div>
         {active && (
-          <div style={{ fontSize: 11, color: "#30d158", fontWeight: 700, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{ fontSize: 11, color: "#30d158", fontWeight: 700, marginBottom: 4, whiteSpace: "normal", wordBreak: "break-word" }}>
             ▶ {active.text} · {formatElapsed(elapsedFor(active))}
           </div>
         )}
         {preview.map((t) => (
-          <div key={t.id} style={{ fontSize: 11, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "2px 0" }}>
+          <div key={t.id} style={{ fontSize: 11, color: INK, whiteSpace: "normal", wordBreak: "break-word", padding: "2px 0" }}>
             {numberMap[t.id]}. {t.text}
           </div>
         ))}
@@ -645,7 +708,7 @@ export default function TodoPage({
               ref={inputRef}
               value={draft}
               onChange={(e) => handleTitleChange(e.target.value)}
-              placeholder={tr(isAr, "Task title (one line)…", "عنوان المهمة (سطر واحد)…")}
+              placeholder={tr(isAr, "Task title…", "عنوان المهمة…")}
               maxLength={TITLE_MAX + 20}
               dir="auto"
               style={{
@@ -838,6 +901,8 @@ export default function TodoPage({
             visible.map((t) => {
               const isOpen = expandedId === t.id;
               const hasNote = !!(t.note && t.note.trim());
+              const subs = Array.isArray(t.subtasks) ? t.subtasks : [];
+              const subDone = subs.filter((s) => s.done).length;
               return (
                 <li
                   key={t.id}
@@ -908,14 +973,14 @@ export default function TodoPage({
 
                     <button
                       type="button"
-                      onClick={() => (hasNote ? setExpandedId(isOpen ? null : t.id) : null)}
+                      onClick={() => setExpandedId(isOpen ? null : t.id)}
                       style={{
                         flex: 1,
                         minWidth: 0,
                         border: "none",
                         background: "transparent",
                         padding: 0,
-                        cursor: hasNote ? "pointer" : "default",
+                        cursor: "pointer",
                         textAlign: "start",
                       }}
                     >
@@ -927,15 +992,16 @@ export default function TodoPage({
                           fontWeight: 600,
                           textDecoration: t.done ? "line-through" : "none",
                           display: "block",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
+                          overflow: "visible",
+                          whiteSpace: "normal",
+                          wordBreak: "break-word",
                           lineHeight: 1.35,
                         }}
                       >
                         {t.text}
-                        {hasNote && (
+                        {(hasNote || subs.length > 0) && (
                           <span style={{ marginInlineStart: 5, fontSize: 10, color: "var(--muted)", fontWeight: 600 }}>
+                            {subs.length > 0 ? `${subDone}/${subs.length} ` : ""}
                             {isOpen ? "▲" : "▼"}
                           </span>
                         )}
@@ -1007,20 +1073,146 @@ export default function TodoPage({
                     </button>
                   </div>
 
-                  {isOpen && hasNote && (
+                  {isOpen && (
                     <div
-                      dir="auto"
                       style={{
-                        padding: `8px 12px 10px 48px`,
-                        fontSize: 13,
-                        color: "var(--muted-strong)",
-                        lineHeight: 1.45,
-                        whiteSpace: "pre-wrap",
-                        wordBreak: "break-word",
+                        padding: "8px 12px 10px 40px",
                         borderTop: "1px solid rgba(var(--border-rgb),0.06)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
                       }}
                     >
-                      {t.note}
+                      {hasNote && (
+                        <div
+                          dir="auto"
+                          style={{
+                            fontSize: 13,
+                            color: "var(--muted-strong)",
+                            lineHeight: 1.45,
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {t.note}
+                        </div>
+                      )}
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", marginBottom: 2 }}>
+                          {tr(isAr, "Subtasks", "مهام جانبية")}
+                          {subs.length > 0 ? ` (${subDone}/${subs.length})` : ""}
+                        </div>
+                        {subs.map((s) => (
+                          <div
+                            key={s.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              padding: "4px 0",
+                            }}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => toggleSubtask(t.id, s.id)}
+                              aria-label={tr(isAr, "Toggle subtask", "تبديل المهمة الجانبية")}
+                              style={{
+                                width: 18,
+                                height: 18,
+                                borderRadius: 5,
+                                flexShrink: 0,
+                                padding: 0,
+                                border: s.done ? "none" : "1.5px solid rgba(var(--border-rgb),0.3)",
+                                background: s.done ? "#30d158" : "transparent",
+                                color: "#fff",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor: "pointer",
+                              }}
+                            >
+                              {s.done ? <CheckIcon size={10} /> : null}
+                            </button>
+                            <span
+                              dir="auto"
+                              style={{
+                                flex: 1,
+                                fontSize: 13,
+                                color: INK,
+                                fontWeight: 500,
+                                textDecoration: s.done ? "line-through" : "none",
+                                opacity: s.done ? 0.65 : 1,
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              {s.text}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeSubtask(t.id, s.id)}
+                              aria-label={tr(isAr, "Delete subtask", "حذف")}
+                              style={{
+                                border: "none",
+                                background: "transparent",
+                                color: "var(--icon-muted)",
+                                cursor: "pointer",
+                                padding: 2,
+                                display: "flex",
+                                flexShrink: 0,
+                              }}
+                            >
+                              <TrashIcon size={12} />
+                            </button>
+                          </div>
+                        ))}
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            const val = subDraft[t.id] || "";
+                            addSubtask(t.id, val);
+                            setSubDraft((prev) => ({ ...prev, [t.id]: "" }));
+                          }}
+                          style={{ display: "flex", gap: 6, marginTop: 4 }}
+                        >
+                          <input
+                            value={subDraft[t.id] || ""}
+                            onChange={(e) =>
+                              setSubDraft((prev) => ({ ...prev, [t.id]: e.target.value }))
+                            }
+                            placeholder={tr(isAr, "Add subtask…", "أضف مهمة جانبية…")}
+                            maxLength={SUBTASK_MAX}
+                            dir="auto"
+                            style={{
+                              flex: 1,
+                              boxSizing: "border-box",
+                              padding: "7px 10px",
+                              fontSize: 13,
+                              borderRadius: 8,
+                              border: "1px solid rgba(var(--border-rgb),0.18)",
+                              background: "var(--input-bg, var(--card))",
+                              color: INK,
+                              outline: "none",
+                            }}
+                          />
+                          <button
+                            type="submit"
+                            style={{
+                              border: "none",
+                              borderRadius: 8,
+                              padding: "7px 12px",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              background: "color-mix(in srgb, var(--accent-1, #0a84ff) 18%, transparent)",
+                              color: "var(--accent-1, #0a84ff)",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {tr(isAr, "Add", "إضافة")}
+                          </button>
+                        </form>
+                      </div>
                     </div>
                   )}
                 </li>

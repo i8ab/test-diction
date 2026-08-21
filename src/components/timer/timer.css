@@ -1,11 +1,11 @@
-/* ── Timer digits: fixed geometry (no bounce) + full split-flap ── */
-:root {
-  --flip-ms: 450ms;
-  --digit-w: 0.7em;
-  --digit-h: 1.28em;
-}
+/* =============================================================================
+   Timer digits — plain (stable cells) + flip cards (digitalclock.live model)
+   Reference: https://digitalclock.live/flip-clock/
+   Structure: .tt-flip > .tt-digital.front|back  with ::before (top) / ::after (bottom)
+   Animation: .running → frontFlipDown + backFlipDown (0.6s ease-in-out)
+   ============================================================================= */
 
-/* Plain mode: each glyph in a fixed cell so "1" vs "8" never shifts the line */
+/* ── Plain mode: fixed glyph cells ─────────────────────────────────────────── */
 .timer-plain-digits {
   display: inline-flex;
   align-items: center;
@@ -29,7 +29,6 @@
   height: 1.2em;
   flex-shrink: 0;
   line-height: 1;
-  /* Optical center — numbers sit on the same baseline box */
   padding-top: 0.02em;
 }
 
@@ -42,203 +41,160 @@
   flex-shrink: 0;
   line-height: 1;
   opacity: 0.92;
-  /* Nudge colon to optical center of digit cells */
   transform: translateY(-0.03em);
 }
 
-/* Flip clock row */
-.flip-clock {
+/* ── Flip clock row ────────────────────────────────────────────────────────── */
+.tt-flip-clock {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.12em;
   direction: ltr;
-  font-variant-numeric: tabular-nums;
   user-select: none;
   line-height: 1;
-  height: var(--digit-h);
   contain: layout style;
+  /* Inherit font-size from inline style so em units scale with prefs */
 }
 
-.flip-clock-sep {
+.tt-flip-divider {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 0.32em;
-  height: var(--digit-h);
+  width: 0.4em;
+  height: 1.6em;
   font-weight: 700;
-  opacity: 0.92;
+  font-size: 0.85em;
   line-height: 1;
+  opacity: 0.85;
   flex-shrink: 0;
-  transform: translateY(-0.02em);
+  color: var(--tt-flip-fg, currentColor);
 }
 
-.flip-digit {
+/* One card = one digit (scaled from font-size) */
+.tt-flip {
   position: relative;
-  width: var(--digit-w);
-  height: var(--digit-h);
+  width: 0.85em;
+  height: 1.6em;
+  margin: 0 0.04em;
   flex-shrink: 0;
-  perspective: 500px;
+  border-radius: 0.1em;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0.08em rgba(0, 0, 0, 0.35);
   font-weight: 700;
-  line-height: 1;
+  text-align: center;
+  /* line-height ≈ card height for vertical centering of the full glyph */
+  line-height: 1.55em;
+  font-size: 1em;
 }
 
-.flip-digit-card {
+/* Front + back layers — each paints top (::before) and bottom (::after) */
+.tt-flip .tt-digital {
   position: absolute;
   inset: 0;
-  border-radius: 0.12em;
-  background: rgba(0, 0, 0, 0.38);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 3px 10px -4px rgba(0, 0, 0, 0.4);
-  overflow: hidden;
-  transform: translateZ(0);
 }
 
-.flip-digit-half {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: 50%;
-  overflow: hidden;
-  z-index: 1;
-}
-
-.flip-digit-half.top {
-  top: 0;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 0.12em 0.12em 0 0;
-}
-
-.flip-digit-half.bottom {
-  bottom: 0;
-  top: auto;
-  background: rgba(0, 0, 0, 0.22);
-  border-radius: 0 0 0.12em 0.12em;
-}
-
-.flip-digit-glyph {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: 200%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.flip-digit-half.top .flip-digit-glyph {
-  top: 0;
-}
-
-.flip-digit-half.bottom .flip-digit-glyph {
-  bottom: 0;
-  top: auto;
-  height: 200%;
-  /* bottom half shows lower portion of the glyph */
-  transform: translateY(0);
-  /* Place so the lower 50% of the full digit is visible */
-  top: -100%;
-  bottom: auto;
-  height: 200%;
-}
-
-.flip-digit-hinge {
+.tt-flip .tt-digital::before,
+.tt-flip .tt-digital::after {
+  content: attr(data-number);
   position: absolute;
   left: 0;
   right: 0;
-  top: 50%;
-  height: 1px;
-  margin-top: -0.5px;
-  background: rgba(0, 0, 0, 0.55);
-  z-index: 6;
-  pointer-events: none;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  background: rgba(20, 24, 32, 0.98);
+  color: var(--tt-flip-fg, #fff);
+  font-size: 1.15em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  perspective: 200px;
+  -webkit-perspective: 200px;
 }
 
-/* Shared flap base */
-.flip-digit-flap {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: 50%;
-  overflow: hidden;
-  z-index: 4;
+/* Top half */
+.tt-flip .tt-digital::before {
+  top: 0;
+  bottom: 50%;
+  border-radius: 0.08em 0.08em 0 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  transform-origin: 50% 100%;
+  line-height: 1.55em; /* full-card line-height so top half shows upper portion */
+}
+
+/* Bottom half — line-height 0 + large font pushes glyph so only lower half shows */
+.tt-flip .tt-digital::after {
+  top: 50%;
+  bottom: 0;
+  border-radius: 0 0 0.08em 0.08em;
+  transform-origin: 50% 0;
+  line-height: 0;
+  font-size: 1.15em;
+}
+
+/* z-index stack (same order as digitalclock.live) */
+.tt-flip .tt-digital.back::before,
+.tt-flip .tt-digital.front::after {
+  z-index: 1;
+}
+.tt-flip .tt-digital.back::after {
+  z-index: 2;
+  /* At rest the back bottom face is flipped away */
+  transform: rotateX(0.5turn);
+  transform-origin: center top;
+}
+.tt-flip .tt-digital.front::before {
+  z-index: 3;
+}
+
+/* ── Running animation (exact digitalclock.live timing / easing) ───────────── */
+.tt-flip.running .tt-digital.front::before {
+  animation: ttFrontFlipDown 0.6s ease-in-out forwards;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  transform-style: preserve-3d;
-  will-change: transform;
+  transform-origin: center bottom;
+  box-shadow: 0 -2px 6px rgba(255, 255, 255, 0.12);
 }
 
-.flip-digit-flap .flip-digit-glyph {
-  left: 0;
-  width: 100%;
-  height: 200%;
+.tt-flip.running .tt-digital.back::after {
+  animation: ttBackFlipDown 0.6s ease-in-out forwards;
 }
 
-/* Top flap starts covering top half (old digit), rotates down */
-.flip-digit-flap.flap-top {
-  top: 0;
-  transform-origin: bottom center;
-  border-radius: 0.12em 0.12em 0 0;
-  background: rgba(18, 22, 30, 0.98);
-  z-index: 5;
-  animation: flapTopDown var(--flip-ms) ease-in forwards;
+@keyframes ttFrontFlipDown {
+  to {
+    transform: rotateX(0.5turn);
+  }
 }
 
-.flip-digit-flap.flap-top .flip-digit-glyph {
-  top: 0;
+@keyframes ttBackFlipDown {
+  to {
+    transform: rotateX(0deg);
+  }
 }
 
-/* Bottom flap starts edge-on below hinge, rotates up to show new digit */
-.flip-digit-flap.flap-bottom {
-  bottom: 0;
-  top: auto;
-  transform-origin: top center;
-  border-radius: 0 0 0.12em 0.12em;
-  background: rgba(12, 16, 22, 0.98);
-  z-index: 4;
-  animation: flapBottomUp var(--flip-ms) ease-out forwards;
+/* Light theme cards */
+html[data-theme="light"] .tt-flip {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 0.08em rgba(0, 0, 0, 0.12);
 }
 
-.flip-digit-flap.flap-bottom .flip-digit-glyph {
-  top: -100%;
+html[data-theme="light"] .tt-flip .tt-digital::before,
+html[data-theme="light"] .tt-flip .tt-digital::after {
+  background: rgba(245, 242, 236, 0.98);
+  color: var(--tt-flip-fg, #1a1a1a);
 }
 
-@keyframes flapTopDown {
-  0%   { transform: rotateX(0deg); }
-  100% { transform: rotateX(-90deg); }
+html[data-theme="light"] .tt-flip .tt-digital::before {
+  border-bottom-color: rgba(0, 0, 0, 0.1);
 }
 
-@keyframes flapBottomUp {
-  0%   { transform: rotateX(90deg); }
-  100% { transform: rotateX(0deg); }
-}
-
-html[data-theme="light"] .flip-digit-card {
-  background: rgba(0, 0, 0, 0.07);
-  border-color: rgba(0, 0, 0, 0.12);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    0 2px 8px -3px rgba(0, 0, 0, 0.15);
-}
-
-html[data-theme="light"] .flip-digit-flap.flap-top,
-html[data-theme="light"] .flip-digit-flap.flap-bottom {
-  background: rgba(248, 245, 238, 0.98);
-}
-
-html[data-theme="light"] .flip-digit-half.bottom {
-  background: rgba(0, 0, 0, 0.05);
+html[data-theme="light"] .tt-flip.running .tt-digital.front::before {
+  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .flip-digit-flap.flap-top,
-  .flip-digit-flap.flap-bottom {
+  .tt-flip.running .tt-digital.front::before,
+  .tt-flip.running .tt-digital.back::after {
     animation-duration: 0.01ms !important;
   }
 }

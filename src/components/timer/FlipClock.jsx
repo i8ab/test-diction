@@ -1,82 +1,61 @@
 import { useState, useEffect, useRef, memo } from "react";
 
 /**
- * Full split-flap digit (top flap down + bottom flap up) matched to timer.css.
- * Fixed box geometry — parent layout does not move while flipping.
+ * Split-flap digit matching digitalclock.live / classic FlipClock mechanics:
+ *   .flip > .digital.front (old) + .digital.back (new)
+ *   each half via ::before (top) / ::after (bottom)
+ *   on change: add .running → frontFlipDown + backFlipDown (0.6s)
  */
 function FlipDigit({ value }) {
   const next = String(value);
-  const [current, setCurrent] = useState(next);
-  const [previous, setPrevious] = useState(next);
-  const [animating, setAnimating] = useState(false);
-  const [flipId, setFlipId] = useState(0);
+  const [front, setFront] = useState(next);
+  const [back, setBack] = useState(next);
+  const [running, setRunning] = useState(false);
   const currentRef = useRef(next);
-  const endTimerRef = useRef(null);
+  const timerRef = useRef(null);
 
   useEffect(() => {
     if (next === currentRef.current) return undefined;
 
-    if (endTimerRef.current) {
-      clearTimeout(endTimerRef.current);
-      endTimerRef.current = null;
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
     }
 
-    setPrevious(currentRef.current);
-    setCurrent(next);
-    currentRef.current = next;
-    setAnimating(true);
-    setFlipId((n) => n + 1);
+    // Front keeps the old digit; back gets the new one; play the flip.
+    setFront(currentRef.current);
+    setBack(next);
+    setRunning(true);
 
-    // Must match --flip-ms in timer.css (450ms)
-    endTimerRef.current = setTimeout(() => {
-      setAnimating(false);
-      endTimerRef.current = null;
-    }, 450);
+    timerRef.current = setTimeout(() => {
+      // Settle: both faces show the new digit, remove animation class
+      currentRef.current = next;
+      setFront(next);
+      setBack(next);
+      setRunning(false);
+      timerRef.current = null;
+    }, 600); // match frontFlipDown / backFlipDown duration
 
     return undefined;
   }, [next]);
 
   useEffect(() => {
     return () => {
-      if (endTimerRef.current) clearTimeout(endTimerRef.current);
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
 
-  // While animating: static layers show the settle state (new on top, old on bottom
-  // until flaps finish). Flaps carry previous→current motion.
-  const topStatic = current;
-  const botStatic = animating ? previous : current;
-
   return (
-    <div className={`flip-digit${animating ? " is-flipping" : ""}`} aria-hidden>
-      <div className="flip-digit-card">
-        <div className="flip-digit-half top">
-          <span className="flip-digit-glyph">{topStatic}</span>
-        </div>
-        <div className="flip-digit-half bottom">
-          <span className="flip-digit-glyph">{botStatic}</span>
-        </div>
-        <div className="flip-digit-hinge" />
-        {animating && (
-          <>
-            {/* Top flap: old digit folds down */}
-            <div key={`up-${flipId}`} className="flip-digit-flap flap-top">
-              <span className="flip-digit-glyph">{previous}</span>
-            </div>
-            {/* Bottom flap: new digit folds up into place */}
-            <div key={`dn-${flipId}`} className="flip-digit-flap flap-bottom">
-              <span className="flip-digit-glyph">{current}</span>
-            </div>
-          </>
-        )}
-      </div>
+    <div className={`tt-flip${running ? " running" : ""}`} aria-hidden>
+      <div className="tt-digital front" data-number={front} />
+      <div className="tt-digital back" data-number={back} />
     </div>
   );
 }
 
 const MemoDigit = memo(FlipDigit);
 
-/** Fixed-width plain digits — prevents per-glyph vertical/horizontal jump. */
+/** Fixed-width plain digits — no vertical/horizontal jump between glyphs. */
 export function PlainDigits({ text, color, fontFamily, fontSize, textShadow }) {
   const chars = String(text || "00:00").split("");
   return (
@@ -107,13 +86,13 @@ export function PlainDigits({ text, color, fontFamily, fontSize, textShadow }) {
   );
 }
 
-/** Renders a time string as flip cards. */
+/** Full flip-clock row — same card/hinge/animation model as digitalclock.live */
 export function FlipClock({ text, color, fontFamily, fontSize }) {
   const chars = String(text || "00:00").split("");
   const n = chars.length;
   return (
     <div
-      className="flip-clock"
+      className="tt-flip-clock"
       role="timer"
       aria-live="off"
       aria-label={text}
@@ -121,13 +100,15 @@ export function FlipClock({ text, color, fontFamily, fontSize }) {
         fontFamily: fontFamily || "inherit",
         fontSize: fontSize || "inherit",
         color: color || "inherit",
+        // CSS variables drive card fill from the active text color
+        ["--tt-flip-fg"]: color || "currentColor",
       }}
     >
       {chars.map((ch, i) => {
         const fromEnd = n - 1 - i;
         if (ch === ":") {
           return (
-            <span key={`sep-${fromEnd}`} className="flip-clock-sep">
+            <span key={`sep-${fromEnd}`} className="tt-flip-divider">
               :
             </span>
           );

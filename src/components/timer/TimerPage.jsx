@@ -32,7 +32,7 @@ import {
   isMobileLike,
 } from "./timerConstants";
 import { playAlarmSound, createAmbientNode, getAudioCtx } from "./timerAudio";
-import { FlipClock } from "./FlipClock";
+import { FlipClock, PlainDigits } from "./FlipClock";
 import { readPersistedTimer } from "./timerPersist";
 
 export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, initialBubble = false }) {
@@ -1195,19 +1195,13 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
               fontSize={`clamp(42px, ${Math.max(8, prefs.fontSize * 0.12)}vw, ${prefs.fontSize}px)`}
             />
           ) : (
-            <div
-              className="timer-plain-digits"
-              style={{
-                fontFamily: fontCss,
-                fontSize: `clamp(42px, ${Math.max(8, prefs.fontSize * 0.12)}vw, ${prefs.fontSize}px)`,
-                fontWeight: 700,
-                letterSpacing: "0.03em",
-                color: prefs.textColor,
-                textShadow: isLightBg ? "none" : "0 4px 40px rgba(0,0,0,0.35)",
-              }}
-            >
-              {displayText}
-            </div>
+            <PlainDigits
+              text={displayText}
+              color={prefs.textColor}
+              fontFamily={fontCss}
+              fontSize={`clamp(42px, ${Math.max(8, prefs.fontSize * 0.12)}vw, ${prefs.fontSize}px)`}
+              textShadow={isLightBg ? "none" : "0 4px 40px rgba(0,0,0,0.35)"}
+            />
           )}
         </div>
 

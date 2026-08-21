@@ -1,11 +1,10 @@
 /* =============================================================================
-   Timer digits — plain (stable cells) + flip cards (digitalclock.live model)
-   Reference: https://digitalclock.live/flip-clock/
-   Structure: .tt-flip > .tt-digital.front|back  with ::before (top) / ::after (bottom)
-   Animation: .running → frontFlipDown + backFlipDown (0.6s ease-in-out)
+   Flip clock — pixel-faithful port of digitalclock.live/flip-clock CSS
+   Source: https://digitalclock.live/assets/css/flip-clock/flip-clock.css
+   Scaled via --flip-h (card height). Site desktop defaults: h=160 w=130 digit=130
    ============================================================================= */
 
-/* ── Plain mode: fixed glyph cells ─────────────────────────────────────────── */
+/* Plain digits (non-flip) */
 .timer-plain-digits {
   display: inline-flex;
   align-items: center;
@@ -20,7 +19,6 @@
   user-select: none;
   contain: layout style;
 }
-
 .timer-plain-cell {
   display: inline-flex;
   align-items: center;
@@ -29,9 +27,7 @@
   height: 1.2em;
   flex-shrink: 0;
   line-height: 1;
-  padding-top: 0.02em;
 }
-
 .timer-plain-sep {
   display: inline-flex;
   align-items: center;
@@ -40,161 +36,151 @@
   height: 1.2em;
   flex-shrink: 0;
   line-height: 1;
-  opacity: 0.92;
+  opacity: 0.9;
   transform: translateY(-0.03em);
 }
 
-/* ── Flip clock row ────────────────────────────────────────────────────────── */
-.tt-flip-clock {
-  display: inline-flex;
+/* Row */
+.tt-flip-clock.clock {
+  display: flex;
   align-items: center;
   justify-content: center;
   direction: ltr;
+  padding: 0;
   user-select: none;
-  line-height: 1;
   contain: layout style;
-  /* Inherit font-size from inline style so em units scale with prefs */
 }
 
-.tt-flip-divider {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 0.4em;
-  height: 1.6em;
+/* Colon — site uses em.divider with large line-height matching card height */
+.tt-flip-clock .divider {
+  color: var(--flip-fg, #ccc);
+  font-size: calc(var(--flip-h) * 0.5);
+  font-style: normal;
+  line-height: var(--flip-h);
+  margin: 0 calc(var(--flip-h) * 0.04);
   font-weight: 700;
-  font-size: 0.85em;
-  line-height: 1;
-  opacity: 0.85;
-  flex-shrink: 0;
-  color: var(--tt-flip-fg, currentColor);
+  opacity: 0.9;
 }
 
-/* One card = one digit (scaled from font-size) */
-.tt-flip {
+/* Card — ratios from site: w/h = 130/160, font-size/h = 80/160, line-height ≈ h */
+.tt-flip-clock .flip {
   position: relative;
-  width: 0.85em;
-  height: 1.6em;
-  margin: 0 0.04em;
-  flex-shrink: 0;
-  border-radius: 0.1em;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 0 0.08em rgba(0, 0, 0, 0.35);
+  width: calc(var(--flip-h) * 0.8125);
+  height: var(--flip-h);
+  margin: calc(var(--flip-h) * 0.03);
+  font-size: calc(var(--flip-h) * 0.5);
   font-weight: 700;
+  line-height: calc(var(--flip-h) * 0.98);
   text-align: center;
-  /* line-height ≈ card height for vertical centering of the full glyph */
-  line-height: 1.55em;
-  font-size: 1em;
+  background: #000;
+  border: 1px solid var(--flip-card-border, #151515);
+  border-radius: calc(var(--flip-h) * 0.04);
+  box-shadow: 0 0 6px rgba(54, 54, 54, 0.5);
+  flex-shrink: 0;
 }
 
-/* Front + back layers — each paints top (::before) and bottom (::after) */
-.tt-flip .tt-digital {
+.tt-flip-clock .flip .digital {
   position: absolute;
   inset: 0;
 }
 
-.tt-flip .tt-digital::before,
-.tt-flip .tt-digital::after {
+/* Top + bottom halves via pseudo elements — site exact */
+.tt-flip-clock .flip .digital::before,
+.tt-flip-clock .flip .digital::after {
   content: attr(data-number);
   position: absolute;
   left: 0;
   right: 0;
   overflow: hidden;
-  background: rgba(20, 24, 32, 0.98);
-  color: var(--tt-flip-fg, #fff);
-  font-size: 1.15em;
+  background: var(--flip-card, #151515);
+  color: var(--flip-fg, #fff);
+  font-size: calc(var(--flip-h) * 0.8125); /* 130/160 */
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  text-align: center;
   perspective: 200px;
   -webkit-perspective: 200px;
 }
 
 /* Top half */
-.tt-flip .tt-digital::before {
+.tt-flip-clock .flip .digital::before {
   top: 0;
   bottom: 50%;
-  border-radius: 0.08em 0.08em 0 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: calc(var(--flip-h) * 0.03) calc(var(--flip-h) * 0.03) 0 0;
   transform-origin: 50% 100%;
-  line-height: 1.55em; /* full-card line-height so top half shows upper portion */
 }
 
-/* Bottom half — line-height 0 + large font pushes glyph so only lower half shows */
-.tt-flip .tt-digital::after {
+/* Bottom half */
+.tt-flip-clock .flip .digital::after {
   top: 50%;
   bottom: 0;
-  border-radius: 0 0 0.08em 0.08em;
-  transform-origin: 50% 0;
   line-height: 0;
-  font-size: 1.15em;
+  border-radius: 0 0 calc(var(--flip-h) * 0.03) calc(var(--flip-h) * 0.03);
+  transform-origin: 50% 0;
 }
 
-/* z-index stack (same order as digitalclock.live) */
-.tt-flip .tt-digital.back::before,
-.tt-flip .tt-digital.front::after {
+/* z-index stack — site exact */
+.tt-flip-clock .flip .digital.back::before,
+.tt-flip-clock .flip .digital.front::after {
   z-index: 1;
 }
-.tt-flip .tt-digital.back::after {
+.tt-flip-clock .flip .digital.back::after {
   z-index: 2;
-  /* At rest the back bottom face is flipped away */
   transform: rotateX(0.5turn);
   transform-origin: center top;
 }
-.tt-flip .tt-digital.front::before {
+.tt-flip-clock .flip .digital.front::before {
   z-index: 3;
 }
 
-/* ── Running animation (exact digitalclock.live timing / easing) ───────────── */
-.tt-flip.running .tt-digital.front::before {
-  animation: ttFrontFlipDown 0.6s ease-in-out forwards;
+/* Running animations — site exact (0.6s ease-in-out) */
+.tt-flip-clock .flip.running .digital.front::before {
+  animation: frontFlipDown 0.6s ease-in-out;
+  -webkit-animation: frontFlipDown 0.6s ease-in-out;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+  box-shadow: 0 -2px 6px hsla(0, 0%, 100%, 0.3);
   transform-origin: center bottom;
-  box-shadow: 0 -2px 6px rgba(255, 255, 255, 0.12);
+}
+.tt-flip-clock .flip.running .digital.back::after {
+  animation: backFlipDown 0.6s ease-in-out;
+  -webkit-animation: backFlipDown 0.6s ease-in-out;
 }
 
-.tt-flip.running .tt-digital.back::after {
-  animation: ttBackFlipDown 0.6s ease-in-out forwards;
+@keyframes frontFlipDown {
+  to { transform: rotateX(0.5turn); }
+}
+@-webkit-keyframes frontFlipDown {
+  to { -webkit-transform: rotateX(0.5turn); transform: rotateX(0.5turn); }
+}
+@keyframes backFlipDown {
+  to { transform: rotateX(0); }
+}
+@-webkit-keyframes backFlipDown {
+  to { -webkit-transform: rotateX(0); transform: rotateX(0); }
 }
 
-@keyframes ttFrontFlipDown {
-  to {
-    transform: rotateX(0.5turn);
-  }
+/* Light theme */
+html[data-theme="light"] .tt-flip-clock .flip {
+  background: #f8f9fa;
+  border-color: #e5e5e5;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.15);
 }
-
-@keyframes ttBackFlipDown {
-  to {
-    transform: rotateX(0deg);
-  }
+html[data-theme="light"] .tt-flip-clock .flip .digital::before,
+html[data-theme="light"] .tt-flip-clock .flip .digital::after {
+  background: #e5e5e5;
+  color: var(--flip-fg, #333);
 }
-
-/* Light theme cards */
-html[data-theme="light"] .tt-flip {
-  background: rgba(0, 0, 0, 0.06);
-  border-color: rgba(0, 0, 0, 0.1);
-  box-shadow: 0 0 0.08em rgba(0, 0, 0, 0.12);
+html[data-theme="light"] .tt-flip-clock .flip .digital::before {
+  border-bottom-color: #ced4da;
 }
-
-html[data-theme="light"] .tt-flip .tt-digital::before,
-html[data-theme="light"] .tt-flip .tt-digital::after {
-  background: rgba(245, 242, 236, 0.98);
-  color: var(--tt-flip-fg, #1a1a1a);
-}
-
-html[data-theme="light"] .tt-flip .tt-digital::before {
-  border-bottom-color: rgba(0, 0, 0, 0.1);
-}
-
-html[data-theme="light"] .tt-flip.running .tt-digital.front::before {
-  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
+html[data-theme="light"] .tt-flip-clock .flip.running .digital.front::before {
+  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.12);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tt-flip.running .tt-digital.front::before,
-  .tt-flip.running .tt-digital.back::after {
+  .tt-flip-clock .flip.running .digital.front::before,
+  .tt-flip-clock .flip.running .digital.back::after {
     animation-duration: 0.01ms !important;
   }
 }

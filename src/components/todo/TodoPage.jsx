@@ -506,9 +506,32 @@ export default function TodoPage({
       prev.map((t) => {
         if (t.id !== todoId) return t;
         const list = Array.isArray(t.subtasks) ? t.subtasks : [];
+        const nextSubs = list.map((s) => (s.id === subId ? { ...s, done: !s.done } : s));
+        // If there is at least one subtask and all are done → complete the parent task.
+        // If any subtask is reopened → reopen the parent.
+        const hasSubs = nextSubs.length > 0;
+        const allDone = hasSubs && nextSubs.every((s) => s.done);
+        let done = t.done;
+        let activeSince = t.activeSince;
+        let workedMs = t.workedMs || 0;
+        if (hasSubs) {
+          if (allDone) {
+            done = true;
+            if (activeSince) {
+              workedMs = workedMs + Math.max(0, Date.now() - activeSince);
+              activeSince = null;
+            }
+          } else if (t.done) {
+            // A subtask was unchecked while parent was complete
+            done = false;
+          }
+        }
         return {
           ...t,
-          subtasks: list.map((s) => (s.id === subId ? { ...s, done: !s.done } : s)),
+          subtasks: nextSubs,
+          done,
+          activeSince,
+          workedMs,
           updatedAt: Date.now(),
         };
       })

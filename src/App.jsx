@@ -511,27 +511,39 @@ useEffect(() => {
     };
   }, []);
 
-  // Once-per-day XP for opening the app while signed in
+  // Once-per-day XP for opening the app while signed in — deferred to idle
   useEffect(() => {
     if (!accountCode || accountCode === "guest") return;
-    try { grantDailyOpen(accountCode); } catch (_) {}
+    let cancelled = false;
+    const run = () => { if (!cancelled) try { grantDailyOpen(accountCode); } catch (_) {} };
+    const id = typeof requestIdleCallback === "function"
+      ? requestIdleCallback(run, { timeout: 6000 })
+      : setTimeout(run, 2500);
+    return () => { cancelled = true; typeof cancelIdleCallback === "function" ? cancelIdleCallback(id) : clearTimeout(id); };
   }, [accountCode]);
 
-  // Restore XP from cloud account blob (survives clearing site data after re-login)
+  // Restore XP from cloud account blob (survives clearing site data after re-login) — deferred
   useEffect(() => {
     if (!accountCode || accountCode === "guest" || !accountsLoaded) return;
-    const acct = accounts.find((a) => a.code === accountCode);
-    if (acct && acct.xp) {
-      try { hydrateXpFromCloud(accountCode, acct.xp); } catch (_) {}
-    }
-    // If local XP is ahead of cloud (e.g. grants before first save), push once
-    try {
-      const local = loadXp(accountCode);
-      const cloudTotal = acct && acct.xp ? Number(acct.xp.total) || 0 : 0;
-      if (local.total > cloudTotal) {
-        persistAccounts((cur) => attachXpToAccounts(cur, accountCode));
+    let cancelled = false;
+    const run = () => {
+      if (cancelled) return;
+      const acct = accounts.find((a) => a.code === accountCode);
+      if (acct && acct.xp) {
+        try { hydrateXpFromCloud(accountCode, acct.xp); } catch (_) {}
       }
-    } catch (_) {}
+      try {
+        const local = loadXp(accountCode);
+        const cloudTotal = acct && acct.xp ? Number(acct.xp.total) || 0 : 0;
+        if (local.total > cloudTotal) {
+          persistAccounts((cur) => attachXpToAccounts(cur, accountCode));
+        }
+      } catch (_) {}
+    };
+    const id = typeof requestIdleCallback === "function"
+      ? requestIdleCallback(run, { timeout: 6000 })
+      : setTimeout(run, 2500);
+    return () => { cancelled = true; typeof cancelIdleCallback === "function" ? cancelIdleCallback(id) : clearTimeout(id); };
   }, [accountCode, accountsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Silent backfill: this is maintenance work, not part of the first render.

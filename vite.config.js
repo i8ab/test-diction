@@ -20,8 +20,8 @@ export default defineConfig({
             if (id.includes("react") || id.includes("react-dom") || id.includes("scheduler")) {
               return "vendor-react";
             }
-            if (id.includes("@huggingface") || id.includes("transformers")) {
-              return "vendor-transformers";
+            if (id.includes("@huggingface") || id.includes("transformers") || id.includes("onnxruntime") || id.includes("protobufjs") || id.includes("flatbuffers")) {
+              return "vendor-ml";
             }
             return "vendor-utils";
           }

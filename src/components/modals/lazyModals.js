@@ -149,7 +149,6 @@ export function preloadAllTools() {
   preload("weeklyReport", () => import("./WeeklyReportModal"));
   preload("tutor", () => import("./TutorChatModal"));
   preload("randomWord", () => import("./RandomWordModal"));
-  preloadMotivationDuaModal();
   preload("studyDua", () => import("./StudyDuaModal"));
   preloadSettingsHeavy();
 }
@@ -166,8 +165,8 @@ export function scheduleIdlePreload(fn = preloadStudyCore) {
     } catch (_) {}
   };
   if (typeof window.requestIdleCallback === "function") {
-    window.requestIdleCallback(run, { timeout: 4000 });
+    window.requestIdleCallback(run, { timeout: 6000 });
   } else {
-    window.setTimeout(run, 1800);
+    window.setTimeout(run, 3000);
   }
 }

@@ -96,7 +96,7 @@ export const ACCENT_THEMES = {
  *
  * Optional fields:
  * - bg: { light, dark } → overlay gradients/patterns (drawn above the image)
- * - bgImage: path under /public (e.g. "/backgrounds/forest.jpg") — real photo behind overlay
+ * - bgImage: path under /public (e.g. "/backgrounds/forest.webp") — real photo behind overlay
  * - cardShadow: soft elevation for cards/buttons under this mood
  * - btnStyle: "soft" | "lift" | "flat" | "glow" → hint for primary button feel
  */
@@ -107,7 +107,7 @@ export const SKIN_PRESETS = {
     desc:  { en: "Calm clean default — soft colors, no clutter", ar: "افتراضي هادئ ونظيف — ألوان هادية بدون تعقيد" },
     light: null,
     dark: null,
-    bgImage: "/backgrounds/classic.jpg",
+    bgImage: "/backgrounds/classic.webp",
     bg: {
       light: "linear-gradient(180deg, rgba(250,253,254,0.62) 0%, rgba(243,248,250,0.55) 100%), radial-gradient(1200px 600px at 10% -10%, rgba(25,167,206,0.18), transparent 55%)",
       dark: "linear-gradient(180deg, rgba(14,26,32,0.68) 0%, rgba(11,21,26,0.62) 100%), radial-gradient(1000px 500px at 15% -5%, rgba(63,193,232,0.14), transparent 50%)",
@@ -130,7 +130,7 @@ export const SKIN_PRESETS = {
       muted: "#A89878", "muted-strong": "#C8B898", "icon-muted": "#B0A080",
       "input-bg": "#2A2218", "border-rgb": "150,130,90", meaning: "#D8C8A8",
     },
-    bgImage: "/backgrounds/paper.jpg",
+    bgImage: "/backgrounds/paper.webp",
     bg: {
       light: "repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(140,118,80,0.08) 27px, rgba(140,118,80,0.08) 28px), linear-gradient(165deg, rgba(247,240,224,0.58) 0%, rgba(235,225,203,0.52) 100%)",
       dark: "repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(180,150,100,0.07) 27px, rgba(180,150,100,0.07) 28px), linear-gradient(165deg, rgba(22,18,12,0.68) 0%, rgba(18,16,12,0.62) 100%)",
@@ -153,7 +153,7 @@ export const SKIN_PRESETS = {
       muted: "#7A8498", "muted-strong": "#A0AABC", "icon-muted": "#8A94A8",
       "input-bg": "#12151C", "border-rgb": "50,60,80", meaning: "#B0BACC",
     },
-    bgImage: "/backgrounds/midnight.jpg",
+    bgImage: "/backgrounds/midnight.webp",
     bg: {
       light: "linear-gradient(180deg, rgba(232,234,239,0.65) 0%, rgba(221,225,234,0.58) 100%)",
       dark: "linear-gradient(180deg, rgba(5,6,10,0.55) 0%, rgba(8,10,16,0.62) 100%), radial-gradient(900px 500px at 20% -10%, rgba(80,100,180,0.18), transparent 50%)",
@@ -176,7 +176,7 @@ export const SKIN_PRESETS = {
       muted: "#6FA880", "muted-strong": "#98C4A4", "icon-muted": "#80B894",
       "input-bg": "#16241C", "border-rgb": "65,125,85", meaning: "#A8D4B4",
     },
-    bgImage: "/backgrounds/forest.jpg",
+    bgImage: "/backgrounds/forest.webp",
     bg: {
       light: "linear-gradient(160deg, rgba(242,248,242,0.55) 0%, rgba(232,242,234,0.48) 100%), radial-gradient(1000px 500px at 0% 0%, rgba(46,204,113,0.16), transparent 55%)",
       dark: "linear-gradient(180deg, rgba(10,20,14,0.55) 0%, rgba(12,24,16,0.62) 100%), radial-gradient(900px 480px at 10% 0%, rgba(46,204,113,0.14), transparent 50%)",
@@ -199,7 +199,7 @@ export const SKIN_PRESETS = {
       muted: "#B09098", "muted-strong": "#D0B0B8", "icon-muted": "#C0A0A8",
       "input-bg": "#2A1C20", "border-rgb": "150,100,110", meaning: "#E0C0C8",
     },
-    bgImage: "/backgrounds/rose.jpg",
+    bgImage: "/backgrounds/rose.webp",
     bg: {
       light: "linear-gradient(155deg, rgba(253,246,248,0.60) 0%, rgba(248,236,239,0.52) 100%), radial-gradient(900px 500px at 85% 5%, rgba(225,29,72,0.14), transparent 50%)",
       dark: "linear-gradient(180deg, rgba(22,14,16,0.62) 0%, rgba(26,16,20,0.65) 100%), radial-gradient(800px 450px at 90% 0%, rgba(225,29,72,0.16), transparent 48%)",
@@ -222,7 +222,7 @@ export const SKIN_PRESETS = {
       muted: "#7A8A98", "muted-strong": "#A0B0BE", "icon-muted": "#8A9AA8",
       "input-bg": "#1A2228", "border-rgb": "70,90,110", meaning: "#B0C0CE",
     },
-    bgImage: "/backgrounds/slate.jpg",
+    bgImage: "/backgrounds/slate.webp",
     bg: {
       light: "linear-gradient(145deg, rgba(242,245,248,0.65) 0%, rgba(228,234,240,0.58) 100%)",
       dark: "linear-gradient(180deg, rgba(12,16,20,0.65) 0%, rgba(14,20,26,0.68) 100%), radial-gradient(1000px 500px at 50% -20%, rgba(100,130,160,0.14), transparent 55%)",
@@ -245,7 +245,7 @@ export const SKIN_PRESETS = {
       muted: "#A89880", "muted-strong": "#C8B8A0", "icon-muted": "#B0A088",
       "input-bg": "#282018", "border-rgb": "140,120,90", meaning: "#D8C8B0",
     },
-    bgImage: "/backgrounds/warm.jpg",
+    bgImage: "/backgrounds/warm.webp",
     bg: {
       light: "linear-gradient(160deg, rgba(248,241,230,0.55) 0%, rgba(240,230,214,0.48) 100%), radial-gradient(900px 480px at 15% 0%, rgba(201,162,39,0.16), transparent 50%)",
       dark: "linear-gradient(180deg, rgba(20,16,12,0.62) 0%, rgba(24,20,14,0.65) 100%), radial-gradient(800px 450px at 10% 0%, rgba(201,162,39,0.12), transparent 48%)",
@@ -268,7 +268,7 @@ export const SKIN_PRESETS = {
       muted: "#8A8EB8", "muted-strong": "#B0B4D8", "icon-muted": "#9A9EC8",
       "input-bg": "#1A1C30", "border-rgb": "80,90,150", meaning: "#C0C4E8",
     },
-    bgImage: "/backgrounds/aurora.jpg",
+    bgImage: "/backgrounds/aurora.webp",
     bg: {
       light: "linear-gradient(165deg, rgba(244,246,253,0.55) 0%, rgba(238,240,250,0.48) 100%), radial-gradient(900px 500px at 20% 0%, rgba(124,58,237,0.16), transparent 50%), radial-gradient(800px 450px at 90% 20%, rgba(45,212,191,0.14), transparent 48%)",
       dark: "linear-gradient(180deg, rgba(8,10,22,0.55) 0%, rgba(12,14,28,0.62) 100%), radial-gradient(900px 500px at 15% 0%, rgba(124,58,237,0.24), transparent 48%), radial-gradient(800px 450px at 85% 15%, rgba(45,212,191,0.16), transparent 45%)",
@@ -291,7 +291,7 @@ export const SKIN_PRESETS = {
       muted: "#B09888", "muted-strong": "#D0B8A8", "icon-muted": "#C0A898",
       "input-bg": "#2A201A", "border-rgb": "150,110,80", meaning: "#E0C8B8",
     },
-    bgImage: "/backgrounds/dusk.jpg",
+    bgImage: "/backgrounds/dusk.webp",
     bg: {
       light: "linear-gradient(160deg, rgba(252,245,238,0.55) 0%, rgba(246,232,220,0.48) 100%), radial-gradient(1000px 500px at 90% 0%, rgba(255,107,53,0.18), transparent 50%)",
       dark: "linear-gradient(180deg, rgba(18,14,10,0.55) 0%, rgba(24,18,14,0.62) 100%), radial-gradient(900px 480px at 85% 0%, rgba(255,107,53,0.20), transparent 48%)",
@@ -314,7 +314,7 @@ export const SKIN_PRESETS = {
       muted: "#7A949C", "muted-strong": "#A0B8C0", "icon-muted": "#8AA4AC",
       "input-bg": "#1A242A", "border-rgb": "80,110,120", meaning: "#B0C8D0",
     },
-    bgImage: "/backgrounds/mist.jpg",
+    bgImage: "/backgrounds/mist.webp",
     bg: {
       light: "linear-gradient(180deg, rgba(242,246,248,0.58) 0%, rgba(232,238,242,0.50) 100%), radial-gradient(1100px 600px at 50% 0%, rgba(14,165,233,0.12), transparent 55%)",
       dark: "linear-gradient(180deg, rgba(10,16,20,0.58) 0%, rgba(14,22,26,0.65) 100%), radial-gradient(1000px 550px at 40% -10%, rgba(56,189,248,0.12), transparent 50%)",
@@ -337,7 +337,7 @@ export const SKIN_PRESETS = {
       muted: "#9A8AB0", "muted-strong": "#C0B0D0", "icon-muted": "#B0A0C0",
       "input-bg": "#221C30", "border-rgb": "110,90,150", meaning: "#D0C0E0",
     },
-    bgImage: "/backgrounds/lavender.jpg",
+    bgImage: "/backgrounds/lavender.webp",
     bg: {
       light: "linear-gradient(160deg, rgba(247,243,251,0.55) 0%, rgba(240,234,246,0.48) 100%), radial-gradient(900px 500px at 80% 0%, rgba(167,139,250,0.18), transparent 50%)",
       dark: "linear-gradient(180deg, rgba(14,12,22,0.58) 0%, rgba(20,16,30,0.65) 100%), radial-gradient(850px 480px at 75% 0%, rgba(124,58,237,0.20), transparent 48%)",
@@ -360,7 +360,7 @@ export const SKIN_PRESETS = {
       muted: "#A89878", "muted-strong": "#C8B898", "icon-muted": "#B0A080",
       "input-bg": "#282218", "border-rgb": "140,120,80", meaning: "#D8C8A8",
     },
-    bgImage: "/backgrounds/sand.jpg",
+    bgImage: "/backgrounds/sand.webp",
     bg: {
       light: "linear-gradient(175deg, rgba(249,242,228,0.55) 0%, rgba(235,224,200,0.48) 100%), radial-gradient(1000px 400px at 50% 100%, rgba(212,160,23,0.14), transparent 55%)",
       dark: "linear-gradient(180deg, rgba(18,16,11,0.62) 0%, rgba(24,20,14,0.65) 100%), radial-gradient(900px 400px at 50% 100%, rgba(180,140,40,0.12), transparent 50%)",

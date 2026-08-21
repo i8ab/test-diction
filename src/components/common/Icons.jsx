@@ -2,7 +2,11 @@
 // SpeakButton (pronounce-word) control which is built on top of them.
 
 import { tr } from "../../lib/config/i18n";
-import { speakWord } from "../../lib/utils/speech";
+
+// Lazy-load the 900-line speech module only when a user actually taps speak.
+function speakWord(...args) {
+  import("../../lib/utils/speech").then(m => m.speakWord(...args)).catch(() => {});
+}
 
 function Icon({ path, size = 16, ...props }) {
   return (

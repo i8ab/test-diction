@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
+import "./timer.css";
 import { tr } from "../../lib/config/i18n";
 import { XIcon, ClockIcon } from "../common/Icons";
 import NumberStepper from "../common/NumberStepper";

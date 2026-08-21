@@ -60,6 +60,16 @@
   }
   * { box-sizing: border-box; }
 
+  /* Render containment — skip layout/paint for off-screen cards (big perf win for long word lists) */
+  .entry-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 120px;
+  }
+  .letter-section-anchor + .entry-card,
+  .letter-section-anchor ~ .entry-card:first-of-type {
+    content-visibility: visible; /* keep first card fully rendered for scroll anchoring */
+  }
+
   /* Global: kill blue/teal mobile tap highlight everywhere */
   html, body, *,
   *::before, *::after {
@@ -168,44 +178,7 @@
   .voice-mic-active { animation: micPulse 1s ease-in-out infinite; }
   @keyframes micPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
-  /* Flashcards: 3D flip + card-to-card entrance animation */
-  .flashcard-scene { perspective: 1200px; }
-  .flashcard-flip {
-    position: relative;
-    width: 100%;
-    min-height: 210px;
-    transition: transform 0.5s cubic-bezier(0.22,1,0.36,1);
-    transform-style: preserve-3d;
-    cursor: pointer;
-  }
-  .flashcard-flip.is-flipped { transform: rotateY(180deg); }
-  .flashcard-face {
-    position: absolute;
-    inset: 0;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-    border-radius: 14px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 24px;
-    text-align: center;
-    overflow: hidden;
-  }
-  .flashcard-face-back { transform: rotateY(180deg); }
-  .flashcard-enter { animation: flashcardEnter 0.32s cubic-bezier(0.22,1,0.36,1) both; }
-  @keyframes flashcardEnter {
-    from { opacity: 0; transform: translateX(var(--flashcard-enter-x, 24px)) scale(0.97); }
-    to { opacity: 1; transform: translateX(0) scale(1); }
-  }
-  .flashcard-choice-pop { animation: flashcardChoicePop 0.28s ease both; }
-  @keyframes flashcardChoicePop {
-    0% { transform: scale(1); }
-    40% { transform: scale(0.94); }
-    100% { transform: scale(1); }
-  }
+  /* Flashcard styles moved to components/modals/flashcards.css (lazy-loaded with FlashcardsModal) */
   input:focus, textarea:focus { border-color: var(--accent-1) !important; box-shadow: 0 0 0 3px rgba(var(--focus-rgb),0.18); outline: none; }
 
   /* ================= Global motion system ================= */
@@ -871,97 +844,7 @@ button,
   gap: 10px !important;
 }
 
-/* ============================================================
-   شارات الجنس — أنيميشن ناعم للذكر والأنثى
-   ============================================================ */
-@keyframes genderFloat {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-3px) scale(1.06); }
-}
-@keyframes genderGlowMale {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.35), 0 0 12px rgba(59, 130, 246, 0.25); }
-  50% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0), 0 0 18px rgba(59, 130, 246, 0.45); }
-}
-@keyframes genderGlowFemale {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.35), 0 0 12px rgba(236, 72, 153, 0.25); }
-  50% { box-shadow: 0 0 0 6px rgba(236, 72, 153, 0), 0 0 18px rgba(236, 72, 153, 0.45); }
-}
-@keyframes genderSpinSoft {
-  0% { transform: rotate(-8deg); }
-  50% { transform: rotate(8deg); }
-  100% { transform: rotate(-8deg); }
-}
-.gender-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 13px;
-  line-height: 1;
-  user-select: none;
-  animation: genderFloat 2.8s ease-in-out infinite;
-}
-.gender-badge.male {
-  color: #93c5fd;
-  background: rgba(37, 99, 235, 0.18);
-  border: 1px solid rgba(59, 130, 246, 0.35);
-  animation: genderFloat 2.8s ease-in-out infinite, genderGlowMale 2.4s ease-in-out infinite;
-}
-.gender-badge.female {
-  color: #f9a8d4;
-  background: rgba(219, 39, 119, 0.16);
-  border: 1px solid rgba(236, 72, 153, 0.35);
-  animation: genderFloat 2.8s ease-in-out infinite, genderGlowFemale 2.4s ease-in-out infinite;
-}
-.gender-badge .gender-symbol {
-  display: inline-flex;
-  font-size: 15px;
-  animation: genderSpinSoft 3.2s ease-in-out infinite;
-}
-.gender-pick {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.gender-pick-btn {
-  flex: 1;
-  min-width: 120px;
-  min-height: 52px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  border-radius: 14px;
-  border: 1.5px solid rgba(var(--border-rgb), 0.22);
-  background: var(--input-bg);
-  cursor: pointer;
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--ink);
-  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease, background 0.15s ease;
-}
-.gender-pick-btn:hover {
-  transform: translateY(-2px);
-}
-.gender-pick-btn.selected.male {
-  border-color: rgba(59, 130, 246, 0.7);
-  background: rgba(37, 99, 235, 0.15);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15), 0 8px 20px -10px rgba(59, 130, 246, 0.45);
-  color: #93c5fd;
-}
-.gender-pick-btn.selected.female {
-  border-color: rgba(236, 72, 153, 0.7);
-  background: rgba(219, 39, 119, 0.14);
-  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15), 0 8px 20px -10px rgba(236, 72, 153, 0.45);
-  color: #f9a8d4;
-}
-.gender-pick-btn .gender-symbol {
-  font-size: 20px;
-  animation: genderSpinSoft 3.2s ease-in-out infinite;
-}
+/* Gender badge styles moved to components/common/gender.css (lazy-loaded with AuthScreens/AccountModal) */
 
 /* ============================================================
    استجابة الموبايل الشاملة — من 320px إلى الديسكتوب
@@ -2378,32 +2261,7 @@ html[data-card-surface="gradient"] .lift-hover.entry-card {
   background: linear-gradient(145deg, var(--card) 0%, color-mix(in srgb, var(--accent-1) 8%, var(--card)) 100%) !important;
 }
 
-/* Ruled notebook lines */
-html[data-card-surface="paper"] .entry-card,
-html[data-card-surface="paper"] .word-card,
-html[data-card-surface="paper"] .lift-hover.entry-card {
-  background-color: var(--card) !important;
-  background-image:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, #c45c5c 22%, transparent) 0,
-      color-mix(in srgb, #c45c5c 22%, transparent) 1.5px,
-      transparent 1.5px
-    ),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 27px,
-      color-mix(in srgb, var(--ink) 9%, transparent) 27px,
-      color-mix(in srgb, var(--ink) 9%, transparent) 28px
-    ) !important;
-  background-size: 100% 100%, 100% 28px !important;
-  background-position: 28px 0, 0 8px !important;
-  background-repeat: no-repeat, repeat !important;
-  box-shadow:
-    inset 0 0 0 1px rgba(var(--border-rgb), 0.1),
-    0 2px 8px -4px rgba(60, 40, 20, 0.12);
-}
+/* (ruled notebook deduplicated — final version at the end of this file) */
 
 /* Graph / grid paper */
 html[data-card-surface="grid"] .entry-card,
@@ -2633,54 +2491,7 @@ html[data-device="mobile"][data-has-bg-image="1"] .word-card {
   -webkit-backdrop-filter: blur(4px);
 }
 
-/* ── Ruled notebook: LTR (English) margin line on the left ── */
-html[data-card-surface="paper"] .entry-card,
-html[data-card-surface="paper"] .word-card {
-  background-color: color-mix(in srgb, var(--card) 96%, var(--paper)) !important;
-  background-image:
-    linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 26px,
-      color-mix(in srgb, #c45c5c 35%, transparent) 26px,
-      color-mix(in srgb, #c45c5c 35%, transparent) 27.5px,
-      transparent 27.5px
-    ),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 27px,
-      color-mix(in srgb, var(--ink) 10%, transparent) 27px,
-      color-mix(in srgb, var(--ink) 10%, transparent) 28px
-    ) !important;
-  background-size: 100% 100%, 100% 28px !important;
-  background-position: 0 0, 0 10px !important;
-  background-repeat: no-repeat, repeat !important;
-  border-radius: 10px;
-}
-
-/* Ruled notebook: RTL (Arabic) margin line on the right */
-html[dir="rtl"][data-card-surface="paper"] .entry-card,
-html[dir="rtl"][data-card-surface="paper"] .word-card,
-html[data-dir-override="rtl"][data-card-surface="paper"] .entry-card,
-html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
-  background-image:
-    linear-gradient(
-      270deg,
-      transparent 0,
-      transparent 26px,
-      color-mix(in srgb, #c45c5c 35%, transparent) 26px,
-      color-mix(in srgb, #c45c5c 35%, transparent) 27.5px,
-      transparent 27.5px
-    ),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 27px,
-      color-mix(in srgb, var(--ink) 10%, transparent) 27px,
-      color-mix(in srgb, var(--ink) 10%, transparent) 28px
-    ) !important;
-}
+/* (ruled notebook LTR/RTL v2 deduplicated — see final version below) */
 
 /* Forest skin cards: leaf-tinted edge */
 html[data-skin="forest"] .entry-card,
@@ -2855,52 +2666,7 @@ html[data-skin="contrast"] button.touch-target {
   border-radius: 0 !important;
 }
 
-/* ── Ruled lines tuned to word + meaning rows (~28px rhythm) ── */
-html[data-card-surface="paper"] .entry-card,
-html[data-card-surface="paper"] .word-card {
-  /* top padding ~12–16 aligns first text baseline to first rule */
-  background-image:
-    linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 22px,
-      color-mix(in srgb, #c45c5c 40%, transparent) 22px,
-      color-mix(in srgb, #c45c5c 40%, transparent) 23.5px,
-      transparent 23.5px
-    ),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 27px,
-      color-mix(in srgb, var(--ink) 11%, transparent) 27px,
-      color-mix(in srgb, var(--ink) 11%, transparent) 28px
-    ) !important;
-  background-size: 100% 100%, 100% 28px !important;
-  background-position: 0 0, 0 14px !important;
-  background-repeat: no-repeat, repeat !important;
-}
-
-html[dir="rtl"][data-card-surface="paper"] .entry-card,
-html[dir="rtl"][data-card-surface="paper"] .word-card,
-html[data-dir-override="rtl"][data-card-surface="paper"] .entry-card,
-html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
-  background-image:
-    linear-gradient(
-      270deg,
-      transparent 0,
-      transparent 22px,
-      color-mix(in srgb, #c45c5c 40%, transparent) 22px,
-      color-mix(in srgb, #c45c5c 40%, transparent) 23.5px,
-      transparent 23.5px
-    ),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 27px,
-      color-mix(in srgb, var(--ink) 11%, transparent) 27px,
-      color-mix(in srgb, var(--ink) 11%, transparent) 28px
-    ) !important;
-}
+/* (ruled notebook v3 deduplicated — see final version below) */
 
 
 /* ── Search bar: clean glass, independent of Header Style ──
@@ -3031,127 +2797,4 @@ html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
   background-repeat: no-repeat, repeat !important;
 }
 
-/* ── Flip-clock digits (timer) — optional style ── */
-.flip-clock {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.16em;
-  direction: ltr;
-  font-variant-numeric: tabular-nums;
-  user-select: none;
-}
-.flip-clock-sep {
-  font-weight: 700;
-  opacity: 0.92;
-  padding: 0 0.04em;
-  line-height: 1.25em;
-  align-self: center;
-}
-.flip-digit {
-  position: relative;
-  width: 0.78em;
-  height: 1.25em;
-  perspective: 800px;
-  font-weight: 700;
-  line-height: 1;
-}
-.flip-digit-card {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  border-radius: 0.16em;
-  background: rgba(0, 0, 0, 0.35);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 6px 18px -6px rgba(0, 0, 0, 0.55);
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-}
-.flip-digit-half {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: 50%;
-  overflow: hidden;
-  z-index: 1;
-}
-.flip-digit-half.top {
-  top: 0;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 0.16em 0.16em 0 0;
-}
-.flip-digit-half.bottom {
-  top: 50%;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 0 0 0.16em 0.16em;
-}
-.flip-digit-glyph {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: 200%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-.flip-digit-half.top .flip-digit-glyph {
-  top: 0;
-}
-.flip-digit-half.bottom .flip-digit-glyph {
-  top: -100%;
-}
-.flip-digit-hinge {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 2px;
-  margin-top: -1px;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 5;
-  pointer-events: none;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-.flip-digit-flap {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 50%;
-  transform-origin: bottom center;
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  z-index: 4;
-  border-radius: 0.16em 0.16em 0 0;
-  background: rgba(16, 20, 28, 0.97);
-  overflow: hidden;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
-}
-.flip-digit-flap .flip-digit-glyph {
-  top: 0;
-  height: 200%;
-}
-.flip-digit-flap.animating {
-  animation: flipDigitDown 0.4s ease-in forwards;
-}
-@keyframes flipDigitDown {
-  0% { transform: rotateX(0deg); }
-  100% { transform: rotateX(-90deg); }
-}
-html[data-theme="light"] .flip-digit-card {
-  background: rgba(0, 0, 0, 0.08);
-  border-color: rgba(0, 0, 0, 0.14);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    0 4px 12px -4px rgba(0, 0, 0, 0.2);
-}
-html[data-theme="light"] .flip-digit-flap {
-  background: rgba(248, 245, 238, 0.98);
-}
-html[data-theme="light"] .flip-digit-half.bottom {
-  background: rgba(0, 0, 0, 0.06);
-}
+/* Flip-clock styles moved to components/timer/timer.css (lazy-loaded with TimerPage) */

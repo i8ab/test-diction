@@ -1,4 +1,5 @@
 /** شارات وأزرار اختيار الجنس مع أنيميشن */
+import "./gender.css";
 import { tr } from "../../lib/config/i18n";
 
 export function GenderBadge({ gender, isAr, size = "md" }) {

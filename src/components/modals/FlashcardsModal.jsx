@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import "./flashcards.css";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { shuffleArray } from "../../lib/utils/quizHelpers";

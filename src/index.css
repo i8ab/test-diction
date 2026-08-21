@@ -377,10 +377,9 @@
     position: sticky;
     top: 0;
     z-index: 3000;
-    height: 40px;
-    overflow: hidden;
     width: 100%;
     max-width: 100%;
+    contain: layout paint;
   }
   .site-banner-ticker {
     position: absolute;
@@ -392,8 +391,8 @@
     unicode-bidi: isolate;
   }
   @keyframes siteBannerShimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 0.8; }
   }
   .site-banner-strobe {
     position: absolute;
@@ -657,36 +656,12 @@ body::-webkit-scrollbar,
   z-index: 0;
 }
 @keyframes fabPulseGoals {
-  0%, 100% {
-    box-shadow:
-      0 0 0 0 rgba(255, 159, 10, 0.5),
-      0 10px 28px -6px rgba(255, 107, 0, 0.55),
-      0 0 18px 1px rgba(255, 159, 10, 0.3);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow:
-      0 0 0 12px rgba(255, 159, 10, 0),
-      0 14px 32px -4px rgba(255, 107, 0, 0.65),
-      0 0 32px 4px rgba(255, 180, 50, 0.5);
-    transform: scale(1.04);
-  }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.92; transform: scale(1.04); }
 }
 @keyframes fabPulseTodo {
-  0%, 100% {
-    box-shadow:
-      0 0 0 0 rgba(48, 209, 88, 0.5),
-      0 10px 28px -6px rgba(40, 167, 69, 0.5),
-      0 0 18px 1px rgba(48, 209, 88, 0.3);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow:
-      0 0 0 12px rgba(48, 209, 88, 0),
-      0 14px 32px -4px rgba(40, 167, 69, 0.6),
-      0 0 32px 4px rgba(90, 255, 140, 0.45);
-    transform: scale(1.04);
-  }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.92; transform: scale(1.04); }
 }
 @keyframes fabShine {
   0% { transform: translateX(-45%) rotate(12deg); opacity: 0; }

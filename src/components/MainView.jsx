@@ -44,7 +44,6 @@ import { useEntrySearch } from "../lib/hooks/useEntrySearch";
 import { useStudyShortcuts } from "../lib/hooks/useStudyShortcuts";
 import { useListPagination } from "../lib/hooks/useListPagination";
 import WelcomeOnboardingModal, { hasSeenWelcome, markWelcomeSeen } from "./modals/WelcomeOnboardingModal";
-import "./modals/lazyModals";
 import { consumeSessionOpenTool, setSessionOpenTool } from "../lib/state/sessionUi";
 
 export default function MainView({

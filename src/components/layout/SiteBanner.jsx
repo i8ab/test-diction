@@ -109,6 +109,8 @@ export default function SiteBanner({ banner, isAr }) {
   const tickRef = useRef(null);
   const rafRef = useRef(0);
   const progressRef = useRef(0);
+  const trackSizeRef = useRef(0);
+  const textSizeRef = useRef(0);
   const hideTimer = useRef(null);
 
   const hasTimedDuration = durationMinutesOf(banner) > 0;
@@ -175,7 +177,25 @@ export default function SiteBanner({ banner, isAr }) {
     // CSS direction on the text still handles glyph/punctuation order.
     const rtl = msgRtl;
     progressRef.current = 0;
+    trackSizeRef.current = 0;
+    textSizeRef.current = 0;
     let last = performance.now();
+
+    const measure = () => {
+      const track = trackRef.current;
+      const el = tickRef.current;
+      if (track) trackSizeRef.current = track.clientWidth || window.innerWidth;
+      if (el) textSizeRef.current = el.scrollWidth || el.offsetWidth || 200;
+    };
+    measure();
+    let resizeObserver;
+    if (typeof ResizeObserver === "function") {
+      resizeObserver = new ResizeObserver(measure);
+      if (trackRef.current) resizeObserver.observe(trackRef.current);
+      if (tickRef.current) resizeObserver.observe(tickRef.current);
+    } else {
+      window.addEventListener("resize", measure, { passive: true });
+    }
 
     function tick(now) {
       const el = tickRef.current;
@@ -192,8 +212,8 @@ export default function SiteBanner({ banner, isAr }) {
       progressRef.current += delta;
       if (progressRef.current > 1) progressRef.current -= 1;
 
-      const trackW = track.offsetWidth || window.innerWidth;
-      const textW = el.offsetWidth || 200;
+      const trackW = trackSizeRef.current || window.innerWidth;
+      const textW = textSizeRef.current || 200;
       let x;
       if (rtl) {
         // Arabic: start off-screen left, move rightward
@@ -210,6 +230,8 @@ export default function SiteBanner({ banner, isAr }) {
     rafRef.current = requestAnimationFrame(tick);
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (resizeObserver) resizeObserver.disconnect();
+      else window.removeEventListener("resize", measure);
     };
   }, [shouldShow, msgRtl, banner && banner.speed, banner && banner.id, banner && banner.message, banner && banner.letterSpacing, banner && banner.repeats]);
 
@@ -265,8 +287,9 @@ export default function SiteBanner({ banner, isAr }) {
             pointerEvents: "none",
             zIndex: 1,
             background: `linear-gradient(105deg, transparent 28%, rgba(255,255,255,${Math.min(0.65, (shine / 100) * 0.6)}) 50%, transparent 72%)`,
-            backgroundSize: "220% 100%",
-            animation: `siteBannerShimmer ${(5 / Math.max(0.4, (banner && banner.speed) || 1)).toFixed(2)}s ease-in-out infinite`,
+             backgroundSize: "220% 100%",
+             animation: `siteBannerShimmer ${(5 / Math.max(0.4, (banner && banner.speed) || 1)).toFixed(2)}s ease-in-out infinite`,
+             willChange: "opacity",
           }}
         />
       )}

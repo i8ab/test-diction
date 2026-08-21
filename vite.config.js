@@ -10,6 +10,7 @@ export default defineConfig({
   build: {
     target: "es2020",
     sourcemap: false,
+    modulePreload: { polyfill: false },
     chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
@@ -21,7 +22,7 @@ export default defineConfig({
             if (id.includes("@huggingface") || id.includes("transformers")) {
               return "vendor-transformers";
             }
-            return "vendor";
+            return "vendor-utils";
           }
         },
       },

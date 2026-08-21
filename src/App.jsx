@@ -24,9 +24,6 @@ import {
 import { useAppPreferences } from "./lib/hooks/useAppPreferences";
 import { useStudyReminders } from "./lib/hooks/useStudyReminders";
 import { migrateAccounts } from "./lib/utils/authUtils";
-import { performSignup, performLogin } from "./lib/state/authFlow";
-import { updateOwnAccount, adminAddAccount, adminEditAccount } from "./lib/state/adminActions";
-import { approveAccountRequest, rejectAccountRequest, deleteAccount } from "./lib/state/adminLifecycle";
 import { createSaveQueue, applyOps as applyOpsPure, MAX_SAVE_RETRIES as MAX_SAVE_RETRIES_CONST } from "./lib/state/cloudQueue";
 import { flushPendingAccounts as flushAccountsCloud, flushPendingEntries as flushEntriesCloud } from "./lib/state/cloudFlush";
 import {
@@ -1558,6 +1555,7 @@ useEffect(() => {
   }
 
   async function handleSignup(e, roleOverride) {
+    const { performSignup } = await import("./lib/state/authFlow");
     return performSignup({
       e,
       name,
@@ -1595,6 +1593,7 @@ useEffect(() => {
   }
 
   async function handleLogin(e) {
+    const { performLogin } = await import("./lib/state/authFlow");
     return performLogin({
       e,
       usernameInput,
@@ -1862,6 +1861,7 @@ useEffect(() => {
     bacGrade: nextBacGrade,
     bacSpecialty: nextBacSpecialty,
   }) {
+    const { updateOwnAccount } = await import("./lib/state/adminActions");
     return updateOwnAccount({
       newName,
       newPassword,
@@ -1909,14 +1909,17 @@ useEffect(() => {
   }
 
   async function handleApproveRequest(targetCode) {
+    const { approveAccountRequest } = await import("./lib/state/adminLifecycle");
     return approveAccountRequest(targetCode, getAdminLifecycleCtx());
   }
 
   async function handleRejectRequest(targetCode) {
+    const { rejectAccountRequest } = await import("./lib/state/adminLifecycle");
     return rejectAccountRequest(targetCode, getAdminLifecycleCtx());
   }
 
   async function handleAdminAddAccount(newName, role, username) {
+    const { adminAddAccount } = await import("./lib/state/adminActions");
     return adminAddAccount({
       newName,
       role,
@@ -1929,6 +1932,7 @@ useEffect(() => {
   }
 
   async function handleAdminEditAccount(targetCode, updates) {
+    const { adminEditAccount } = await import("./lib/state/adminActions");
     return adminEditAccount({
       targetCode,
       updates,
@@ -1943,6 +1947,7 @@ useEffect(() => {
   }
 
   async function handleAdminDeleteAccount(targetCode) {
+    const { deleteAccount } = await import("./lib/state/adminLifecycle");
     return deleteAccount(targetCode, getAdminLifecycleCtx());
   }
 

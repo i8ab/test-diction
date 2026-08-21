@@ -21,7 +21,8 @@
    network-first, but still useful as a hard reset).
    ============================================================================= */
 
-const CACHE_VERSION = "two-tongues-v18";
+const CACHE_VERSION = "two-tongues-v19";
+const NAVIGATION_TIMEOUT_MS = 1200;
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -72,15 +73,18 @@ self.addEventListener("fetch", (event) => {
   const isNavigation = request.mode === "navigate" || request.headers.get("accept")?.includes("text/html");
   if (isNavigation) {
     event.respondWith(
-      fetch(request)
+      Promise.race([
+        fetch(request),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("navigation-timeout")), NAVIGATION_TIMEOUT_MS)),
+      ])
         .then((res) => {
           if (res && res.ok) {
             const clone = res.clone();
-            caches.open(CACHE_VERSION).then((cache) => cache.put(request, clone));
+            caches.open(CACHE_VERSION).then((cache) => cache.put("/index.html", clone));
           }
           return res;
         })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match("/index.html")))
+        .catch(() => caches.match("/index.html").then((cached) => cached || fetch(request)))
     );
     return;
   }

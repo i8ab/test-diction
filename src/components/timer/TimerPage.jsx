@@ -1191,8 +1191,8 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
             <FlipClock
               text={displayText}
               color={prefs.textColor}
-              fontFamily={fontCss}
-              fontSize={`clamp(42px, ${Math.max(8, prefs.fontSize * 0.12)}vw, ${prefs.fontSize}px)`}
+              fontFamily={'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}
+              fontSize={`clamp(56px, ${Math.max(10, prefs.fontSize * 0.16)}vw, ${Math.round(prefs.fontSize * 1.25)}px)`}
             />
           ) : (
             <PlainDigits

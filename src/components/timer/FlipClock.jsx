@@ -1,83 +1,88 @@
-import { useState, useEffect, useRef, memo, useCallback } from "react";
+import { useEffect, useRef, memo } from "react";
 
 /**
- * Flip digit — same DOM + timing as digitalclock.live:
- *   <div class="flip">
- *     <div class="digital front" data-number="…"></div>
- *     <div class="digital back" data-number="…"></div>
- *   </div>
- * flipDown(current, next) → set front/back → add .running → animationend settle
+ * One digit — DOM/animation identical to digitalclock.live Flipper:
+ *   setFront(current) → setBack(next) → .running → animationend → setFront(next)
  */
 function FlipDigit({ value }) {
-  const next = String(value);
-  const nodeRef = useRef(null);
+  const rootRef = useRef(null);
   const frontRef = useRef(null);
   const backRef = useRef(null);
-  const currentRef = useRef(next);
-  const flippingRef = useRef(false);
+  const shownRef = useRef(String(value));
+  const busyRef = useRef(false);
+  const pendingRef = useRef(null);
 
-  // Initial paint
+  // First mount
   useEffect(() => {
-    if (frontRef.current) frontRef.current.dataset.number = currentRef.current;
-    if (backRef.current) backRef.current.dataset.number = currentRef.current;
+    const v = String(value);
+    shownRef.current = v;
+    if (frontRef.current) frontRef.current.setAttribute("data-number", v);
+    if (backRef.current) backRef.current.setAttribute("data-number", v);
   }, []);
 
   useEffect(() => {
-    if (next === currentRef.current) return;
-    if (flippingRef.current) {
-      // Mid-flip: jump to target after current animation ends is handled below;
-      // queue the latest target so we don't drop updates.
-      currentRef.current = next; // will be applied on settle if still flipping
+    const v = String(value);
+    if (v === shownRef.current && !busyRef.current) return;
+
+    const run = (from, to) => {
+      const root = rootRef.current;
+      const front = frontRef.current;
+      const back = backRef.current;
+      if (!root || !front || !back) return;
+
+      busyRef.current = true;
+      front.setAttribute("data-number", from);
+      back.setAttribute("data-number", to);
+
+      const finish = (e) => {
+        // frontFlipDown is on ::before — animationend bubbles from the element
+        // that has the animation. In WebKit it may target the host; accept both.
+        if (e && e.animationName && !/frontFlipDown|backFlipDown/i.test(e.animationName)) {
+          return;
+        }
+        root.classList.remove("running");
+        front.setAttribute("data-number", to);
+        back.setAttribute("data-number", to);
+        shownRef.current = to;
+        busyRef.current = false;
+        root.removeEventListener("animationend", finish);
+
+        if (pendingRef.current != null && pendingRef.current !== to) {
+          const next = pendingRef.current;
+          pendingRef.current = null;
+          run(to, next);
+        } else {
+          pendingRef.current = null;
+        }
+      };
+
+      root.addEventListener("animationend", finish);
+      root.classList.remove("running");
+      // Force reflow so the animation always restarts
+      // eslint-disable-next-line no-unused-expressions
+      root.offsetWidth;
+      root.classList.add("running");
+    };
+
+    if (busyRef.current) {
+      pendingRef.current = v;
       return;
     }
 
-    const node = nodeRef.current;
-    const front = frontRef.current;
-    const back = backRef.current;
-    if (!node || !front || !back) return;
-
-    const from = front.dataset.number || currentRef.current;
-    const to = next;
-
-    flippingRef.current = true;
-    front.dataset.number = from;
-    back.dataset.number = to;
-
-    const onEnd = (e) => {
-      // Only react to the front flap animation
-      if (e.target !== front && e.animationName && !/frontFlipDown/i.test(e.animationName)) {
-        return;
-      }
-      node.classList.remove("running");
-      flippingRef.current = false;
-      front.dataset.number = to;
-      back.dataset.number = to;
-      currentRef.current = to;
-      node.removeEventListener("animationend", onEnd);
-    };
-
-    node.addEventListener("animationend", onEnd);
-    // Restart animation even if class was already present
-    node.classList.remove("running");
-    void node.offsetWidth;
-    node.classList.add("running");
-
-    return () => {
-      node.removeEventListener("animationend", onEnd);
-    };
-  }, [next]);
+    run(shownRef.current, v);
+  }, [value]);
 
   return (
-    <div className="flip" ref={nodeRef} aria-hidden>
-      <div className="digital front" ref={frontRef} data-number={currentRef.current} />
-      <div className="digital back" ref={backRef} data-number={currentRef.current} />
+    <div className="flip" ref={rootRef} aria-hidden="true">
+      <div className="digital front" ref={frontRef} data-number="0" />
+      <div className="digital back" ref={backRef} data-number="0" />
     </div>
   );
 }
 
 const MemoDigit = memo(FlipDigit);
 
-/** Fixed-width plain digits */
+/** Plain fixed cells */
 export function PlainDigits({ text, color, fontFamily, fontSize, textShadow }) {
   const chars = String(text || "00:00").split("");
   return (
@@ -105,27 +110,33 @@ export function PlainDigits({ text, color, fontFamily, fontSize, textShadow }) {
 }
 
 /**
- * Flip clock row. fontSize drives --flip-h so cards scale like the site
- * (site desktop: height 160px, width 130px, digit font 130px).
+ * Flip clock row.
+ * Uses the same class names + CSS as digitalclock.live.
+ * --flip-h = card height (px). Digit font ≈ 0.81 × height (site: 130/160).
  */
 export function FlipClock({ text, color, fontFamily, fontSize }) {
   const chars = String(text || "00:00").split("");
   const n = chars.length;
 
-  // Resolve a pixel height from the same clamp expression used by the timer
-  // so cards stay proportional to the plain-digit size.
-  const style = {
-    fontFamily: fontFamily || "inherit",
-    // CSS var used by .flip width/height/font-size ratios
-    ["--flip-h"]: typeof fontSize === "string" ? fontSize : fontSize ? `${fontSize}px` : "80px",
-    ["--flip-fg"]: color || "#ffffff",
-    ["--flip-card"]: "rgba(21, 21, 21, 0.98)",
-    ["--flip-card-border"]: "rgba(255,255,255,0.08)",
-    ["--flip-page"]: "transparent",
-  };
+  // Prefer a concrete px height so calc() ratios stay stable.
+  // Timer passes clamp(...); use it directly as height.
+  const height = fontSize || "96px";
 
   return (
-    <div className="clock tt-flip-clock" role="timer" aria-live="off" aria-label={text} style={style}>
+    <div
+      className="clock"
+      role="timer"
+      aria-live="off"
+      aria-label={text}
+      style={{
+        // System UI for digits — matches the clean sans look on digitalclock.live
+        fontFamily:
+          fontFamily ||
+          'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        ["--flip-h"]: height,
+        ["--flip-fg"]: color || "#ffffff",
+      }}
+    >
       {chars.map((ch, i) => {
         const fromEnd = n - 1 - i;
         if (ch === ":") {

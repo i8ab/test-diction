@@ -1,10 +1,10 @@
 /* =============================================================================
-   Flip clock — pixel-faithful port of digitalclock.live/flip-clock CSS
-   Source: https://digitalclock.live/assets/css/flip-clock/flip-clock.css
-   Scaled via --flip-h (card height). Site desktop defaults: h=160 w=130 digit=130
+   digitalclock.live flip-clock — faithful port
+   https://digitalclock.live/assets/css/flip-clock/flip-clock.css
+   Card height = var(--flip-h). Site desktop: 160px card, 130px digit, 130px wide.
    ============================================================================= */
 
-/* Plain digits (non-flip) */
+/* ── Plain timer digits ────────────────────────────────────────────────────── */
 .timer-plain-digits {
   display: inline-flex;
   align-items: center;
@@ -17,7 +17,6 @@
   height: 1.2em;
   white-space: nowrap;
   user-select: none;
-  contain: layout style;
 }
 .timer-plain-cell {
   display: inline-flex;
@@ -26,7 +25,6 @@
   width: 0.62em;
   height: 1.2em;
   flex-shrink: 0;
-  line-height: 1;
 }
 .timer-plain-sep {
   display: inline-flex;
@@ -35,66 +33,63 @@
   width: 0.32em;
   height: 1.2em;
   flex-shrink: 0;
-  line-height: 1;
   opacity: 0.9;
   transform: translateY(-0.03em);
 }
 
-/* Row */
-.tt-flip-clock.clock {
+/* ── Flip row (site: #clock-container .clock) ──────────────────────────────── */
+.clock {
   display: flex;
   align-items: center;
   justify-content: center;
   direction: ltr;
   padding: 0;
   user-select: none;
-  contain: layout style;
 }
 
-/* Colon — site uses em.divider with large line-height matching card height */
-.tt-flip-clock .divider {
+/* Site: .divider { font-size:80px; line-height:160px; margin:0 6px } */
+.clock .divider {
   color: var(--flip-fg, #ccc);
   font-size: calc(var(--flip-h) * 0.5);
   font-style: normal;
+  font-weight: 700;
   line-height: var(--flip-h);
   margin: 0 calc(var(--flip-h) * 0.04);
-  font-weight: 700;
-  opacity: 0.9;
+  opacity: 0.85;
 }
 
-/* Card — ratios from site: w/h = 130/160, font-size/h = 80/160, line-height ≈ h */
-.tt-flip-clock .flip {
+/*
+ * Site desktop:
+ *   width:130px; height:160px; font-size:80px; line-height:157px; margin:5px
+ *   border-radius:6px; background + border from theme
+ */
+.clock .flip {
   position: relative;
-  width: calc(var(--flip-h) * 0.8125);
+  width: calc(var(--flip-h) * 0.8125);   /* 130/160 */
   height: var(--flip-h);
   margin: calc(var(--flip-h) * 0.03);
-  font-size: calc(var(--flip-h) * 0.5);
+  font-size: calc(var(--flip-h) * 0.5);  /* 80/160 */
   font-weight: 700;
-  line-height: calc(var(--flip-h) * 0.98);
+  line-height: calc(var(--flip-h) * 0.98125); /* 157/160 */
   text-align: center;
   background: #000;
-  border: 1px solid var(--flip-card-border, #151515);
-  border-radius: calc(var(--flip-h) * 0.04);
+  border: 1px solid #151515;
+  border-radius: calc(var(--flip-h) * 0.0375); /* 6/160 */
   box-shadow: 0 0 6px rgba(54, 54, 54, 0.5);
   flex-shrink: 0;
 }
 
-.tt-flip-clock .flip .digital {
-  position: absolute;
-  inset: 0;
-}
-
-/* Top + bottom halves via pseudo elements — site exact */
-.tt-flip-clock .flip .digital::before,
-.tt-flip-clock .flip .digital::after {
+/* Site: .digital:before, .digital:after share these */
+.clock .flip .digital:before,
+.clock .flip .digital:after {
   content: attr(data-number);
   position: absolute;
   left: 0;
   right: 0;
   overflow: hidden;
-  background: var(--flip-card, #151515);
+  background: #151515;
   color: var(--flip-fg, #fff);
-  font-size: calc(var(--flip-h) * 0.8125); /* 130/160 */
+  font-size: calc(var(--flip-h) * 0.8125); /* 130/160 — fills the card */
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   perspective: 200px;
@@ -102,47 +97,52 @@
 }
 
 /* Top half */
-.tt-flip-clock .flip .digital::before {
+.clock .flip .digital:before {
   top: 0;
   bottom: 50%;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: calc(var(--flip-h) * 0.03) calc(var(--flip-h) * 0.03) 0 0;
+  border-bottom: 1px solid #333;
+  border-radius: calc(var(--flip-h) * 0.031) calc(var(--flip-h) * 0.031) 0 0;
   transform-origin: 50% 100%;
+  -webkit-transform-origin: 50% 100%;
 }
 
-/* Bottom half */
-.tt-flip-clock .flip .digital::after {
+/* Bottom half — line-height:0 is the site’s clipping trick */
+.clock .flip .digital:after {
   top: 50%;
   bottom: 0;
   line-height: 0;
-  border-radius: 0 0 calc(var(--flip-h) * 0.03) calc(var(--flip-h) * 0.03);
+  border-radius: 0 0 calc(var(--flip-h) * 0.031) calc(var(--flip-h) * 0.031);
   transform-origin: 50% 0;
+  -webkit-transform-origin: 50% 0;
 }
 
-/* z-index stack — site exact */
-.tt-flip-clock .flip .digital.back::before,
-.tt-flip-clock .flip .digital.front::after {
+/* z-index (site exact) */
+.clock .flip .digital.back:before,
+.clock .flip .digital.front:after {
   z-index: 1;
 }
-.tt-flip-clock .flip .digital.back::after {
+.clock .flip .digital.back:after {
   z-index: 2;
   transform: rotateX(0.5turn);
+  -webkit-transform: rotateX(0.5turn);
   transform-origin: center top;
+  -webkit-transform-origin: center top;
 }
-.tt-flip-clock .flip .digital.front::before {
+.clock .flip .digital.front:before {
   z-index: 3;
 }
 
-/* Running animations — site exact (0.6s ease-in-out) */
-.tt-flip-clock .flip.running .digital.front::before {
+/* Running — site exact */
+.clock .flip.running .digital.front:before {
   animation: frontFlipDown 0.6s ease-in-out;
   -webkit-animation: frontFlipDown 0.6s ease-in-out;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   box-shadow: 0 -2px 6px hsla(0, 0%, 100%, 0.3);
   transform-origin: center bottom;
+  -webkit-transform-origin: center bottom;
 }
-.tt-flip-clock .flip.running .digital.back::after {
+.clock .flip.running .digital.back:after {
   animation: backFlipDown 0.6s ease-in-out;
   -webkit-animation: backFlipDown 0.6s ease-in-out;
 }
@@ -160,27 +160,27 @@
   to { -webkit-transform: rotateX(0); transform: rotateX(0); }
 }
 
-/* Light theme */
-html[data-theme="light"] .tt-flip-clock .flip {
+/* Light theme (site light template) */
+html[data-theme="light"] .clock .flip {
   background: #f8f9fa;
   border-color: #e5e5e5;
   box-shadow: 0 0 6px rgba(0, 0, 0, 0.15);
 }
-html[data-theme="light"] .tt-flip-clock .flip .digital::before,
-html[data-theme="light"] .tt-flip-clock .flip .digital::after {
+html[data-theme="light"] .clock .flip .digital:before,
+html[data-theme="light"] .clock .flip .digital:after {
   background: #e5e5e5;
   color: var(--flip-fg, #333);
 }
-html[data-theme="light"] .tt-flip-clock .flip .digital::before {
-  border-bottom-color: #ced4da;
+html[data-theme="light"] .clock .flip .digital:before {
+  border-bottom: 1px solid #ced4da;
 }
-html[data-theme="light"] .tt-flip-clock .flip.running .digital.front::before {
+html[data-theme="light"] .clock .flip.running .digital.front:before {
   box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.12);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tt-flip-clock .flip.running .digital.front::before,
-  .tt-flip-clock .flip.running .digital.back::after {
+  .clock .flip.running .digital.front:before,
+  .clock .flip.running .digital.back:after {
     animation-duration: 0.01ms !important;
   }
 }

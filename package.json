@@ -1,9 +1,9 @@
 {
   "name": "bacaloria-community",
   "private": true,
-  "version": "1.1.1",
+  "version": "1.1.2",
   "type": "module",
-  "description": "Bacaloria Community — bilingual vocabulary dictionary and study tools (Arabic/English + multi-language UI)",
+  "description": "Bacaloria Community \u2014 bilingual vocabulary dictionary and study tools (Arabic/English + multi-language UI)",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

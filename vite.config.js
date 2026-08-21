@@ -1,9 +1,12 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// تحسينات البناء: إيقاف source maps + تقسيم حزم React
+// Whisper يتحمّل كسولًا في chunk منفصل — مش في الحزمة الأولية
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    exclude: ["@huggingface/transformers"],
+  },
   build: {
     target: "es2020",
     sourcemap: false,
@@ -14,6 +17,9 @@ export default defineConfig({
           if (id.includes("node_modules")) {
             if (id.includes("react") || id.includes("react-dom") || id.includes("scheduler")) {
               return "vendor-react";
+            }
+            if (id.includes("@huggingface") || id.includes("transformers")) {
+              return "vendor-transformers";
             }
             return "vendor";
           }

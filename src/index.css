@@ -1922,21 +1922,27 @@ html[data-device="tablet"] .word-zoom-modal {
 
 
 /* ===== Mobile features ported to tablet ===== */
+/* Sticky search: transparent like mobile — no dark strip / paper bar behind the input */
 html[data-device="tablet"] .mobile-sticky-search {
   position: sticky;
   top: 0;
   z-index: 70;
-  background: color-mix(in srgb, var(--paper, #faf8f5) 92%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: transparent !important;
+  background-image: none !important;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   padding-top: 8px;
   padding-bottom: 8px;
+  border-bottom: none !important;
+  box-shadow: none !important;
 }
 html[data-device="tablet"] body {
   font-size: calc(16px * var(--ui-scale, 1));
 }
+/* Skip per-card entrance animation on tablet — major scroll jank source with 60+ cards */
 html[data-device="tablet"] .entry-card--tablet {
-  animation: entryPop 0.28s ease both;
+  animation: none !important;
 }
 html[data-device="tablet"] .toolbar-search-wrap [role="listbox"],
 html[data-device="tablet"] #search-suggestions {
@@ -1951,6 +1957,49 @@ html[data-device="tablet"] .search-clear-btn {
   width: 32px !important;
   height: 32px !important;
 }
+
+/* Tablet search field: clean solid fill, no glass blur behind */
+html[data-device="tablet"] .app-chrome-search,
+html[data-device="tablet"] .toolbar-search-input.app-chrome-search {
+  background: color-mix(in srgb, var(--card) 88%, var(--input-bg)) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+html[data-device="tablet"] .app-chrome-search:focus,
+html[data-device="tablet"] .toolbar-search-input.app-chrome-search:focus {
+  background: color-mix(in srgb, var(--card) 94%, var(--input-bg)) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ========== Tablet performance ========== */
+html[data-device="tablet"] .entry-card--tablet {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+  contain: layout style;
+}
+html[data-device="tablet"] .lift-hover {
+  transition: none !important;
+}
+html[data-device="tablet"] .lift-hover:hover {
+  box-shadow: none !important;
+}
+html[data-device="tablet"] .btn-shine {
+  transition: background 0.12s ease, opacity 0.12s ease !important;
+}
+html[data-device="tablet"] .btn-shine:hover:not(:disabled) {
+  filter: none !important;
+}
+html[data-device="tablet"] .toolbar-anim {
+  animation: none !important;
+}
+/* Cheaper sticky header / stats on tablet */
+html[data-device="tablet"] .app-stats-bar {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 /* tablet: longform stays hidden — details live in Zoom modal only */
 html[data-device="tablet"] .entry-card--tablet .entry-longform {
   display: none !important;

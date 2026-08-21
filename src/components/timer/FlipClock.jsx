@@ -1,8 +1,10 @@
 import { useEffect, useRef, memo } from "react";
 
 /**
- * One digit — DOM/animation identical to digitalclock.live Flipper:
- *   setFront(current) → setBack(next) → .running → animationend → setFront(next)
+ * One digit — digitalclock.live Flipper, synced to 1s timer ticks.
+ * Animation is 0.7s so it always finishes before the next second.
+ * If a new value arrives mid-flip, we interrupt and start a fresh flip
+ * to the latest value (stays in sync with the clock, no skipped backlog).
  */
 function FlipDigit({ value }) {
   const rootRef = useRef(null);
@@ -10,9 +12,8 @@ function FlipDigit({ value }) {
   const backRef = useRef(null);
   const shownRef = useRef(String(value));
   const busyRef = useRef(false);
-  const pendingRef = useRef(null);
+  const finishRef = useRef(null);
 
-  // First mount
   useEffect(() => {
     const v = String(value);
     shownRef.current = v;
@@ -21,55 +22,62 @@ function FlipDigit({ value }) {
   }, []);
 
   useEffect(() => {
-    const v = String(value);
-    if (v === shownRef.current && !busyRef.current) return;
+    const to = String(value);
+    if (to === shownRef.current && !busyRef.current) return;
 
-    const run = (from, to) => {
-      const root = rootRef.current;
-      const front = frontRef.current;
-      const back = backRef.current;
-      if (!root || !front || !back) return;
+    const root = rootRef.current;
+    const front = frontRef.current;
+    const back = backRef.current;
+    if (!root || !front || !back) return;
 
-      busyRef.current = true;
-      front.setAttribute("data-number", from);
+    // Interrupt any in-progress flip so we never lag behind the real time
+    if (finishRef.current) {
+      root.removeEventListener("animationend", finishRef.current);
+      finishRef.current = null;
+    }
+    root.classList.remove("running");
+
+    const from = shownRef.current;
+    if (from === to) {
+      busyRef.current = false;
+      front.setAttribute("data-number", to);
       back.setAttribute("data-number", to);
-
-      const finish = (e) => {
-        // frontFlipDown is on ::before — animationend bubbles from the element
-        // that has the animation. In WebKit it may target the host; accept both.
-        if (e && e.animationName && !/frontFlipDown|backFlipDown/i.test(e.animationName)) {
-          return;
-        }
-        root.classList.remove("running");
-        front.setAttribute("data-number", to);
-        back.setAttribute("data-number", to);
-        shownRef.current = to;
-        busyRef.current = false;
-        root.removeEventListener("animationend", finish);
-
-        if (pendingRef.current != null && pendingRef.current !== to) {
-          const next = pendingRef.current;
-          pendingRef.current = null;
-          run(to, next);
-        } else {
-          pendingRef.current = null;
-        }
-      };
-
-      root.addEventListener("animationend", finish);
-      root.classList.remove("running");
-      // Force reflow so the animation always restarts
-      // eslint-disable-next-line no-unused-expressions
-      root.offsetWidth;
-      root.classList.add("running");
-    };
-
-    if (busyRef.current) {
-      pendingRef.current = v;
       return;
     }
 
-    run(shownRef.current, v);
+    busyRef.current = true;
+    front.setAttribute("data-number", from);
+    back.setAttribute("data-number", to);
+
+    const finish = (e) => {
+      if (e && e.animationName && !/frontFlipDown|backFlipDown/i.test(e.animationName)) {
+        return;
+      }
+      root.classList.remove("running");
+      front.setAttribute("data-number", to);
+      back.setAttribute("data-number", to);
+      shownRef.current = to;
+      busyRef.current = false;
+      root.removeEventListener("animationend", finish);
+      finishRef.current = null;
+    };
+
+    finishRef.current = finish;
+    root.addEventListener("animationend", finish);
+    // Restart CSS animation
+    void root.offsetWidth;
+    root.classList.add("running");
+
+    // Safety: if animationend never fires, settle at 0.75s
+    const safety = setTimeout(() => {
+      if (busyRef.current && finishRef.current === finish) {
+        finish({ animationName: "frontFlipDown" });
+      }
+    }, 750);
+
+    return () => {
+      clearTimeout(safety);
+    };
   }, [value]);
 
   return (
@@ -82,7 +90,6 @@ function FlipDigit({ value }) {
 
 const MemoDigit = memo(FlipDigit);
 
-/** Plain fixed cells */
 export function PlainDigits({ text, color, fontFamily, fontSize, textShadow }) {
   const chars = String(text || "00:00").split("");
   return (
@@ -109,17 +116,9 @@ export function PlainDigits({ text, color, fontFamily, fontSize, textShadow }) {
   );
 }
 
-/**
- * Flip clock row.
- * Uses the same class names + CSS as digitalclock.live.
- * --flip-h = card height (px). Digit font ≈ 0.81 × height (site: 130/160).
- */
 export function FlipClock({ text, color, fontFamily, fontSize }) {
   const chars = String(text || "00:00").split("");
   const n = chars.length;
-
-  // Prefer a concrete px height so calc() ratios stay stable.
-  // Timer passes clamp(...); use it directly as height.
   const height = fontSize || "96px";
 
   return (
@@ -129,7 +128,6 @@ export function FlipClock({ text, color, fontFamily, fontSize }) {
       aria-live="off"
       aria-label={text}
       style={{
-        // System UI for digits — matches the clean sans look on digitalclock.live
         fontFamily:
           fontFamily ||
           'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',

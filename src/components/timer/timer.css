@@ -134,8 +134,8 @@
 
 /* Running — site exact */
 .clock .flip.running .digital.front:before {
-  animation: frontFlipDown 1s ease-in-out;
-  -webkit-animation: frontFlipDown 1s ease-in-out;
+  animation: frontFlipDown 0.7s ease-in-out;
+  -webkit-animation: frontFlipDown 0.7s ease-in-out;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   box-shadow: 0 -2px 6px hsla(0, 0%, 100%, 0.3);
@@ -143,8 +143,8 @@
   -webkit-transform-origin: center bottom;
 }
 .clock .flip.running .digital.back:after {
-  animation: backFlipDown 1s ease-in-out;
-  -webkit-animation: backFlipDown 1s ease-in-out;
+  animation: backFlipDown 0.7s ease-in-out;
+  -webkit-animation: backFlipDown 0.7s ease-in-out;
 }
 
 @keyframes frontFlipDown {

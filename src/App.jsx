@@ -69,10 +69,27 @@ const AuthScreens = lazy(() => import("./components/auth/AuthScreens"));
 const MainView = lazy(() => import("./components/MainView"));
 
 function AppLoadingFallback() {
+  const label = deviceIsAr ? "جاري التحميل…" : "Loading…";
   return (
     <Shell>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--muted-strong)", minHeight: 120 }}>
-        <LoaderIcon size={18} /><span>…</span>
+      <div
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 12,
+          color: "var(--muted-strong)",
+          minHeight: "40vh",
+          fontSize: 15,
+          fontWeight: 600,
+        }}
+      >
+        <LoaderIcon size={22} />
+        <span>{label}</span>
       </div>
     </Shell>
   );

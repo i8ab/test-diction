@@ -461,8 +461,10 @@ export default function DictionaryApp() {
   useEffect(() => {
     const apply = () => {
       try {
+        // Only true installed-app modes — never treat a normal browser tab as PWA
+        // so pull-to-refresh stays available on every screen in the browser.
         const pwa = !!(window.navigator.standalone ||
-          window.matchMedia("(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)").matches);
+          window.matchMedia("(display-mode: standalone)").matches);
         document.documentElement.setAttribute("data-pwa-standalone", pwa ? "1" : "0");
       } catch (_) {}
     };

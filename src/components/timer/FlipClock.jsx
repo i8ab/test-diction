@@ -1,39 +1,39 @@
 import { useState, useEffect, useRef } from "react";
 
 /**
- * Split-flap digit (flipclock.online style).
- * No busy-lock: rapid second changes must never freeze a digit.
+ * Split-flap digit matching timer.css (.flip-digit / .flip-digit-flap).
+ * Rapid second changes restart the flap toward the latest value (no freeze).
  */
 export function FlipDigit({ value, color }) {
   const next = String(value);
-  const [display, setDisplay] = useState(next);
-  const [from, setFrom] = useState(next);
+  const [current, setCurrent] = useState(next);
+  const [previous, setPrevious] = useState(next);
+  const [animating, setAnimating] = useState(false);
   const [flipId, setFlipId] = useState(0);
-  const [flipping, setFlipping] = useState(false);
-  const displayRef = useRef(next);
+  const currentRef = useRef(next);
   const endTimerRef = useRef(null);
 
   useEffect(() => {
-    if (next === displayRef.current) return undefined;
+    if (next === currentRef.current) return undefined;
 
-    // Restart flip toward the latest value (even mid-animation)
     if (endTimerRef.current) {
       clearTimeout(endTimerRef.current);
       endTimerRef.current = null;
     }
 
-    setFrom(displayRef.current);
-    setDisplay(next);
-    displayRef.current = next;
-    setFlipping(true);
+    setPrevious(currentRef.current);
+    setCurrent(next);
+    currentRef.current = next;
+    setAnimating(true);
     setFlipId((n) => n + 1);
 
+    // Match flipDigitDown duration in timer.css (0.4s)
     endTimerRef.current = setTimeout(() => {
-      setFlipping(false);
+      setAnimating(false);
       endTimerRef.current = null;
-    }, 600);
+    }, 400);
 
-    return undefined; // do not clear the end timer on dependency change
+    return undefined;
   }, [next]);
 
   useEffect(() => {
@@ -43,27 +43,24 @@ export function FlipDigit({ value, color }) {
   }, []);
 
   return (
-    <div
-      className={`tt-flip${flipping ? " tt-go" : ""}`}
-      style={color ? { color } : undefined}
-      aria-hidden
-    >
-      <div className="tt-top">
-        <span>{display}</span>
-      </div>
-      <div className="tt-bot">
-        <span>{flipping ? from : display}</span>
-      </div>
-      {flipping && (
-        <>
-          <div key={`t-${flipId}`} className="tt-fold-top">
-            <span>{from}</span>
+    <div className="flip-digit" style={color ? { color } : undefined} aria-hidden>
+      <div className="flip-digit-card">
+        {/* Static top half — shows the new digit */}
+        <div className="flip-digit-half top">
+          <span className="flip-digit-glyph">{current}</span>
+        </div>
+        {/* Static bottom half — shows old while flapping, then new */}
+        <div className="flip-digit-half bottom">
+          <span className="flip-digit-glyph">{animating ? previous : current}</span>
+        </div>
+        <div className="flip-digit-hinge" />
+        {/* Animated top flap: folds down from previous → reveals new top */}
+        {animating && (
+          <div key={flipId} className="flip-digit-flap animating">
+            <span className="flip-digit-glyph">{previous}</span>
           </div>
-          <div key={`b-${flipId}`} className="tt-fold-bot">
-            <span>{display}</span>
-          </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -85,6 +82,7 @@ export function FlipClock({ text, color, fontFamily, fontSize }) {
       }}
     >
       {chars.map((ch, i) => {
+        // Keys from the end so "1:23" → "01:23" length change doesn't remount digits
         const fromEnd = n - 1 - i;
         if (ch === ":") {
           return (
@@ -98,4 +96,3 @@ export function FlipClock({ text, color, fontFamily, fontSize }) {
     </div>
   );
 }
-

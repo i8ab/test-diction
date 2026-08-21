@@ -1179,7 +1179,12 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
         <div
           style={{
             animation: doneFlash ? "timerPulse 0.6s ease 3" : undefined,
-            transition: "font-size 0.2s ease, color 0.2s ease",
+            /* Fixed metrics: prevent vertical jump every second */
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: `clamp(48px, ${Math.max(10, prefs.fontSize * 0.14)}vw, ${Math.round(prefs.fontSize * 1.35)}px)`,
+            lineHeight: 1,
           }}
         >
           {prefs.flipDigits ? (
@@ -1191,13 +1196,13 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
             />
           ) : (
             <div
+              className="timer-plain-digits"
               style={{
                 fontFamily: fontCss,
                 fontSize: `clamp(42px, ${Math.max(8, prefs.fontSize * 0.12)}vw, ${prefs.fontSize}px)`,
                 fontWeight: 700,
                 letterSpacing: "0.03em",
-                fontVariantNumeric: "tabular-nums",
-                lineHeight: 1,
+                color: prefs.textColor,
                 textShadow: isLightBg ? "none" : "0 4px 40px rgba(0,0,0,0.35)",
               }}
             >

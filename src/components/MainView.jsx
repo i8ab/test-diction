@@ -44,7 +44,7 @@ import { useEntrySearch } from "../lib/hooks/useEntrySearch";
 import { useStudyShortcuts } from "../lib/hooks/useStudyShortcuts";
 import { useListPagination } from "../lib/hooks/useListPagination";
 import WelcomeOnboardingModal, { hasSeenWelcome, markWelcomeSeen } from "./modals/WelcomeOnboardingModal";
-import { scheduleIdlePreload, preloadStudyCore } from "./modals/lazyModals";
+import "./modals/lazyModals";
 import { consumeSessionOpenTool, setSessionOpenTool } from "../lib/state/sessionUi";
 
 export default function MainView({
@@ -258,12 +258,6 @@ export default function MainView({
     const t = setTimeout(() => setShowWelcome(true), 500);
     return () => clearTimeout(t);
   }, [accountCode]);
-
-  // Warm only the most-used study chunks after the first idle period. Keep the
-  // secondary Motivation/Du'a chunk on-demand to avoid competing with startup.
-  useEffect(() => {
-    scheduleIdlePreload(preloadStudyCore);
-  }, []);
 
   const [showDictation, setShowDictation] = useState(() => restored.tool === "dictation");
   const [showAchievements, setShowAchievements] = useState(() => restored.tool === "achievements");

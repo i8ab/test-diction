@@ -8,7 +8,9 @@ const root = document.getElementById("root");
 createRoot(root).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <DictionaryApp />
+      <main id="app-main" aria-label="Bacaloria Community">
+        <DictionaryApp />
+      </main>
     </ErrorBoundary>
   </React.StrictMode>
 );

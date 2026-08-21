@@ -21,7 +21,22 @@
 <noscript><link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet"></noscript>
 </head>
 <body>
-<div id="root"></div>
+<!-- Lightweight HTML shell paints before React and reserves the first viewport. -->
+<div id="root">
+  <main id="initial-shell" aria-label="Bacaloria Community">
+    <div class="initial-shell-card">
+      <div class="initial-shell-brand"><span aria-hidden="true">📖</span><strong>Bacaloria Community</strong></div>
+      <p>English ⇄ Arabic dictionary</p>
+    </div>
+  </main>
+</div>
+<style>
+  #initial-shell { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: #f6f1e8; color: #18232a; }
+  .initial-shell-card { width: min(420px, 100%); min-height: 150px; display: grid; place-content: center; gap: 10px; text-align: center; border: 1px solid rgba(24,35,42,.12); border-radius: 18px; background: rgba(255,255,255,.72); box-shadow: 0 12px 34px rgba(24,35,42,.08); font-family: system-ui, sans-serif; }
+  .initial-shell-brand { display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 20px; }
+  .initial-shell-card p { margin: 0; color: #58636a; font-size: 14px; }
+  @media (prefers-color-scheme: dark) { #initial-shell { background: #10191f; color: #f6f1e8; } .initial-shell-card { background: rgba(28,39,46,.86); border-color: rgba(255,255,255,.14); } .initial-shell-card p { color: #b4bec3; } }
+</style>
 <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

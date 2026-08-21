@@ -65,9 +65,9 @@ try{
     --focus-rgb: 63,193,232; --meaning: #4ADE80;
   }
   * { box-sizing: border-box; }
-  html { margin: 0; padding: 0; background-color: var(--paper); overscroll-behavior-y: none; }
+  html { margin: 0; padding: 0; background-color: var(--paper); overscroll-behavior-y: auto; }
   body { margin: 0; padding: 0; background-color: transparent; background-image: none;
-    font-family: var(--font-latin); position: relative; z-index: 0; min-height: 100dvh; overscroll-behavior-y: none;
+    font-family: var(--font-latin); position: relative; z-index: 0; min-height: 100dvh; overscroll-behavior-y: auto;
     transition: background 0.35s ease, background-color 0.35s ease; }
   body::before { content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100lvh; min-height: 100%;
     z-index: -1; pointer-events: none; background-color: var(--paper);

@@ -1625,6 +1625,14 @@ useEffect(() => {
   }
 
   async function handleSignup(e, roleOverride) {
+    // preventDefault must run synchronously, BEFORE the await below — once we
+    // await, the browser has already moved past this event's synchronous
+    // phase and will fall through to a real form submit (full page reload)
+    // if we haven't cancelled it yet. That reload was the actual cause of
+    // "signup/login sends me back to the start page": the request kept
+    // running in the background and reached the server, but the page reset
+    // before React could show the result.
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
     const { performSignup } = await import("./lib/state/authFlow");
     return performSignup({
       e,
@@ -1663,6 +1671,9 @@ useEffect(() => {
   }
 
   async function handleLogin(e) {
+    // Same fix as handleSignup above: cancel the form's default submit
+    // synchronously, before the await, or the browser reloads the page.
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
     const { performLogin } = await import("./lib/state/authFlow");
     return performLogin({
       e,

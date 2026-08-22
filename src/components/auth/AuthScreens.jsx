@@ -178,10 +178,10 @@ function AuthScreens({
       <div
         dir={appIsAr ? "rtl" : "ltr"}
         className="auth-page"
-        style={{ position: "relative", minHeight: "100dvh", background: PAPER, backgroundImage: "radial-gradient(circle at 1px 1px, rgba(var(--border-rgb),0.05) 1px, transparent 0)", backgroundSize: "20px 20px", overflowX: "hidden" }}>
-        {/* Soft static wash — no continuous GPU animation on large orbs */}
-        <div className="auth-orb auth-orb-static" style={{ width: 380, height: 380, top: "-12%", insetInlineStart: "-8%", background: "radial-gradient(circle, color-mix(in srgb, var(--accent-1) 55%, transparent) 0%, transparent 70%)" }} />
-        <div className="auth-orb auth-orb-static" style={{ width: 300, height: 300, top: "18%", insetInlineEnd: "-10%", background: "radial-gradient(circle, color-mix(in srgb, var(--accent-2) 45%, transparent) 0%, transparent 70%)" }} />
+        style={{ position: "relative", minHeight: "100dvh", background: PAPER, overflowX: "hidden" }}>
+        {/* Soft ink-wash blooms — heavily blurred, low opacity, like watercolor bleeding into paper rather than a glowing UI orb */}
+        <div className="auth-orb auth-orb-static" style={{ width: 460, height: 460, top: "-16%", insetInlineStart: "-12%", filter: "blur(60px)", opacity: 0.35, background: "radial-gradient(circle, color-mix(in srgb, var(--accent-1) 40%, transparent) 0%, transparent 72%)" }} />
+        <div className="auth-orb auth-orb-static" style={{ width: 360, height: 360, top: "22%", insetInlineEnd: "-14%", filter: "blur(60px)", opacity: 0.28, background: "radial-gradient(circle, color-mix(in srgb, var(--accent-2) 35%, transparent) 0%, transparent 72%)" }} />
 
         <div className="auth-intro-inner" style={{ position: "relative", zIndex: 1, maxWidth: "min(960px, 100%)", margin: "0 auto", padding: "clamp(16px, 3vw, 28px) clamp(14px, 4vw, 32px) clamp(40px, 6vw, 64px)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "clamp(24px, 5vw, 56px)", gap: 12 }}>

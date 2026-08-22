@@ -89,6 +89,7 @@ function AccountModal({
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [equipTick, setEquipTick] = useState(0); // force re-read after equip change
+  const [showGoogleActions, setShowGoogleActions] = useState(false);
   const fileRef = useRef(null);
   const accountCode = account && account.code ? account.code : "anon";
 
@@ -361,34 +362,44 @@ function AccountModal({
           </div>
 
 
-          {/* ── Google account link ── */}
+          {/* ── Google account link (slim; actions revealed on click) ── */}
           {typeof onLinkGoogle === "function" && (
             <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setShowGoogleActions((v) => !v)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setShowGoogleActions((v) => !v);
+                }
+              }}
               style={{
                 width: "100%",
-                marginTop: 14,
-                padding: "14px 14px 12px",
-                borderRadius: 16,
+                marginTop: 8,
+                padding: "8px 10px",
+                borderRadius: 12,
                 background: "linear-gradient(145deg, rgba(66,133,244,0.08) 0%, rgba(52,168,83,0.06) 50%, rgba(234,67,53,0.06) 100%)",
                 border: "1px solid rgba(66,133,244,0.22)",
-                boxShadow: "0 8px 24px rgba(24,35,42,0.06)",
                 textAlign: "start",
+                cursor: "pointer",
+                WebkitTapHighlightColor: "transparent",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div
                   style={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: 12,
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
                     background: "#fff",
                     display: "grid",
                     placeItems: "center",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
                     flexShrink: 0,
                   }}
                 >
-                  <svg width="22" height="22" viewBox="0 0 48 48" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
                     <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
                     <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
                     <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
@@ -396,29 +407,29 @@ function AccountModal({
                   </svg>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, fontSize: 14.5, color: "var(--ink)", letterSpacing: "-0.01em" }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "var(--ink)" }}>
                     {T("Google account", "حساب Google")}
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 3, lineHeight: 1.35 }}>
+                  <div style={{ fontSize: 11, color: "var(--muted-strong)", marginTop: 1, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {googleLinked
                       ? (googleEmail
                           ? T(`Linked as ${googleEmail}`, `مربوط: ${googleEmail}`)
-                          : T("Linked — you can sign in with Google", "مربوط — يمكنك الدخول بـ Google"))
-                      : T("Link Google to sign in faster. Your Google photo will be used as avatar.", "اربط Google للدخول أسرع. صورة Google هتطبّق كصورة الملف.")}
+                          : T("Linked", "مربوط"))
+                      : T("Not linked — tap to manage", "غير مربوط — اضغط للإدارة")}
                   </div>
                 </div>
                 {googleLinked && (
                   <span
                     style={{
-                      fontSize: 10.5,
+                      fontSize: 10,
                       fontWeight: 800,
-                      letterSpacing: "0.04em",
+                      letterSpacing: "0.03em",
                       textTransform: "uppercase",
                       color: "#137333",
                       background: "rgba(52,168,83,0.15)",
                       border: "1px solid rgba(52,168,83,0.35)",
                       borderRadius: 999,
-                      padding: "4px 9px",
+                      padding: "2px 7px",
                       flexShrink: 0,
                     }}
                   >
@@ -427,56 +438,60 @@ function AccountModal({
                 )}
               </div>
 
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {!googleLinked ? (
-                  <button
-                    type="button"
-                    disabled={googleLinkBusy}
-                    onClick={() => { if (typeof onLinkGoogle === "function") onLinkGoogle(); }}
-                    style={{
-                      flex: 1,
-                      minWidth: 140,
-                      minHeight: 44,
-                      borderRadius: 12,
-                      border: "none",
-                      background: "linear-gradient(135deg, #4285F4 0%, #34A853 100%)",
-                      color: "#fff",
-                      fontWeight: 800,
-                      fontSize: 13.5,
-                      cursor: googleLinkBusy ? "wait" : "pointer",
-                      opacity: googleLinkBusy ? 0.7 : 1,
-                      boxShadow: "0 6px 16px rgba(66,133,244,0.35)",
-                    }}
-                  >
-                    {googleLinkBusy
-                      ? T("Connecting…", "جارٍ الربط…")
-                      : T("Link Google", "ربط Google")}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={googleLinkBusy || typeof onUnlinkGoogle !== "function"}
-                    onClick={() => { if (typeof onUnlinkGoogle === "function") onUnlinkGoogle(); }}
-                    style={{
-                      flex: 1,
-                      minWidth: 140,
-                      minHeight: 44,
-                      borderRadius: 12,
-                      border: "1px solid rgba(var(--border-rgb),0.28)",
-                      background: "var(--card)",
-                      color: "var(--danger, #c44)",
-                      fontWeight: 700,
-                      fontSize: 13.5,
-                      cursor: googleLinkBusy ? "wait" : "pointer",
-                      opacity: googleLinkBusy ? 0.7 : 1,
-                    }}
-                  >
-                    {googleLinkBusy
-                      ? T("Working…", "جارٍ…")
-                      : T("Unlink Google", "إلغاء الربط")}
-                  </button>
-                )}
-              </div>
+              {showGoogleActions && (
+                <div
+                  style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {!googleLinked ? (
+                    <button
+                      type="button"
+                      disabled={googleLinkBusy}
+                      onClick={() => { if (typeof onLinkGoogle === "function") onLinkGoogle(); }}
+                      style={{
+                        flex: 1,
+                        minWidth: 120,
+                        minHeight: 36,
+                        borderRadius: 10,
+                        border: "none",
+                        background: "linear-gradient(135deg, #4285F4 0%, #34A853 100%)",
+                        color: "#fff",
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: googleLinkBusy ? "wait" : "pointer",
+                        opacity: googleLinkBusy ? 0.7 : 1,
+                      }}
+                    >
+                      {googleLinkBusy
+                        ? T("Connecting…", "جارٍ الربط…")
+                        : T("Link Google", "ربط Google")}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={googleLinkBusy || typeof onUnlinkGoogle !== "function"}
+                      onClick={() => { if (typeof onUnlinkGoogle === "function") onUnlinkGoogle(); }}
+                      style={{
+                        flex: 1,
+                        minWidth: 120,
+                        minHeight: 36,
+                        borderRadius: 10,
+                        border: "1px solid rgba(var(--border-rgb),0.28)",
+                        background: "var(--card)",
+                        color: "var(--danger, #c44)",
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: googleLinkBusy ? "wait" : "pointer",
+                        opacity: googleLinkBusy ? 0.7 : 1,
+                      }}
+                    >
+                      {googleLinkBusy
+                        ? T("Working…", "جارٍ…")
+                        : T("Unlink Google", "إلغاء الربط")}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

@@ -207,8 +207,8 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
                       <span
                         style={{
                           fontSize: 11,
-                          fontWeight: 800,
-                          padding: "3px 8px",
+                          fontWeight: 700,
+                          padding: "2px 7px",
                           borderRadius: 999,
                           background: "color-mix(in srgb, var(--accent-1) 14%, transparent)",
                           color: "var(--accent-1)",
@@ -219,11 +219,14 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
                       </span>
                     )}
                     <div
-                      dir={cfg.meaningDir}
+                      className="entry-meaning-text"
+                      dir="rtl"
+                      lang="ar"
                       style={{
                         fontFamily: cfg.meaningFont,
                         fontSize: "clamp(17px, 3.8vw, 24px)",
-                        color: "var(--meaning)",
+                        color: "#22c55e",
+                        fontWeight: 700,
                         lineHeight: 1.4,
                         wordBreak: "break-word",
                       }}
@@ -235,7 +238,7 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
                       dir={cfg.meaningDir}
                       isAr={cfg.dir === "rtl"}
                       size={17}
-                      style={{ color: "var(--meaning)", flexShrink: 0 }}
+                      style={{ color: "#22c55e", flexShrink: 0 }}
                       showBoth={false}
                     />
                   </div>

@@ -168,24 +168,31 @@ function EntryCard({
   };
 
   function renderMeaning() {
-    // Multiple senses: one compact line — "verb meaning | adjective meaning"
-    // (POS next to the word itself is unchanged elsewhere.)
-    if (senses.length > 1) {
-      return (
-        <span dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: touchy ? 15 : 14, color: "var(--meaning)", lineHeight: 1.5 }}>
-          {senses.map((s, i) => (
-            <span key={s.id}>
-              {i > 0 ? <span style={{ color: "var(--muted)", fontWeight: 500, margin: "0 6px", opacity: 0.75 }}>|</span> : null}
-              {s.pos ? <span style={{ color: "var(--accent-1)", fontWeight: 700, fontSize: 11, marginInlineEnd: 4 }}>{posLabel(s.pos, isAr)}</span> : null}
+    // Arabic meaning word in green (e.g. قلم); POS stays neutral accent.
+    const list = senses.length ? senses : (entry.meaning ? [{ id: "main", pos: entry.pos || "", meaning: entry.meaning }] : []);
+    if (!list.length) return null;
+    return (
+      <span dir="rtl" lang="ar" style={{ fontFamily: cfg.meaningFont, fontSize: touchy ? 15 : 14, lineHeight: 1.5 }}>
+        {list.map((s, i) => (
+          <span key={s.id || i}>
+            {i > 0 ? <span style={{ color: "var(--muted)", fontWeight: 500, margin: "0 6px", opacity: 0.75 }}>|</span> : null}
+            {s.pos ? (
+              <span
+                style={{
+                  color: "var(--accent-1)",
+                  fontWeight: 700,
+                  fontSize: 11,
+                  marginInlineEnd: 4,
+                }}
+              >
+                {posLabel(s.pos, isAr)}
+              </span>
+            ) : null}
+            <span className="entry-meaning-text" style={{ color: "#22c55e", fontWeight: 700 }}>
               {s.meaning}
             </span>
-          ))}
-        </span>
-      );
-    }
-    return (
-      <span dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: touchy ? 15 : 14, color: "var(--meaning)", lineHeight: 1.45 }}>
-        {entry.meaning}
+          </span>
+        ))}
       </span>
     );
   }
@@ -205,8 +212,8 @@ function EntryCard({
         borderInlineStart: `4px solid ${isStudied ? "var(--success)" : cfg.accent}`,
         borderRadius: touchy ? 16 : 12,
         padding: touchy
-          ? "14px 14px 12px"
-          : "var(--entry-pad-y, 10px) var(--entry-pad-x, 14px) calc(var(--entry-pad-y, 10px) - 2px)",
+          ? "10px 12px 8px"
+          : "var(--entry-pad-y, 8px) var(--entry-pad-x, 12px) calc(var(--entry-pad-y, 8px) - 2px)",
         display: "flex",
         flexDirection: "column",
         gap: 0,
@@ -281,14 +288,14 @@ function EntryCard({
           )}
           {/* POS chips sit beside the word */}
           {entryPosList(entry).length > 0 && (
-            <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4, flex: "0 1 auto", minWidth: 0 }}>
+            <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 3, flex: "0 1 auto", minWidth: 0 }}>
               {entryPosList(entry).map((p) => (
                 <span
                   key={p}
                   style={{
                     fontSize: 10,
                     fontWeight: 700,
-                    padding: "2px 7px",
+                    padding: "1px 6px",
                     borderRadius: 999,
                     background: "color-mix(in srgb, var(--accent-1) 14%, transparent)",
                     color: "var(--accent-1)",
@@ -375,8 +382,8 @@ function EntryCard({
           </span>
         </div>
 
-        {/* Meanings visible on every layout (phone / tablet / PC) */}
-        <div style={{ marginTop: 8 }}>{renderMeaning()}</div>
+        {/* Meanings visible on every layout (phone / tablet / PC) — Arabic + green POS */}
+        <div style={{ marginTop: 4 }}>{renderMeaning()}</div>
 
         {(isStudied || isFavorite) && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
@@ -394,23 +401,8 @@ function EntryCard({
         )}
 
         {open && (
-          <div className="entry-card-expanded" style={{ marginTop: 12 }} onClick={(e) => e.stopPropagation()}>
-            {/* Definition / examples only in Zoom — hint on all layouts */}
-            {(hasDefinition || hasExample) && (
-              <p style={{ margin: "0 0 10px", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.5 }}>
-                {tr(isAr, "Open Zoom for full definition, examples, and pair details.", "افتح التكبير للتعريف والأمثلة وتفاصيل المرادفات/المضادات.")}
-                {" "}
-                <button
-                  type="button"
-                  onClick={() => onOpenZoom && onOpenZoom(entry.id)}
-                  style={{ border: "none", background: "none", color: "var(--accent-1)", fontWeight: 700, cursor: "pointer", padding: 0, fontSize: 12.5 }}
-                >
-                  {tr(isAr, "Zoom", "تكبير")}
-                </button>
-              </p>
-            )}
-
-            {/* Full definition/examples: hidden via .entry-longform until Zoom */}
+          <div className="entry-card-expanded" style={{ marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
+            {/* Full definition/examples: hidden via .entry-longform until Zoom — no redundant hints */}
             <div className="entry-longform">
               {hasDefinition && (
                 <p dir={detectDir(entry.definition)} style={{ fontFamily: detectFont(entry.definition), fontSize: 13, color: "var(--muted-strong)", margin: "8px 0 0", lineHeight: 1.6 }}>

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import { tr, UI_LANGS } from "../../lib/config/i18n";
 import {
@@ -68,6 +69,7 @@ export default function SettingsModal({
   const T = (en, ar, de, fr) => tr(lang, en, ar, de, fr);
   const enAccentPref = loadEnAccent();
   const closeSettings = onClose;
+  const [expandedVaultCode, setExpandedVaultCode] = useState(null);
 
   function itemClick(fn) {
     if (typeof fn === "function") fn();
@@ -82,7 +84,7 @@ export default function SettingsModal({
           color: "var(--muted-strong)",
           letterSpacing: "0.04em",
           textTransform: "uppercase",
-          padding: "12px 12px 4px",
+          padding: "8px 10px 2px",
           opacity: 0.9,
         }}
       >
@@ -494,57 +496,89 @@ export default function SettingsModal({
                               @{va.username || "—"}
                             </div>
                           </button>
-                          {isAdmin && !isMain && typeof onSetMainAccount === "function" && (
-                            <button
-                              type="button"
-                              title={T("Set as main account", "تعيين كحساب أساسي")}
-                              onClick={() => onSetMainAccount(va.code)}
-                              style={{
-                                border: "none",
-                                background: "none",
-                                color: "var(--muted-strong)",
-                                fontSize: 11,
-                                fontWeight: 700,
-                                cursor: "pointer",
-                                padding: "4px 6px",
-                                flexShrink: 0,
-                              }}
+                          <button
+                            type="button"
+                            title={T("More actions", "المزيد")}
+                            aria-label={T("More actions", "المزيد")}
+                            aria-expanded={expandedVaultCode === va.code}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedVaultCode((c) => (c === va.code ? null : va.code));
+                            }}
+                            style={{
+                              border: "none",
+                              background: expandedVaultCode === va.code ? "rgba(var(--border-rgb),0.12)" : "none",
+                              color: "var(--muted-strong)",
+                              fontSize: 14,
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              padding: "2px 8px",
+                              flexShrink: 0,
+                              borderRadius: 8,
+                              lineHeight: 1,
+                            }}
+                          >
+                            ⋯
+                          </button>
+                          {expandedVaultCode === va.code && (
+                            <div
+                              style={{ display: "inline-flex", alignItems: "center", gap: 2, flexShrink: 0 }}
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              {T("Main", "أساسي")}
-                            </button>
-                          )}
-                          {typeof onUnlinkVaultAccount === "function" && (
-                            <button
-                              type="button"
-                              title={T("Remove from this device", "إزالة من هذا الجهاز")}
-                              aria-label={T("Remove from this device", "إزالة من هذا الجهاز")}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const label = va.name || va.username || va.code;
-                                const ok = window.confirm(
-                                  T(
-                                    `Remove "${label}" from the switch list on this device only? The account stays in the database — you can sign in again anytime.`,
-                                    `تشيل "${label}" من قائمة التبديل على الجهاز ده بس؟ الحساب مش هيتشال من قاعدة البيانات — تقدر تسجّل دخول بيه في أي وقت.`
-                                  )
-                                );
-                                if (!ok) return;
-                                onUnlinkVaultAccount(va.code);
-                              }}
-                              style={{
-                                border: "none",
-                                background: "none",
-                                color: "var(--danger)",
-                                cursor: "pointer",
-                                padding: "4px 6px",
-                                flexShrink: 0,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                borderRadius: 8,
-                              }}
-                            >
-                              <TrashIcon size={16} />
-                            </button>
+                              {isAdmin && !isMain && typeof onSetMainAccount === "function" && (
+                                <button
+                                  type="button"
+                                  title={T("Set as main account", "تعيين كحساب أساسي")}
+                                  onClick={() => onSetMainAccount(va.code)}
+                                  style={{
+                                    border: "none",
+                                    background: "none",
+                                    color: "var(--muted-strong)",
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                    padding: "4px 6px",
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {T("Main", "أساسي")}
+                                </button>
+                              )}
+                              {typeof onUnlinkVaultAccount === "function" && (
+                                <button
+                                  type="button"
+                                  title={T("Remove from this device", "إزالة من هذا الجهاز")}
+                                  aria-label={T("Remove from this device", "إزالة من هذا الجهاز")}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const label = va.name || va.username || va.code;
+                                    const ok = window.confirm(
+                                      T(
+                                        `Remove "${label}" from the switch list on this device only? The account stays in the database — you can sign in again anytime.`,
+                                        `تشيل "${label}" من قائمة التبديل على الجهاز ده بس؟ الحساب مش هيتشال من قاعدة البيانات — تقدر تسجّل دخول بيه في أي وقت.`
+                                      )
+                                    );
+                                    if (!ok) return;
+                                    onUnlinkVaultAccount(va.code);
+                                    setExpandedVaultCode(null);
+                                  }}
+                                  style={{
+                                    border: "none",
+                                    background: "none",
+                                    color: "var(--danger)",
+                                    cursor: "pointer",
+                                    padding: "4px 6px",
+                                    flexShrink: 0,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    borderRadius: 8,
+                                  }}
+                                >
+                                  <TrashIcon size={16} />
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                       );

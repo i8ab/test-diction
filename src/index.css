@@ -130,8 +130,8 @@
     --danger-bg: #F5E3DA;
     --danger-border: #DCB3A0;
     --focus-rgb: 176,73,43;
-    /* لون المعنى العربي الموحد */
-    --meaning: #4C7A4A;
+    /* لون المعنى العربي — أخضر صريح على كل الخلفيات */
+    --meaning: #16a34a;
     --font-latin: "Source Sans 3", system-ui, sans-serif;
     --font-arabic: "Amiri", "Times New Roman", serif;
     --font-display: "Fraunces", "Amiri", Georgia, serif;
@@ -156,8 +156,25 @@
     --danger-bg: #33211C;
     --danger-border: #5C3A30;
     --focus-rgb: 217,123,79;
-    /* لون المعنى في الوضع الداكن */
-    --meaning: #8FC98F;
+    /* لون المعنى في الوضع الداكن — أخضر ساطع */
+    --meaning: #4ade80;
+  }
+
+  /* Force Arabic meaning green everywhere (all themes / backgrounds) */
+  .entry-meaning-text,
+  .entry-card .entry-meaning-text,
+  .entry-card span.entry-meaning-text,
+  [class*="entry-card"] .entry-meaning-text {
+    color: #22c55e !important;
+    font-weight: 700 !important;
+    -webkit-text-fill-color: #22c55e !important;
+  }
+  html[data-theme="dark"] .entry-meaning-text,
+  html[data-theme="night"] .entry-meaning-text,
+  html[data-theme="dark"] .entry-card .entry-meaning-text,
+  html[data-theme="night"] .entry-card .entry-meaning-text {
+    color: #4ade80 !important;
+    -webkit-text-fill-color: #4ade80 !important;
   }
   body { transition: background 0.35s ease, background-color 0.35s ease; }
 
@@ -1505,13 +1522,22 @@ html[data-device="mobile"] .app-main-row {
   display: none !important;
 }
 .entry-card--mobile .entry-mobile-zoom-hint {
-  display: block !important;
+  display: none !important;
 }
 .entry-card--mobile {
-  padding: 12px 12px !important;
-  gap: 10px !important;
-  border-radius: 14px !important;
+  padding: 8px 10px !important;
+  gap: 6px !important;
+  border-radius: 12px !important;
   margin-bottom: 2px;
+}
+/* Arabic meaning word — vivid green (overrides theme --meaning) */
+.entry-card .entry-meaning-text {
+  color: #22c55e !important;
+  font-weight: 700 !important;
+}
+html[data-theme="dark"] .entry-card .entry-meaning-text,
+html[data-theme="night"] .entry-card .entry-meaning-text {
+  color: #4ade80 !important;
 }
 .entry-card--mobile .entry-card-word-row {
   gap: 6px !important;
@@ -1861,15 +1887,15 @@ html[data-device="tablet"] .filter-chip-row select {
   border-radius: 12px !important;
 }
 html[data-device="tablet"] .entry-card--tablet {
-  padding: 14px 16px !important;
+  padding: 8px 12px !important;
   border-radius: 12px !important;
-  gap: 14px !important;
+  gap: 6px !important;
 }
 html[data-device="tablet"] .entry-card--tablet .entry-action-bar {
   gap: 6px !important;
 }
 html[data-device="tablet"] .entry-card--tablet .entry-action-btn {
-  min-height: 48px !important;
+  min-height: 40px !important;
   flex: 1 1 0 !important;
 }
 html[data-device="tablet"] header .section-tab {

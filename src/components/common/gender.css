@@ -61,7 +61,7 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  border-radius: 14px;
+  border-radius: 9px;
   border: 1.5px solid rgba(var(--border-rgb), 0.22);
   background: var(--input-bg);
   cursor: pointer;

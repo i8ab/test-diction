@@ -72,37 +72,6 @@ function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-const DEVICE_ID_KEY = "twoTongues.deviceId";
-function getDeviceId() {
-  try {
-    let id = localStorage.getItem(DEVICE_ID_KEY);
-    if (!id) {
-      id = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : uid();
-      localStorage.setItem(DEVICE_ID_KEY, id);
-    }
-    return id;
-  } catch (_) {
-    return uid();
-  }
-}
-
-// Tiny check-in: "is any other device on this account active right now?"
-// Used to decide whether the (bigger) todos GET is worth doing at all.
-async function checkOthersPresent(accountCode, deviceId) {
-  try {
-    const r = await fetch("/api/presence", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: accountCode, deviceId }),
-    });
-    if (!r.ok) return true; // fail safe: assume others might be there
-    const data = await r.json().catch(() => ({}));
-    return !!data.others;
-  } catch (_) {
-    return true; // fail safe
-  }
-}
-
 function formatElapsed(ms) {
   const totalSec = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(totalSec / 3600);
@@ -178,15 +147,10 @@ export default function TodoPage({
   const [bubblePos, setBubblePos] = useState({ x: null, y: null });
   const [filter, setFilter] = useState("all");
   const [nowTick, setNowTick] = useState(Date.now());
-  const [syncStatus, setSyncStatus] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [subDraft, setSubDraft] = useState({}); // { [todoId]: string }
   const inputRef = useRef(null);
   const dragRef = useRef(null);
-  const cloudSaveTimer = useRef(null);
-  const skipNextCloudSave = useRef(false);
-  const deviceIdRef = useRef(null);
-  if (deviceIdRef.current === null) deviceIdRef.current = getDeviceId();
 
   useEffect(() => {
     setTodos((prev) => {
@@ -201,140 +165,18 @@ export default function TodoPage({
     });
   }, []);
 
+  // Reload from localStorage when account switches (skip initial mount)
+  const prevCodeRef = useRef(accountCode);
+  useEffect(() => {
+    if (prevCodeRef.current !== accountCode) {
+      prevCodeRef.current = accountCode;
+      setTodos(loadTodos(accountCode));
+    }
+  }, [accountCode]);
+
+  // Persist exclusively to localStorage (no cloud / database upload)
   useEffect(() => {
     saveTodosLocal(todos, accountCode);
-  }, [todos, accountCode]);
-
-  // Cloud load (also used by the periodic poll below)
-  const pullFromCloud = useCallback(
-    async (cancelledRef) => {
-      try {
-        setSyncStatus("syncing");
-        const r = await fetch(`/api/todos?code=${encodeURIComponent(accountCode)}`, { cache: "no-store" });
-        if (!r.ok || cancelledRef.current) {
-          if (!cancelledRef.current) setSyncStatus("");
-          return;
-        }
-        const data = await r.json().catch(() => ({}));
-        // Keep activeSince so the timer continues on this device
-        const remote = normalizeTodoList(data.todos, { stripActive: false });
-        if (cancelledRef.current) return;
-        setTodos((local) => {
-          if (remote.length === 0) return local;
-          if (local.length === 0) return remote;
-          const map = new Map();
-          for (const t of local) map.set(t.id, { ...t });
-          for (const r of remote) {
-            const existing = map.get(r.id);
-            if (!existing) {
-              map.set(r.id, r);
-            } else {
-              // Whichever side was edited more recently wins outright —
-              // e.g. a Stop (which bumps updatedAt) always beats a stale
-              // "still active" copy, instead of picking the larger
-              // activeSince and reviving a timer that was deliberately stopped.
-              const localUpdated = existing.updatedAt || 0;
-              const remoteUpdated = r.updatedAt || 0;
-              map.set(r.id, remoteUpdated >= localUpdated ? r : existing);
-            }
-          }
-          // Only one task should be actively timing
-          const actives = Array.from(map.values()).filter((t) => t.activeSince);
-          if (actives.length > 1) {
-            const keepId = actives.sort((a, b) => b.activeSince - a.activeSince)[0].id;
-            for (const [id, t] of map) {
-              if (t.activeSince && id !== keepId) {
-                map.set(id, {
-                  ...t,
-                  activeSince: null,
-                  workedMs: (t.workedMs || 0) + Math.max(0, Date.now() - t.activeSince),
-                });
-              }
-            }
-          }
-          return Array.from(map.values());
-        });
-        skipNextCloudSave.current = true;
-        setSyncStatus("ok");
-        setTimeout(() => setSyncStatus(""), 1400);
-      } catch (_) {
-        if (!cancelledRef.current) setSyncStatus("");
-      }
-    },
-    [accountCode]
-  );
-
-  // Only bother pulling (GET) if another device has checked in on this
-  // account recently. Saving (PUT, below) is never gated by this — it
-  // always fires so changes are never lost, just possibly not fetched yet.
-  const pullIfOthersPresent = useCallback(
-    async (cancelledRef) => {
-      const others = await checkOthersPresent(accountCode, deviceIdRef.current);
-      if (cancelledRef.current) return;
-      if (others) pullFromCloud(cancelledRef);
-    },
-    [accountCode, pullFromCloud]
-  );
-
-  useEffect(() => {
-    if (!accountCode) return;
-    const cancelledRef = { current: false };
-    pullIfOthersPresent(cancelledRef);
-    return () => {
-      cancelledRef.current = true;
-    };
-  }, [accountCode, pullIfOthersPresent]);
-
-  // Pull the latest state when the tab/app comes back to the foreground —
-  // no recurring timer, just a one-shot check on return.
-  useEffect(() => {
-    if (!accountCode) return;
-    const cancelledRef = { current: false };
-    const onVisible = () => {
-      if (document.visibilityState === "visible") {
-        pullIfOthersPresent(cancelledRef);
-      }
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onVisible);
-    return () => {
-      cancelledRef.current = true;
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onVisible);
-    };
-  }, [accountCode, pullIfOthersPresent]);
-
-  // Cloud save (tasks + done + workedMs)
-  useEffect(() => {
-    if (!accountCode) return;
-    if (skipNextCloudSave.current) {
-      skipNextCloudSave.current = false;
-      return;
-    }
-    if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
-    cloudSaveTimer.current = setTimeout(async () => {
-      try {
-        setSyncStatus("syncing");
-        // Send activeSince as-is so the timer can continue on other devices
-        const payload = todos.map((t) => ({
-          ...t,
-          workedMs: t.workedMs || 0,
-          activeSince: t.activeSince || null,
-        }));
-        const r = await fetch("/api/todos", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: accountCode, todos: payload }),
-        });
-        setSyncStatus(r.ok ? "ok" : "err");
-        if (r.ok) setTimeout(() => setSyncStatus(""), 1200);
-      } catch (_) {
-        setSyncStatus("err");
-      }
-    }, 800);
-    return () => {
-      if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
-    };
   }, [todos, accountCode]);
 
   const hasActive = todos.some((t) => t.activeSince);
@@ -702,8 +544,6 @@ export default function TodoPage({
             {openCount} {tr(isAr, "tasks", "مهام")}
             {workingCount > 0 ? ` · ${workingCount} ${tr(isAr, "working", "شغّال")}` : ""}
             {doneCount > 0 ? ` · ${doneCount} ${tr(isAr, "done", "خلصت")}` : ""}
-            {accountCode && syncStatus === "syncing" && <span> · {tr(isAr, "sync…", "مزامنة…")}</span>}
-            {accountCode && syncStatus === "ok" && <span style={{ color: "#30d158" }}> · ✓</span>}
           </div>
         </div>
         <button type="button" onClick={() => setViewMode("bubble")} style={headerBtn}>

@@ -476,32 +476,7 @@ function AccountModal({
                       : T("Unlink Google", "إلغاء الربط")}
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={() => fileRef.current && fileRef.current.click()}
-                  style={{
-                    minHeight: 44,
-                    padding: "0 14px",
-                    borderRadius: 12,
-                    border: "1px solid rgba(var(--border-rgb),0.28)",
-                    background: "var(--card)",
-                    color: "var(--ink)",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    cursor: "pointer",
-                  }}
-                >
-                  {T("Change photo", "تغيير الصورة")}
-                </button>
               </div>
-              {googleLinked && (
-                <p style={{ margin: "10px 0 0", fontSize: 11.5, color: "var(--muted)", lineHeight: 1.4 }}>
-                  {T(
-                    "You can still upload a different profile photo anytime — it won't unlink Google.",
-                    "تقدر تغيّر صورة الملف في أي وقت — مش هيلغي ربط Google."
-                  )}
-                </p>
-              )}
             </div>
           )}
 
@@ -715,9 +690,6 @@ function AccountModal({
             dir="ltr"
             autoComplete="bday"
           />
-          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4, marginBottom: 4 }}>
-            {T("Optional — leave empty to clear.", "اختياري — اتركه فاضي لمسحه.")}
-          </div>
 
           {/* Baccalaureate path — students only; teachers have no track/grade */}
           {account.role !== "teacher" && (
@@ -775,9 +747,7 @@ function AccountModal({
                   </select>
                 </>
               )}
-              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4, marginBottom: 4 }}>
-                {T("Your path is private — only you and admins (when editing your account) can see it.", "مسارك خاص — أنت والأدمن (لما يفتح حسابك) بس يشوفوه.")}
-              </div>
+             
             </>
           )}
 

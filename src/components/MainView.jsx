@@ -684,11 +684,6 @@ export default function MainView({
                 onPersistSiteBanner={onPersistSiteBanner}
                 onOpenExamSettings={isAdmin ? () => setShowExamSettings(true) : undefined}
                 myAccountCode={accountCode}
-                googleLinked={googleLinked}
-                googleLinkedEmail={googleLinkedEmail}
-                onLinkGoogle={onLinkGoogle}
-                onUnlinkGoogle={onUnlinkGoogle}
-                googleLinkBusy={googleLinkBusy}
                 onOpenInfo={() => setShowInfoGuide(true)}
                 onOpenAchievements={() => setShowAchievements(true)}
               />

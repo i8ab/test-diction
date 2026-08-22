@@ -624,9 +624,6 @@ function AuthScreens({
                 dir="ltr"
                 autoComplete="bday"
               />
-              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
-                {atr("You can add or change this later in your account.", "تقدر تضيفه أو تعدّله بعدين من صفحة حسابك.")}
-              </div>
             </div>
 
 
@@ -691,9 +688,6 @@ function AuthScreens({
                     <option key={s.id} value={s.id}>{appIsAr ? s.ar : s.en}</option>
                   ))}
                 </select>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
-                  {atr("Year-2 elective for your track.", "اختيار الصف الثاني حسب مسارك.")}
-                </div>
               </div>
             )}
 
@@ -722,9 +716,6 @@ function AuthScreens({
             <div className="auth-field-2">
               <label style={labelStyle} htmlFor="signup-username"><UserIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Username", "اسم المستخدم")}</label>
               <input id="signup-username" value={signupUsername} onChange={(e) => setSignupUsername(e.target.value.replace(/\s/g, "").toLowerCase())} placeholder={atr("e.g. omar_23", "مثال: omar_23")} style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace", letterSpacing: "0.02em" }} autoCapitalize="off" autoCorrect="off" autoComplete="username" spellCheck={false} dir="ltr" />
-              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
-                {atr("3–30 chars · letters, numbers, _ and . · like Instagram", "٣–٣٠ حرف · حروف وأرقام و _ و . · زي إنستغرام")}
-              </div>
             </div>
             <div className="auth-field-3">
               <label style={labelStyle} htmlFor="signup-password"><KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Password", "كلمة المرور")}</label>
@@ -1040,9 +1031,6 @@ function AuthScreens({
                 >
                   {showLoginPw ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
                 </button>
-              </div>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
-                {atr("Legacy accounts: use your old personal code as the password once.", "الحسابات القديمة: استخدم الرمز الشخصي السابق ككلمة مرور مرة واحدة.")}
               </div>
             </div>
             {authError && <div style={errorStyle} role="alert" aria-live="assertive">{translateAdminError(authError, appIsAr)}</div>}

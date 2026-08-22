@@ -463,15 +463,6 @@ export default function SiteBannerAdminModal({
                             <option value="days">{T( "Days", "أيام")}</option>
                           </select>
                         </div>
-                        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
-                          {bannerDurationAmount > 0
-                            ? T(
-                                "Banner auto-hides after this time. No dismiss (X) button.",
-                                "البانر هيختفي تلقائي بعد المدة دي. زر الإغلاق (X) مش هيظهر.")
-                            : T(
-                                "0 = stays until you turn it off. Users can dismiss with X.",
-                                "٠ = يفضل ظاهر لحد ما تقفله. المستخدم يقدر يقفله بـ X.")}
-                        </div>
                         {bannerRemainingLabel && (
                           <div
                             style={{

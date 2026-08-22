@@ -56,11 +56,6 @@ export default function HeaderMenu({
   onUnlinkVaultAccount = null,
   onLogoutAll = null,
   onLinkAccount = null,
-  googleLinked = false,
-  googleLinkedEmail = "",
-  onLinkGoogle = null,
-  onUnlinkGoogle = null,
-  googleLinkBusy = false,
 }) {
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -275,11 +270,6 @@ export default function HeaderMenu({
         onLogoutAll={onLogoutAll}
         onLinkAccount={onLinkAccount}
         myAccountCode={myAccountCode}
-        googleLinked={googleLinked}
-        googleLinkedEmail={googleLinkedEmail}
-        onLinkGoogle={onLinkGoogle}
-        onUnlinkGoogle={onUnlinkGoogle}
-        googleLinkBusy={googleLinkBusy}
       />
 
       {/* Information modal — same style as Settings, sized to content */}

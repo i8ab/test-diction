@@ -38,6 +38,14 @@ export default function PwaSyncButton({ isAr = false }) {
 
   const onSync = useCallback(async () => {
     if (busy) return;
+    // Single-flight: if another refresh is already in progress, ignore.
+    try {
+      const raw = sessionStorage.getItem("twoTongues.refreshInFlight");
+      if (raw) {
+        const ts = Number(raw);
+        if (Number.isFinite(ts) && Date.now() - ts < 20000) return;
+      }
+    } catch (_) {}
     setBusy(true);
     try {
       // Prefer the global hard-refresh helper if App registered it
@@ -45,7 +53,10 @@ export default function PwaSyncButton({ isAr = false }) {
         await window.__forceAppRefresh();
         return;
       }
-      // Fallback: ask SW to update, then reload
+      // Fallback: ask SW to update, then reload (still under single-flight lock)
+      try {
+        sessionStorage.setItem("twoTongues.refreshInFlight", String(Date.now()));
+      } catch (_) {}
       if ("serviceWorker" in navigator) {
         try {
           const reg = await navigator.serviceWorker.getRegistration();
@@ -59,7 +70,11 @@ export default function PwaSyncButton({ isAr = false }) {
       u.searchParams.set("_r", String(Date.now()));
       window.location.replace(u.toString());
     } catch (_) {
-      try { window.location.reload(); } catch (__) {}
+      try {
+        window.location.reload();
+      } catch (__) {
+        try { sessionStorage.removeItem("twoTongues.refreshInFlight"); } catch (___) {}
+      }
     } finally {
       // reload should unmount; if not, clear busy after a moment
       setTimeout(() => setBusy(false), 4000);

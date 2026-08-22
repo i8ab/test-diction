@@ -61,90 +61,72 @@ import {
   getMainAccountCode, setMainAccountCode,
 } from "./lib/state/accountVault";
 import { capLogs, makeLogEntry } from "./lib/state/logs";
-import { LoaderIcon } from "./components/common/Icons";
-import { Shell } from "./components/layout/Shell";
+
 
 // تحميل كسول للمكونات الكبيرة — يقلل حجم الحزمة الأولية ويسرّع First Paint
 const AuthScreens = lazy(() => import("./components/auth/AuthScreens"));
 const MainView = lazy(() => import("./components/MainView"));
 
+/** Minimal Suspense fallback: only the word "Loading", centered. No logo, no chrome. */
 function AppLoadingFallback() {
-  const label = deviceIsAr ? "جاري التحميل…" : "Loading…";
   return (
-    <Shell>
-      <div
-        role="status"
-        aria-live="polite"
-        aria-busy="true"
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 14,
-          color: "var(--muted-strong)",
-          minHeight: "42vh",
-          padding: "24px 16px",
-        }}
-      >
-        <div
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: 12,
-            overflow: "hidden",
-            flexShrink: 0,
-            boxShadow: "0 4px 14px rgba(24,35,42,0.08)",
-          }}
-        >
-          <img
-            src="/icons/logo.png"
-            alt=""
-            width={48}
-            height={48}
-            decoding="async"
-            style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-          />
-        </div>
-        <div
-          style={{
-            width: 112,
-            height: 4,
-            borderRadius: 4,
-            background: "rgba(var(--border-rgb),0.12)",
-            overflow: "hidden",
-          }}
-          aria-hidden="true"
-        >
-          <span
-            className="app-load-bar"
-            style={{
-              display: "block",
-              height: "100%",
-              width: "40%",
-              borderRadius: 4,
-              background: "var(--accent-1)",
-              transformOrigin: "left center",
-              animation: "app-load-progress 1.1s ease-in-out infinite",
-              willChange: "transform",
-            }}
-          />
-        </div>
-        <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: "0.01em" }}>{label}</span>
-        <style>{`
-          @keyframes app-load-progress {
-            0%   { transform: translateX(-100%) scaleX(0.4); }
-            50%  { transform: translateX(60%) scaleX(1); }
-            100% { transform: translateX(250%) scaleX(0.4); }
-          }
-          @media (prefers-reduced-motion: reduce) {
-            .app-load-bar { animation: none !important; width: 100% !important; opacity: 0.7; }
-          }
-        `}</style>
-      </div>
-    </Shell>
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      style={{
+        minHeight: "100dvh",
+        display: "grid",
+        placeItems: "center",
+        margin: 0,
+        background: "var(--paper)",
+        color: "var(--muted-strong)",
+        fontSize: 15,
+        fontWeight: 600,
+        letterSpacing: "0.02em",
+        fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif",
+      }}
+    >
+      Loading
+    </div>
   );
 }
+
+/** Single-flight refresh lock (survives navigation via sessionStorage). */
+const REFRESH_LOCK_KEY = "twoTongues.refreshInFlight";
+const REFRESH_LOCK_TTL_MS = 20000;
+
+function isRefreshInFlight() {
+  try {
+    const raw = sessionStorage.getItem(REFRESH_LOCK_KEY);
+    if (!raw) return false;
+    const ts = Number(raw);
+    if (!Number.isFinite(ts)) {
+      sessionStorage.removeItem(REFRESH_LOCK_KEY);
+      return false;
+    }
+    if (Date.now() - ts > REFRESH_LOCK_TTL_MS) {
+      sessionStorage.removeItem(REFRESH_LOCK_KEY);
+      return false;
+    }
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function beginRefreshLock() {
+  try {
+    sessionStorage.setItem(REFRESH_LOCK_KEY, String(Date.now()));
+  } catch (_) {}
+}
+
+function endRefreshLock() {
+  try {
+    sessionStorage.removeItem(REFRESH_LOCK_KEY);
+  } catch (_) {}
+}
+
 
 
 const deviceIsAr = detectDeviceIsAr();
@@ -535,7 +517,13 @@ export default function DictionaryApp() {
   }, []);
 
 useEffect(() => {
+    // Clear any stale single-flight lock from a prior successful navigation.
+    endRefreshLock();
+
     window.__forceAppRefresh = async () => {
+      // Only one programmatic refresh may run at a time.
+      if (isRefreshInFlight()) return;
+      beginRefreshLock();
       try {
         if ("serviceWorker" in navigator) {
           const regs = await navigator.serviceWorker.getRegistrations();
@@ -554,7 +542,11 @@ useEffect(() => {
         u.searchParams.set("_r", String(Date.now()));
         window.location.replace(u.toString());
       } catch (_) {
-        window.location.reload();
+        try {
+          window.location.reload();
+        } catch (__) {
+          endRefreshLock();
+        }
       }
     };
     return () => {
@@ -597,11 +589,15 @@ useEffect(() => {
       });
     // When a new worker takes control, do one clean reload so the user
     // sees the new assets without having to manually refresh twice.
-    let refreshing = false;
+    // Guarded by the same single-flight lock used by __forceAppRefresh.
     const onControllerChange = () => {
-      if (refreshing) return;
-      refreshing = true;
-      try { window.location.reload(); } catch (_) {}
+      if (isRefreshInFlight()) return;
+      beginRefreshLock();
+      try {
+        window.location.reload();
+      } catch (_) {
+        endRefreshLock();
+      }
     };
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
     return () => {
@@ -2272,13 +2268,7 @@ useEffect(() => {
   if (!accountCode) {
     // Safety net: never render the authenticated app without a real
     // signed-in account code, even if authStage somehow says "in".
-    return (
-      <Shell>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--muted-strong)" }}>
-          <LoaderIcon size={18} /><span>Signing you in…</span>
-        </div>
-      </Shell>
-    );
+    return <AppLoadingFallback />;
   }
 
   return (

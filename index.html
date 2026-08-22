@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Bacaloria community</title>
 <meta name="description" content="قاموس إنجليزي عربي مشترك مع نطق كامبريدج واختبارات ومراجعة ذكية للمجموعات الدراسية — Shared English–Arabic dictionary with Cambridge pronunciation, quizzes and smart review for study groups." />
-<!-- Branding for Google Search / social previews -->
 <link rel="canonical" href="https://test-diction.vercel.app/" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Bacaloria Community" />
@@ -40,15 +39,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="application-name" content="Bacaloria" />
-<!-- خطوط أقل = تحميل أسرع -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- Load non-critical web fonts without blocking the first paint. System fallbacks render immediately.
-     Fraunces added as a display serif for the brand mark and section titles — gives the app a
-     printed/editorial feel instead of the default UI-sans look everywhere. -->
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Source+Sans+3:wght@400;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Source+Sans+3:wght@400;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet"></noscript>
-<!-- Critical theme detection — runs synchronously before first paint to prevent flash. -->
 <script>
 try{
   var t=localStorage.getItem('twoTongues.theme')||'light';
@@ -59,25 +53,12 @@ try{
 </script>
 </head>
 <body>
-<!-- Lightweight HTML shell paints before React — optimized for FCP & LCP. -->
 <div id="root">
-  <main id="initial-shell" role="status" aria-live="polite" aria-busy="true" aria-label="Bacaloria Community">
-    <div class="initial-shell-card">
-      <div class="initial-shell-logo" aria-hidden="true">
-        <img src="/icons/logo.png" alt="" width="48" height="48" decoding="async" fetchpriority="high" />
-      </div>
-      <div class="initial-shell-brand"><strong>Bacaloria Community</strong></div>
-      <p class="initial-shell-tagline">English ⇄ Arabic · قاموس</p>
-      <div class="initial-shell-loader" aria-hidden="true">
-        <span class="initial-shell-bar"></span>
-      </div>
-      <p class="initial-shell-status">جاري التحميل… · Loading</p>
-    </div>
+  <main id="initial-shell" role="status" aria-live="polite" aria-busy="true" aria-label="Loading">
+    <p class="initial-shell-loading">Loading</p>
   </main>
 </div>
 <style>
-  /* ── Critical CSS variables (light + dark) ── inlined so the browser
-     can paint correct theme colors before the external CSS file loads. */
   :root {
     --paper: #FAFDFE; --card: #FFFFFF; --ink: #146C94;
     --accent-1: #19A7CE; --accent-1-soft: #D3E7EF;
@@ -109,94 +90,26 @@ try{
     z-index: -1; pointer-events: none; background-color: var(--paper);
     background-image: var(--app-bg, none), var(--app-bg-image, none);
     background-size: cover, cover; background-position: center top, center top;
-    background-repeat: no-repeat, no-repeat; transform: translateZ(0); will-change: auto; overscroll-behavior: none; }
+    background-repeat: no-repeat, no-repeat; transform: translateZ(0); overscroll-behavior: none; }
   input:focus, textarea:focus { border-color: var(--accent-1) !important; box-shadow: 0 0 0 3px rgba(var(--focus-rgb),0.18); outline: none; }
-
-  /* ── Initial loading shell — clean, organized, GPU-friendly ── */
+  /* Minimal first paint: only the word Loading, centered. No logo, no card. */
   #initial-shell {
     min-height: 100dvh;
+    margin: 0;
     display: grid;
     place-items: center;
-    padding: 24px;
     background: var(--paper);
-    color: var(--ink);
-  }
-  .initial-shell-card {
-    width: min(360px, 100%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    padding: 32px 28px 28px;
-    text-align: center;
-    border: 1px solid rgba(var(--border-rgb), 0.12);
-    border-radius: 20px;
-    background: var(--card);
-    box-shadow: 0 8px 28px rgba(24, 35, 42, 0.07);
-    font-family: var(--font-latin);
-  }
-  .initial-shell-logo {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    overflow: hidden;
-    flex-shrink: 0;
-  }
-  .initial-shell-logo img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    display: block;
-  }
-  .initial-shell-brand {
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--ink);
-    line-height: 1.25;
-  }
-  .initial-shell-tagline {
-    margin: 0;
-    color: var(--muted);
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1.3;
-  }
-  .initial-shell-loader {
-    width: 120px;
-    height: 4px;
-    margin-top: 6px;
-    border-radius: 4px;
-    background: rgba(var(--border-rgb), 0.12);
-    overflow: hidden;
-  }
-  .initial-shell-bar {
-    display: block;
-    height: 100%;
-    width: 40%;
-    border-radius: 4px;
-    background: var(--accent-1);
-    transform-origin: left center;
-    animation: initial-shell-progress 1.1s ease-in-out infinite;
-    will-change: transform;
-  }
-  @keyframes initial-shell-progress {
-    0%   { transform: translateX(-100%) scaleX(0.4); }
-    50%  { transform: translateX(60%) scaleX(1); }
-    100% { transform: translateX(250%) scaleX(0.4); }
-  }
-  .initial-shell-status {
-    margin: 0;
-    font-size: 12px;
-    font-weight: 600;
     color: var(--muted-strong);
-    letter-spacing: 0.01em;
   }
-  @media (prefers-reduced-motion: reduce) {
-    .initial-shell-bar { animation: none; width: 100%; opacity: 0.7; }
+  .initial-shell-loading {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--muted-strong);
   }
 </style>
 <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
-

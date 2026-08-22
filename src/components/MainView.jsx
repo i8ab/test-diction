@@ -78,6 +78,11 @@ export default function MainView({
   reminderIntervalHours, onChangeReminderIntervalHours,
   vaultAccounts = [], mainAccountCode = "",
   onSwitchAccount, onSetMainAccount, onUnlinkVaultAccount, onLogoutAll, onLinkAccount,
+  googleLinked = false,
+  googleLinkedEmail = "",
+  onLinkGoogle = null,
+  onUnlinkGoogle = null,
+  googleLinkBusy = false,
 }) {
   const cfg = SECTIONS[section] || SECTIONS["en-ar"];
   const isAr = section === "ar-ar";
@@ -679,7 +684,11 @@ export default function MainView({
                 onPersistSiteBanner={onPersistSiteBanner}
                 onOpenExamSettings={isAdmin ? () => setShowExamSettings(true) : undefined}
                 myAccountCode={accountCode}
-              
+                googleLinked={googleLinked}
+                googleLinkedEmail={googleLinkedEmail}
+                onLinkGoogle={onLinkGoogle}
+                onUnlinkGoogle={onUnlinkGoogle}
+                googleLinkBusy={googleLinkBusy}
                 onOpenInfo={() => setShowInfoGuide(true)}
                 onOpenAchievements={() => setShowAchievements(true)}
               />

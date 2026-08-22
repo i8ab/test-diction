@@ -742,6 +742,9 @@ export default function TodoPage({
               const hasNote = !!(t.note && t.note.trim());
               const subs = Array.isArray(t.subtasks) ? t.subtasks : [];
               const subDone = subs.filter((s) => s.done).length;
+              const hasSubs = subs.length > 0;
+              const subPct = hasSubs ? Math.round((subDone / subs.length) * 100) : 0;
+              const batteryFill = t.done ? 100 : subPct;
               return (
                 <li
                   key={t.id}
@@ -767,24 +770,75 @@ export default function TodoPage({
                     <button
                       type="button"
                       onClick={() => toggleTodo(t.id)}
-                      aria-label={t.done ? tr(isAr, "Mark as task", "إرجاع كمهمة") : tr(isAr, "Mark done", "خلصت")}
+                      aria-label={
+                        hasSubs
+                          ? (t.done
+                              ? tr(isAr, "Mark as task", "إرجاع كمهمة")
+                              : `${tr(isAr, "Mark done", "خلصت")} (${subPct}%)`)
+                          : (t.done ? tr(isAr, "Mark as task", "إرجاع كمهمة") : tr(isAr, "Mark done", "خلصت"))
+                      }
+                      title={hasSubs && !t.done ? `${subDone}/${subs.length}` : undefined}
                       style={{
-                        width: 22,
-                        height: 22,
-                        borderRadius: 6,
+                        position: "relative",
+                        width: hasSubs ? 28 : 22,
+                        height: hasSubs ? 28 : 22,
+                        borderRadius: hasSubs ? 7 : 6,
                         flexShrink: 0,
                         padding: 0,
-                        border: t.done ? "none" : "1.5px solid rgba(var(--border-rgb),0.3)",
-                        background: t.done ? "#30d158" : "transparent",
+                        border: t.done || (hasSubs && batteryFill > 0)
+                          ? "none"
+                          : "1.5px solid rgba(var(--border-rgb),0.3)",
+                        background: t.done
+                          ? "#30d158"
+                          : hasSubs
+                            ? "rgba(var(--border-rgb),0.08)"
+                            : "transparent",
                         color: "#fff",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                         cursor: "pointer",
+                        overflow: "hidden",
                       }}
                     >
-                      {t.done ? <CheckIcon size={12} /> : null}
+                      {/* Battery-style proportional fill for tasks with subtasks */}
+                      {hasSubs && !t.done && batteryFill > 0 && (
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            width: `${batteryFill}%`,
+                            background: batteryFill >= 100
+                              ? "#30d158"
+                              : "color-mix(in srgb, #30d158 75%, var(--accent-1, #0a84ff))",
+                            transition: "width 0.25s ease",
+                            borderRadius: "inherit",
+                          }}
+                        />
+                      )}
+                      {t.done ? (
+                        <CheckIcon size={hasSubs ? 14 : 12} style={{ position: "relative", zIndex: 1 }} />
+                      ) : hasSubs ? (
+                        <span
+                          style={{
+                            position: "relative",
+                            zIndex: 1,
+                            fontSize: batteryFill >= 100 ? 10 : 9,
+                            fontWeight: 800,
+                            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                            color: batteryFill >= 45 ? "#fff" : "var(--ink)",
+                            lineHeight: 1,
+                            letterSpacing: "-0.02em",
+                            textShadow: batteryFill >= 45 ? "0 0 2px rgba(0,0,0,0.25)" : "none",
+                            pointerEvents: "none",
+                          }}
+                        >
+                          {batteryFill}%
+                        </span>
+                      ) : null}
                     </button>
+
 
                     <span
                       style={{

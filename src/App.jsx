@@ -81,19 +81,71 @@ function AppLoadingFallback() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: 12,
+          gap: 14,
           color: "var(--muted-strong)",
-          minHeight: "40vh",
-          fontSize: 15,
-          fontWeight: 600,
+          minHeight: "42vh",
+          padding: "24px 16px",
         }}
       >
-        <LoaderIcon size={22} />
-        <span>{label}</span>
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 12,
+            overflow: "hidden",
+            flexShrink: 0,
+            boxShadow: "0 4px 14px rgba(24,35,42,0.08)",
+          }}
+        >
+          <img
+            src="/icons/logo.png"
+            alt=""
+            width={48}
+            height={48}
+            decoding="async"
+            style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+          />
+        </div>
+        <div
+          style={{
+            width: 112,
+            height: 4,
+            borderRadius: 4,
+            background: "rgba(var(--border-rgb),0.12)",
+            overflow: "hidden",
+          }}
+          aria-hidden="true"
+        >
+          <span
+            className="app-load-bar"
+            style={{
+              display: "block",
+              height: "100%",
+              width: "40%",
+              borderRadius: 4,
+              background: "var(--accent-1)",
+              transformOrigin: "left center",
+              animation: "app-load-progress 1.1s ease-in-out infinite",
+              willChange: "transform",
+            }}
+          />
+        </div>
+        <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: "0.01em" }}>{label}</span>
+        <style>{`
+          @keyframes app-load-progress {
+            0%   { transform: translateX(-100%) scaleX(0.4); }
+            50%  { transform: translateX(60%) scaleX(1); }
+            100% { transform: translateX(250%) scaleX(0.4); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .app-load-bar { animation: none !important; width: 100% !important; opacity: 0.7; }
+          }
+        `}</style>
       </div>
     </Shell>
   );
 }
+
 
 const deviceIsAr = detectDeviceIsAr();
 const savedPersonalCode = loadPersonalCode();

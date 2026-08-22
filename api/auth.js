@@ -1,0 +1,169 @@
+/**
+ * Consolidated Auth endpoint (Hobby plan safe).
+ *
+ * Routes (via vercel.json rewrites OR query/body):
+ *   POST /api/auth-google     → provider=google
+ *   POST /api/auth-facebook   → provider=facebook
+ *   POST /api/login           → provider=legacy  (retired → 410)
+ *
+ * Direct call also supported:
+ *   POST /api/auth?provider=google|facebook|legacy
+ *   POST /api/auth  + body.provider
+ *
+ * Google  → verifies ID token server-side (never trust client JWT)
+ * Facebook → verifies access token + fetches profile server-side
+ * Legacy  → Access-code login was removed
+ */
+
+function getProvider(req) {
+  const q = req.query?.provider;
+  if (typeof q === "string" && q.trim()) return q.trim().toLowerCase();
+  if (Array.isArray(q) && q[0]) return String(q[0]).trim().toLowerCase();
+
+  const body = parseBody(req);
+  if (body && typeof body.provider === "string" && body.provider.trim()) {
+    return body.provider.trim().toLowerCase();
+  }
+  return "";
+}
+
+function parseBody(req) {
+  let body = req.body;
+  if (typeof body === "string") {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      body = null;
+    }
+  }
+  return body && typeof body === "object" ? body : {};
+}
+
+async function handleGoogle(req, res) {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) {
+    return res.status(500).json({
+      ok: false,
+      error: "Google sign-in is not configured on the server.",
+    });
+  }
+
+  const body = parseBody(req);
+  const credential = body.credential;
+  if (!credential || typeof credential !== "string") {
+    return res.status(400).json({ ok: false, error: "Missing credential." });
+  }
+
+  try {
+    const r = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`
+    );
+    if (!r.ok) {
+      return res.status(401).json({ ok: false, error: "Invalid or expired Google token." });
+    }
+    const payload = await r.json();
+
+    if (payload.aud !== clientId) {
+      return res.status(401).json({ ok: false, error: "Token was not issued for this app." });
+    }
+    if (payload.email_verified !== "true" && payload.email_verified !== true) {
+      return res.status(401).json({ ok: false, error: "Google account email is not verified." });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      providerId: payload.sub,
+      email: payload.email,
+      name: payload.name || payload.email.split("@")[0],
+      picture: payload.picture || null,
+    });
+  } catch {
+    return res.status(500).json({ ok: false, error: "Could not verify Google sign-in." });
+  }
+}
+
+async function handleFacebook(req, res) {
+  const appId = process.env.FACEBOOK_APP_ID;
+  const appSecret = process.env.FACEBOOK_APP_SECRET;
+  if (!appId || !appSecret) {
+    return res.status(500).json({
+      ok: false,
+      error: "Facebook sign-in is not configured on the server.",
+    });
+  }
+
+  const body = parseBody(req);
+  const accessToken = body.accessToken;
+  if (!accessToken || typeof accessToken !== "string") {
+    return res.status(400).json({ ok: false, error: "Missing access token." });
+  }
+
+  try {
+    const appAccessToken = `${appId}|${appSecret}`;
+    const debugRes = await fetch(
+      `https://graph.facebook.com/debug_token?input_token=${encodeURIComponent(accessToken)}&access_token=${encodeURIComponent(appAccessToken)}`
+    );
+    const debug = await debugRes.json();
+    const info = debug && debug.data;
+    if (!info || !info.is_valid || info.app_id !== appId) {
+      return res.status(401).json({ ok: false, error: "Invalid or expired Facebook token." });
+    }
+
+    const profileRes = await fetch(
+      `https://graph.facebook.com/me?fields=id,name,email,picture.type(large)&access_token=${encodeURIComponent(accessToken)}`
+    );
+    if (!profileRes.ok) {
+      return res.status(401).json({ ok: false, error: "Could not fetch Facebook profile." });
+    }
+    const profile = await profileRes.json();
+
+    if (!profile.email) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "This Facebook account has no email on file. Please use email/password or Google sign-in instead.",
+      });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      providerId: profile.id,
+      email: profile.email,
+      name: profile.name || profile.email.split("@")[0],
+      picture: (profile.picture && profile.picture.data && profile.picture.data.url) || null,
+    });
+  } catch {
+    return res.status(500).json({ ok: false, error: "Could not verify Facebook sign-in." });
+  }
+}
+
+function handleLegacy(_req, res) {
+  return res.status(410).json({
+    ok: false,
+    error: "Access code login has been removed. Sign in with username and password only.",
+  });
+}
+
+export default async function handler(req, res) {
+  res.setHeader("Allow", "POST");
+  if (req.method !== "POST") {
+    return res.status(405).json({ ok: false, error: "Method not allowed" });
+  }
+
+  const provider = getProvider(req);
+
+  switch (provider) {
+    case "google":
+      return handleGoogle(req, res);
+    case "facebook":
+      return handleFacebook(req, res);
+    case "legacy":
+    case "login":
+      return handleLegacy(req, res);
+    default:
+      return res.status(400).json({
+        ok: false,
+        error: 'Missing or invalid provider. Use "google", "facebook", or "legacy".',
+      });
+  }
+}

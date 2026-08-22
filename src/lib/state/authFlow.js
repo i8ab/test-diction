@@ -762,3 +762,211 @@ export async function performSocialLogin(p) {
     );
   }
 }
+
+
+/**
+ * Link a verified Google profile to the currently signed-in account.
+ * Must only be called after /api/auth-google (or /api/auth?provider=google)
+ * has returned ok:true — never trust client-side SDK fields alone.
+ *
+ * @param {object} p
+ * @param {{ providerId: string, email: string, name?: string, picture?: string }} p.profile
+ * @param {string} p.accountCode
+ * @param {object[]} p.accounts
+ * @param {function} p.setAccounts
+ * @param {function} p.persistAccounts  (accountsFn, logEntryFn?) => Promise
+ * @param {boolean} [p.appIsAr]
+ * @returns {Promise<{ ok: true, account: object } | { ok: false, error: string }>}
+ */
+export async function linkGoogleToCurrentAccount(p) {
+  const {
+    profile,
+    accountCode,
+    accounts,
+    setAccounts,
+    persistAccounts,
+    appIsAr = false,
+  } = p;
+
+  if (!profile || !profile.providerId) {
+    return {
+      ok: false,
+      error: appIsAr
+        ? "تعذّر قراءة بيانات Google. حاول مرة أخرى."
+        : "Couldn't read Google account details. Please try again.",
+    };
+  }
+  if (!accountCode || accountCode === "guest") {
+    return {
+      ok: false,
+      error: appIsAr
+        ? "يجب تسجيل الدخول أولاً لربط Google."
+        : "You must be signed in to link Google.",
+    };
+  }
+
+  const providerId = String(profile.providerId);
+  const email = profile.email ? String(profile.email).trim().toLowerCase() : "";
+
+  const list = Array.isArray(accounts) ? accounts : [];
+  const current = list.find((a) => a && a.code === accountCode);
+  if (!current) {
+    return {
+      ok: false,
+      error: appIsAr ? "الحساب الحالي غير موجود." : "Current account not found.",
+    };
+  }
+  if (current.status && current.status !== "active") {
+    return {
+      ok: false,
+      error: appIsAr
+        ? "يمكن ربط Google للحسابات المفعّلة فقط."
+        : "Only active accounts can link Google.",
+    };
+  }
+
+  // Already linked to this same Google identity
+  if (current.authProvider === "google" && current.socialId === providerId) {
+    return { ok: true, account: current, alreadyLinked: true };
+  }
+
+  // Conflict: this Google identity belongs to another account
+  const clash = list.find(
+    (a) =>
+      a &&
+      a.code !== accountCode &&
+      a.authProvider === "google" &&
+      a.socialId === providerId
+  );
+  if (clash) {
+    return {
+      ok: false,
+      error: appIsAr
+        ? "حساب Google ده مربوط بحساب تاني في الموقع."
+        : "This Google account is already linked to a different user.",
+    };
+  }
+
+  // Optional: email already used by a different account (warn / block)
+  if (email) {
+    const emailClash = list.find(
+      (a) =>
+        a &&
+        a.code !== accountCode &&
+        a.email &&
+        String(a.email).toLowerCase() === email
+    );
+    if (emailClash) {
+      return {
+        ok: false,
+        error: appIsAr
+          ? "البريد الإلكتروني لـ Google مستخدم في حساب آخر."
+          : "This Google email is already used by another account.",
+      };
+    }
+  }
+
+  const updated = {
+    ...current,
+    authProvider: "google",
+    socialId: providerId,
+    // Fill email only if the account has none yet
+    ...(email && !current.email ? { email } : {}),
+    // Optionally refresh avatar if empty
+    ...(profile.picture && !current.avatar ? { avatar: profile.picture } : {}),
+  };
+
+  try {
+    await persistAccounts(
+      (cur) =>
+        (cur || []).map((a) => (a.code === accountCode ? { ...a, ...updated } : a)),
+      () =>
+        makeLogEntry(
+          "account_link_google",
+          `${updated.name || updated.username} linked Google (${email || providerId})`,
+          updated.name || updated.username,
+          accountCode
+        )
+    );
+    if (typeof setAccounts === "function") {
+      // persistAccounts already updates state optimistically
+    }
+    return { ok: true, account: updated };
+  } catch (e) {
+    return {
+      ok: false,
+      error: appIsAr
+        ? "تعذّر حفظ الربط. حاول مرة أخرى."
+        : "Couldn't save the link. Please try again.",
+    };
+  }
+}
+
+/**
+ * Unlink Google from the current account.
+ * Requires a password (or another non-social login) so the user is not locked out.
+ *
+ * @param {object} p
+ * @param {string} p.accountCode
+ * @param {object[]} p.accounts
+ * @param {function} p.persistAccounts
+ * @param {boolean} [p.appIsAr]
+ */
+export async function unlinkGoogleFromCurrentAccount(p) {
+  const { accountCode, accounts, persistAccounts, appIsAr = false } = p;
+
+  if (!accountCode || accountCode === "guest") {
+    return {
+      ok: false,
+      error: appIsAr ? "يجب تسجيل الدخول أولاً." : "You must be signed in.",
+    };
+  }
+
+  const list = Array.isArray(accounts) ? accounts : [];
+  const current = list.find((a) => a && a.code === accountCode);
+  if (!current) {
+    return { ok: false, error: appIsAr ? "الحساب غير موجود." : "Account not found." };
+  }
+
+  if (current.authProvider !== "google" && !current.socialId) {
+    return { ok: true, account: current, alreadyUnlinked: true };
+  }
+
+  // Prevent lock-out: must have a password hash to sign in without Google
+  if (!current.passwordHash) {
+    return {
+      ok: false,
+      error: appIsAr
+        ? "ضع كلمة مرور للحساب قبل إلغاء ربط Google."
+        : "Set a password on this account before unlinking Google.",
+    };
+  }
+
+  try {
+    await persistAccounts(
+      (cur) =>
+        (cur || []).map((a) => {
+          if (a.code !== accountCode) return a;
+          const next = { ...a };
+          delete next.authProvider;
+          delete next.socialId;
+          return next;
+        }),
+      () =>
+        makeLogEntry(
+          "account_unlink_google",
+          `${current.name || current.username} unlinked Google`,
+          current.name || current.username,
+          accountCode
+        )
+    );
+    return { ok: true };
+  } catch (_) {
+    return {
+      ok: false,
+      error: appIsAr
+        ? "تعذّر إلغاء الربط. حاول مرة أخرى."
+        : "Couldn't unlink Google. Please try again.",
+    };
+  }
+}

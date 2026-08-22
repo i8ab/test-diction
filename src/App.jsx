@@ -326,7 +326,8 @@ export default function DictionaryApp() {
   );
   const [accountCode, setAccountCode] = useState(
     () => initialOffline?.usableAccount?.code || ""
-  ); // this browser's signed-in account's personal code
+  );
+  const [googleLinkBusy, setGoogleLinkBusy] = useState(false); // this browser's signed-in account's personal code
   const [vaultAccounts, setVaultAccounts] = useState(() => loadAccountVault());
   const [mainAccountCode, setMainAccountCodeState] = useState(() => getMainAccountCode());
   const [linkMode, setLinkMode] = useState(false);
@@ -1671,7 +1672,6 @@ useEffect(() => {
   }
 
   async function handleSocialLogin(provider) {
-    // Facebook login removed from UI and client — Google only.
     if (provider !== "google") {
       setAuthError("Only Google sign-in is available.");
       return;
@@ -1768,6 +1768,80 @@ useEffect(() => {
       setShowAdmin,
       setShowAdd,
     });
+  }
+
+
+  async function handleLinkGoogle() {
+    if (googleLinkBusy || !accountCode || accountCode === "guest") return;
+    setGoogleLinkBusy(true);
+    try {
+      const [{ signInWithGoogle }, { linkGoogleToCurrentAccount }] = await Promise.all([
+        import("./lib/state/socialAuth"),
+        import("./lib/state/authFlow"),
+      ]);
+      const profile = await signInWithGoogle();
+      const result = await linkGoogleToCurrentAccount({
+        profile,
+        accountCode,
+        accounts: accountsRef.current.length ? accountsRef.current : accounts,
+        setAccounts,
+        persistAccounts,
+        appIsAr,
+      });
+      if (!result.ok) {
+        if (typeof showToast === "function") {
+          showToast(result.error || "Link failed");
+        } else {
+          window.alert(result.error || "Link failed");
+        }
+        return;
+      }
+      if (typeof showToast === "function") {
+        showToast(
+          result.alreadyLinked
+            ? (appIsAr ? "Google مربوط مسبقاً" : "Google already linked")
+            : (appIsAr ? "تم ربط حساب Google بنجاح" : "Google account linked successfully")
+        );
+      }
+    } catch (e) {
+      const msg = (e && e.message) || (appIsAr ? "تعذّر الربط" : "Could not link Google");
+      if (typeof showToast === "function") showToast(msg);
+      else window.alert(msg);
+    } finally {
+      setGoogleLinkBusy(false);
+    }
+  }
+
+  async function handleUnlinkGoogle() {
+    if (googleLinkBusy || !accountCode || accountCode === "guest") return;
+    const confirmMsg = appIsAr
+      ? "إلغاء ربط Google؟ ستحتاج اسم المستخدم وكلمة المرور لتسجيل الدخول."
+      : "Unlink Google? You'll need username and password to sign in.";
+    if (!window.confirm(confirmMsg)) return;
+    setGoogleLinkBusy(true);
+    try {
+      const { unlinkGoogleFromCurrentAccount } = await import("./lib/state/authFlow");
+      const result = await unlinkGoogleFromCurrentAccount({
+        accountCode,
+        accounts: accountsRef.current.length ? accountsRef.current : accounts,
+        persistAccounts,
+        appIsAr,
+      });
+      if (!result.ok) {
+        if (typeof showToast === "function") showToast(result.error || "Unlink failed");
+        else window.alert(result.error || "Unlink failed");
+        return;
+      }
+      if (typeof showToast === "function") {
+        showToast(appIsAr ? "تم إلغاء ربط Google" : "Google unlinked");
+      }
+    } catch (e) {
+      const msg = (e && e.message) || (appIsAr ? "تعذّر إلغاء الربط" : "Could not unlink");
+      if (typeof showToast === "function") showToast(msg);
+      else window.alert(msg);
+    } finally {
+      setGoogleLinkBusy(false);
+    }
   }
 
   function beginLinkAccount() {
@@ -2140,6 +2214,11 @@ useEffect(() => {
       onUnlinkVaultAccount={unlinkVaultAccount}
       onLogoutAll={() => handleLogout({ clearVault: true })}
       onLinkAccount={beginLinkAccount}
+      googleLinked={(() => { const a = accounts.find((x) => x.code === accountCode); return !!(a && a.authProvider === "google" && a.socialId); })()}
+      googleLinkedEmail={(() => { const a = accounts.find((x) => x.code === accountCode); return (a && a.email) || ""; })()}
+      onLinkGoogle={handleLinkGoogle}
+      onUnlinkGoogle={handleUnlinkGoogle}
+      googleLinkBusy={googleLinkBusy}
       siteBanner={siteBanner} examConfig={examConfig} onPersistExamConfig={persistExamConfig} onPersistSiteBanner={persistSiteBanner} academicUnits={academicUnits} activeUnitId={activeUnitId} onChangeActiveUnitId={setActiveUnitId} onPersistAcademicUnits={persistAcademicUnits}
       showAdmin={showAdmin} onOpenAdmin={openAdminModal} onCloseAdmin={closeAdminModal}
       onAdminAddAccount={handleAdminAddAccount} onAdminEditAccount={handleAdminEditAccount} onAdminDeleteAccount={handleAdminDeleteAccount}

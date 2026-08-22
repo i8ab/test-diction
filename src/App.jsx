@@ -1670,6 +1670,43 @@ useEffect(() => {
     });
   }
 
+  async function handleSocialLogin(provider) {
+    const [{ signInWithGoogle, signInWithFacebook }, { performSocialLogin }] = await Promise.all([
+      import("./lib/state/socialAuth"),
+      import("./lib/state/authFlow"),
+    ]);
+    setAuthError("");
+    try {
+      const profile = await (provider === "google" ? signInWithGoogle() : signInWithFacebook());
+      await performSocialLogin({
+        provider,
+        profile,
+        appIsAr,
+        ensureMigratedAccounts,
+        commitRecordVersion,
+        setAuthError,
+        setLoggingIn,
+        setAccounts,
+        setEntries,
+        setLogs,
+        setSiteBanner,
+        setExamConfig,
+        setName,
+        setIsAdmin,
+        setIsTeacher,
+        setAccountCode,
+        setVaultAccounts,
+        linkMode,
+        setLinkMode,
+        setMainAccountCodeState,
+        goToStage,
+        persistAccounts,
+      });
+    } catch (err) {
+      setAuthError((err && err.message) || "Sign-in failed.");
+    }
+  }
+
   async function handleLogin(e) {
     // Same fix as handleSignup above: cancel the form's default submit
     // synchronously, before the await, or the browser reloads the page.
@@ -2055,6 +2092,7 @@ useEffect(() => {
           usernameInput={usernameInput} setUsernameInput={setUsernameInput}
           passwordInput={passwordInput} setPasswordInput={setPasswordInput}
           authError={authError} setAuthError={setAuthError} loggingIn={loggingIn} handleLogin={handleLogin}
+          handleSocialLogin={handleSocialLogin}
           linkMode={linkMode} onCancelLink={cancelLinkAccount}
         />
       </Suspense>

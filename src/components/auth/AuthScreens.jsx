@@ -5,7 +5,7 @@ import "./auth.css";
 // pending-approval screen, restoring-session spinner, and login
 // (username + password).
 import { tr } from "../../lib/config/i18n";
-import { INK, PAPER, BRASS, labelStyle, errorStyle, primaryBtnStyle, authCardStyle, authInputStyle, authBadgeWrapStyle } from "../../lib/config/theme";
+import { INK, PAPER, BRASS, labelStyle, errorStyle, primaryBtnStyle, authCardStyle, authInputStyle, authBadgeWrapStyle, socialBtnStyle } from "../../lib/config/theme";
 import { translateAdminError } from "../../lib/state/logs";
 import {
   SearchIcon, PlusIcon, BookIcon, LoginIcon, KeyIcon, CheckIcon,
@@ -60,6 +60,40 @@ function compressImageFile(file) {
 }
 
 
+function SocialButtons({ atr, handleSocialLogin, busy, setBusy }) {
+  if (typeof handleSocialLogin !== "function") return null;
+  async function go(provider) {
+    if (busy) return;
+    setBusy(provider);
+    try {
+      await handleSocialLogin(provider);
+    } finally {
+      setBusy(null);
+    }
+  }
+  return (
+    <div style={{ margin: "18px 0 6px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0 14px" }}>
+        <div style={{ flex: 1, height: 1, background: "rgba(var(--border-rgb),0.16)" }} />
+        <span style={{ fontFamily: "var(--font-latin)", fontSize: 11.5, color: "var(--muted)", letterSpacing: "0.04em" }}>
+          {atr("or continue with", "أو تابع عن طريق")}
+        </span>
+        <div style={{ flex: 1, height: 1, background: "rgba(var(--border-rgb),0.16)" }} />
+      </div>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button type="button" onClick={() => go("google")} disabled={!!busy} style={{ ...socialBtnStyle, opacity: busy && busy !== "google" ? 0.55 : 1 }}>
+          <span style={{ width: 17, height: 17, borderRadius: "50%", background: "conic-gradient(#4285F4 0 25%, #34A853 25% 50%, #FBBC05 50% 75%, #EA4335 75% 100%)", flexShrink: 0 }} />
+          {busy === "google" ? atr("Connecting…", "جارٍ الاتصال…") : "Google"}
+        </button>
+        <button type="button" onClick={() => go("facebook")} disabled={!!busy} style={{ ...socialBtnStyle, opacity: busy && busy !== "facebook" ? 0.55 : 1 }}>
+          <span style={{ width: 17, height: 17, borderRadius: "50%", background: "#1877F2", color: "#fff", fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: "Georgia, serif" }}>f</span>
+          {busy === "facebook" ? atr("Connecting…", "جارٍ الاتصال…") : "Facebook"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AuthScreens({
   authStage, appIsAr, appLang = "en", atr, theme, toggleTheme, toggleAppLang, onChangeAppLang, deviceMode = null, onChangeDeviceMode,
   moreFeaturesOpen, setMoreFeaturesOpen, goToStage,
@@ -78,6 +112,7 @@ function AuthScreens({
   usernameInput, setUsernameInput,
   passwordInput, setPasswordInput,
   authError, setAuthError, loggingIn, handleLogin,
+  handleSocialLogin,
   linkMode = false, onCancelLink = null,
 }) {
   const [showLoginPw, setShowLoginPw] = useState(false);
@@ -87,6 +122,7 @@ function AuthScreens({
   const [pwRect, setPwRect] = useState(null);
   // حالة نافذة اختيار الدور الموحدة (طالب / معلّم)
   const [showRoleModal, setShowRoleModal] = useState(false);
+  const [socialBusy, setSocialBusy] = useState(null);
   const loginPwWrapRef = useRef(null);
   const signupFileRef = useRef(null);
   // Local fallback so Teacher toggle works even if parent forgot to pass setSignupRole
@@ -686,6 +722,7 @@ function AuthScreens({
               {signupSaving ? <LoaderIcon size={16} /> : <PlusIcon size={16} />} {atr("Request account", "طلب إنشاء حساب")}
             </button>
           </form>
+          <SocialButtons atr={atr} handleSocialLogin={handleSocialLogin} busy={socialBusy} setBusy={setSocialBusy} />
           <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, color: "var(--muted-strong)", textAlign: "center", marginTop: 18 }}>
             {atr("Already have an account?", "عندك حساب بالفعل؟")}{" "}
             <a href="#" onClick={(e) => { e.preventDefault(); setAuthError(""); goToStage("login"); }} className="link-underline" style={{ color: BRASS, fontWeight: 600, textDecoration: "none" }}>
@@ -996,6 +1033,7 @@ function AuthScreens({
               {loggingIn ? <LoaderIcon size={16} /> : <LoginIcon size={16} />} {atr("Enter", "دخول")}
             </button>
           </form>
+          <SocialButtons atr={atr} handleSocialLogin={handleSocialLogin} busy={socialBusy} setBusy={setSocialBusy} />
           <p className="auth-field-3" style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, color: "var(--muted-strong)", textAlign: "center", marginTop: 18 }}>
             {atr("Don't have an account?", "ليس لديك حساب؟")}{" "}
             <a href="#" onClick={(e) => { e.preventDefault(); setSignupError(""); goToStage("signup"); }} className="link-underline" style={{ color: BRASS, fontWeight: 600, textDecoration: "none" }}>

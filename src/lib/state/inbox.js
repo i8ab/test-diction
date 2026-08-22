@@ -65,18 +65,34 @@ async function api(method, accountCode, bodyExtra = {}) {
   return r.json();
 }
 
+/** In-flight GET dedupe — concurrent callers share one network request. */
+const _inboxInflight = new Map();
+
 /** Sync from server into local cache. Safe to call often; fails quietly offline. */
 export async function syncInboxFromServer(accountCode) {
   if (!accountCode) return readLocal(accountCode);
-  try {
-    const data = await api("GET", accountCode);
-    const items = Array.isArray(data.items) ? data.items : [];
-    writeLocal(accountCode, items);
-    emit(accountCode);
-    return items;
-  } catch (_) {
-    return readLocal(accountCode);
+  if (_inboxInflight.has(accountCode)) {
+    try {
+      return await _inboxInflight.get(accountCode);
+    } catch (_) {
+      return readLocal(accountCode);
+    }
   }
+  const job = (async () => {
+    try {
+      const data = await api("GET", accountCode);
+      const items = Array.isArray(data.items) ? data.items : [];
+      writeLocal(accountCode, items);
+      emit(accountCode);
+      return items;
+    } catch (_) {
+      return readLocal(accountCode);
+    } finally {
+      _inboxInflight.delete(accountCode);
+    }
+  })();
+  _inboxInflight.set(accountCode, job);
+  return job;
 }
 
 export function loadInbox(accountCode) {

@@ -227,6 +227,8 @@ export default function InboxBell({
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState(() => loadInbox(accountCode));
   const [unread, setUnread] = useState(() => unreadCount(accountCode));
+  const [syncing, setSyncing] = useState(false);
+  const syncTimerRef = useRef(null);
 
   const refresh = useCallback(() => {
     if (!accountCode) {
@@ -238,13 +240,26 @@ export default function InboxBell({
     setUnread(unreadCount(accountCode));
   }, [accountCode]);
 
+  const pullServer = useCallback(() => {
+    if (!accountCode) return;
+    // Debounce rapid accountCode / event storms (refresh / StrictMode)
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => {
+      setSyncing(true);
+      syncInboxFromServer(accountCode)
+        .then(() => refresh())
+        .catch(() => {})
+        .finally(() => setSyncing(false));
+    }, 120);
+  }, [accountCode, refresh]);
+
   useEffect(() => {
     refresh();
-    // Pull account-level inbox so deletes/adds from other devices show up here
-    if (accountCode) {
-      syncInboxFromServer(accountCode).then(() => refresh()).catch(() => {});
-    }
-  }, [refresh, accountCode]);
+    pullServer();
+    return () => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    };
+  }, [refresh, pullServer]);
 
   // Live updates when inbox changes (same tab or SW postMessage handler)
   useEffect(() => {
@@ -348,9 +363,7 @@ export default function InboxBell({
   function openPanel() {
     setOpen(true);
     refresh();
-    if (accountCode) {
-      syncInboxFromServer(accountCode).then(() => refresh()).catch(() => {});
-    }
+    pullServer();
   }
 
   function closePanel() {
@@ -477,18 +490,30 @@ export default function InboxBell({
                   gap: 8,
                 }}
               >
-                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
                   {T("Notifications", "الإشعارات")}
                   {unread > 0 ? (
                     <span
                       style={{
-                        marginInlineStart: 8,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: "var(--danger)",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        color: "#fff",
+                        background: "var(--danger)",
+                        borderRadius: 999,
+                        minWidth: 20,
+                        height: 20,
+                        padding: "0 6px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                       }}
                     >
-                      {unread}
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  ) : null}
+                  {syncing ? (
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>
+                      {T("Syncing…", "مزامنة…")}
                     </span>
                   ) : null}
                 </h2>

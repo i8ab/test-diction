@@ -97,6 +97,8 @@ function AppLoadingFallback() {
 
 const deviceIsAr = detectDeviceIsAr();
 const savedPersonalCode = loadPersonalCode();
+/** Module-level: survives React StrictMode remount (refs reset on remount). */
+let APP_BOOT_STARTED = false;
 
 /**
  * Fast startup snapshot — reads only lightweight metadata (accounts, config).
@@ -740,6 +742,9 @@ useEffect(() => {
   }
 
   useEffect(() => {
+    if (APP_BOOT_STARTED) return;
+    APP_BOOT_STARTED = true;
+    let cancelled = false;
     (async () => {
       try {
         // ── Load offline entries ONCE before any merge ──────────────
@@ -1162,12 +1167,26 @@ useEffect(() => {
           }
         }
       } finally {
-        setEntriesLoaded(true);
-        setAccountsLoaded(true);
-        setLogsLoaded(true);
+        if (!cancelled) {
+          setEntriesLoaded(true);
+          setAccountsLoaded(true);
+          setLogsLoaded(true);
+        }
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  // Keep display name tied to the active account (fixes wrong name after refresh / vault switch)
+  useEffect(() => {
+    if (!accountCode || accountCode === "guest") return;
+    const acct = (accounts || []).find((a) => a && a.code === accountCode);
+    if (acct && typeof acct.name === "string" && acct.name.trim() && acct.name !== name) {
+      setName(acct.name);
+    }
+  }, [accountCode, accounts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------------------------------------------------------------------
   // History integration: without this, the phone's/browser's back button has

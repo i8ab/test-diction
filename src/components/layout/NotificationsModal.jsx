@@ -172,15 +172,20 @@ export default function NotificationsModal({
               boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
-              <h2 id="notif-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: "var(--ink)" }}>
-                {T( "Notifications", "الإشعارات")}
-              </h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexShrink: 0, gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                <span style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(var(--focus-rgb),0.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent-1)", flexShrink: 0 }}>
+                  <BellIcon size={18} />
+                </span>
+                <h2 id="notif-modal-title" style={{ margin: 0, fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: "var(--ink)" }}>
+                  {T("Notifications", "الإشعارات")}
+                </h2>
+              </div>
               <button
                 type="button"
                 onClick={closeNotifModal}
-                aria-label={T( "Close", "إغلاق")}
-                style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", minWidth: 36, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
+                aria-label={T("Close", "إغلاق")}
+                style={{ border: "none", background: "var(--input-bg)", borderRadius: 10, cursor: "pointer", color: "var(--icon-muted)", minWidth: 36, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
               >
                 <XIcon size={20} />
               </button>
@@ -189,7 +194,7 @@ export default function NotificationsModal({
             <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
             <div
                       onPointerDown={(e) => e.stopPropagation()}
-                      style={{ padding: "6px 10px 12px", display: "flex", flexDirection: "column", gap: 10 }}
+                      style={{ padding: "4px 4px 16px", display: "flex", flexDirection: "column", gap: 12 }}
                     >
                       <button
                         type="button"

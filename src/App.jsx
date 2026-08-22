@@ -1671,13 +1671,18 @@ useEffect(() => {
   }
 
   async function handleSocialLogin(provider) {
-    const [{ signInWithGoogle, signInWithFacebook }, { performSocialLogin }] = await Promise.all([
+    // Facebook login removed from UI and client — Google only.
+    if (provider !== "google") {
+      setAuthError("Only Google sign-in is available.");
+      return;
+    }
+    const [{ signInWithGoogle }, { performSocialLogin }] = await Promise.all([
       import("./lib/state/socialAuth"),
       import("./lib/state/authFlow"),
     ]);
     setAuthError("");
     try {
-      const profile = await (provider === "google" ? signInWithGoogle() : signInWithFacebook());
+      const profile = await signInWithGoogle();
       await performSocialLogin({
         provider,
         profile,

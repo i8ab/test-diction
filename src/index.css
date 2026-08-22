@@ -128,8 +128,9 @@
     --focus-rgb: 15,118,110;
     /* لون المعنى العربي الموحد — الأخضر الجميل المستخرج من واجهة الكمبيوتر */
     --meaning: #22C55E;
-    --font-latin: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
-    --font-arabic: "Amiri", "Times New Roman", serif;
+    /* خطوط أكثر بشرية وتقليدية — Cairo للعناوين والنصوص العربية، Noto Naskh للجسم */
+    --font-latin: "Plus Jakarta Sans", "Cairo", system-ui, -apple-system, sans-serif;
+    --font-arabic: "Cairo", "Noto Naskh Arabic", "Amiri", "Times New Roman", serif;
   }
   html[data-theme="dark"] {
     --paper: #12100E;

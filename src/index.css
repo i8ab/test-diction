@@ -107,50 +107,50 @@
     -webkit-tap-highlight-color: transparent !important;
   }
   :root {
-    --paper: #FAFDFE;
-    --card: #FFFFFF;
-    --ink: #146C94;
-    --accent-1: #19A7CE;
-    --accent-1-soft: #D3E7EF;
-    --accent-2: #146C94;
-    --accent-2-soft: #E4EEF2;
-    --muted: #7FA3B5;
-    --muted-strong: #4A7C93;
-    --icon-muted: #6E93A6;
-    --input-bg: #F6F1F1;
-    --border-rgb: 20,108,148;
+    --paper: #F7F3EB;
+    --card: #FFFDF8;
+    --ink: #1C1917;
+    --accent-1: #0F766E;
+    --accent-1-soft: #CCE5E3;
+    --accent-2: #B45309;
+    --accent-2-soft: #F5E6D3;
+    --muted: #78716C;
+    --muted-strong: #57534E;
+    --icon-muted: #A8A29E;
+    --input-bg: #F5F0E8;
+    --border-rgb: 120,113,108;
     --success: #2D8C69;
     --success-bg: #E4F2ED;
     --success-border-rgb: 45,140,105;
     --danger: #8A3A3A;
     --danger-bg: #F6E7E5;
     --danger-border: #E3B9B4;
-    --focus-rgb: 25,167,206;
+    --focus-rgb: 15,118,110;
     /* لون المعنى العربي الموحد — الأخضر الجميل المستخرج من واجهة الكمبيوتر */
     --meaning: #22C55E;
-    --font-latin: "Source Sans 3", system-ui, sans-serif;
+    --font-latin: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
     --font-arabic: "Amiri", "Times New Roman", serif;
   }
   html[data-theme="dark"] {
-    --paper: #0E1A20;
-    --card: #16262E;
-    --ink: #E8F4F8;
-    --accent-1: #3FC1E8;
-    --accent-1-soft: #163642;
-    --accent-2: #6BAFD1;
-    --accent-2-soft: #142A34;
-    --muted: #7FA0AF;
-    --muted-strong: #9BC0D0;
-    --icon-muted: #8CB2C2;
-    --input-bg: #1D2E36;
-    --border-rgb: 140,190,205;
+    --paper: #12100E;
+    --card: #1C1916;
+    --ink: #F5F0E8;
+    --accent-1: #2DD4BF;
+    --accent-1-soft: #134E4A;
+    --accent-2: #F59E0B;
+    --accent-2-soft: #422006;
+    --muted: #A8A29E;
+    --muted-strong: #D6D3D1;
+    --icon-muted: #78716C;
+    --input-bg: #292524;
+    --border-rgb: 168,162,158;
     --success: #59D0A2;
     --success-bg: #123527;
     --success-border-rgb: 89,208,162;
     --danger: #F0A99E;
     --danger-bg: #3A211E;
     --danger-border: #6B3A34;
-    --focus-rgb: 63,193,232;
+    --focus-rgb: 45,212,191;
     /* لون المعنى في الوضع الداكن — أخضر فاتح متناسق مع التصميم */
     --meaning: #4ADE80;
   }
@@ -925,7 +925,7 @@ canvas {
     max-width: 100% !important;
     max-height: min(92dvh, 92vh) !important;
     margin: 0 auto !important;
-    border-radius: 16px !important;
+    border-radius: 10px !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
@@ -1100,7 +1100,7 @@ canvas {
   margin: 0;
   border: 1px solid rgba(var(--border-rgb), 0.14);
   background: var(--card, #ffffff);
-  border-radius: 16px;
+  border-radius: 10px;
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.04),
     0 4px 16px -4px rgba(0, 0, 0, 0.08);
@@ -1284,7 +1284,7 @@ html[data-device="tablet"] .letter-section-anchor {
     gap: 4px 6px;
     padding: 8px 10px;
     border: 1px solid rgba(var(--border-rgb), 0.12);
-    border-radius: 14px;
+    border-radius: 9px;
     background: var(--card, #ffffff);
     box-shadow:
       0 1px 2px rgba(0, 0, 0, 0.04),
@@ -1373,7 +1373,7 @@ html[data-device="mobile"] .letter-rail {
   gap: 5px 7px !important;
   padding: 10px 12px !important;
   border: 1px solid rgba(var(--border-rgb), 0.12) !important;
-  border-radius: 14px !important;
+  border-radius: 9px !important;
   background: var(--card, #ffffff) !important;
   overflow-x: auto !important;
   overflow-y: hidden !important;
@@ -1513,7 +1513,7 @@ html[data-device="mobile"] .app-main-row {
 .entry-card--mobile {
   padding: 12px 12px !important;
   gap: 10px !important;
-  border-radius: 14px !important;
+  border-radius: 9px !important;
   margin-bottom: 2px;
 }
 .entry-card--mobile .entry-card-word-row {
@@ -1529,7 +1529,7 @@ html[data-device="mobile"] .app-main-row {
   width: 100%;
   height: 100%;
   padding: 0 !important;
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--input-bg);
   border: 1px solid rgba(var(--border-rgb), 0.14) !important;
   justify-content: center;
@@ -1553,7 +1553,7 @@ html[data-device="mobile"] .mobile-filters-toggle {
   justify-content: center;
   min-height: 42px;
   padding: 8px 14px;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid rgba(var(--border-rgb), 0.2);
   background: var(--card);
   color: var(--ink);
@@ -1585,7 +1585,7 @@ html[data-device="mobile"] .mobile-banners-stack > * {
 html[data-device="mobile"] .mobile-banners-stack {
   max-height: none;
   overflow: visible;
-  border-radius: 12px;
+  border-radius: 8px;
 }
 html[data-device="mobile"] .exam-banner-slot {
   margin-bottom: 12px !important;
@@ -1655,13 +1655,13 @@ html[data-device="mobile"] .app-main-row {
 @media (max-width: 640px) {
   .word-zoom-modal {
     padding: 28px 18px 24px !important;
-    border-radius: 16px !important;
+    border-radius: 10px !important;
     margin: 8px !important;
   }
 }
 html[data-device="mobile"] .word-zoom-modal {
   padding: 28px 18px 24px !important;
-  border-radius: 16px !important;
+  border-radius: 10px !important;
   margin: 8px !important;
 }
 
@@ -1801,7 +1801,7 @@ html[data-device="tablet"] .letter-rail {
   justify-content: space-between !important;
   gap: 4px !important;
   padding: 10px 5px !important;
-  border-radius: 16px !important;
+  border-radius: 10px !important;
 }
 html[data-device="tablet"] .letter-rail.letter-rail--circular {
   max-height: calc(100dvh - 196px) !important;
@@ -1834,12 +1834,12 @@ html[data-device="tablet"] .toolbar-row {
 html[data-device="tablet"] .toolbar-search-input {
   min-height: 46px !important;
   font-size: 16px !important;
-  border-radius: 12px !important;
+  border-radius: 8px !important;
 }
 html[data-device="tablet"] .toolbar-add-word {
   min-height: 46px !important;
   padding-inline: 18px !important;
-  border-radius: 12px !important;
+  border-radius: 8px !important;
 }
 html[data-device="tablet"] .study-filter-row,
 html[data-device="tablet"] .filter-chip-row {
@@ -1861,11 +1861,11 @@ html[data-device="tablet"] .study-filter-row button {
 html[data-device="tablet"] .filter-chip-row select {
   min-height: 40px !important;
   font-size: 13px !important;
-  border-radius: 12px !important;
+  border-radius: 8px !important;
 }
 html[data-device="tablet"] .entry-card--tablet {
   padding: 14px 16px !important;
-  border-radius: 12px !important;
+  border-radius: 8px !important;
   gap: 14px !important;
 }
 html[data-device="tablet"] .entry-card--tablet .entry-action-bar {
@@ -1903,7 +1903,7 @@ html[data-device="tablet"] .tablet-side-dock {
   width: 64px;
   min-height: 58px;
   border: none;
-  border-radius: 14px;
+  border-radius: 9px;
   background: transparent;
   color: var(--muted-strong);
   font-size: 11px;
@@ -1920,7 +1920,7 @@ html[data-device="tablet"] .tablet-side-dock {
 html[data-device="tablet"] .word-zoom-modal {
   max-width: 640px !important;
   padding: 36px 28px 32px !important;
-  border-radius: 16px !important;
+  border-radius: 10px !important;
   max-height: min(92dvh, 92vh) !important;
   overflow-y: auto !important;
 }
@@ -2024,7 +2024,7 @@ html[data-device="tablet"] .entry-card--tablet .entry-longform {
 /* Mobile word cards — clean chips instead of dual-column pair rows */
 .entry-card--mobile {
   padding: 12px 12px !important;
-  border-radius: 14px !important;
+  border-radius: 9px !important;
   gap: 8px !important;
   align-items: flex-start !important;
 }
@@ -2047,7 +2047,7 @@ html[data-device="tablet"] .entry-card--tablet .entry-longform {
 /* Mobile vertical word cards — content full width, actions as bottom bar */
 .entry-card--mobile {
   padding: 14px 14px 12px !important;
-  border-radius: 16px !important;
+  border-radius: 10px !important;
   gap: 0 !important;
   flex-direction: column !important;
   align-items: stretch !important;
@@ -2133,7 +2133,7 @@ html[data-device="mobile"] .entry-action-bar,
 html[data-device="mobile"] .entry-action-btn,
 .entry-card--mobile .entry-action-btn {
   min-height: 48px !important;
-  border-radius: 12px !important;
+  border-radius: 8px !important;
   font-size: 10px !important;
 }
 
@@ -2144,7 +2144,7 @@ html[data-device="tablet"] .entry-card--tablet .entry-action-bar {
 html[data-device="tablet"] .entry-card--tablet .entry-action-btn {
   min-height: 48px !important;
   flex: 1 1 0 !important;
-  border-radius: 12px !important;
+  border-radius: 8px !important;
 }
 /* Cambridge + speak: chip background is on the slot; button fills it on all devices */
 .entry-card-controls {
@@ -2228,7 +2228,7 @@ html[data-skin="forest"] button.touch-target.btn-shine {
 }
 html[data-skin="forest"] .entry-card,
 html[data-skin="forest"] .word-card {
-  border-radius: 18px;
+  border-radius: 8px;
   border: 1px solid rgba(46, 204, 113, 0.18);
 }
 
@@ -2247,40 +2247,40 @@ html[data-skin="midnight"] .btn-shine {
 }
 html[data-skin="midnight"] .entry-card,
 html[data-skin="midnight"] .word-card {
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid rgba(100, 140, 200, 0.15);
 }
 
 html[data-skin="aurora"] .btn-shine {
-  border-radius: 14px !important;
+  border-radius: 9px !important;
   box-shadow: 0 0 16px -4px rgba(124, 58, 237, 0.45), 0 6px 18px -8px rgba(45, 212, 191, 0.35);
 }
 html[data-skin="aurora"] .entry-card,
 html[data-skin="aurora"] .word-card {
-  border-radius: 16px;
+  border-radius: 10px;
   border: 1px solid rgba(124, 58, 237, 0.18);
 }
 
 html[data-skin="dusk"] .btn-shine {
-  border-radius: 12px !important;
+  border-radius: 8px !important;
   box-shadow: 0 6px 18px -8px rgba(255, 107, 53, 0.45);
 }
 html[data-skin="dusk"] .entry-card,
 html[data-skin="dusk"] .word-card {
-  border-radius: 14px;
+  border-radius: 9px;
 }
 
 html[data-skin="sand"] .btn-shine {
   border-radius: 8px !important;
 }
 html[data-skin="lavender"] .btn-shine {
-  border-radius: 16px !important;
+  border-radius: 10px !important;
 }
 html[data-skin="rose"] .btn-shine {
-  border-radius: 20px !important;
+  border-radius: 12px !important;
 }
 html[data-skin="mist"] .btn-shine {
-  border-radius: 12px !important;
+  border-radius: 8px !important;
   box-shadow: 0 4px 16px -8px rgba(14, 165, 233, 0.35);
 }
 html[data-skin="slate"] .btn-shine {
@@ -2482,10 +2482,10 @@ html[data-skin="slate"] button.touch-target {
   border-radius: 4px;
 }
 html[data-skin="rose"] button.touch-target {
-  border-radius: 16px;
+  border-radius: 10px;
 }
 html[data-skin="aurora"] button.touch-target {
-  border-radius: 14px;
+  border-radius: 9px;
 }
 html[data-skin="midnight"] button.touch-target {
   border-radius: 10px;
@@ -2495,13 +2495,13 @@ html[data-skin="warm"] button.touch-target {
   border-radius: 8px;
 }
 html[data-skin="lavender"] button.touch-target {
-  border-radius: 14px;
+  border-radius: 9px;
 }
 html[data-skin="dusk"] button.touch-target {
-  border-radius: 12px;
+  border-radius: 8px;
 }
 html[data-skin="mist"] button.touch-target {
-  border-radius: 12px;
+  border-radius: 8px;
 }
 html[data-skin="contrast"] button.touch-target {
   border-radius: 2px;
@@ -2690,12 +2690,12 @@ html[data-skin="slate"] button.touch-target {
 
 html[data-skin="rose"] .btn-shine,
 html[data-skin="rose"] button.touch-target {
-  border-radius: 22px !important;
+  border-radius: 12px !important;
 }
 
 html[data-skin="aurora"] .btn-shine,
 html[data-skin="aurora"] button.touch-target {
-  border-radius: 16px !important;
+  border-radius: 10px !important;
 }
 
 html[data-skin="midnight"] .btn-shine,
@@ -2727,7 +2727,7 @@ html[data-device="mobile"] .app-chrome-search {
 
 html[data-device="mobile"] .app-chrome-search {
   min-height: 44px;
-  border-radius: 12px !important;
+  border-radius: 8px !important;
 }
 
 /* ── Stats bar: still driven by Header Style, same as before ── */

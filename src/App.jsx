@@ -1840,6 +1840,17 @@ useEffect(() => {
         else window.alert(result.error || "Unlink failed");
         return;
       }
+      // Drop null Google fields from in-memory accounts so UI refreshes immediately
+      setAccounts((prev) =>
+        (prev || []).map((a) => {
+          if (!a || a.code !== accountCode) return a;
+          const next = { ...a };
+          if (next.authProvider == null) delete next.authProvider;
+          if (next.socialId == null) delete next.socialId;
+          if (next.email == null) delete next.email;
+          return next;
+        })
+      );
       if (typeof showToast === "function") {
         showToast(appIsAr ? "تم إلغاء ربط Google" : "Google unlinked");
       }

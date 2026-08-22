@@ -767,7 +767,8 @@ export async function performSocialLogin(p) {
         : "Complete the required fields to finish your account request (gender, date of birth, baccalaureate track…)."
     );
   }
-  goToStage("signup");
+  // Dedicated step for missing profile fields only (not full signup form)
+  goToStage("completeProfile");
 }
 
 
@@ -952,16 +953,17 @@ export async function unlinkGoogleFromCurrentAccount(p) {
   }
 
   try {
+    // null (not omitted keys) so server-side merge deletes the fields permanently
     await persistAccounts(
       (cur) =>
         (cur || []).map((a) => {
           if (a.code !== accountCode) return a;
-          const next = { ...a };
-          // Fully release Google binding so the email/socialId can be linked elsewhere
-          delete next.authProvider;
-          delete next.socialId;
-          // Clear Google email so it is not treated as still bound to this account
-          delete next.email;
+          const next = {
+            ...a,
+            authProvider: null,
+            socialId: null,
+            email: null,
+          };
           return next;
         }),
       () =>

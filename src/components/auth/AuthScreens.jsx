@@ -435,6 +435,146 @@ function AuthScreens({
     );
   }
 
+  // Google onboarding: only missing required fields (separate from full signup)
+  if (authStage === "completeProfile") {
+    return (
+      <Shell>
+        <div className="auth-card" style={{ ...authCardStyle, maxWidth: "min(420px, 100%)", padding: "22px 26px 26px" }} dir={appIsAr ? "rtl" : "ltr"}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+            <LanguageToggle lang={appLang} onChangeLang={onChangeAppLang} isAr={appIsAr} onToggle={toggleAppLang} floating={false} />
+          </div>
+          <div style={{ marginBottom: 4 }}>
+            <BrandMark size="md" showUnderline />
+          </div>
+          <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(18px, 4vw, 22px)", fontWeight: 600, color: INK, margin: "10px 0 6px" }}>
+            {atr("Complete your profile", "أكمل بياناتك")}
+          </h1>
+          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "0 0 16px", lineHeight: 1.55 }}>
+            {atr(
+              "You signed in with Google. Confirm your name and username, then fill the required fields below. You can change your name later in account settings.",
+              "سجّلت الدخول بـ Google. أكّد الاسم واسم المستخدم، ثم أكمل الحقول المطلوبة. تقدر تغيّر اسمك لاحقًا من الإعدادات."
+            )}
+          </p>
+          <form
+            onSubmit={(e) => {
+              if (typeof setSignupRole === "function") setSignupRole(effectiveRole);
+              return handleSignup(e, effectiveRole);
+            }}
+          >
+            <div className="auth-field-1" style={{ marginBottom: 12 }}>
+              <label style={labelStyle} htmlFor="cp-name">{atr("Display name", "الاسم الظاهر")}</label>
+              <input id="cp-name" value={name} onChange={(e) => setName(e.target.value)} style={authInputStyle} autoCapitalize="words" />
+            </div>
+            <div className="auth-field-1" style={{ marginBottom: 12 }}>
+              <label style={labelStyle} htmlFor="cp-username">{atr("Username", "اسم المستخدم")}</label>
+              <input
+                id="cp-username"
+                value={signupUsername}
+                onChange={(e) => setSignupUsername(e.target.value.replace(/\s/g, "").toLowerCase())}
+                style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace" }}
+                dir="ltr"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+            </div>
+            <div className="auth-field-1" style={{ marginTop: 12, marginBottom: 4 }}>
+              <label style={labelStyle}>{atr("Gender", "الجنس")} *</label>
+              <div style={{ marginTop: 8 }}>
+                <GenderPicker value={signupGender} onChange={(g) => setSignupGender && setSignupGender(g)} isAr={appIsAr} atr={atr} />
+              </div>
+            </div>
+            <div className="auth-field-1" style={{ marginTop: 14, marginBottom: 4 }}>
+              <label style={labelStyle} htmlFor="cp-birth">{atr("Date of birth (optional)", "تاريخ الميلاد (اختياري)")}</label>
+              <input
+                id="cp-birth"
+                type="date"
+                value={signupBirthDate || ""}
+                onChange={(e) => setSignupBirthDate && setSignupBirthDate(e.target.value)}
+                min={birthDateInputMin()}
+                max={birthDateInputMax()}
+                style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace", direction: "ltr" }}
+                dir="ltr"
+              />
+            </div>
+            {effectiveRole !== "teacher" && (
+              <>
+                <div className="auth-field-1" style={{ marginTop: 14, marginBottom: 4 }}>
+                  <label style={labelStyle} htmlFor="cp-bac-track">{atr("Baccalaureate track", "مسار البكالوريا")}</label>
+                  <select
+                    id="cp-bac-track"
+                    value={signupBacTrack || ""}
+                    onChange={(e) => {
+                      setSignupBacTrack && setSignupBacTrack(e.target.value);
+                      setSignupBacSpecialty && setSignupBacSpecialty("");
+                    }}
+                    style={{ ...authInputStyle, cursor: "pointer" }}
+                  >
+                    <option value="">{atr("Select track…", "اختَر المسار…")}</option>
+                    {BAC_TRACKS.map((tr_) => (
+                      <option key={tr_.id} value={tr_.id}>{appIsAr ? tr_.ar : tr_.en}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="auth-field-1" style={{ marginTop: 12, marginBottom: 4 }}>
+                  <label style={labelStyle} htmlFor="cp-bac-grade">{atr("Grade", "الصف")}</label>
+                  <select
+                    id="cp-bac-grade"
+                    value={signupBacGrade || ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setSignupBacGrade && setSignupBacGrade(v);
+                      if (v !== "2") setSignupBacSpecialty && setSignupBacSpecialty("");
+                    }}
+                    style={{ ...authInputStyle, cursor: "pointer" }}
+                  >
+                    <option value="">{atr("Select grade…", "اختَر الصف…")}</option>
+                    {BAC_GRADES.map((g) => (
+                      <option key={g.id} value={g.id}>{appIsAr ? g.ar : g.en}</option>
+                    ))}
+                  </select>
+                </div>
+                {signupBacGrade === "2" && signupBacTrack && (
+                  <div className="auth-field-1" style={{ marginTop: 12, marginBottom: 4 }}>
+                    <label style={labelStyle} htmlFor="cp-bac-spec">{atr("Specialized subject", "المادة التخصصية")}</label>
+                    <select
+                      id="cp-bac-spec"
+                      value={signupBacSpecialty || ""}
+                      onChange={(e) => setSignupBacSpecialty && setSignupBacSpecialty(e.target.value)}
+                      style={{ ...authInputStyle, cursor: "pointer" }}
+                    >
+                      <option value="">{atr("Select subject…", "اختَر المادة…")}</option>
+                      {getSpecialtyOptions(signupBacTrack).map((s) => (
+                        <option key={s.id} value={s.id}>{appIsAr ? s.ar : s.en}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </>
+            )}
+            {signupError && <div style={errorStyle} role="alert" aria-live="assertive">{translateAdminError(signupError, appIsAr)}</div>}
+            <button type="submit" disabled={signupSaving} className="btn-shine touch-target" style={{ ...primaryBtnStyle, minHeight: 48 }}>
+              {signupSaving ? <LoaderIcon size={16} /> : <PlusIcon size={16} />} {atr("Submit request", "إرسال الطلب")}
+            </button>
+          </form>
+          <p style={{ fontSize: 13, color: "var(--muted-strong)", textAlign: "center", marginTop: 16 }}>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                goToStage("intro");
+              }}
+              className="link-underline"
+              style={{ color: BRASS, fontWeight: 600, textDecoration: "none" }}
+            >
+              {atr("Back", "رجوع")}
+            </a>
+          </p>
+        </div>
+      </Shell>
+    );
+  }
+
   if (authStage === "signup") {
     return (
       <Shell>

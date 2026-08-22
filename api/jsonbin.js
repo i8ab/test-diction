@@ -902,6 +902,15 @@ export default async function handler(req, res) {
             } = patch;
             if (patch.passwordHash != null) safePatch.passwordHash = patch.passwordHash;
             const merged = { ...prev, ...safePatch, code: prev.code, role: prev.role };
+            // Explicit null/empty removes Google binding fields permanently
+            for (const k of ["authProvider", "socialId", "email"]) {
+              if (
+                Object.prototype.hasOwnProperty.call(safePatch, k) &&
+                (safePatch[k] === null || safePatch[k] === "")
+              ) {
+                delete merged[k];
+              }
+            }
             await bumpVersion(nextVersion);
             await upsertAccountRow(merged);
             return res.status(200).json({
@@ -1013,6 +1022,16 @@ export default async function handler(req, res) {
               const merged = { ...prev, ...incoming };
               if (statusRank(prev.status) > statusRank(incoming.status)) {
                 merged.status = prev.status;
+              }
+              // Explicit null clears Google binding / email so unlink persists
+              const CLEARABLE = ["authProvider", "socialId", "email"];
+              for (const k of CLEARABLE) {
+                if (
+                  Object.prototype.hasOwnProperty.call(incoming, k) &&
+                  (incoming[k] === null || incoming[k] === "")
+                ) {
+                  delete merged[k];
+                }
               }
               return merged;
             };
@@ -1155,6 +1174,15 @@ export default async function handler(req, res) {
           const merged = { ...prev, ...incoming };
           if (statusRank(prev.status) > statusRank(incoming.status)) {
             merged.status = prev.status;
+          }
+          const CLEARABLE = ["authProvider", "socialId", "email"];
+          for (const k of CLEARABLE) {
+            if (
+              Object.prototype.hasOwnProperty.call(incoming, k) &&
+              (incoming[k] === null || incoming[k] === "")
+            ) {
+              delete merged[k];
+            }
           }
           return merged;
         };

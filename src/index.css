@@ -2882,3 +2882,23 @@ html[data-dir-override="rtl"][data-card-surface="paper"] .word-card {
 }
 
 /* Flip-clock styles moved to components/timer/timer.css (lazy-loaded with TimerPage) */
+
+/* Consistent inner padding: text ↔ border for controls */
+button:not(.entry-action-btn):not(.letter-rail-btn),
+.btn-shine,
+.toolbar-search-input,
+input[type="text"],
+input[type="password"],
+input[type="search"],
+input[type="email"],
+input[type="date"],
+textarea,
+select {
+  box-sizing: border-box;
+}
+.toolbar-search-input {
+  padding: 10px 14px !important;
+}
+.section-tab {
+  padding: 8px 14px !important;
+}

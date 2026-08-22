@@ -681,10 +681,15 @@ export async function performSocialLogin(p) {
   setExamConfig(normalizeExamConfig(rec.examConfig));
   commitRecordVersion(rec.version);
 
+  // Match only by active social binding — orphaned emails after unlink must not block reuse
   const existing = curAccounts.find(
     (a) =>
-      (a.authProvider === provider && a.socialId === profile.providerId) ||
-      (a.email && String(a.email).toLowerCase() === email)
+      a &&
+      ((a.authProvider === provider && a.socialId === profile.providerId) ||
+        (a.authProvider === provider &&
+          a.email &&
+          String(a.email).toLowerCase() === email &&
+          a.socialId))
   );
 
   if (existing) {
@@ -849,12 +854,14 @@ export async function linkGoogleToCurrentAccount(p) {
     };
   }
 
-  // Optional: email already used by a different account (warn / block)
+  // Email clash only if another account STILL has Google bound with that email
   if (email) {
     const emailClash = list.find(
       (a) =>
         a &&
         a.code !== accountCode &&
+        a.authProvider === "google" &&
+        a.socialId &&
         a.email &&
         String(a.email).toLowerCase() === email
     );
@@ -862,8 +869,8 @@ export async function linkGoogleToCurrentAccount(p) {
       return {
         ok: false,
         error: appIsAr
-          ? "البريد الإلكتروني لـ Google مستخدم في حساب آخر."
-          : "This Google email is already used by another account.",
+          ? "البريد الإلكتروني لـ Google مستخدم في حساب آخر مربوط بـ Google."
+          : "This Google email is already linked to another account.",
       };
     }
   }
@@ -872,8 +879,8 @@ export async function linkGoogleToCurrentAccount(p) {
     ...current,
     authProvider: "google",
     socialId: providerId,
-    // Fill email only if the account has none yet
-    ...(email && !current.email ? { email } : {}),
+    // Bind Google email to this account on link
+    ...(email ? { email } : {}),
     // Apply Google profile picture to the local account on link (user can change later)
     ...(profile.picture ? { avatar: profile.picture } : {}),
   };
@@ -950,14 +957,17 @@ export async function unlinkGoogleFromCurrentAccount(p) {
         (cur || []).map((a) => {
           if (a.code !== accountCode) return a;
           const next = { ...a };
+          // Fully release Google binding so the email/socialId can be linked elsewhere
           delete next.authProvider;
           delete next.socialId;
+          // Clear Google email so it is not treated as still bound to this account
+          delete next.email;
           return next;
         }),
       () =>
         makeLogEntry(
           "account_unlink_google",
-          `${current.name || current.username} unlinked Google`,
+          `${current.name || current.username} unlinked Google (email released)`,
           current.name || current.username,
           accountCode
         )

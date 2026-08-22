@@ -1179,6 +1179,9 @@ export default function MainView({
         showAccount={showAccount}
         onCloseAccount={onCloseAccount}
         onUpdateOwnAccount={onUpdateOwnAccount}
+        onLinkGoogle={onLinkGoogle}
+        onUnlinkGoogle={onUnlinkGoogle}
+        googleLinkBusy={googleLinkBusy}
         showAdmin={showAdmin}
         onCloseAdmin={onCloseAdmin}
         onClearLogs={onClearLogs}

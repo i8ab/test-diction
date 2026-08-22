@@ -872,8 +872,8 @@ export async function linkGoogleToCurrentAccount(p) {
     socialId: providerId,
     // Fill email only if the account has none yet
     ...(email && !current.email ? { email } : {}),
-    // Optionally refresh avatar if empty
-    ...(profile.picture && !current.avatar ? { avatar: profile.picture } : {}),
+    // Apply Google profile picture to the local account on link (user can change later)
+    ...(profile.picture ? { avatar: profile.picture } : {}),
   };
 
   try {

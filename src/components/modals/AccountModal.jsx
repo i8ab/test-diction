@@ -60,7 +60,16 @@ function compressImageFile(file) {
   });
 }
 
-function AccountModal({ account, onClose, onSave, isAr, lang }) {
+function AccountModal({
+  account,
+  onClose,
+  onSave,
+  isAr,
+  lang,
+  onLinkGoogle = null,
+  onUnlinkGoogle = null,
+  googleLinkBusy = false,
+}) {
   const L = lang || (isAr ? "ar" : "en");
   const T = (en, ar, de, fr) => tr(L, en, ar, de, fr);
   const [nameInput, setNameInput] = useState(account.name || "");
@@ -82,6 +91,17 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
   const [equipTick, setEquipTick] = useState(0); // force re-read after equip change
   const fileRef = useRef(null);
   const accountCode = account && account.code ? account.code : "anon";
+
+  // Keep local avatar in sync when parent account updates (e.g. after Google link)
+  useEffect(() => {
+    if (account && account.avatar !== undefined) {
+      setAvatar(account.avatar || "");
+    }
+  }, [account && account.avatar, account && account.authProvider, account && account.socialId]);
+
+  const googleLinked = !!(account && account.authProvider === "google" && account.socialId);
+  const googleEmail = (account && account.email) || "";
+
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -340,7 +360,153 @@ function AccountModal({ account, onClose, onSave, isAr, lang }) {
             </div>
           </div>
 
+
+          {/* ── Google account link ── */}
+          {typeof onLinkGoogle === "function" && (
+            <div
+              style={{
+                width: "100%",
+                marginTop: 14,
+                padding: "14px 14px 12px",
+                borderRadius: 16,
+                background: "linear-gradient(145deg, rgba(66,133,244,0.08) 0%, rgba(52,168,83,0.06) 50%, rgba(234,67,53,0.06) 100%)",
+                border: "1px solid rgba(66,133,244,0.22)",
+                boxShadow: "0 8px 24px rgba(24,35,42,0.06)",
+                textAlign: "start",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                <div
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 12,
+                    background: "#fff",
+                    display: "grid",
+                    placeItems: "center",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                    flexShrink: 0,
+                  }}
+                >
+                  <svg width="22" height="22" viewBox="0 0 48 48" aria-hidden="true">
+                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                  </svg>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 14.5, color: "var(--ink)", letterSpacing: "-0.01em" }}>
+                    {T("Google account", "حساب Google")}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: 3, lineHeight: 1.35 }}>
+                    {googleLinked
+                      ? (googleEmail
+                          ? T(`Linked as ${googleEmail}`, `مربوط: ${googleEmail}`)
+                          : T("Linked — you can sign in with Google", "مربوط — يمكنك الدخول بـ Google"))
+                      : T("Link Google to sign in faster. Your Google photo will be used as avatar.", "اربط Google للدخول أسرع. صورة Google هتطبّق كصورة الملف.")}
+                  </div>
+                </div>
+                {googleLinked && (
+                  <span
+                    style={{
+                      fontSize: 10.5,
+                      fontWeight: 800,
+                      letterSpacing: "0.04em",
+                      textTransform: "uppercase",
+                      color: "#137333",
+                      background: "rgba(52,168,83,0.15)",
+                      border: "1px solid rgba(52,168,83,0.35)",
+                      borderRadius: 999,
+                      padding: "4px 9px",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {T("Linked", "مربوط")}
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {!googleLinked ? (
+                  <button
+                    type="button"
+                    disabled={googleLinkBusy}
+                    onClick={() => { if (typeof onLinkGoogle === "function") onLinkGoogle(); }}
+                    style={{
+                      flex: 1,
+                      minWidth: 140,
+                      minHeight: 44,
+                      borderRadius: 12,
+                      border: "none",
+                      background: "linear-gradient(135deg, #4285F4 0%, #34A853 100%)",
+                      color: "#fff",
+                      fontWeight: 800,
+                      fontSize: 13.5,
+                      cursor: googleLinkBusy ? "wait" : "pointer",
+                      opacity: googleLinkBusy ? 0.7 : 1,
+                      boxShadow: "0 6px 16px rgba(66,133,244,0.35)",
+                    }}
+                  >
+                    {googleLinkBusy
+                      ? T("Connecting…", "جارٍ الربط…")
+                      : T("Link Google", "ربط Google")}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={googleLinkBusy || typeof onUnlinkGoogle !== "function"}
+                    onClick={() => { if (typeof onUnlinkGoogle === "function") onUnlinkGoogle(); }}
+                    style={{
+                      flex: 1,
+                      minWidth: 140,
+                      minHeight: 44,
+                      borderRadius: 12,
+                      border: "1px solid rgba(var(--border-rgb),0.28)",
+                      background: "var(--card)",
+                      color: "var(--danger, #c44)",
+                      fontWeight: 700,
+                      fontSize: 13.5,
+                      cursor: googleLinkBusy ? "wait" : "pointer",
+                      opacity: googleLinkBusy ? 0.7 : 1,
+                    }}
+                  >
+                    {googleLinkBusy
+                      ? T("Working…", "جارٍ…")
+                      : T("Unlink Google", "إلغاء الربط")}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => fileRef.current && fileRef.current.click()}
+                  style={{
+                    minHeight: 44,
+                    padding: "0 14px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(var(--border-rgb),0.28)",
+                    background: "var(--card)",
+                    color: "var(--ink)",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: "pointer",
+                  }}
+                >
+                  {T("Change photo", "تغيير الصورة")}
+                </button>
+              </div>
+              {googleLinked && (
+                <p style={{ margin: "10px 0 0", fontSize: 11.5, color: "var(--muted)", lineHeight: 1.4 }}>
+                  {T(
+                    "You can still upload a different profile photo anytime — it won't unlink Google.",
+                    "تقدر تغيّر صورة الملف في أي وقت — مش هيلغي ربط Google."
+                  )}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Cosmetic picker — only unlocked items; tiny storage (id strings) */}
+
           {(unlockedBadges.length > 0 || unlockedFrames.length > 0) && (
             <div
               style={{

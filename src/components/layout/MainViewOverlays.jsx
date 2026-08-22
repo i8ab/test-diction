@@ -112,6 +112,7 @@ export default function MainViewOverlays(p) {
     showTextExtract, setShowTextExtract,
     showAiPdfExtract, setShowAiPdfExtract,
     showAccount, onCloseAccount, onUpdateOwnAccount,
+    onLinkGoogle, onUnlinkGoogle, googleLinkBusy,
     showAdmin, onCloseAdmin, onClearLogs, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount,
     showDictation, setShowDictation, onDictationRoundFinished,
     showAchievements, setShowAchievements,
@@ -488,6 +489,10 @@ export default function MainViewOverlays(p) {
             onSave={onUpdateOwnAccount}
             isAr={appIsAr}
             lang={appLang}
+            onLinkGoogle={onLinkGoogle}
+            onUnlinkGoogle={onUnlinkGoogle}
+            googleLinkBusy={googleLinkBusy}
+            
           />
         )}
         {showAdmin && (

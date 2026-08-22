@@ -643,22 +643,14 @@ body::-webkit-scrollbar,
 
 /* Brand mark — Bacaloria Community */
 .brand-mark-badge {
-  animation: brandBadgePulse 2.8s ease-in-out infinite;
+  animation: none;
 }
 .brand-mark-badge-shine::after {
   content: "";
-  position: absolute;
-  inset: -30%;
-  background: linear-gradient(
-    115deg,
-    transparent 40%,
-    rgba(255, 255, 255, 0.55) 50%,
-    transparent 60%
-  );
-  animation: brandShine 3.4s ease-in-out infinite;
+  display: none;
 }
 .brand-mark-ring {
-  animation: brandRingPulse 2.8s ease-in-out infinite;
+  animation: none;
 }
 .brand-mark-title {
   background: linear-gradient(

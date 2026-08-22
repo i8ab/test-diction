@@ -335,11 +335,6 @@ export async function performLogin(p) {
   e.preventDefault();
   setAuthError("");
 
-  if (!accountsLoaded) {
-    setAuthError("Still loading — please try again in a moment.");
-    return;
-  }
-
   const uCheck = validateUsername(usernameInput);
   if (!uCheck.ok) {
     setAuthError(uCheck.error);
@@ -350,39 +345,95 @@ export async function performLogin(p) {
     return;
   }
 
+  // لو الحسابات لسه بتتحمّل: ننتظر شوية بدل ما نرفض الدخول فورًا
+  if (!accountsLoaded) {
+    setLoggingIn(true);
+    try {
+      await new Promise((r) => setTimeout(r, 800));
+    } catch (_) {}
+    // لو لسه مش محمّلة بعد الانتظار، نكمل ونعتمد على الجلب المباشر من الشبكة
+  }
+
   setLoggingIn(true);
 
   let curAccounts = accounts;
   let account = null;
-  try {
+  let networkFailed = false;
+
+  // محاولة جلب الحسابات من السحابة (مع إعادة محاولة واحدة عند الفشل)
+  async function loadAccountsFresh() {
     const rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
-    curAccounts = rec.accounts || [];
+    let list = rec.accounts || [];
     if (pendingRemoveCodesRef.current.size) {
       const drop = pendingRemoveCodesRef.current;
-      curAccounts = curAccounts.filter((a) => a && a.code && !drop.has(String(a.code)));
+      list = list.filter((a) => a && a.code && !drop.has(String(a.code)));
     }
-    setAccounts(curAccounts);
-    accountsRef.current = curAccounts;
+    setAccounts(list);
+    accountsRef.current = list;
     setEntries(rec.entries || []);
     setLogs(rec.logs || []);
     setSiteBanner(rec.siteBanner || null);
     if (rec.examConfig !== undefined) setExamConfig(normalizeExamConfig(rec.examConfig));
     commitRecordVersion(rec.version);
+    return list;
+  }
+
+  try {
+    curAccounts = await loadAccountsFresh();
     account = curAccounts.find((a) => normalizeUsername(a.username) === uCheck.username);
   } catch (_) {
-    curAccounts = accountsRef.current.length ? accountsRef.current : accounts;
-    account = curAccounts.find((a) => normalizeUsername(a.username) === uCheck.username);
+    networkFailed = true;
+    // إعادة محاولة واحدة بعد تأخير قصير (شبكة متقطعة أو كاش edge)
+    try {
+      await new Promise((r) => setTimeout(r, 350));
+      curAccounts = await loadAccountsFresh();
+      account = curAccounts.find((a) => normalizeUsername(a.username) === uCheck.username);
+      networkFailed = false;
+    } catch (_) {
+      // الاعتماد على النسخة المحلية إن وُجدت
+      curAccounts = accountsRef.current.length ? accountsRef.current : accounts;
+      account = curAccounts.find((a) => normalizeUsername(a.username) === uCheck.username);
+    }
   }
+
   if (!account) {
     setLoggingIn(false);
-    setAuthError(appIsAr ? "اسم المستخدم ده مش موجود." : "That username doesn't match any account.");
+    if (networkFailed) {
+      setAuthError(
+        appIsAr
+          ? "تعذّر الاتصال بالخادم. تحقق من الإنترنت وحاول مرة أخرى."
+          : "Couldn't reach the server. Check your connection and try again."
+      );
+    } else {
+      setAuthError(appIsAr ? "اسم المستخدم ده مش موجود." : "That username doesn't match any account.");
+    }
     return;
   }
+
+  // إذا كانت الحالة pending: نعمل محاولة إضافية بجلب حديث من السحابة
+  // عشان لو الأدمن وافق للتو والكاش القديم فيه نسخة قديمة، الحساب يتفعل بدون ما نلغي نظام الموافقة
+  if (account.status === "pending") {
+    try {
+      const freshRec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
+      const freshList = freshRec.accounts || [];
+      setAccounts(freshList);
+      accountsRef.current = freshList;
+      commitRecordVersion(freshRec.version);
+      const refreshed = freshList.find((a) => normalizeUsername(a.username) === uCheck.username);
+      if (refreshed) {
+        account = refreshed;
+        curAccounts = freshList;
+      }
+    } catch (_) {
+      /* نكمل بالحالة الحالية لو الشبكة فشلت */
+    }
+  }
+
   if (account.status === "pending") {
     setLoggingIn(false);
     setAuthError(
       appIsAr
-        ? "حسابك لسه مستني موافقة المسؤول. لو اتقبلت حاول تاني بعد لحظات."
+        ? "حسابك لسه مستني موافقة المسؤول. لو اتقبلت جرّب تاني بعد لحظات (اضغط دخول مرة كمان)."
         : "Your account is still waiting for admin approval. If you were just approved, try again in a moment."
     );
     return;
@@ -408,21 +459,31 @@ export async function performLogin(p) {
 
   let passwordOk = false;
   let shouldUpgradeHash = false;
+  const typedPassword = String(passwordInput ?? "");
   try {
     if (account.passwordHash) {
-      const result = await verifyPasswordDetailed(passwordInput, account.code, account.passwordHash);
+      const result = await verifyPasswordDetailed(typedPassword, account.code, account.passwordHash);
       passwordOk = result.ok;
       shouldUpgradeHash = !!(result.ok && result.needsUpgrade);
+      // محاولة إضافية بدون مسافات زائدة في الطرفين (أخطاء شائعة من اللصق)
+      if (!passwordOk && typedPassword !== typedPassword.trim()) {
+        const trimmedResult = await verifyPasswordDetailed(typedPassword.trim(), account.code, account.passwordHash);
+        if (trimmedResult.ok) {
+          passwordOk = true;
+          shouldUpgradeHash = true;
+        }
+      }
     }
+    // حسابات قديمة بدون passwordHash: الدخول برمز الحساب الشخصي ثم ترقية الهاش
     if (!passwordOk) {
-      const typed = passwordInput.trim();
+      const typed = typedPassword.trim();
       if (typed && typed === String(account.code)) {
         passwordOk = true;
         shouldUpgradeHash = true;
       }
     }
     if (passwordOk && shouldUpgradeHash) {
-      const newHash = await hashPassword(passwordInput, account.code);
+      const newHash = await hashPassword(typedPassword.trim() || typedPassword, account.code);
       curAccounts = curAccounts.map((a) =>
         a.code === account.code ? { ...a, passwordHash: newHash } : a
       );
@@ -435,7 +496,16 @@ export async function performLogin(p) {
   }
   if (!passwordOk) {
     setLoggingIn(false);
-    setAuthError("Wrong password.");
+    // لو مفيش هاش أصلاً ومش الرمز الشخصي → رسالة أوضح
+    if (!account.passwordHash) {
+      setAuthError(
+        appIsAr
+          ? "هذا الحساب يحتاج إعادة تعيين كلمة المرور من المسؤول."
+          : "This account needs a password reset by an admin."
+      );
+    } else {
+      setAuthError("Wrong password.");
+    }
     return;
   }
 

@@ -44,8 +44,6 @@ function translateAdminError(msg, isAr) {
     "Wrong password.": "كلمة المرور خاطئة.",
     "Couldn't verify the password — try again.": "تعذّر التحقق من كلمة المرور — حاول مرة أخرى.",
     "Enter your password.": "أدخل كلمة المرور.",
-    "Couldn't reach the server. Check your connection and try again.": "تعذّر الاتصال بالخادم. تحقق من الإنترنت وحاول مرة أخرى.",
-    "This account needs a password reset by an admin.": "هذا الحساب يحتاج إعادة تعيين كلمة المرور من المسؤول.",
     "Someone else just made a change — please try again.": "شخص آخر عدّل للتو — حاول مرة أخرى.",
     "Couldn't create the account — check your connection and try again.": "تعذّر إنشاء الحساب — تحقق من اتصالك وحاول مرة أخرى.",
     "Please select Male or Female.": "من فضلك اختر ذكر أو أنثى.",

@@ -5,6 +5,15 @@
       "schedule": "0 4 * * *"
     }
   ],
+  "rewrites": [
+    { "source": "/api/auth-google", "destination": "/api/auth?provider=google" },
+    { "source": "/api/auth-facebook", "destination": "/api/auth?provider=facebook" },
+    { "source": "/api/login", "destination": "/api/auth?provider=legacy" },
+    { "source": "/api/push-subscribe", "destination": "/api/push?action=subscribe" },
+    { "source": "/api/push-inbox", "destination": "/api/push?action=inbox" },
+    { "source": "/api/push-broadcast", "destination": "/api/push?action=broadcast" },
+    { "source": "/api/push-test", "destination": "/api/push?action=test" }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",

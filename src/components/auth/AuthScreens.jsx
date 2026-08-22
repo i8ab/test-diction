@@ -164,16 +164,15 @@ function AuthScreens({
 
   if (authStage === "intro") {
     // Keep the feature list focused — fewer cards = less paint work and a cleaner look
-    // نصوص أكثر طبيعية وبشرية لتقليل الإحساس بالتصميم الآلي
     const introFeatures = [
-      { icon: SearchIcon, title: atr("Instant search", "بحث سريع"), desc: atr("Look up any word between English and Arabic in a heartbeat.", "ابحث عن أي كلمة عربي أو إنجليزي بسرعة، والتعريف يظهر فورًا.") },
-      { icon: SpeakerIcon, title: atr("Cambridge pronunciation", "نطق صحيح"), desc: atr("American and British audio from Cambridge Dictionary, plus practice scoring.", "اسمع النطق الأمريكي والبريطاني من قاموس كامبريدج، وجرّب نطقك بنفسك.") },
-      { icon: QuizIcon, title: atr("Practice quizzes", "تدريبات واختبارات"), desc: atr("Quizzes, flashcards, random word, and dictation — with multi-type words labeled clearly.", "اختبارات وبطاقات فلاش وإملاء وكلمة عشوائية — عشان تثبت الكلمات في دماغك.") },
-      { icon: EditIcon, title: atr("Grow the dictionary", "أضف كلماتك"), desc: atr("Add words with types, multiple senses, auto-fill definitions and examples.", "أضف أي كلمة جديدة بأنواعها ومعانيها، والتعريفات والأمثلة تتعبى لوحدها.") },
-      { icon: UsersIcon, title: atr("Shared with your group", "مع مجموعتك"), desc: atr("One dictionary for everyone, with each person's progress tracked separately.", "قاموس واحد للصف أو المجموعة، وكل واحد يشوف تقدمه لوحده.") },
-      { icon: StatsIcon, title: atr("Smart review (SRS)", "مراجعة ذكية"), desc: atr("Spaced-repetition brings words back right before you'd forget them.", "النظام بيرجع لك الكلمات في الوقت المناسب قبل ما تنساها.") },
-      { icon: TrophyIcon, title: atr("Leaderboard", "لوحة المتصدرين"), desc: atr("See how you stack up against the rest of your group.", "شوف ترتيبك بين زملائك وحفّز نفسك.") },
-      { icon: WifiOffIcon, title: atr("Works offline", "بدون إنترنت"), desc: atr("Your saved words stay with you even without a connection.", "كلماتك محفوظة معاك حتى لو مفيش نت.") },
+      { icon: SearchIcon, title: atr("Instant search", "بحث فوري"), desc: atr("Look up any word between English and Arabic in a heartbeat.", "ابحث عن أي كلمة بين الإنجليزية والعربية في لحظة.") },
+      { icon: SpeakerIcon, title: atr("Cambridge pronunciation", "نطق كامبريدج"), desc: atr("American and British audio from Cambridge Dictionary, plus practice scoring.", "نطق أمريكي وبريطاني من قاموس كامبريدج مع تمرين وتقييم.") },
+      { icon: QuizIcon, title: atr("Practice quizzes", "اختبارات تدريبية"), desc: atr("Quizzes, flashcards, random word, and dictation — with multi-type words labeled clearly.", "اختبارات وبطاقات وكلمة عشوائية وإملاء — مع توضيح نوع الكلمة لو ليها أكتر من معنى.") },
+      { icon: EditIcon, title: atr("Grow the dictionary", "أضِف كلمات جديدة"), desc: atr("Add words with types, multiple senses, auto-fill definitions and examples.", "أضف كلمات بأنواع ومعاني متعددة وتعبئة تلقائية للتعريف والأمثلة.") },
+      { icon: UsersIcon, title: atr("Shared with your group", "مشترك مع مجموعتك"), desc: atr("One dictionary for everyone, with each person's progress tracked separately.", "قاموس واحد للجميع، وتقدّم كل شخص محفوظ بشكل منفصل.") },
+      { icon: StatsIcon, title: atr("Smart review (SRS)", "مراجعة ذكية"), desc: atr("Spaced-repetition brings words back right before you'd forget them.", "التكرار المتباعد بيرجّع الكلمات قبل ما تنساها.") },
+      { icon: TrophyIcon, title: atr("Leaderboard", "لوحة الصدارة"), desc: atr("See how you stack up against the rest of your group.", "شوف ترتيبك مقارنة بباقي أفراد مجموعتك.") },
+      { icon: WifiOffIcon, title: atr("Works offline", "يعمل بدون إنترنت"), desc: atr("Your saved words stay with you even without a connection.", "كلماتك المحفوظة تفضل معاك حتى من غير اتصال بالإنترنت.") },
     ];
     return (
       <div

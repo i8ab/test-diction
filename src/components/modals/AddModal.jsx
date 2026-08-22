@@ -248,7 +248,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
                 placeholder={cfg.wordPlaceholder}
                 dir={cfg.wordDir}
                 style={{ fontFamily: cfg.wordFont }}
-                autoFocus
+               
               />
               {canAutoSuggest && (
                 <button

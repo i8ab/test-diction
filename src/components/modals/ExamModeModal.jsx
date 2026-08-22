@@ -911,7 +911,7 @@ export default function ExamModeModal({
                       <input
                         type="text"
                         dir={q.optionDir}
-                        autoFocus
+                       
                         value={typedAnswer}
                         onChange={(e) => setTypedAnswer(e.target.value)}
                         onKeyDown={(e) => {

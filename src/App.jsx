@@ -172,6 +172,8 @@ export default function DictionaryApp() {
   const [signupBacGrade, setSignupBacGrade] = useState(""); // "2" | "3"
   const [signupBacSpecialty, setSignupBacSpecialty] = useState("");
   const [signupRole, setSignupRole] = useState("user"); // "user" | "teacher"
+  /** When set, signup is completing a Google profile (password optional). */
+  const [socialDraft, setSocialDraft] = useState(null);
   const [authError, setAuthError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
   const [signupError, setSignupError] = useState("");
@@ -1668,6 +1670,8 @@ useEffect(() => {
       setSiteBanner,
       setExamConfig,
       goToStage,
+      socialDraft,
+      setSocialDraft,
     });
   }
 
@@ -1706,6 +1710,10 @@ useEffect(() => {
         setMainAccountCodeState,
         goToStage,
         persistAccounts,
+        setSignupUsername,
+        setSignupAvatar,
+        setSocialDraft,
+        setSignupError,
       });
     } catch (err) {
       setAuthError((err && err.message) || "Sign-in failed.");
@@ -2173,6 +2181,7 @@ useEffect(() => {
           authError={authError} setAuthError={setAuthError} loggingIn={loggingIn} handleLogin={handleLogin}
           handleSocialLogin={handleSocialLogin}
           linkMode={linkMode} onCancelLink={cancelLinkAccount}
+          socialDraft={socialDraft}
         />
       </Suspense>
     );

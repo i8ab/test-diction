@@ -75,7 +75,7 @@ export default function SentencePracticeModal({
 
   useEffect(() => {
     if (phase === "write") {
-      setTimeout(() => inputRef.current?.focus(), 80);
+      /* no auto-focus on open */
     }
   }, [phase, idx]);
 

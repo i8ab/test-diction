@@ -843,7 +843,7 @@ function AdminModal({
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 style={{ ...inputStyle, borderRadius: 12 }}
-                autoFocus
+               
                 autoCapitalize="off"
                 autoCorrect="off"
               />

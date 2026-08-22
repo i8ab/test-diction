@@ -67,6 +67,8 @@ export async function performSignup(p) {
     setSiteBanner,
     setExamConfig,
     goToStage,
+    socialDraft = null,
+    setSocialDraft = null,
   } = p;
 
   e.preventDefault();
@@ -82,14 +84,17 @@ export async function performSignup(p) {
     setSignupError(uCheck.error);
     return;
   }
-  const pCheck = validatePassword(signupPassword);
-  if (!pCheck.ok) {
-    setSignupError(pCheck.error);
-    return;
-  }
-  if (signupPassword !== signupPassword2) {
-    setSignupError("Passwords do not match.");
-    return;
+  const isSocialSignup = !!(socialDraft && socialDraft.provider && socialDraft.providerId);
+  if (!isSocialSignup) {
+    const pCheck = validatePassword(signupPassword);
+    if (!pCheck.ok) {
+      setSignupError(pCheck.error);
+      return;
+    }
+    if (signupPassword !== signupPassword2) {
+      setSignupError("Passwords do not match.");
+      return;
+    }
   }
   if (signupGender !== "male" && signupGender !== "female") {
     setSignupError("Please select Male or Female.");
@@ -126,20 +131,22 @@ export async function performSignup(p) {
 
   setSignupSaving(true);
   const code = generatePersonalCode();
-  let passwordHash;
-  try {
-    passwordHash = await hashPassword(pCheck.password, code);
-  } catch (_) {
-    setSignupSaving(false);
-    setSignupError("Couldn't create the account — check your connection and try again.");
-    return;
+  let passwordHash = "";
+  if (!isSocialSignup) {
+    try {
+      passwordHash = await hashPassword(signupPassword, code);
+    } catch (_) {
+      setSignupSaving(false);
+      setSignupError("Couldn't create the account — check your connection and try again.");
+      return;
+    }
   }
 
   const roleLabel = isTeacherSignup ? "teacher" : "user";
   const newAccount = {
     name: trimmedName,
     username: uCheck.username,
-    passwordHash,
+    ...(passwordHash ? { passwordHash } : {}),
     code,
     role: roleLabel,
     status: "pending",
@@ -154,6 +161,14 @@ export async function performSignup(p) {
           bacGrade: signupBacGrade,
           ...(bacSpecialty ? { bacSpecialty } : {}),
         }),
+    ...(isSocialSignup
+      ? {
+          authProvider: socialDraft.provider,
+          socialId: socialDraft.providerId,
+          email: socialDraft.email || "",
+          ...(socialDraft.picture && !signupAvatar ? { avatar: socialDraft.picture } : {}),
+        }
+      : {}),
   };
 
   try {
@@ -205,6 +220,7 @@ export async function performSignup(p) {
         if (typeof setSignupBacGrade === "function") setSignupBacGrade("");
         if (typeof setSignupBacSpecialty === "function") setSignupBacSpecialty("");
         if (typeof setSignupRole === "function") setSignupRole("user");
+        if (typeof setSocialDraft === "function") setSocialDraft(null);
         goToStage("pendingShown");
         return;
       } catch (err) {
@@ -271,6 +287,7 @@ export async function performSignup(p) {
         if (typeof setSignupBacGrade === "function") setSignupBacGrade("");
         if (typeof setSignupBacSpecialty === "function") setSignupBacSpecialty("");
         if (typeof setSignupRole === "function") setSignupRole("user");
+        if (typeof setSocialDraft === "function") setSocialDraft(null);
         goToStage("pendingShown");
         return;
       } catch (_) {
@@ -718,49 +735,34 @@ export async function performSocialLogin(p) {
     return;
   }
 
-  // First time we've seen this person — create a new account exactly like a
-  // normal signup: pending, waiting on admin approval. Social sign-in only
-  // replaces typing a username/password, not the approval gate.
-  const code = generatePersonalCode();
+  // First time — prefill signup form from Google profile and ask user to
+  // complete remaining required fields (gender, birth date, bac path, etc.).
+  // Account is created only after they submit the signup form.
+  setLoggingIn(false);
   const username = usernameFromEmail(email, curAccounts.map((a) => a.username));
-  const newAccount = {
-    name: (profile.name || email.split("@")[0]).trim(),
-    username,
-    email,
-    authProvider: provider,
-    socialId: profile.providerId,
-    ...(profile.picture ? { avatar: profile.picture } : {}),
-    code,
-    role: "user",
-    status: "pending",
-    createdAt: Date.now(),
-  };
-
-  try {
-    const nextAccounts = [...curAccounts, newAccount];
-    const nextLogs = capLogs([
-      ...(rec.logs || []),
-      makeLogEntry(
-        "account_add",
-        `${newAccount.name} (@${username}) requested an account via ${provider}`,
-        newAccount.name,
-        code
-      ),
-    ]);
-    const newVersion = await saveAccountsOnly({ accounts: nextAccounts }, rec.version);
-    setAccounts(nextAccounts);
-    setLogs(nextLogs);
-    commitRecordVersion(newVersion);
-    setLoggingIn(false);
-    goToStage("pendingShown");
-  } catch (_) {
-    setLoggingIn(false);
-    setAuthError(
+  const displayName = (profile.name || email.split("@")[0] || "").trim();
+  if (typeof p.setName === "function") p.setName(displayName);
+  if (typeof p.setSignupUsername === "function") p.setSignupUsername(username);
+  if (typeof p.setSignupAvatar === "function" && profile.picture) {
+    p.setSignupAvatar(profile.picture);
+  }
+  if (typeof p.setSocialDraft === "function") {
+    p.setSocialDraft({
+      provider,
+      providerId: profile.providerId,
+      email,
+      name: displayName,
+      picture: profile.picture || "",
+    });
+  }
+  if (typeof p.setSignupError === "function") {
+    p.setSignupError(
       appIsAr
-        ? "تعذّر إنشاء الحساب حالياً — حاول مرة أخرى بعد لحظات."
-        : "Couldn't create the account right now — please try again in a moment."
+        ? "أكمل البيانات المطلوبة لإتمام طلب الحساب (الجنس، تاريخ الميلاد، مسار البكالوريا…)."
+        : "Complete the required fields to finish your account request (gender, date of birth, baccalaureate track…)."
     );
   }
+  goToStage("signup");
 }
 
 

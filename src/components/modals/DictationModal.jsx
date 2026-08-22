@@ -370,7 +370,7 @@ export default function DictationModal({
               }
               dir={mode === "listen-meaning" ? "rtl" : current.section === "ar-ar" ? "rtl" : "ltr"}
               style={{ ...inputStyle, marginTop: 8, fontSize: 16 }}
-              autoFocus
+             
             />
 
             {error && stage === "running" && !answered && (

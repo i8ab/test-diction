@@ -96,7 +96,7 @@ export default function ListeningLoopModal({
       }
       if (!cancelled) {
         setPhase("type");
-        setTimeout(() => inputRef.current?.focus(), 80);
+        /* no auto-focus on open */
       }
     }
     loop();
@@ -146,7 +146,7 @@ export default function ListeningLoopModal({
   function skipToType() {
     if (timerRef.current) clearTimeout(timerRef.current);
     setPhase("type");
-    setTimeout(() => inputRef.current?.focus(), 80);
+    /* no auto-focus on open */
   }
 
   if (total === 0) {

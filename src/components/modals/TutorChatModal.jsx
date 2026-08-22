@@ -365,7 +365,7 @@ export default function TutorChatModal({
           : `Hi${name ? ` ${name}` : ""} 👋\nAsk me anything about your study progress — I'll answer from your current data.`,
       },
     ]);
-    setTimeout(() => inputRef.current?.focus(), 150);
+    /* no auto-focus on open */
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const runAction = useCallback(
@@ -472,7 +472,7 @@ export default function TutorChatModal({
       ]);
     } finally {
       setLoading(false);
-      setTimeout(() => inputRef.current?.focus(), 40);
+      /* no auto-focus on open */
     }
   }
 

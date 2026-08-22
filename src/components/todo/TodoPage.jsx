@@ -152,18 +152,7 @@ export default function TodoPage({
   const inputRef = useRef(null);
   const dragRef = useRef(null);
 
-  useEffect(() => {
-    setTodos((prev) => {
-      const actives = prev.filter((t) => t.activeSince);
-      if (actives.length <= 1) return prev;
-      const keepId = actives.sort((a, b) => b.activeSince - a.activeSince)[0].id;
-      return prev.map((t) =>
-        t.activeSince && t.id !== keepId
-          ? { ...t, activeSince: null, workedMs: (t.workedMs || 0) + (Date.now() - t.activeSince) }
-          : t
-      );
-    });
-  }, []);
+  // Concurrent tasks allowed — multiple activeSince timers can run at once.
 
   // Reload from localStorage when account switches (skip initial mount)
   const prevCodeRef = useRef(accountCode);
@@ -192,12 +181,8 @@ export default function TodoPage({
 
   useBodyScrollLock(viewMode === "full");
 
-  useEffect(() => {
-    if (viewMode === "full") {
-      const t = setTimeout(() => inputRef.current?.focus?.(), 60);
-      return () => clearTimeout(t);
-    }
-  }, [viewMode]);
+  // Do not auto-focus the task input on open — avoids mobile/tablet keyboard popup.
+  // Keyboard appears only when the user taps the field.
 
   const openCount = useMemo(() => todos.filter((t) => !t.done).length, [todos]);
   const doneCount = todos.length - openCount;
@@ -288,21 +273,12 @@ export default function TodoPage({
   }
 
   function startTask(id) {
+    // Allow multiple tasks to run concurrently — do not stop other active timers.
     setTodos((prev) =>
       prev.map((t) => {
-        if (t.id === id) {
-          if (t.done || t.activeSince) return t;
-          return { ...t, activeSince: Date.now(), updatedAt: Date.now() };
-        }
-        if (t.activeSince) {
-          return {
-            ...t,
-            activeSince: null,
-            workedMs: (t.workedMs || 0) + (Date.now() - t.activeSince),
-            updatedAt: Date.now(),
-          };
-        }
-        return t;
+        if (t.id !== id) return t;
+        if (t.done || t.activeSince) return t;
+        return { ...t, activeSince: Date.now(), updatedAt: Date.now() };
       })
     );
   }
@@ -468,7 +444,7 @@ export default function TodoPage({
         : { bottom: 18, insetInlineStart: 14 }),
     };
     const preview = todos.filter((t) => !t.done).slice(0, 3);
-    const active = todos.find((x) => x.activeSince);
+    const actives = todos.filter((x) => x.activeSince);
     const bubble = (
       <div
         role="dialog"
@@ -494,11 +470,11 @@ export default function TodoPage({
           {openCount} {tr(isAr, "tasks", "مهام")}
           {workingCount > 0 ? ` · ${workingCount} ${tr(isAr, "working", "شغّال")}` : ""}
         </div>
-        {active && (
-          <div style={{ fontSize: 11, color: "#30d158", fontWeight: 700, marginBottom: 4, whiteSpace: "normal", wordBreak: "break-word" }}>
+        {actives.slice(0, 3).map((active) => (
+          <div key={active.id} style={{ fontSize: 11, color: "#30d158", fontWeight: 700, marginBottom: 4, whiteSpace: "normal", wordBreak: "break-word" }}>
             ▶ {active.text} · {formatElapsed(elapsedFor(active))}
           </div>
-        )}
+        ))}
         {preview.map((t) => (
           <div key={t.id} style={{ fontSize: 11, color: INK, whiteSpace: "normal", wordBreak: "break-word", padding: "2px 0" }}>
             {numberMap[t.id]}. {t.text}

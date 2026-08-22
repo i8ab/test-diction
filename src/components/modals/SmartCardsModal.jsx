@@ -90,7 +90,7 @@ export default function SmartCardsModal({
 
   useEffect(() => {
     if (phase === "prompt" && deck && (deck[pos]?.cardMode === "type" || deck[pos]?.cardMode === "cloze" || deck[pos]?.cardMode === "audio")) {
-      setTimeout(() => inputRef.current && inputRef.current.focus(), 50);
+      /* no auto-focus on open */
     }
   }, [phase, pos, deck]);
 

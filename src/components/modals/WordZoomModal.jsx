@@ -361,15 +361,53 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
           </div>
         </div>
         {cfg.wordDir === "ltr" && (
-
           <a
             href={cambridgeUrl(entry.word)}
             target="_blank"
             rel="noopener noreferrer"
-            title={tr(cfg.dir === "rtl", "Open in Cambridge Dictionary", "افتح في قاموس كامبريدج")}
-            style={{ display: "inline-flex", alignItems: "center", marginTop: 18, background: "#1D2A57", borderRadius: 3, padding: "6px 10px" }}
-            className="lift-hover">
-            <img src="https://dictionary.cambridge.org/external/images/freesearch/sbl.png?version=6.0.78" alt={tr(cfg.dir === "rtl", "Cambridge Dictionary", "قاموس كامبريدج")} style={{ height: 20, display: "block" }} />
+            aria-label={tr(cfg.dir === "rtl", "Open in Cambridge Dictionary", "افتح في قاموس كامبريدج")}
+            className="lift-hover"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
+              marginTop: 18,
+              padding: "10px 16px",
+              borderRadius: 14,
+              background: "linear-gradient(135deg, #1a2744 0%, #2c3e6b 55%, #1D2A57 100%)",
+              border: "1px solid rgba(196, 163, 90, 0.45)",
+              boxShadow: "0 6px 18px rgba(29, 42, 87, 0.35), inset 0 1px 0 rgba(255,255,255,0.08)",
+              textDecoration: "none",
+              color: "#F5E6C8",
+              fontWeight: 700,
+              fontSize: 13.5,
+              letterSpacing: "0.02em",
+            }}
+          >
+            <span
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                background: "rgba(255,255,255,0.1)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <svg width="18" height="20" viewBox="0 0 24 28" fill="none" aria-hidden="true">
+                <path d="M12 1.5C12 1.5 3.5 4.2 3.5 4.2V12.8C3.5 19.2 7.8 24.6 12 26.5C16.2 24.6 20.5 19.2 20.5 12.8V4.2S12 1.5 12 1.5Z" fill="#1D2A57" stroke="#C4A35A" strokeWidth="1.2" />
+                <path d="M12 7.2V20.2M12 7.2C10.2 6.6 8.2 6.4 7 6.8V18.8C8.2 18.4 10.2 18.6 12 19.2M12 7.2C13.8 6.6 15.8 6.4 17 6.8V18.8C15.8 18.4 13.8 18.6 12 19.2" stroke="#E8D5A3" strokeWidth="1.15" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="12" cy="12.5" r="1.35" fill="#C4A35A" />
+              </svg>
+            </span>
+            <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.25 }}>
+              <span style={{ fontSize: 13.5, fontWeight: 800, color: "#F8F1E3" }}>Cambridge</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(245,230,200,0.75)" }}>
+                {tr(cfg.dir === "rtl", "Dictionary", "القاموس")}
+              </span>
+            </span>
           </a>
         )}
         {entry.definition && (

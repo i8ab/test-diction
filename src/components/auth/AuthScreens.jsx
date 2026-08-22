@@ -131,7 +131,9 @@ function AuthScreens({
   authError, setAuthError, loggingIn, handleLogin,
   handleSocialLogin,
   linkMode = false, onCancelLink = null,
+  socialDraft = null,
 }) {
+  const isSocialSignup = !!(socialDraft && socialDraft.provider && socialDraft.providerId);
   const [showLoginPw, setShowLoginPw] = useState(false);
   const [showSignupPw, setShowSignupPw] = useState(false);
   const [showSignupPw2, setShowSignupPw2] = useState(false);
@@ -514,7 +516,7 @@ function AuthScreens({
             </div>
             <div className="auth-field-1">
               <label style={labelStyle} htmlFor="signup-name">{atr("Display name", "الاسم الظاهر")}</label>
-              <input id="signup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={atr("e.g. Omar", "مثال: عمر")} style={authInputStyle} autoFocus autoCapitalize="words" autoCorrect="off" />
+              <input id="signup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={atr("e.g. Omar", "مثال: عمر")} style={authInputStyle} autoCapitalize="words" autoCorrect="off" />
             </div>
 
             {/* صورة الحساب (اختياري) */}
@@ -717,20 +719,34 @@ function AuthScreens({
               <label style={labelStyle} htmlFor="signup-username"><UserIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Username", "اسم المستخدم")}</label>
               <input id="signup-username" value={signupUsername} onChange={(e) => setSignupUsername(e.target.value.replace(/\s/g, "").toLowerCase())} placeholder={atr("e.g. omar_23", "مثال: omar_23")} style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace", letterSpacing: "0.02em" }} autoCapitalize="off" autoCorrect="off" autoComplete="username" spellCheck={false} dir="ltr" />
             </div>
-            <div className="auth-field-3">
-              <label style={labelStyle} htmlFor="signup-password"><KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Password", "كلمة المرور")}</label>
-              <input id="signup-password" type="password" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} placeholder={atr("At least 6 characters", "٦ أحرف على الأقل")} style={authInputStyle} autoComplete="new-password" />
-            </div>
-            <div>
-              <label style={labelStyle} htmlFor="signup-password2">{atr("Confirm password", "تأكيد كلمة المرور")}</label>
-              <input id="signup-password2" type="password" value={signupPassword2} onChange={(e) => setSignupPassword2(e.target.value)} placeholder={atr("Repeat password", "أعد كتابة كلمة المرور")} style={authInputStyle} autoComplete="new-password" />
-            </div>
+            {!isSocialSignup && (
+              <>
+                <div className="auth-field-3">
+                  <label style={labelStyle} htmlFor="signup-password"><KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Password", "كلمة المرور")}</label>
+                  <input id="signup-password" type="password" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} placeholder={atr("At least 6 characters", "٦ أحرف على الأقل")} style={authInputStyle} autoComplete="new-password" />
+                </div>
+                <div>
+                  <label style={labelStyle} htmlFor="signup-password2">{atr("Confirm password", "تأكيد كلمة المرور")}</label>
+                  <input id="signup-password2" type="password" value={signupPassword2} onChange={(e) => setSignupPassword2(e.target.value)} placeholder={atr("Repeat password", "أعد كتابة كلمة المرور")} style={authInputStyle} autoComplete="new-password" />
+                </div>
+              </>
+            )}
+            {isSocialSignup && (
+              <div style={{ marginTop: 8, marginBottom: 4, padding: "10px 12px", borderRadius: 10, background: "rgba(66,133,244,0.1)", border: "1px solid rgba(66,133,244,0.25)", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.45 }}>
+                {atr(
+                  "Signed in with Google — name and username are prefilled. Complete gender, date of birth, and baccalaureate fields below. You can edit your name anytime later.",
+                  "تم الدخول بـ Google — الاسم واسم المستخدم معبّيان مسبقًا. أكمل الجنس وتاريخ الميلاد ومسار البكالوريا. تقدر تعدّل اسمك لاحقًا من الحساب."
+                )}
+              </div>
+            )}
             {signupError && <div style={errorStyle} role="alert" aria-live="assertive">{translateAdminError(signupError, appIsAr)}</div>}
             <button type="submit" disabled={signupSaving} className="btn-shine touch-target" style={{ ...primaryBtnStyle, minHeight: 48 }}>
               {signupSaving ? <LoaderIcon size={16} /> : <PlusIcon size={16} />} {atr("Request account", "طلب إنشاء حساب")}
             </button>
           </form>
-          <SocialButtons atr={atr} handleSocialLogin={handleSocialLogin} busy={socialBusy} setBusy={setSocialBusy} />
+          {!isSocialSignup && (
+            <SocialButtons atr={atr} handleSocialLogin={handleSocialLogin} busy={socialBusy} setBusy={setSocialBusy} />
+          )}
           <p style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, color: "var(--muted-strong)", textAlign: "center", marginTop: 18 }}>
             {atr("Already have an account?", "عندك حساب بالفعل؟")}{" "}
             <a href="#" onClick={(e) => { e.preventDefault(); setAuthError(""); goToStage("login"); }} className="link-underline" style={{ color: BRASS, fontWeight: 600, textDecoration: "none" }}>
@@ -872,7 +888,7 @@ function AuthScreens({
                       letterSpacing: "0.06em",
                     }}
                     autoComplete="current-password"
-                    autoFocus
+                   
                   />
                   <button
                     type="button"
@@ -988,7 +1004,7 @@ function AuthScreens({
           <form onSubmit={handleLogin}>
             <div className="auth-field-1">
               <label style={labelStyle} htmlFor="login-username"><UserIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Username", "اسم المستخدم")}</label>
-              <input id="login-username" value={usernameInput} onChange={(e) => setUsernameInput(e.target.value.replace(/\s/g, "").toLowerCase())} placeholder={atr("Your username", "اسم المستخدم")} style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace" }} autoFocus autoCapitalize="off" autoCorrect="off" autoComplete="username" spellCheck={false} dir="ltr" />
+              <input id="login-username" value={usernameInput} onChange={(e) => setUsernameInput(e.target.value.replace(/\s/g, "").toLowerCase())} placeholder={atr("Your username", "اسم المستخدم")} style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace" }} autoCapitalize="off" autoCorrect="off" autoComplete="username" spellCheck={false} dir="ltr" />
             </div>
             <div
               className="auth-field-2"

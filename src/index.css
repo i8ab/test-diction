@@ -2046,9 +2046,9 @@ html[data-device="tablet"] .entry-card--tablet .entry-longform {
 
 /* Mobile word cards — clean chips instead of dual-column pair rows */
 .entry-card--mobile {
-  padding: 12px 12px !important;
-  border-radius: 14px !important;
-  gap: 8px !important;
+  padding: 8px 10px !important;
+  border-radius: 12px !important;
+  gap: 6px !important;
   align-items: flex-start !important;
 }
 .entry-card--mobile .entry-card-top {
@@ -2069,8 +2069,8 @@ html[data-device="tablet"] .entry-card--tablet .entry-longform {
 
 /* Mobile vertical word cards — content full width, actions as bottom bar */
 .entry-card--mobile {
-  padding: 14px 14px 12px !important;
-  border-radius: 16px !important;
+  padding: 8px 10px 8px !important;
+  border-radius: 12px !important;
   gap: 0 !important;
   flex-direction: column !important;
   align-items: stretch !important;
@@ -2548,12 +2548,31 @@ html[data-has-bg-image="1"] .word-card {
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
-/* Mobile: cards more solid so page photo stays a real background, not a melted soup */
+/* Mobile: respect card-clarity (match tablet/desktop transparency) */
 html[data-device="mobile"][data-has-bg-image="1"] .entry-card,
 html[data-device="mobile"][data-has-bg-image="1"] .word-card {
-  background-color: color-mix(in srgb, var(--card) 97%, transparent) !important;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  /* default glass-like when clarity not set — see-through like other devices */
+  background-color: color-mix(in srgb, var(--card) 55%, transparent) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+html[data-device="mobile"][data-card-clarity="opaque"] .entry-card,
+html[data-device="mobile"][data-card-clarity="opaque"] .word-card {
+  background-color: var(--card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html[data-device="mobile"][data-card-clarity="glass"] .entry-card,
+html[data-device="mobile"][data-card-clarity="glass"] .word-card {
+  background-color: color-mix(in srgb, var(--card) 72%, transparent) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+html[data-device="mobile"][data-card-clarity="clear"] .entry-card,
+html[data-device="mobile"][data-card-clarity="clear"] .word-card {
+  background-color: color-mix(in srgb, var(--card) 48%, transparent) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* (ruled notebook LTR/RTL v2 deduplicated — see final version below) */

@@ -1802,6 +1802,93 @@ useEffect(() => {
     }
   }
 
+  // Mobile Facebook: after OAuth redirect, finish login (or link) once.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        let pending = null;
+        try {
+          pending = sessionStorage.getItem("tt_fb_oauth_pending");
+        } catch (_) {}
+        const hasToken =
+          typeof window !== "undefined" &&
+          /access_token=/.test(String(window.location.hash || "") + String(window.location.search || ""));
+        if (!pending && !hasToken) return;
+
+        const socialMod = await import("./lib/state/socialAuth");
+        const profile = await socialMod.completeFacebookRedirectIfPresent();
+        if (cancelled || !profile) return;
+
+        if (pending === "link") {
+          const code = accountCode || (typeof loadPersonalCode === "function" ? loadPersonalCode() : null);
+          if (code && code !== "guest") {
+            const { linkFacebookToCurrentAccount } = await import("./lib/state/authFlow");
+            const result = await linkFacebookToCurrentAccount({
+              profile,
+              accountCode: code,
+              accounts: accountsRef.current.length ? accountsRef.current : accounts,
+              setAccounts,
+              persistAccounts,
+              appIsAr,
+            });
+            if (typeof showToast === "function") {
+              showToast(
+                result.ok
+                  ? appIsAr
+                    ? "تم ربط Facebook"
+                    : "Facebook linked"
+                  : result.error || "Link failed"
+              );
+            }
+          }
+          return;
+        }
+
+        const { performSocialLogin } = await import("./lib/state/authFlow");
+        await performSocialLogin({
+          provider: "facebook",
+          profile,
+          appIsAr,
+          ensureMigratedAccounts,
+          commitRecordVersion,
+          setAuthError,
+          setLoggingIn,
+          setAccounts,
+          setEntries,
+          setLogs,
+          setSiteBanner,
+          setExamConfig,
+          setName,
+          setIsAdmin,
+          setIsTeacher,
+          setAccountCode,
+          setVaultAccounts,
+          linkMode,
+          setLinkMode,
+          setMainAccountCodeState,
+          goToStage,
+          persistAccounts,
+          setSignupUsername,
+          setSignupAvatar,
+          setSocialDraft,
+          setSignupError,
+        });
+      } catch (e) {
+        if (!cancelled) {
+          setAuthError(
+            (e && e.message) ||
+              (appIsAr ? "فشل تسجيل الدخول بفيسبوك." : "Facebook sign-in failed.")
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function handleLogin(e) {
     // Same fix as handleSignup above: cancel the form's default submit
     // synchronously, before the await, or the browser reloads the page.
@@ -1949,11 +2036,16 @@ useEffect(() => {
     if (facebookLinkBusy || !accountCode || accountCode === "guest") return;
     setFacebookLinkBusy(true);
     try {
-      const [{ signInWithFacebook }, { linkFacebookToCurrentAccount }] = await Promise.all([
-        import("./lib/state/socialAuth"),
-        import("./lib/state/authFlow"),
-      ]);
-      const profile = await signInWithFacebook();
+      const [{ signInWithFacebookForLink, signInWithFacebook }, { linkFacebookToCurrentAccount }] =
+        await Promise.all([
+          import("./lib/state/socialAuth"),
+          import("./lib/state/authFlow"),
+        ]);
+      const signIn =
+        typeof signInWithFacebookForLink === "function"
+          ? signInWithFacebookForLink
+          : signInWithFacebook;
+      const profile = await signIn();
       const result = await linkFacebookToCurrentAccount({
         profile,
         accountCode,

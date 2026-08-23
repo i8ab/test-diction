@@ -109,20 +109,162 @@ export function signInWithGoogle() {
       })
   );
 }
+/**
+ * Facebook Login — desktop: JS SDK popup; mobile: full-page OAuth redirect
+ * (popups are unreliable on phones / in-app browsers).
+ *
+ * Required env:
+ *   VITE_FACEBOOK_APP_ID (client)
+ *   FACEBOOK_APP_ID + FACEBOOK_APP_SECRET (server)
+ *
+ * Meta App must list this site's origin in:
+ *   Valid OAuth Redirect URIs  e.g. https://your-app.vercel.app/
+ *   App Domains                e.g. your-app.vercel.app
+ */
+
+const FB_PENDING_KEY = "tt_fb_oauth_pending"; // "login" | "link"
+const FB_STATE_KEY = "tt_fb_oauth_state";
+
+function isMobileUa() {
+  try {
+    if (typeof navigator === "undefined") return false;
+    const ua = navigator.userAgent || "";
+    if (/Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua)) {
+      return true;
+    }
+    // iPadOS desktop UA still has touch
+    if (navigator.maxTouchPoints > 1 && /Macintosh/i.test(ua)) return true;
+  } catch (_) {}
+  return false;
+}
+
+function facebookAppId() {
+  const appId = import.meta.env.VITE_FACEBOOK_APP_ID;
+  if (!appId || !String(appId).trim()) return "";
+  return String(appId).trim();
+}
+
+function redirectBaseUri() {
+  // Must match a Valid OAuth Redirect URI in Meta (trailing slash variants matter).
+  const u = new URL(window.location.href);
+  return `${u.origin}/`;
+}
+
+async function verifyFacebookToken(accessToken) {
+  const r = await fetch("/api/auth-facebook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accessToken }),
+  });
+  let data = {};
+  try {
+    data = await r.json();
+  } catch (_) {
+    throw new Error(
+      r.status === 404
+        ? "Facebook auth API not found — redeploy with /api/auth rewrite."
+        : `Facebook server error (${r.status}).`
+    );
+  }
+  if (!data.ok) {
+    throw new Error(data.error || "Facebook sign-in failed on server.");
+  }
+  return {
+    providerId: data.providerId,
+    email: data.email,
+    name: data.name,
+    picture: data.picture,
+  };
+}
 
 /**
- * Facebook Login — loads the FB JS SDK, opens the login dialog, then verifies
- * the access token via /api/auth-facebook.
- * Resolves with: { providerId, email, name, picture }
- *
- * Hardened against common hangs:
- * - SDK never initializes / fbAsyncInit race
- * - popup closed without callback
- * - missing env / domain mismatch (surface as clear errors + timeouts)
+ * If the user just returned from Facebook OAuth redirect, finish the flow.
+ * Call once on app boot. Returns profile or null.
+ */
+export async function completeFacebookRedirectIfPresent() {
+  if (typeof window === "undefined") return null;
+  const pending = sessionStorage.getItem(FB_PENDING_KEY);
+  if (!pending) return null;
+
+  // response_type=token → access_token in hash
+  // response_type=code → code in query (we use token for SPA)
+  const hash = (window.location.hash || "").replace(/^#/, "");
+  const hashParams = new URLSearchParams(hash);
+  const queryParams = new URLSearchParams(window.location.search || "");
+  const accessToken =
+    hashParams.get("access_token") || queryParams.get("access_token");
+  const error =
+    hashParams.get("error_message") ||
+    hashParams.get("error") ||
+    queryParams.get("error_description") ||
+    queryParams.get("error");
+  const state = hashParams.get("state") || queryParams.get("state");
+  const expectedState = sessionStorage.getItem(FB_STATE_KEY);
+
+  // Clean URL immediately so refresh does not re-process
+  try {
+    const clean = window.location.pathname + (window.location.search || "");
+    window.history.replaceState(null, "", clean.split("?")[0] || "/");
+  } catch (_) {}
+
+  sessionStorage.removeItem(FB_PENDING_KEY);
+  sessionStorage.removeItem(FB_STATE_KEY);
+
+  if (error) {
+    throw new Error(
+      String(error) === "access_denied"
+        ? "Facebook sign-in was cancelled."
+        : `Facebook: ${error}`
+    );
+  }
+  if (!accessToken) {
+    // User bounced back without completing — treat as cancel, not crash
+    return null;
+  }
+  if (expectedState && state && expectedState !== state) {
+    throw new Error("Facebook login state mismatch. Please try again.");
+  }
+
+  return verifyFacebookToken(accessToken);
+}
+
+function startFacebookRedirect(mode /* 'login' | 'link' */) {
+  const APP_ID = facebookAppId();
+  if (!APP_ID) {
+    return Promise.reject(
+      new Error(
+        "Facebook sign-in isn't configured (missing VITE_FACEBOOK_APP_ID). Add it in Vercel env and redeploy."
+      )
+    );
+  }
+  const state =
+    Math.random().toString(36).slice(2) + Date.now().toString(36);
+  try {
+    sessionStorage.setItem(FB_PENDING_KEY, mode || "login");
+    sessionStorage.setItem(FB_STATE_KEY, state);
+  } catch (_) {}
+
+  const redirectUri = encodeURIComponent(redirectBaseUri());
+  const url =
+    `https://www.facebook.com/v21.0/dialog/oauth` +
+    `?client_id=${encodeURIComponent(APP_ID)}` +
+    `&redirect_uri=${redirectUri}` +
+    `&state=${encodeURIComponent(state)}` +
+    `&response_type=token` +
+    `&scope=${encodeURIComponent("public_profile,email")}`;
+
+  // Full navigation — popup not used on mobile
+  window.location.assign(url);
+  // Page is unloading; keep the promise pending so UI stays on "Connecting…"
+  return new Promise(() => {});
+}
+
+/**
+ * Facebook Login — loads the FB JS SDK on desktop (popup), uses redirect on mobile.
  */
 export function signInWithFacebook() {
-  const appId = import.meta.env.VITE_FACEBOOK_APP_ID;
-  if (!appId || !String(appId).trim()) {
+  const APP_ID = facebookAppId();
+  if (!APP_ID) {
     return Promise.reject(
       new Error(
         "Facebook sign-in isn't configured (missing VITE_FACEBOOK_APP_ID). Add it in Vercel env and redeploy."
@@ -130,7 +272,11 @@ export function signInWithFacebook() {
     );
   }
 
-  const APP_ID = String(appId).trim();
+  // Phones / tablets: redirect flow (reliable). Desktop: SDK popup.
+  if (isMobileUa()) {
+    return startFacebookRedirect("login");
+  }
+
   const SDK_LOAD_MS = 12000;
   const LOGIN_MS = 90000;
 
@@ -163,7 +309,7 @@ export function signInWithFacebook() {
       };
       const ok = done(resolve);
       const fail = done((err) => {
-        facebookScriptPromise = null; // allow retry
+        facebookScriptPromise = null;
         reject(err);
       });
 
@@ -219,33 +365,6 @@ export function signInWithFacebook() {
     return facebookScriptPromise;
   }
 
-  async function verifyToken(accessToken) {
-    const r = await fetch("/api/auth-facebook", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accessToken }),
-    });
-    let data = {};
-    try {
-      data = await r.json();
-    } catch (_) {
-      throw new Error(
-        r.status === 404
-          ? "Facebook auth API not found — redeploy with /api/auth rewrite."
-          : `Facebook server error (${r.status}).`
-      );
-    }
-    if (!data.ok) {
-      throw new Error(data.error || "Facebook sign-in failed on server.");
-    }
-    return {
-      providerId: data.providerId,
-      email: data.email,
-      name: data.name,
-      picture: data.picture,
-    };
-  }
-
   return loadFacebookScript().then(
     () =>
       new Promise((resolve, reject) => {
@@ -262,7 +381,7 @@ export function signInWithFacebook() {
         const watchdog = setTimeout(() => {
           fail(
             new Error(
-              "Facebook login timed out. Allow pop-ups for this site, confirm the domain is listed in Meta App settings, and try again."
+              "Facebook login timed out. Allow pop-ups, or try again from the phone browser (Chrome/Safari)."
             )
           );
         }, LOGIN_MS);
@@ -280,7 +399,10 @@ export function signInWithFacebook() {
                   fail(new Error("Facebook returned no response."));
                   return;
                 }
-                if (response.status !== "connected" || !response.authResponse?.accessToken) {
+                if (
+                  response.status !== "connected" ||
+                  !response.authResponse?.accessToken
+                ) {
                   const st = response.status || "unknown";
                   if (st === "not_authorized") {
                     fail(
@@ -293,19 +415,37 @@ export function signInWithFacebook() {
                   }
                   return;
                 }
-                const profile = await verifyToken(response.authResponse.accessToken);
+                const profile = await verifyFacebookToken(
+                  response.authResponse.accessToken
+                );
                 ok(profile);
               } catch (e) {
-                fail(e instanceof Error ? e : new Error("Facebook sign-in failed."));
+                fail(
+                  e instanceof Error ? e : new Error("Facebook sign-in failed.")
+                );
               }
             },
-            { scope: "public_profile,email", return_scopes: true, auth_type: "rerequest" }
+            {
+              scope: "public_profile,email",
+              return_scopes: true,
+              auth_type: "rerequest",
+            }
           );
         } catch (err) {
           fail(
-            err instanceof Error ? err : new Error("Couldn't start Facebook sign-in.")
+            err instanceof Error
+              ? err
+              : new Error("Couldn't start Facebook sign-in.")
           );
         }
       })
   );
+}
+
+/** Same as sign-in but marks pending mode as "link" for mobile redirect return. */
+export function signInWithFacebookForLink() {
+  if (isMobileUa()) {
+    return startFacebookRedirect("link");
+  }
+  return signInWithFacebook();
 }

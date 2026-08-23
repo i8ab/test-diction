@@ -1,20 +1,24 @@
 /**
- * AI Agent UHD — professional splash / loading screen.
- * Arabic slogan + animated progress bar until the main UI is ready.
+ * Bacaloria Community — professional splash / loading screen.
+ * Site name + logo + water-style progress until the main UI is ready.
  */
 import { useEffect, useState, useRef } from "react";
+import BrandMark from "../common/BrandMark";
+import WaterProgressBar from "../common/WaterProgressBar";
 
-const SLOGAN =
-  "ذكاءٌ يستخرج المعنى… ودقةٌ تصنّف كل كلمة";
-
-const SUB =
-  "AI Agent UHD — استخراج ذكي للمفردات بأعلى دقة";
+/** Slogan aligned with the official product name */
+const SLOGAN_AR = "باكالوريا كوميونيتي — قاموسك الذكي للمذاكرة";
+const SLOGAN_EN = "Bacaloria Community — your smart study dictionary";
 
 /**
- * @param {{ onComplete?: () => void; minMs?: number; forceProgress?: number | null }} props
- * forceProgress: if number 0–100, drive the bar externally; otherwise auto-animate.
+ * @param {{ onComplete?: () => void; minMs?: number; forceProgress?: number | null; isAr?: boolean }} props
  */
-export default function SplashScreen({ onComplete, minMs = 1800, forceProgress = null }) {
+export default function SplashScreen({
+  onComplete,
+  minMs = 1800,
+  forceProgress = null,
+  isAr = true,
+}) {
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState(false);
   const startRef = useRef(Date.now());
@@ -29,14 +33,11 @@ export default function SplashScreen({ onComplete, minMs = 1800, forceProgress =
     let raf;
     const tick = () => {
       const elapsed = Date.now() - startRef.current;
-      // Ease-out curve that reaches ~92% by minMs, then waits for complete
       const t = Math.min(1, elapsed / minMs);
       const eased = 1 - Math.pow(1 - t, 2.4);
       const p = Math.min(92, Math.round(eased * 92));
       setProgress(p);
-      if (t < 1) {
-        raf = requestAnimationFrame(tick);
-      }
+      if (t < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
@@ -52,7 +53,6 @@ export default function SplashScreen({ onComplete, minMs = 1800, forceProgress =
     }
   }, [forceProgress, onComplete]);
 
-  // When auto mode: after minMs, finish to 100 and call onComplete
   useEffect(() => {
     if (forceProgress != null) return;
     const timer = setTimeout(() => {
@@ -71,29 +71,28 @@ export default function SplashScreen({ onComplete, minMs = 1800, forceProgress =
       role="status"
       aria-live="polite"
       aria-busy={!done}
-      aria-label="جاري تحميل التطبيق"
-      dir="rtl"
+      aria-label={isAr ? "جاري تحميل باكالوريا كوميونيتي" : "Loading Bacaloria Community"}
+      dir={isAr ? "rtl" : "ltr"}
     >
       <div className="uhd-splash-inner">
-        <div className="uhd-splash-badge" aria-hidden="true">
-          UHD
+        <div className="uhd-splash-logo">
+          <BrandMark size="md" isAr={isAr} editable={false} showUnderline />
         </div>
-        <h1 className="uhd-splash-slogan">{SLOGAN}</h1>
-        <p className="uhd-splash-sub">{SUB}</p>
-
-        <div className="uhd-splash-bar-wrap" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
-          <div className="uhd-splash-bar-track">
-            <div
-              className="uhd-splash-bar-fill"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <span className="uhd-splash-pct">{progress}%</span>
-        </div>
-
-        <p className="uhd-splash-hint">
-          {progress < 100 ? "جاري تجهيز الواجهة…" : "جاهز"}
+        <h1 className="uhd-splash-slogan">{isAr ? SLOGAN_AR : SLOGAN_EN}</h1>
+        <p className="uhd-splash-sub">
+          {isAr
+            ? "مفردات · مراجعة · ذكاء اصطناعي"
+            : "Vocabulary · Review · AI"}
         </p>
+
+        <div className="uhd-splash-bar">
+          <WaterProgressBar
+            progress={progress}
+            label={progress < 100 ? (isAr ? "جاري التحميل…" : "Loading…") : isAr ? "جاهز" : "Ready"}
+            height={12}
+            showPercent
+          />
+        </div>
       </div>
 
       <style>{`
@@ -102,8 +101,8 @@ export default function SplashScreen({ onComplete, minMs = 1800, forceProgress =
           display: grid;
           place-items: center;
           background:
-            radial-gradient(ellipse 80% 60% at 50% 20%, rgba(99, 102, 241, 0.18), transparent),
-            radial-gradient(ellipse 60% 50% at 80% 80%, rgba(16, 185, 129, 0.1), transparent),
+            radial-gradient(ellipse 80% 60% at 50% 20%, rgba(99, 102, 241, 0.16), transparent),
+            radial-gradient(ellipse 60% 50% at 80% 80%, rgba(14, 165, 233, 0.1), transparent),
             #0b0f1a;
           color: #f1f5f9;
           font-family: system-ui, "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif;
@@ -115,63 +114,28 @@ export default function SplashScreen({ onComplete, minMs = 1800, forceProgress =
           width: 100%;
           text-align: center;
         }
-        .uhd-splash-badge {
-          display: inline-flex;
-          align-items: center;
+        .uhd-splash-logo {
+          display: flex;
           justify-content: center;
-          width: 3.25rem;
-          height: 3.25rem;
-          border-radius: 1rem;
-          background: linear-gradient(135deg, #6366f1, #22d3ee);
-          font-weight: 800;
-          font-size: 0.95rem;
-          letter-spacing: 0.06em;
-          margin-bottom: 1.35rem;
-          box-shadow: 0 8px 32px rgba(99, 102, 241, 0.35);
+          margin-bottom: 1.25rem;
+        }
+        .uhd-splash-logo .brand-mark-title {
+          color: #f8fafc !important;
+          -webkit-text-fill-color: #f8fafc !important;
         }
         .uhd-splash-slogan {
-          margin: 0 0 0.65rem;
-          font-size: clamp(1.15rem, 4.2vw, 1.45rem);
+          margin: 0 0 0.5rem;
+          font-size: clamp(1.05rem, 3.8vw, 1.35rem);
           font-weight: 700;
           line-height: 1.55;
-          letter-spacing: 0.01em;
         }
         .uhd-splash-sub {
-          margin: 0 0 1.75rem;
-          font-size: 0.8rem;
+          margin: 0 0 1.5rem;
+          font-size: 0.82rem;
           opacity: 0.65;
-          direction: ltr;
         }
-        .uhd-splash-bar-wrap {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-        .uhd-splash-bar-track {
-          flex: 1;
-          height: 0.45rem;
-          border-radius: 999px;
-          background: rgba(148, 163, 184, 0.2);
-          overflow: hidden;
-        }
-        .uhd-splash-bar-fill {
-          height: 100%;
-          border-radius: 999px;
-          background: linear-gradient(90deg, #6366f1, #22d3ee);
-          transition: width 0.18s ease-out;
-        }
-        .uhd-splash-pct {
-          font-size: 0.8rem;
-          font-variant-numeric: tabular-nums;
-          min-width: 2.5rem;
-          text-align: left;
-          opacity: 0.85;
-          direction: ltr;
-        }
-        .uhd-splash-hint {
-          margin: 0.9rem 0 0;
-          font-size: 0.78rem;
-          opacity: 0.55;
+        .uhd-splash-bar {
+          text-align: start;
         }
       `}</style>
     </div>

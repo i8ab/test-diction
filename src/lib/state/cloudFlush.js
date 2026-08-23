@@ -319,7 +319,19 @@ export function flushPendingEntries(ctx) {
             continue;
           }
           if (e instanceof SaveConflictError && e.fresh) {
-            setEntries(e.fresh.entries || []);
+            // CRITICAL: re-apply local ops on top of server state so deletes
+            // (and other pending mutations) are not wiped by a conflict.
+            let mergedEntries = e.fresh.entries || [];
+            try {
+              const reapplied = applyOps(mergedEntries, ops, "entries");
+              mergedEntries = reapplied.next;
+            } catch (_) {}
+            setEntries(mergedEntries);
+            entriesRef.current = mergedEntries;
+            // Keep ops queued so the next flush can still push to the server.
+            if (ops.length) {
+              pendingEntryOpsRef.current = [...ops, ...pendingEntryOpsRef.current];
+            }
             let freshAccounts = e.fresh.accounts || [];
             if (pendingRemoveCodesRef.current.size) {
               const drop = pendingRemoveCodesRef.current;
@@ -336,11 +348,22 @@ export function flushPendingEntries(ctx) {
             setAccounts(freshAccounts);
             setLogs(e.fresh.logs || []);
             if (e.fresh.siteBanner !== undefined) setSiteBanner(e.fresh.siteBanner || null);
-            entriesRef.current = e.fresh.entries || [];
             accountsRef.current = freshAccounts;
             logsRef.current = e.fresh.logs || [];
             commitRecordVersion(e.fresh.version || 0);
-            setSaveError("");
+            // Persist the merged (post-delete) snapshot locally so reload
+            // does not resurrect words that the user already removed.
+            try {
+              saveOfflineCache({
+                entries: mergedEntries,
+                accounts: freshAccounts,
+                logs: e.fresh.logs || [],
+                siteBanner: e.fresh.siteBanner !== undefined ? e.fresh.siteBanner : curBanner,
+                examConfig: curExam,
+                academicUnits: curUnits,
+              });
+            } catch (_) {}
+            setSaveError("Couldn't finish sync — will retry. Local deletes were kept.");
           } else if (String(e && e.message) === "unauthorized") {
             setSaveError("Session expired — sign out and sign in again.");
           } else {

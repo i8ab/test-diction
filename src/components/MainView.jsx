@@ -529,6 +529,8 @@ export default function MainView({
       persistEntries,
       name,
       accountCode,
+      setUndoDelete,
+      undoTimerRef,
     });
     showToast?.(
       tr(

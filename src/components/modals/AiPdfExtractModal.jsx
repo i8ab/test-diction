@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, primaryBtnStyle, inputStyle } from "../../lib/config/theme";
 import { XIcon, CheckIcon, LoaderIcon, BookIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
+import WaterProgressBar from "../common/WaterProgressBar";
 
 const AI_AGENT_URL = "https://web-production-40a8e.up.railway.app";
 const AI_API_SECRET = "bacaloria-secret-2026";
@@ -73,6 +74,25 @@ export default function AiPdfExtractModal({
 
   async function startExtract() {
     if (!file) return;
+
+    // Validate optional page range before uploading
+    const rawFrom = String(pageFrom || "").trim();
+    const rawTo = String(pageTo || "").trim();
+    let pf = rawFrom === "" ? null : parseInt(rawFrom, 10);
+    let pt = rawTo === "" ? null : parseInt(rawTo, 10);
+    if (rawFrom !== "" && (Number.isNaN(pf) || pf < 1)) {
+      setError(tr(isAr, "Page “from” must be a whole number ≥ 1", "رقم صفحة «من» لازم يكون عدد صحيح ≥ 1"));
+      return;
+    }
+    if (rawTo !== "" && (Number.isNaN(pt) || pt < 1)) {
+      setError(tr(isAr, "Page “to” must be a whole number ≥ 1", "رقم صفحة «إلى» لازم يكون عدد صحيح ≥ 1"));
+      return;
+    }
+    if (pf != null && pt != null && pf > pt) {
+      setError(tr(isAr, "Page “from” cannot be greater than “to”", "صفحة «من» مش ممكن تكون أكبر من «إلى»"));
+      return;
+    }
+
     setPhase("extracting");
     setError("");
     setProgressMsg(tr(isAr, "Uploading and analyzing the book…", "جاري رفع وتحليل الكتاب…"));
@@ -81,10 +101,8 @@ export default function AiPdfExtractModal({
       const form = new FormData();
       form.append("file", file);
       form.append("section", targetSection || "en-ar");
-      const pf = parseInt(pageFrom, 10);
-      const pt = parseInt(pageTo, 10);
-      if (!Number.isNaN(pf) && pf >= 1) form.append("page_from", String(pf));
-      if (!Number.isNaN(pt) && pt >= 1) form.append("page_to", String(pt));
+      if (pf != null) form.append("page_from", String(pf));
+      if (pt != null) form.append("page_to", String(pt));
 
       const res = await fetch(`${AI_AGENT_URL}/extract-pdf`, {
         method: "POST",
@@ -284,11 +302,13 @@ export default function AiPdfExtractModal({
                 }}
               >
                 <BookIcon size={28} />
-                <span style={{ fontWeight: 700, fontSize: 14, color: INK }}>
+                <span style={{ fontWeight: 700, fontSize: 14, color: INK, wordBreak: "break-all", textAlign: "center" }}>
                   {file ? file.name : tr(isAr, "Choose PDF file", "اختر ملف PDF")}
                 </span>
                 <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                  {tr(isAr, "Max 100 MB", "الحد الأقصى 100 ميجا")}
+                  {file
+                    ? `${(file.size / (1024 * 1024)).toFixed(1)} MB · PDF`
+                    : tr(isAr, "Max 100 MB · PDF only", "الحد الأقصى 100 ميجا · PDF فقط")}
                 </span>
                 <input
                   type="file"
@@ -298,51 +318,90 @@ export default function AiPdfExtractModal({
                 />
               </label>
 
-              <div style={{ marginBottom: 14 }}>
+              <div style={{ marginBottom: 14 }} dir={isAr ? "rtl" : "ltr"}>
                 <div style={{ fontWeight: 700, fontSize: 13, color: INK, marginBottom: 8 }}>
                   {tr(isAr, "Page range (optional)", "نطاق الصفحات (اختياري)")}
                 </div>
-                <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted)", lineHeight: 1.4 }}>
+                <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted)", lineHeight: 1.45 }}>
                   {tr(
                     isAr,
-                    "For large books, extract a unit at a time. Recommended: up to 50 pages. Leave empty = all pages.",
-                    "للكتب الكبيرة استخرج وحدة وحدة. المستحسن: لحد 50 صفحة. فاضي = كل الصفحات."
+                    "For large books, extract one unit at a time (recommended ≤ 50 pages). Leave both empty to extract all pages.",
+                    "للكتب الكبيرة استخرج وحدة وحدة (مستحسن ≤ 50 صفحة). سيّب الحقلين فاضيين لاستخراج كل الصفحات."
                   )}
                 </p>
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <input
-                    type="number"
-                    min={1}
-                    placeholder={tr(isAr, "From", "من")}
-                    value={pageFrom}
-                    onChange={(e) => setPageFrom(e.target.value)}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr auto 1fr",
+                    gap: 10,
+                    alignItems: "end",
+                  }}
+                >
+                  <label style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-strong)", letterSpacing: "0.03em" }}>
+                      {tr(isAr, "From page", "من صفحة")}
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      inputMode="numeric"
+                      placeholder="1"
+                      value={pageFrom}
+                      onChange={(e) => setPageFrom(e.target.value.replace(/[^\d]/g, ""))}
+                      aria-label={tr(isAr, "From page", "من صفحة")}
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        border: "1px solid rgba(var(--border-rgb),0.2)",
+                        background: "var(--input-bg)",
+                        color: "var(--ink)",
+                        fontSize: 14,
+                        direction: "ltr",
+                        textAlign: "center",
+                      }}
+                    />
+                  </label>
+                  <span
+                    aria-hidden="true"
                     style={{
-                      flex: 1,
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      border: "1px solid rgba(var(--border-rgb),0.2)",
-                      background: "var(--input-bg)",
-                      color: "var(--ink)",
-                      fontSize: 14,
+                      color: "var(--muted)",
+                      fontWeight: 700,
+                      paddingBottom: 10,
+                      fontSize: 16,
                     }}
-                  />
-                  <span style={{ color: "var(--muted)", fontWeight: 700 }}>→</span>
-                  <input
-                    type="number"
-                    min={1}
-                    placeholder={tr(isAr, "To", "إلى")}
-                    value={pageTo}
-                    onChange={(e) => setPageTo(e.target.value)}
-                    style={{
-                      flex: 1,
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      border: "1px solid rgba(var(--border-rgb),0.2)",
-                      background: "var(--input-bg)",
-                      color: "var(--ink)",
-                      fontSize: 14,
-                    }}
-                  />
+                  >
+                    {isAr ? "←" : "→"}
+                  </span>
+                  <label style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-strong)", letterSpacing: "0.03em" }}>
+                      {tr(isAr, "To page", "إلى صفحة")}
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      inputMode="numeric"
+                      placeholder="50"
+                      value={pageTo}
+                      onChange={(e) => setPageTo(e.target.value.replace(/[^\d]/g, ""))}
+                      aria-label={tr(isAr, "To page", "إلى صفحة")}
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        border: "1px solid rgba(var(--border-rgb),0.2)",
+                        background: "var(--input-bg)",
+                        color: "var(--ink)",
+                        fontSize: 14,
+                        direction: "ltr",
+                        textAlign: "center",
+                      }}
+                    />
+                  </label>
                 </div>
               </div>
 
@@ -453,12 +512,20 @@ export default function AiPdfExtractModal({
 
           {/* EXTRACTING PHASE */}
           {phase === "extracting" && (
-            <div style={{ textAlign: "center", padding: "40px 10px" }}>
+            <div style={{ textAlign: "center", padding: "36px 10px" }}>
               <LoaderIcon size={32} />
               <p style={{ marginTop: 16, fontWeight: 700, color: INK }}>{progressMsg}</p>
-              <p style={{ marginTop: 6, fontSize: 13, color: "var(--muted)" }}>
+              <p style={{ marginTop: 6, marginBottom: 18, fontSize: 13, color: "var(--muted)" }}>
                 {tr(isAr, "This may take up to 2–3 minutes for scanned books…", "ممكن ياخد لحد 2–3 دقايق لو الكتاب صور ممسوحة…")}
               </p>
+              <div style={{ maxWidth: 320, margin: "0 auto", textAlign: "start" }}>
+                <WaterProgressBar
+                  progress={null}
+                  label={tr(isAr, "Extracting vocabulary…", "جاري استخراج المفردات…")}
+                  height={12}
+                  showPercent={false}
+                />
+              </div>
             </div>
           )}
 

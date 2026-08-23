@@ -162,10 +162,12 @@ export async function deleteEntry({
   setUndoDelete,
   undoTimerRef,
 }) {
-  const target = entries.find((e) => e.id === id);
+  const idStr = String(id);
+  const target = (entries || []).find((e) => String(e.id) === idStr);
   const prevEntries = entries;
+  // Persist immediately (optimistic UI + offline snapshot + cloud flush).
   await persistEntries(
-    (curEntries) => curEntries.filter((e) => e.id !== id),
+    (curEntries) => (curEntries || []).filter((e) => String(e && e.id) !== idStr),
     () =>
       makeLogEntry(
         "word_delete",
@@ -174,16 +176,19 @@ export async function deleteEntry({
         accountCode
       )
   );
-  if (target) {
-    clearTimeout(undoTimerRef.current);
+  if (target && typeof setUndoDelete === "function") {
+    clearTimeout(undoTimerRef?.current);
     setUndoDelete({ entry: target, prevEntries });
-    undoTimerRef.current = setTimeout(() => setUndoDelete(null), 6000);
+    if (undoTimerRef) {
+      undoTimerRef.current = setTimeout(() => setUndoDelete(null), 6000);
+    }
   }
 }
 
 /**
  * Delete ALL words in the current section (and unit, when academic).
  * Protected: callers MUST gate this behind isAdmin || isTeacher.
+ * Permanent: persistEntries → cloud flush + offline snapshot. Not undoable.
  */
 export async function deleteAllWordsInScope({
   section,
@@ -192,6 +197,8 @@ export async function deleteAllWordsInScope({
   persistEntries,
   name,
   accountCode,
+  setUndoDelete = null,
+  undoTimerRef = null,
 }) {
   const isAcademic = section === "academic";
   const inScope = (e) => {
@@ -202,8 +209,18 @@ export async function deleteAllWordsInScope({
   const toRemove = (entries || []).filter(inScope);
   if (!toRemove.length) return { removed: 0 };
 
+  // Bulk delete is not undoable — clear any single-word undo buffer.
+  if (typeof setUndoDelete === "function") setUndoDelete(null);
+  if (undoTimerRef && undoTimerRef.current) {
+    try {
+      clearTimeout(undoTimerRef.current);
+    } catch (_) {}
+  }
+
+  // Capture ids so the op stays correct even if `entries` prop is stale later.
+  const removeIds = new Set(toRemove.map((e) => String(e.id)));
   await persistEntries(
-    (curEntries) => curEntries.filter((e) => !inScope(e)),
+    (curEntries) => (curEntries || []).filter((e) => !removeIds.has(String(e && e.id))),
     () =>
       makeLogEntry(
         "word_delete_all",

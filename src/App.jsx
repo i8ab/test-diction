@@ -1807,19 +1807,30 @@ useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        let pending = null;
-        try {
-          pending = sessionStorage.getItem("tt_fb_oauth_pending");
-        } catch (_) {}
         const urlBits = String(window.location.hash || "") + String(window.location.search || "");
         const hasFbReturn =
           typeof window !== "undefined" &&
-          (/access_token=/.test(urlBits) || /[?&#]code=/.test(urlBits));
-        if (!pending && !hasFbReturn) return;
+          (/access_token=/.test(urlBits) || /[?&#]code=/.test(urlBits) || /error=/.test(urlBits));
+        let pendingPeek = null;
+        try {
+          pendingPeek = sessionStorage.getItem("tt_fb_oauth_pending");
+        } catch (_) {}
+        if (!pendingPeek && !hasFbReturn) return;
 
+        setLoggingIn(true);
+        setAuthError("");
         const socialMod = await import("./lib/state/socialAuth");
+        // Read mode before complete() clears session keys
+        const pending =
+          typeof socialMod.consumeFacebookPendingMode === "function"
+            ? socialMod.consumeFacebookPendingMode()
+            : pendingPeek || "login";
         const profile = await socialMod.completeFacebookRedirectIfPresent();
-        if (cancelled || !profile) return;
+        if (cancelled) return;
+        if (!profile) {
+          setLoggingIn(false);
+          return;
+        }
 
         if (pending === "link") {
           const code = accountCode || (typeof loadPersonalCode === "function" ? loadPersonalCode() : null);
@@ -1843,6 +1854,7 @@ useEffect(() => {
               );
             }
           }
+          setLoggingIn(false);
           return;
         }
 
@@ -1877,6 +1889,7 @@ useEffect(() => {
         });
       } catch (e) {
         if (!cancelled) {
+          setLoggingIn(false);
           setAuthError(
             (e && e.message) ||
               (appIsAr ? "فشل تسجيل الدخول بفيسبوك." : "Facebook sign-in failed.")

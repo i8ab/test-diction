@@ -211,11 +211,9 @@ async function verifyFacebookCode(code, redirectUri) {
  */
 export async function completeFacebookRedirectIfPresent() {
   if (typeof window === "undefined") return null;
-  const pending = sessionStorage.getItem(FB_PENDING_KEY);
-  if (!pending) return null;
 
-  // response_type=code → ?code= in query (preferred)
-  // response_type=token → #access_token= in hash (legacy)
+  // Read OAuth return params FIRST — do not require sessionStorage pending
+  // (mobile browsers sometimes drop sessionStorage across the FB hop).
   const hash = (window.location.hash || "").replace(/^#/, "");
   const hashParams = new URLSearchParams(hash);
   const queryParams = new URLSearchParams(window.location.search || "");
@@ -231,14 +229,21 @@ export async function completeFacebookRedirectIfPresent() {
   const expectedState = sessionStorage.getItem(FB_STATE_KEY);
   const storedRedirect = sessionStorage.getItem(FB_REDIRECT_KEY) || redirectBaseUri();
 
+  // Nothing from Facebook in the URL → not a return trip
+  if (!code && !accessToken && !error) {
+    return null;
+  }
+
   // Clean URL immediately so refresh does not re-process
   try {
     window.history.replaceState(null, "", window.location.pathname || "/");
   } catch (_) {}
 
-  sessionStorage.removeItem(FB_PENDING_KEY);
-  sessionStorage.removeItem(FB_STATE_KEY);
-  sessionStorage.removeItem(FB_REDIRECT_KEY);
+  try {
+    sessionStorage.removeItem(FB_PENDING_KEY);
+    sessionStorage.removeItem(FB_STATE_KEY);
+    sessionStorage.removeItem(FB_REDIRECT_KEY);
+  } catch (_) {}
 
   if (error) {
     throw new Error(
@@ -256,8 +261,17 @@ export async function completeFacebookRedirectIfPresent() {
   if (accessToken) {
     return verifyFacebookToken(accessToken);
   }
-  // User bounced back without completing — treat as cancel, not crash
   return null;
+}
+
+/** Expose pending mode ("login" | "link") before complete() clears it. */
+export function consumeFacebookPendingMode() {
+  try {
+    const m = sessionStorage.getItem(FB_PENDING_KEY) || "login";
+    return m;
+  } catch (_) {
+    return "login";
+  }
 }
 
 function startFacebookRedirect(mode /* 'login' | 'link' */) {

@@ -96,32 +96,55 @@ async function handleFacebook(req, res) {
   let accessToken = typeof body.accessToken === "string" ? body.accessToken : "";
 
   try {
-    // Prefer authorization code exchange (mobile redirect) — more reliable than implicit token.
+    // Prefer authorization code exchange (mobile redirect).
     if (!accessToken && body.code && typeof body.code === "string") {
-      const redirectUri =
+      const primary =
         typeof body.redirectUri === "string" && body.redirectUri.trim()
           ? body.redirectUri.trim()
           : "";
-      if (!redirectUri) {
+      const candidates = [];
+      if (primary) candidates.push(primary);
+      if (primary.endsWith("/")) candidates.push(primary.slice(0, -1));
+      else if (primary) candidates.push(primary + "/");
+      try {
+        const u = new URL(primary);
+        if (!candidates.includes(u.origin + "/")) candidates.push(u.origin + "/");
+        if (!candidates.includes(u.origin)) candidates.push(u.origin);
+      } catch (_) {}
+
+      if (!candidates.length) {
         return res.status(400).json({
           ok: false,
           error: "Missing redirectUri for Facebook code exchange.",
         });
       }
-      const tokenUrl =
-        `https://graph.facebook.com/v21.0/oauth/access_token` +
-        `?client_id=${encodeURIComponent(appId)}` +
-        `&client_secret=${encodeURIComponent(appSecret)}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        `&code=${encodeURIComponent(body.code)}`;
-      const tokenRes = await fetch(tokenUrl);
-      const tokenData = await tokenRes.json().catch(() => ({}));
-      if (!tokenRes.ok || !tokenData.access_token) {
+
+      let tokenData = null;
+      let lastErr = "";
+      for (const redirectUri of candidates) {
+        const tokenUrl =
+          `https://graph.facebook.com/v21.0/oauth/access_token` +
+          `?client_id=${encodeURIComponent(appId)}` +
+          `&client_secret=${encodeURIComponent(appSecret)}` +
+          `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+          `&code=${encodeURIComponent(body.code)}`;
+        const tokenRes = await fetch(tokenUrl);
+        const td = await tokenRes.json().catch(() => ({}));
+        if (tokenRes.ok && td.access_token) {
+          tokenData = td;
+          break;
+        }
+        lastErr =
+          (td && (td.error_message || (td.error && td.error.message))) ||
+          lastErr ||
+          "token exchange failed";
+      }
+      if (!tokenData || !tokenData.access_token) {
         return res.status(401).json({
           ok: false,
           error:
-            (tokenData && (tokenData.error_message || tokenData.error?.message)) ||
-            "Could not exchange Facebook code for access token. Check Valid OAuth Redirect URIs.",
+            lastErr ||
+            "Could not exchange Facebook code. Check Valid OAuth Redirect URIs matches the site URL exactly.",
         });
       }
       accessToken = tokenData.access_token;

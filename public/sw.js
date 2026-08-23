@@ -21,13 +21,16 @@
    network-first, but still useful as a hard reset).
    ============================================================================= */
 
-const CACHE_VERSION = "two-tongues-v21";
+// Bump on every meaningful SW behaviour change so old workers are dropped.
+const CACHE_VERSION = "two-tongues-v22";
 const NAVIGATION_TIMEOUT_MS = 8000;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/manifest.json",
 ];
+// Static images/icons change rarely — cache-first with background refresh.
+const STATIC_EXT = /\.(?:webp|png|jpg|jpeg|gif|svg|ico|woff2?)$/i;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -111,20 +114,43 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Hashed static assets: cache-first, refresh cache in the background.
+  // Hashed Vite assets (/assets/*) and static images/fonts: cache-first,
+  // refresh in the background. New content-hashed URLs never go stale.
+  const isStaticAsset =
+    url.pathname.startsWith("/assets/") ||
+    url.pathname.startsWith("/icons/") ||
+    url.pathname.startsWith("/backgrounds/") ||
+    STATIC_EXT.test(url.pathname);
+
+  if (isStaticAsset) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        const network = fetch(request)
+          .then((res) => {
+            if (res && res.ok) {
+              const clone = res.clone();
+              caches.open(CACHE_VERSION).then((cache) => cache.put(request, clone));
+            }
+            return res;
+          })
+          .catch(() => cached);
+        return cached || network;
+      })
+    );
+    return;
+  }
+
+  // Everything else: network-first with cache fallback.
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request)
-        .then((res) => {
-          if (res && res.ok) {
-            const clone = res.clone();
-            caches.open(CACHE_VERSION).then((cache) => cache.put(request, clone));
-          }
-          return res;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    fetch(request)
+      .then((res) => {
+        if (res && res.ok && res.type === "basic") {
+          const clone = res.clone();
+          caches.open(CACHE_VERSION).then((cache) => cache.put(request, clone));
+        }
+        return res;
+      })
+      .catch(() => caches.match(request).then((c) => c || Promise.reject()))
   );
 });
 

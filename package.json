@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "analyze": "vite build --mode production",
     "lint:structure": "echo 'Check large files and dead code manually'"
   },
   "dependencies": {
@@ -16,6 +17,7 @@
     "web-push": "^3.6.7",
     "@huggingface/transformers": "^3.5.1"
   },
+  "optionalDependencies": {},
   "overrides": {
     "sharp": "^0.35.3"
   },

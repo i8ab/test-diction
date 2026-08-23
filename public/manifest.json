@@ -4,13 +4,20 @@
   "description": "Bacaloria Community — bilingual vocabulary dictionary and study tools.",
   "start_url": "/",
   "scope": "/",
+  "id": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#0E1A20",
   "theme_color": "#0E1A20",
+  "lang": "ar",
+  "dir": "auto",
+  "categories": ["education", "productivity"],
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ]
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
 }

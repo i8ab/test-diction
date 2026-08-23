@@ -46,9 +46,9 @@ export default async function handler(req, res) {
     const audioBuffer = Buffer.from(await upstream.arrayBuffer());
 
     res.setHeader("Content-Type", "audio/mpeg");
-    // Cache each phrase for a day — same word/lang combo will always sound
-    // the same, so no need to hit Google again on repeat plays.
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    // Same text+lang always yields the same audio — long cache + SWR.
+    res.setHeader("Cache-Control", "public, max-age=604800, stale-while-revalidate=86400");
+    res.setHeader("Vary", "Accept-Encoding");
     res.status(200).send(audioBuffer);
   } catch (e) {
     res.status(500).json({ error: "TTS proxy error", message: String(e && e.message || e) });

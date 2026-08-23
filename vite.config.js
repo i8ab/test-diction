@@ -1,50 +1,49 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// Whisper / ML is loaded lazily in a separate chunk — never in the critical path.
+/**
+ * Vite build tuned for Bacaloria Community PWA.
+ * Goals: small initial JS, stable hashed assets, clean code-splitting so
+ * heavy features (auth, study tools, transformers) never block first paint.
+ */
 export default defineConfig({
   plugins: [react()],
-  optimizeDeps: {
-    exclude: ["@huggingface/transformers"],
-  },
   build: {
     target: "es2020",
-    sourcemap: false,
     cssCodeSplit: true,
-    cssMinify: true,
+    sourcemap: false,
     minify: "esbuild",
-    modulePreload: { polyfill: false },
-    chunkSizeWarningLimit: 600,
-    reportCompressedSize: false,
+    chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
-        // Stable, cache-friendly hashed asset names (Vite default) + explicit vendor splits.
+        // Stable, readable chunk names help caching and debugging.
         manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (
-              id.includes("react") ||
-              id.includes("react-dom") ||
-              id.includes("scheduler")
-            ) {
-              return "vendor-react";
-            }
-            if (
-              id.includes("@huggingface") ||
-              id.includes("transformers") ||
-              id.includes("onnxruntime") ||
-              id.includes("protobufjs") ||
-              id.includes("flatbuffers")
-            ) {
-              return "vendor-ml";
-            }
-            return "vendor-utils";
+          if (!id.includes("node_modules")) return;
+          // Keep React in its own long-lived chunk (rarely changes).
+          if (id.includes("react-dom") || id.includes("/react/") || id.includes("\\react\\")) {
+            return "vendor-react";
           }
+          // Transformers / ONNX are multi-MB — isolate so the main app never pays the cost.
+          if (
+            id.includes("@huggingface") ||
+            id.includes("onnxruntime") ||
+            id.includes("transformers")
+          ) {
+            return "vendor-ml";
+          }
+          // Everything else from node_modules.
+          return "vendor";
         },
       },
     },
   },
-  esbuild: {
-    // Drop pure debug noise from production bundles without changing behavior.
-    legalComments: "none",
+  server: {
+    port: 5173,
+    strictPort: false,
   },
+  preview: {
+    port: 4173,
+  },
+  // Ensure public/sw.js is copied as-is (not hashed) so registration stays /sw.js
+  publicDir: "public",
 });

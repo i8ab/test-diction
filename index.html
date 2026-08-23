@@ -41,6 +41,9 @@
 <meta name="application-name" content="Bacaloria" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="dns-prefetch" href="https://fonts.googleapis.com">
+<link rel="dns-prefetch" href="https://fonts.gstatic.com">
+<!-- Non-blocking font load protects LCP; Google CSS already uses font-display=swap -->
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Source+Sans+3:wght@400;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Source+Sans+3:wght@400;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet"></noscript>
 <script>
@@ -49,6 +52,12 @@ try{
   var r=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme:dark)').matches)?'dark':'light';
   document.documentElement.setAttribute('data-theme',r);
   document.documentElement.setAttribute('data-theme-pref',t);
+  // Early dir/lang reduces FOUC for Arabic-first users.
+  var lang=localStorage.getItem('twoTongues.appLang');
+  if(lang==='ar'||(!lang&&(navigator.language||'').toLowerCase().startsWith('ar'))){
+    document.documentElement.setAttribute('lang','ar');
+    document.documentElement.setAttribute('dir','rtl');
+  }
 }catch(e){}
 </script>
 </head>

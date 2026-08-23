@@ -698,10 +698,20 @@ export default async function handler(req, res) {
       const code = url.searchParams.get("code") || "";
       const keysParam = url.searchParams.get("keys") || "";
 
-      res.setHeader(
-        "Cache-Control",
-        "private, no-store, no-cache, max-age=0, must-revalidate"
-      );
+      // Mutable dictionary data must not be cached by intermediaries.
+      // The "version" scope is cheap to revalidate briefly (helps soft-sync
+      // polling without hammering Supabase on every tab focus).
+      if (scope === "version") {
+        res.setHeader(
+          "Cache-Control",
+          "private, max-age=5, stale-while-revalidate=15"
+        );
+      } else {
+        res.setHeader(
+          "Cache-Control",
+          "private, no-store, no-cache, max-age=0, must-revalidate"
+        );
+      }
 
       // ——— نطاقات مجزأة ———
       if (scope === "version") {

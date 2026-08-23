@@ -114,105 +114,195 @@ export function signInWithGoogle() {
  * Facebook Login — loads the FB JS SDK, opens the login dialog, then verifies
  * the access token via /api/auth-facebook.
  * Resolves with: { providerId, email, name, picture }
+ *
+ * Hardened against common hangs:
+ * - SDK never initializes / fbAsyncInit race
+ * - popup closed without callback
+ * - missing env / domain mismatch (surface as clear errors + timeouts)
  */
 export function signInWithFacebook() {
   const appId = import.meta.env.VITE_FACEBOOK_APP_ID;
-  if (!appId) {
+  if (!appId || !String(appId).trim()) {
     return Promise.reject(
       new Error(
-        "Facebook sign-in isn't set up yet — missing VITE_FACEBOOK_APP_ID."
+        "Facebook sign-in isn't configured (missing VITE_FACEBOOK_APP_ID). Add it in Vercel env and redeploy."
       )
     );
   }
 
+  const APP_ID = String(appId).trim();
+  const SDK_LOAD_MS = 12000;
+  const LOGIN_MS = 90000;
+
+  function initFb() {
+    if (!window.FB) throw new Error("Facebook SDK not available.");
+    window.FB.init({
+      appId: APP_ID,
+      cookie: true,
+      xfbml: false,
+      version: "v21.0",
+      status: false,
+    });
+  }
+
   function loadFacebookScript() {
-    if (window.FB) return Promise.resolve();
+    if (window.FB) {
+      try {
+        initFb();
+      } catch (_) {}
+      return Promise.resolve();
+    }
     if (facebookScriptPromise) return facebookScriptPromise;
+
     facebookScriptPromise = new Promise((resolve, reject) => {
-      window.fbAsyncInit = function () {
+      let settled = false;
+      const done = (fn) => (val) => {
+        if (settled) return;
+        settled = true;
+        fn(val);
+      };
+      const ok = done(resolve);
+      const fail = done((err) => {
+        facebookScriptPromise = null; // allow retry
+        reject(err);
+      });
+
+      const timer = setTimeout(() => {
+        fail(
+          new Error(
+            "Facebook SDK timed out. Check network / ad-blockers, or that connect.facebook.net is allowed."
+          )
+        );
+      }, SDK_LOAD_MS);
+
+      const finishInit = () => {
         try {
-          window.FB.init({
-            appId: String(appId),
-            cookie: true,
-            xfbml: false,
-            version: "v21.0",
-          });
-          resolve();
+          initFb();
+          clearTimeout(timer);
+          ok();
         } catch (e) {
-          reject(e instanceof Error ? e : new Error("Facebook SDK init failed."));
+          clearTimeout(timer);
+          fail(e instanceof Error ? e : new Error("Facebook SDK init failed."));
         }
       };
-      if (document.getElementById("facebook-jssdk")) {
-        // Script tag already present — wait for FB or fail
+
+      window.fbAsyncInit = finishInit;
+
+      const existing = document.getElementById("facebook-jssdk");
+      if (existing) {
         const wait = setInterval(() => {
           if (window.FB) {
             clearInterval(wait);
-            try {
-              window.FB.init({
-                appId: String(appId),
-                cookie: true,
-                xfbml: false,
-                version: "v21.0",
-              });
-            } catch (_) {}
-            resolve();
+            finishInit();
           }
-        }, 50);
-        setTimeout(() => {
-          clearInterval(wait);
-          if (!window.FB) reject(new Error("Failed to load Facebook sign-in."));
-        }, 8000);
+        }, 40);
+        setTimeout(() => clearInterval(wait), SDK_LOAD_MS);
         return;
       }
+
       const s = document.createElement("script");
       s.id = "facebook-jssdk";
-      s.src = "https://connect.facebook.net/en_US/sdk.js";
       s.async = true;
       s.defer = true;
-      s.onerror = () => reject(new Error("Failed to load Facebook sign-in."));
+      s.src = "https://connect.facebook.net/en_US/sdk.js";
+      s.onerror = () => {
+        clearTimeout(timer);
+        fail(
+          new Error(
+            "Couldn't load Facebook SDK (blocked or offline). Disable ad-block and try again."
+          )
+        );
+      };
       document.head.appendChild(s);
     });
+
     return facebookScriptPromise;
+  }
+
+  async function verifyToken(accessToken) {
+    const r = await fetch("/api/auth-facebook", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accessToken }),
+    });
+    let data = {};
+    try {
+      data = await r.json();
+    } catch (_) {
+      throw new Error(
+        r.status === 404
+          ? "Facebook auth API not found — redeploy with /api/auth rewrite."
+          : `Facebook server error (${r.status}).`
+      );
+    }
+    if (!data.ok) {
+      throw new Error(data.error || "Facebook sign-in failed on server.");
+    }
+    return {
+      providerId: data.providerId,
+      email: data.email,
+      name: data.name,
+      picture: data.picture,
+    };
   }
 
   return loadFacebookScript().then(
     () =>
       new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (fn) => (val) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(watchdog);
+          fn(val);
+        };
+        const ok = finish(resolve);
+        const fail = finish(reject);
+
+        const watchdog = setTimeout(() => {
+          fail(
+            new Error(
+              "Facebook login timed out. Allow pop-ups for this site, confirm the domain is listed in Meta App settings, and try again."
+            )
+          );
+        }, LOGIN_MS);
+
         try {
+          if (!window.FB || typeof window.FB.login !== "function") {
+            fail(new Error("Facebook SDK failed to initialize."));
+            return;
+          }
+
           window.FB.login(
             async (response) => {
-              if (!response || response.status !== "connected" || !response.authResponse?.accessToken) {
-                reject(new Error("Facebook sign-in was cancelled."));
-                return;
-              }
-              const accessToken = response.authResponse.accessToken;
               try {
-                const r = await fetch("/api/auth-facebook", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ accessToken }),
-                });
-                const data = await r.json();
-                if (!data.ok) {
-                  reject(new Error(data.error || "Facebook sign-in failed."));
+                if (!response) {
+                  fail(new Error("Facebook returned no response."));
                   return;
                 }
-                resolve({
-                  providerId: data.providerId,
-                  email: data.email,
-                  name: data.name,
-                  picture: data.picture,
-                });
-              } catch (_) {
-                reject(
-                  new Error("Couldn't verify Facebook sign-in — check your connection.")
-                );
+                if (response.status !== "connected" || !response.authResponse?.accessToken) {
+                  const st = response.status || "unknown";
+                  if (st === "not_authorized") {
+                    fail(
+                      new Error(
+                        "Facebook access was not granted. Allow email/public profile and try again."
+                      )
+                    );
+                  } else {
+                    fail(new Error("Facebook sign-in was cancelled."));
+                  }
+                  return;
+                }
+                const profile = await verifyToken(response.authResponse.accessToken);
+                ok(profile);
+              } catch (e) {
+                fail(e instanceof Error ? e : new Error("Facebook sign-in failed."));
               }
             },
-            { scope: "public_profile,email", return_scopes: true }
+            { scope: "public_profile,email", return_scopes: true, auth_type: "rerequest" }
           );
         } catch (err) {
-          reject(
+          fail(
             err instanceof Error ? err : new Error("Couldn't start Facebook sign-in.")
           );
         }

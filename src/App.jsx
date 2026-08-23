@@ -517,8 +517,11 @@ export default function DictionaryApp() {
   }, []);
 
 useEffect(() => {
-    // Clear any stale single-flight lock from a prior successful navigation.
-    endRefreshLock();
+    // IMPORTANT: do NOT call endRefreshLock() on mount.
+    // The lock must survive the reload that controllerchange triggers;
+    // clearing it here was the main cause of the double open/close cycle
+    // (reload #1 → mount clears lock → second controllerchange → reload #2).
+    // The TTL (REFRESH_LOCK_TTL_MS) expires the lock safely after 20s.
 
     window.__forceAppRefresh = async () => {
       // Only one programmatic refresh may run at a time.

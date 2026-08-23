@@ -36,7 +36,9 @@ self.addEventListener("install", (event) => {
       // the worker will just fetch it from the network on first request.
     })
   );
-  self.skipWaiting();
+  // Do NOT call skipWaiting() here. Activation is controlled by the client
+  // via the SKIP_WAITING message so we avoid double-reload races
+  // (controllerchange → reload → lock cleared → second controllerchange).
 });
 
 self.addEventListener("activate", (event) => {

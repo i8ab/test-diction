@@ -251,7 +251,7 @@ function startFacebookRedirect(mode /* 'login' | 'link' */) {
     `&redirect_uri=${redirectUri}` +
     `&state=${encodeURIComponent(state)}` +
     `&response_type=token` +
-    `&scope=${encodeURIComponent("public_profile,email")}`;
+    `&scope=${encodeURIComponent("public_profile")}`;
 
   // Full navigation — popup not used on mobile
   window.location.assign(url);
@@ -426,9 +426,9 @@ export function signInWithFacebook() {
               }
             },
             {
-              scope: "public_profile,email",
+              // public_profile only until email is approved in Meta App Review
+              scope: "public_profile",
               return_scopes: true,
-              auth_type: "rerequest",
             }
           );
         } catch (err) {

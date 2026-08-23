@@ -1941,6 +1941,8 @@ useEffect(() => {
       setPasswordInput,
       goToStage,
       persistAccounts,
+      socialDraft,
+      setSocialDraft,
     });
   }
 

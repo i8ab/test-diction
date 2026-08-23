@@ -441,6 +441,8 @@ export async function performLogin(p) {
     setPasswordInput,
     goToStage,
     persistAccounts,
+    socialDraft = null,
+    setSocialDraft = null,
   } = p;
 
   e.preventDefault();
@@ -575,7 +577,52 @@ export async function performLogin(p) {
     })();
   }
 
-  grantSession(account, {
+  // If user arrived from Facebook/Google "I already have an account", bind social now
+  let sessionAccount = account;
+  if (
+    socialDraft &&
+    socialDraft.provider &&
+    socialDraft.providerId &&
+    account
+  ) {
+    const provider = socialDraft.provider;
+    const providerId = String(socialDraft.providerId);
+    const email = socialDraft.email
+      ? String(socialDraft.email).trim().toLowerCase()
+      : "";
+    // Only bind if this identity is free or already this account
+    const clash = curAccounts.find(
+      (a) =>
+        a &&
+        a.code !== account.code &&
+        a.authProvider === provider &&
+        String(a.socialId) === providerId
+    );
+    if (!clash) {
+      sessionAccount = {
+        ...account,
+        authProvider: provider,
+        socialId: providerId,
+        ...(email ? { email } : {}),
+        ...(socialDraft.picture && !account.avatar
+          ? { avatar: socialDraft.picture }
+          : {}),
+      };
+      curAccounts = curAccounts.map((a) =>
+        a && a.code === account.code ? sessionAccount : a
+      );
+      setAccounts(curAccounts);
+      try {
+        await persistAccounts(
+          () => curAccounts,
+          null
+        );
+      } catch (_) {}
+      if (typeof setSocialDraft === "function") setSocialDraft(null);
+    }
+  }
+
+  grantSession(sessionAccount, {
     curAccounts,
     linkMode,
     setName,
@@ -681,16 +728,28 @@ export async function performSocialLogin(p) {
   setExamConfig(normalizeExamConfig(rec.examConfig));
   commitRecordVersion(rec.version);
 
-  // Match only by active social binding — orphaned emails after unlink must not block reuse
-  const existing = curAccounts.find(
-    (a) =>
-      a &&
-      ((a.authProvider === provider && a.socialId === profile.providerId) ||
-        (a.authProvider === provider &&
-          a.email &&
-          String(a.email).toLowerCase() === email &&
-          a.socialId))
-  );
+  // Match existing account:
+  // 1) same provider + socialId (primary)
+  // 2) same socialId even if authProvider was lost in an old save
+  // 3) same provider + email while still bound (not after unlink)
+  // Synthetic fb_*@facebook.local emails are unique per FB id so (3) still works.
+  const existing = curAccounts.find((a) => {
+    if (!a) return false;
+    const sid = a.socialId != null ? String(a.socialId) : "";
+    const pid = profile.providerId != null ? String(profile.providerId) : "";
+    if (sid && pid && sid === pid && (!a.authProvider || a.authProvider === provider)) {
+      return true;
+    }
+    if (
+      a.authProvider === provider &&
+      a.email &&
+      String(a.email).toLowerCase() === email &&
+      sid
+    ) {
+      return true;
+    }
+    return false;
+  });
 
   if (existing) {
     if (existing.status === "pending") {

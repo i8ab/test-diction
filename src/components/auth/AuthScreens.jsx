@@ -473,12 +473,37 @@ function AuthScreens({
           <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(18px, 4vw, 22px)", fontWeight: 600, color: INK, margin: "10px 0 6px" }}>
             {atr("Complete your profile", "أكمل بياناتك")}
           </h1>
-          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "0 0 16px", lineHeight: 1.55 }}>
+          <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "0 0 12px", lineHeight: 1.55 }}>
             {atr(
               `You signed in with ${socialDraft?.provider === "facebook" ? "Facebook" : "Google"}. Confirm your name and username, then fill the required fields below. You can change your name later in account settings.`,
               `سجّلت الدخول بـ ${socialDraft?.provider === "facebook" ? "Facebook" : "Google"}. أكّد الاسم واسم المستخدم، ثم أكمل الحقول المطلوبة. تقدر تغيّر اسمك لاحقًا من الإعدادات.`
             )}
           </p>
+          {typeof goToStage === "function" && (
+            <button
+              type="button"
+              onClick={() => goToStage("login")}
+              style={{
+                width: "100%",
+                marginBottom: 14,
+                padding: "12px 14px",
+                borderRadius: 12,
+                border: "1px solid rgba(24,119,242,0.35)",
+                background: "rgba(24,119,242,0.08)",
+                color: "var(--ink)",
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: "pointer",
+                textAlign: "center",
+                lineHeight: 1.4,
+              }}
+            >
+              {atr(
+                `Already have an account? Sign in to link ${socialDraft?.provider === "facebook" ? "Facebook" : "Google"}`,
+                `عندك حساب بالفعل؟ سجّل دخولك لربط ${socialDraft?.provider === "facebook" ? "Facebook" : "Google"}`
+              )}
+            </button>
+          )}
           <form
             onSubmit={(e) => {
               if (typeof setSignupRole === "function") setSignupRole(effectiveRole);

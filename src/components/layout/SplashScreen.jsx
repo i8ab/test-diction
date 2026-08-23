@@ -11,20 +11,32 @@ const SLOGAN_AR = "باكالوريا كوميونيتي — قاموسك الذ
 const SLOGAN_EN = "Bacaloria Community — your smart study dictionary";
 
 /**
- * @param {{ onComplete?: () => void; minMs?: number; forceProgress?: number | null; isAr?: boolean }} props
+ * @param {{
+ *   onComplete?: () => void;
+ *   minMs?: number;
+ *   forceProgress?: number | null;
+ *   isAr?: boolean;
+ *   blocking?: boolean;
+ * }} props
+ * blocking: true = indeterminate water bar (force-refresh); never freeze at 100%.
  */
 export default function SplashScreen({
   onComplete,
   minMs = 1800,
   forceProgress = null,
   isAr = true,
+  blocking = false,
 }) {
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(blocking ? null : 0);
   const [done, setDone] = useState(false);
   const startRef = useRef(Date.now());
   const completedRef = useRef(false);
 
   useEffect(() => {
+    if (blocking) {
+      setProgress(null);
+      return;
+    }
     if (forceProgress != null && Number.isFinite(forceProgress)) {
       setProgress(Math.max(0, Math.min(100, forceProgress)));
       return;
@@ -35,35 +47,51 @@ export default function SplashScreen({
       const elapsed = Date.now() - startRef.current;
       const t = Math.min(1, elapsed / minMs);
       const eased = 1 - Math.pow(1 - t, 2.4);
-      const p = Math.min(92, Math.round(eased * 92));
+      // Stay under 100 until we intentionally finish — avoids a stuck 100% bar.
+      const p = Math.min(96, Math.round(eased * 96));
       setProgress(p);
       if (t < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [minMs, forceProgress]);
+  }, [minMs, forceProgress, blocking]);
 
   useEffect(() => {
+    if (blocking) return;
     if (forceProgress != null && forceProgress >= 100 && !completedRef.current) {
       completedRef.current = true;
       setProgress(100);
       setDone(true);
-      const t = setTimeout(() => onComplete?.(), 320);
+      const t = setTimeout(() => onComplete?.(), 200);
       return () => clearTimeout(t);
     }
-  }, [forceProgress, onComplete]);
+  }, [forceProgress, onComplete, blocking]);
 
   useEffect(() => {
+    if (blocking) return;
     if (forceProgress != null) return;
     const timer = setTimeout(() => {
       if (completedRef.current) return;
       completedRef.current = true;
       setProgress(100);
       setDone(true);
-      setTimeout(() => onComplete?.(), 320);
-    }, minMs + 200);
+      // Unmount parent (Suspense) should remove us; if not, onComplete may open app.
+      setTimeout(() => onComplete?.(), 200);
+    }, minMs + 150);
     return () => clearTimeout(timer);
-  }, [minMs, forceProgress, onComplete]);
+  }, [minMs, forceProgress, onComplete, blocking]);
+
+  const label = blocking
+    ? isAr
+      ? "جاري تحديث التطبيق…"
+      : "Updating app…"
+    : progress != null && progress >= 100
+      ? isAr
+        ? "جاهز"
+        : "Ready"
+      : isAr
+        ? "جاري التحميل…"
+        : "Loading…";
 
   return (
     <div
@@ -80,17 +108,15 @@ export default function SplashScreen({
         </div>
         <h1 className="uhd-splash-slogan">{isAr ? SLOGAN_AR : SLOGAN_EN}</h1>
         <p className="uhd-splash-sub">
-          {isAr
-            ? "مفردات · مراجعة · ذكاء اصطناعي"
-            : "Vocabulary · Review · AI"}
+          {isAr ? "مفردات · مراجعة · ذكاء اصطناعي" : "Vocabulary · Review · AI"}
         </p>
 
         <div className="uhd-splash-bar">
           <WaterProgressBar
-            progress={progress}
-            label={progress < 100 ? (isAr ? "جاري التحميل…" : "Loading…") : isAr ? "جاهز" : "Ready"}
+            progress={blocking ? null : progress}
+            label={label}
             height={12}
-            showPercent
+            showPercent={!blocking && progress != null}
           />
         </div>
       </div>

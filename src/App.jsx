@@ -166,15 +166,15 @@ export default function DictionaryApp() {
   // Fixed the moment this tab loaded — powers the quiz's "This session"
   // time-range option ("studied since I opened the site this time").
   const sessionStartRef = useRef(Date.now());
-  // Full-screen block while force-refresh runs (and on load if lock is active).
-  const [forceRefreshing, setForceRefreshing] = useState(() => isRefreshInFlight());
+  // Full-screen block ONLY while force-refresh runs on this page (before unload).
+  // After reload the session lock may still exist (SW double-reload guard) but
+  // the app must open immediately — do not keep the splash stuck at 100%.
+  const [forceRefreshing, setForceRefreshing] = useState(false);
   useEffect(() => {
     const onStart = () => setForceRefreshing(true);
     const onEnd = () => setForceRefreshing(false);
     window.addEventListener("tt-force-refresh-start", onStart);
     window.addEventListener("tt-force-refresh-end", onEnd);
-    // If a previous tab set the lock, keep UI blocked until TTL or reload finishes.
-    if (isRefreshInFlight()) setForceRefreshing(true);
     return () => {
       window.removeEventListener("tt-force-refresh-start", onStart);
       window.removeEventListener("tt-force-refresh-end", onEnd);
@@ -2243,11 +2243,11 @@ useEffect(() => {
 
 
 
-  // Block the whole app (auth + main) while a forced refresh is in progress.
+  // Block only until navigation/reload (same document). After reload the app opens.
   if (forceRefreshing) {
     return (
       <SplashScreen
-        minMs={12000}
+        blocking
         isAr={typeof appIsAr === "boolean" ? appIsAr : true}
       />
     );

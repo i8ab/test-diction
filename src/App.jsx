@@ -24,6 +24,7 @@ import {
 import { useAppPreferences } from "./lib/hooks/useAppPreferences";
 import { useStudyReminders } from "./lib/hooks/useStudyReminders";
 import { migrateAccounts } from "./lib/utils/authUtils";
+import SplashScreen from "./components/layout/SplashScreen";
 import { createSaveQueue, applyOps as applyOpsPure, MAX_SAVE_RETRIES as MAX_SAVE_RETRIES_CONST } from "./lib/state/cloudQueue";
 import { flushPendingAccounts as flushAccountsCloud, flushPendingEntries as flushEntriesCloud } from "./lib/state/cloudFlush";
 import {
@@ -67,29 +68,9 @@ import { capLogs, makeLogEntry } from "./lib/state/logs";
 const AuthScreens = lazy(() => import("./components/auth/AuthScreens"));
 const MainView = lazy(() => import("./components/MainView"));
 
-/** Minimal Suspense fallback: only the word "Loading", centered. No logo, no chrome. */
+/** Professional splash (Arabic slogan + progress bar) used as Suspense fallback and first paint. */
 function AppLoadingFallback() {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
-      style={{
-        minHeight: "100dvh",
-        display: "grid",
-        placeItems: "center",
-        margin: 0,
-        background: "var(--paper)",
-        color: "var(--muted-strong)",
-        fontSize: 15,
-        fontWeight: 600,
-        letterSpacing: "0.02em",
-        fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif",
-      }}
-    >
-      Loading
-    </div>
-  );
+  return <SplashScreen minMs={1600} />;
 }
 
 /** Single-flight refresh lock (survives navigation via sessionStorage). */

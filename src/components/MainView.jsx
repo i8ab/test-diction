@@ -13,6 +13,7 @@ import {
   deleteEntry,
   undoDeleteEntry,
   importEntriesFromCsv,
+  deleteAllWordsInScope,
 } from "../lib/state/entryMutations";
 import { SECTIONS } from "../lib/config/sections";
 import {
@@ -501,6 +502,56 @@ export default function MainView({
     });
   }, [entries, persistEntries, name, accountCode]);
 
+  /** Admin / Teacher only — delete every word in the current section (and unit if academic). */
+  const handleDeleteAllWords = useCallback(async () => {
+    if (!(isAdmin || isTeacher)) return;
+    const isAcademic = section === "academic";
+    const scopeLabel = isAcademic
+      ? (academicUnits.find((u) => u.id === activeUnitId)?.name || activeUnitId || "Unit")
+      : (cfg?.label || section);
+    const count = (entries || []).filter((e) => {
+      if (e.section !== section) return false;
+      if (!isAcademic) return true;
+      return (e.unitId || null) === (activeUnitId || null);
+    }).length;
+    if (!count) {
+      showToast?.(tr(appIsAr, "No words to delete in this scope.", "مفيش كلمات للحذف في النطاق ده."));
+      return;
+    }
+    const msg = appIsAr
+      ? `حذف كل الكلمات (${count}) في «${scopeLabel}»؟ لا يمكن التراجع.`
+      : `Delete ALL ${count} word(s) in “${scopeLabel}”? This cannot be undone.`;
+    if (!window.confirm(msg)) return;
+    const result = await deleteAllWordsInScope({
+      section,
+      unitId: isAcademic ? activeUnitId : null,
+      entries,
+      persistEntries,
+      name,
+      accountCode,
+    });
+    showToast?.(
+      tr(
+        appIsAr,
+        `Deleted ${result.removed} word(s).`,
+        `اتمسح ${result.removed} كلمة.`
+      )
+    );
+  }, [
+    isAdmin,
+    isTeacher,
+    section,
+    activeUnitId,
+    academicUnits,
+    entries,
+    persistEntries,
+    name,
+    accountCode,
+    cfg,
+    appIsAr,
+    showToast,
+  ]);
+
   const handleEditRequest = useCallback((id) => {
     const target = entries.find((e) => e.id === id);
     if (target) setEditingEntry(target);
@@ -854,6 +905,47 @@ export default function MainView({
                 )}
               </>
             )}
+            {(isAdmin || isTeacher) && (
+              <button
+                type="button"
+                onClick={handleDeleteAllWords}
+                title={tr(appIsAr, "Delete all words in this unit (admin/teacher only)", "حذف كل كلمات هذه الوحدة (للمشرف/المعلّم فقط)")}
+                style={{
+                  marginInlineStart: "auto",
+                  padding: "7px 12px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  borderRadius: 999,
+                  border: "1px solid rgba(220,50,50,0.35)",
+                  background: "var(--danger-bg, rgba(220,50,50,0.12))",
+                  color: "var(--danger, #ff6b6b)",
+                  cursor: "pointer",
+                }}
+              >
+                {tr(appIsAr, "Delete all words", "حذف كل الكلمات")}
+              </button>
+            )}
+          </div>
+        )}
+        {!isAcademic && (isAdmin || isTeacher) && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+            <button
+              type="button"
+              onClick={handleDeleteAllWords}
+              title={tr(appIsAr, "Delete all words in this section (admin/teacher only)", "حذف كل كلمات هذا القسم (للمشرف/المعلّم فقط)")}
+              style={{
+                padding: "7px 12px",
+                fontSize: 12,
+                fontWeight: 700,
+                borderRadius: 999,
+                border: "1px solid rgba(220,50,50,0.35)",
+                background: "var(--danger-bg, rgba(220,50,50,0.12))",
+                color: "var(--danger, #ff6b6b)",
+                cursor: "pointer",
+              }}
+            >
+              {tr(appIsAr, "Delete all words", "حذف كل الكلمات")}
+            </button>
           </div>
         )}
         <div className="exam-banner-slot" style={{ marginBottom: 14 }}>

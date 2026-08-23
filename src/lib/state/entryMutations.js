@@ -181,6 +181,42 @@ export async function deleteEntry({
   }
 }
 
+/**
+ * Delete ALL words in the current section (and unit, when academic).
+ * Protected: callers MUST gate this behind isAdmin || isTeacher.
+ */
+export async function deleteAllWordsInScope({
+  section,
+  unitId = null,
+  entries,
+  persistEntries,
+  name,
+  accountCode,
+}) {
+  const isAcademic = section === "academic";
+  const inScope = (e) => {
+    if (e.section !== section) return false;
+    if (!isAcademic) return true;
+    return (e.unitId || null) === (unitId || null);
+  };
+  const toRemove = (entries || []).filter(inScope);
+  if (!toRemove.length) return { removed: 0 };
+
+  await persistEntries(
+    (curEntries) => curEntries.filter((e) => !inScope(e)),
+    () =>
+      makeLogEntry(
+        "word_delete_all",
+        `${name} deleted ALL ${toRemove.length} word(s) in ${section}${
+          isAcademic && unitId ? ` / ${unitId}` : ""
+        }`,
+        name,
+        accountCode
+      )
+  );
+  return { removed: toRemove.length };
+}
+
 export async function undoDeleteEntry({
   undoDelete,
   setUndoDelete,

@@ -11,6 +11,7 @@ export const WORD_TYPES = [
   { id: "interjection", en: "Interjection", ar: "تعجب" },
   { id: "phrase", en: "Phrase", ar: "تعبير / جملة" },
   { id: "other", en: "Other", ar: "أخرى" },
+  { id: "unclassified", en: "Unclassified", ar: "غير مصنّف" },
 ];
 
 export function posLabel(pos, isAr) {

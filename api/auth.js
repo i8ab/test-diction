@@ -117,19 +117,16 @@ async function handleFacebook(req, res) {
     }
     const profile = await profileRes.json();
 
-    if (!profile.email) {
-      return res.status(400).json({
-        ok: false,
-        error:
-          "This Facebook account has no email on file. Please use email/password or Google sign-in instead.",
-      });
-    }
+    // Some FB accounts hide email — still allow sign-in via stable social id.
+    const email =
+      (profile.email && String(profile.email).trim()) ||
+      `fb_${profile.id}@facebook.local`;
 
     return res.status(200).json({
       ok: true,
       providerId: profile.id,
-      email: profile.email,
-      name: profile.name || profile.email.split("@")[0],
+      email,
+      name: profile.name || (profile.email ? profile.email.split("@")[0] : `user_${profile.id}`),
       picture: (profile.picture && profile.picture.data && profile.picture.data.url) || null,
     });
   } catch {

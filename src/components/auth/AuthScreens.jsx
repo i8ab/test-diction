@@ -72,13 +72,24 @@ function GoogleGIcon() {
   );
 }
 
+function FacebookFIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <path
+        fill="#1877F2"
+        d="M24 12.07C24 5.41 18.63 0 12 0S0 5.41 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.04V9.41c0-3.02 1.79-4.7 4.54-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.95.93-1.95 1.89v2.26h3.32l-.53 3.49h-2.79V24C19.61 23.1 24 18.1 24 12.07z"
+      />
+    </svg>
+  );
+}
+
 function SocialButtons({ atr, handleSocialLogin, busy, setBusy }) {
   if (typeof handleSocialLogin !== "function") return null;
-  async function goGoogle() {
+  async function go(provider) {
     if (busy) return;
-    setBusy("google");
+    setBusy(provider);
     try {
-      await handleSocialLogin("google");
+      await handleSocialLogin(provider);
     } finally {
       setBusy(null);
     }
@@ -92,19 +103,32 @@ function SocialButtons({ atr, handleSocialLogin, busy, setBusy }) {
         </span>
         <div style={{ flex: 1, height: 1, background: "rgba(var(--border-rgb),0.16)" }} />
       </div>
-      <div style={{ display: "flex", gap: 10 }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button
           type="button"
-          onClick={goGoogle}
+          onClick={() => go("google")}
           disabled={!!busy}
           style={{
             ...socialBtnStyle,
-            flex: 1,
+            flex: "1 1 140px",
             opacity: busy && busy !== "google" ? 0.55 : 1,
           }}
         >
           <GoogleGIcon />
           {busy === "google" ? atr("Connecting…", "جارٍ الاتصال…") : "Google"}
+        </button>
+        <button
+          type="button"
+          onClick={() => go("facebook")}
+          disabled={!!busy}
+          style={{
+            ...socialBtnStyle,
+            flex: "1 1 140px",
+            opacity: busy && busy !== "facebook" ? 0.55 : 1,
+          }}
+        >
+          <FacebookFIcon />
+          {busy === "facebook" ? atr("Connecting…", "جارٍ الاتصال…") : "Facebook"}
         </button>
       </div>
     </div>
@@ -451,8 +475,8 @@ function AuthScreens({
           </h1>
           <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "0 0 16px", lineHeight: 1.55 }}>
             {atr(
-              "You signed in with Google. Confirm your name and username, then fill the required fields below. You can change your name later in account settings.",
-              "سجّلت الدخول بـ Google. أكّد الاسم واسم المستخدم، ثم أكمل الحقول المطلوبة. تقدر تغيّر اسمك لاحقًا من الإعدادات."
+              `You signed in with ${socialDraft?.provider === "facebook" ? "Facebook" : "Google"}. Confirm your name and username, then fill the required fields below. You can change your name later in account settings.`,
+              `سجّلت الدخول بـ ${socialDraft?.provider === "facebook" ? "Facebook" : "Google"}. أكّد الاسم واسم المستخدم، ثم أكمل الحقول المطلوبة. تقدر تغيّر اسمك لاحقًا من الإعدادات.`
             )}
           </p>
           <form
@@ -874,8 +898,8 @@ function AuthScreens({
             {isSocialSignup && (
               <div style={{ marginTop: 8, marginBottom: 4, padding: "10px 12px", borderRadius: 10, background: "rgba(66,133,244,0.1)", border: "1px solid rgba(66,133,244,0.25)", fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.45 }}>
                 {atr(
-                  "Signed in with Google — name and username are prefilled. Complete gender, date of birth, and baccalaureate fields below. You can edit your name anytime later.",
-                  "تم الدخول بـ Google — الاسم واسم المستخدم معبّيان مسبقًا. أكمل الجنس وتاريخ الميلاد ومسار البكالوريا. تقدر تعدّل اسمك لاحقًا من الحساب."
+                  `Signed in with ${socialDraft?.provider === "facebook" ? "Facebook" : "Google"} — name and username are prefilled. Complete gender, date of birth, and baccalaureate fields below. You can edit your name anytime later.`,
+                  `تم الدخول بـ ${socialDraft?.provider === "facebook" ? "Facebook" : "Google"} — الاسم واسم المستخدم معبّيان مسبقًا. أكمل الجنس وتاريخ الميلاد ومسار البكالوريا. تقدر تعدّل اسمك لاحقًا من الحساب.`
                 )}
               </div>
             )}

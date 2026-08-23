@@ -84,6 +84,9 @@ export default function MainView({
   onLinkGoogle = null,
   onUnlinkGoogle = null,
   googleLinkBusy = false,
+  onLinkFacebook = null,
+  onUnlinkFacebook = null,
+  facebookLinkBusy = false,
 }) {
   const cfg = SECTIONS[section] || SECTIONS["en-ar"];
   const isAr = section === "ar-ar";
@@ -1271,6 +1274,9 @@ export default function MainView({
         onLinkGoogle={onLinkGoogle}
         onUnlinkGoogle={onUnlinkGoogle}
         googleLinkBusy={googleLinkBusy}
+        onLinkFacebook={onLinkFacebook}
+        onUnlinkFacebook={onUnlinkFacebook}
+        facebookLinkBusy={facebookLinkBusy}
         showAdmin={showAdmin}
         onCloseAdmin={onCloseAdmin}
         onClearLogs={onClearLogs}

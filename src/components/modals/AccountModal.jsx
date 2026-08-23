@@ -69,6 +69,9 @@ function AccountModal({
   onLinkGoogle = null,
   onUnlinkGoogle = null,
   googleLinkBusy = false,
+  onLinkFacebook = null,
+  onUnlinkFacebook = null,
+  facebookLinkBusy = false,
 }) {
   const L = lang || (isAr ? "ar" : "en");
   const T = (en, ar, de, fr) => tr(L, en, ar, de, fr);
@@ -90,10 +93,11 @@ function AccountModal({
   const [saving, setSaving] = useState(false);
   const [equipTick, setEquipTick] = useState(0); // force re-read after equip change
   const [showGoogleActions, setShowGoogleActions] = useState(false);
+  const [showFacebookActions, setShowFacebookActions] = useState(false);
   const fileRef = useRef(null);
   const accountCode = account && account.code ? account.code : "anon";
 
-  // Keep local avatar in sync when parent account updates (e.g. after Google link)
+  // Keep local avatar in sync when parent account updates (e.g. after social link)
   useEffect(() => {
     if (account && account.avatar !== undefined) {
       setAvatar(account.avatar || "");
@@ -101,7 +105,9 @@ function AccountModal({
   }, [account && account.avatar, account && account.authProvider, account && account.socialId]);
 
   const googleLinked = !!(account && account.authProvider === "google" && account.socialId);
-  const googleEmail = (account && account.email) || "";
+  const googleEmail = googleLinked ? ((account && account.email) || "") : "";
+  const facebookLinked = !!(account && account.authProvider === "facebook" && account.socialId);
+  const facebookEmail = facebookLinked ? ((account && account.email) || "") : "";
 
 
   useEffect(() => {
@@ -446,19 +452,22 @@ function AccountModal({
                   {!googleLinked ? (
                     <button
                       type="button"
-                      disabled={googleLinkBusy}
+                      disabled={googleLinkBusy || facebookLinked}
                       onClick={() => { if (typeof onLinkGoogle === "function") onLinkGoogle(); }}
+                      title={facebookLinked ? T("Unlink Facebook first to link Google", "ألغِ ربط Facebook أولاً لربط Google") : undefined}
                       style={{
                         flex: 1,
                         minWidth: 120,
                         minHeight: 36,
                         borderRadius: 10,
                         border: "none",
-                        background: "linear-gradient(135deg, #4285F4 0%, #34A853 100%)",
+                        background: facebookLinked
+                          ? "rgba(66,133,244,0.35)"
+                          : "linear-gradient(135deg, #4285F4 0%, #34A853 100%)",
                         color: "#fff",
                         fontWeight: 700,
                         fontSize: 13,
-                        cursor: googleLinkBusy ? "wait" : "pointer",
+                        cursor: googleLinkBusy || facebookLinked ? "not-allowed" : "pointer",
                         opacity: googleLinkBusy ? 0.7 : 1,
                       }}
                     >
@@ -488,6 +497,140 @@ function AccountModal({
                       {googleLinkBusy
                         ? T("Working…", "جارٍ…")
                         : T("Unlink Google", "إلغاء الربط")}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Facebook account link (same rules as Google: link / unlink / identity free) ── */}
+          {typeof onLinkFacebook === "function" && (
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setShowFacebookActions((v) => !v)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setShowFacebookActions((v) => !v);
+                }
+              }}
+              style={{
+                width: "100%",
+                marginTop: 8,
+                padding: "8px 10px",
+                borderRadius: 12,
+                background: "linear-gradient(145deg, rgba(24,119,242,0.1) 0%, rgba(24,119,242,0.04) 100%)",
+                border: "1px solid rgba(24,119,242,0.28)",
+                textAlign: "start",
+                cursor: "pointer",
+                WebkitTapHighlightColor: "transparent",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    background: "#fff",
+                    display: "grid",
+                    placeItems: "center",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+                    flexShrink: 0,
+                  }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      fill="#1877F2"
+                      d="M24 12.07C24 5.41 18.63 0 12 0S0 5.41 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.04V9.41c0-3.02 1.79-4.7 4.54-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.95.93-1.95 1.89v2.26h3.32l-.53 3.49h-2.79V24C19.61 23.1 24 18.1 24 12.07z"
+                    />
+                  </svg>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "var(--ink)" }}>
+                    {T("Facebook account", "حساب Facebook")}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--muted-strong)", marginTop: 1, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {facebookLinked
+                      ? (facebookEmail && !String(facebookEmail).endsWith("@facebook.local")
+                          ? T(`Linked as ${facebookEmail}`, `مربوط: ${facebookEmail}`)
+                          : T("Linked", "مربوط"))
+                      : T("Not linked — tap to manage", "غير مربوط — اضغط للإدارة")}
+                  </div>
+                </div>
+                {facebookLinked && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: "0.03em",
+                      textTransform: "uppercase",
+                      color: "#137333",
+                      background: "rgba(52,168,83,0.15)",
+                      border: "1px solid rgba(52,168,83,0.35)",
+                      borderRadius: 999,
+                      padding: "2px 7px",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {T("Linked", "مربوط")}
+                  </span>
+                )}
+              </div>
+
+              {showFacebookActions && (
+                <div
+                  style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {!facebookLinked ? (
+                    <button
+                      type="button"
+                      disabled={facebookLinkBusy || googleLinked}
+                      onClick={() => { if (typeof onLinkFacebook === "function") onLinkFacebook(); }}
+                      title={googleLinked ? T("Unlink Google first to link Facebook", "ألغِ ربط Google أولاً لربط Facebook") : undefined}
+                      style={{
+                        flex: 1,
+                        minWidth: 120,
+                        minHeight: 36,
+                        borderRadius: 10,
+                        border: "none",
+                        background: googleLinked ? "rgba(24,119,242,0.35)" : "#1877F2",
+                        color: "#fff",
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: facebookLinkBusy || googleLinked ? "not-allowed" : "pointer",
+                        opacity: facebookLinkBusy ? 0.7 : 1,
+                      }}
+                    >
+                      {facebookLinkBusy
+                        ? T("Connecting…", "جارٍ الربط…")
+                        : T("Link Facebook", "ربط Facebook")}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={facebookLinkBusy || typeof onUnlinkFacebook !== "function"}
+                      onClick={() => { if (typeof onUnlinkFacebook === "function") onUnlinkFacebook(); }}
+                      style={{
+                        flex: 1,
+                        minWidth: 120,
+                        minHeight: 36,
+                        borderRadius: 10,
+                        border: "1px solid rgba(var(--border-rgb),0.28)",
+                        background: "var(--card)",
+                        color: "var(--danger, #c44)",
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: facebookLinkBusy ? "wait" : "pointer",
+                        opacity: facebookLinkBusy ? 0.7 : 1,
+                      }}
+                    >
+                      {facebookLinkBusy
+                        ? T("Working…", "جارٍ…")
+                        : T("Unlink Facebook", "إلغاء الربط")}
                     </button>
                   )}
                 </div>

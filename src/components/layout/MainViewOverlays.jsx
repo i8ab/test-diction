@@ -113,6 +113,7 @@ export default function MainViewOverlays(p) {
     showAiPdfExtract, setShowAiPdfExtract,
     showAccount, onCloseAccount, onUpdateOwnAccount,
     onLinkGoogle, onUnlinkGoogle, googleLinkBusy,
+    onLinkFacebook, onUnlinkFacebook, facebookLinkBusy,
     showAdmin, onCloseAdmin, onClearLogs, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount,
     showDictation, setShowDictation, onDictationRoundFinished,
     showAchievements, setShowAchievements,
@@ -492,7 +493,9 @@ export default function MainViewOverlays(p) {
             onLinkGoogle={onLinkGoogle}
             onUnlinkGoogle={onUnlinkGoogle}
             googleLinkBusy={googleLinkBusy}
-            
+            onLinkFacebook={onLinkFacebook}
+            onUnlinkFacebook={onUnlinkFacebook}
+            facebookLinkBusy={facebookLinkBusy}
           />
         )}
         {showAdmin && (

@@ -774,20 +774,43 @@ export async function performSocialLogin(p) {
 
 /**
  * Link a verified Google profile to the currently signed-in account.
- * Must only be called after /api/auth-google (or /api/auth?provider=google)
- * has returned ok:true — never trust client-side SDK fields alone.
- *
- * @param {object} p
- * @param {{ providerId: string, email: string, name?: string, picture?: string }} p.profile
- * @param {string} p.accountCode
- * @param {object[]} p.accounts
- * @param {function} p.setAccounts
- * @param {function} p.persistAccounts  (accountsFn, logEntryFn?) => Promise
- * @param {boolean} [p.appIsAr]
- * @returns {Promise<{ ok: true, account: object } | { ok: false, error: string }>}
+ * Must only be called after /api/auth-google has returned ok:true.
  */
 export async function linkGoogleToCurrentAccount(p) {
+  return linkSocialToCurrentAccount({ ...p, provider: "google" });
+}
+
+/**
+ * Unlink Google from the current account.
+ * Requires a password so the user is not locked out.
+ * Clears authProvider / socialId / email permanently so the Google identity is free.
+ */
+export async function unlinkGoogleFromCurrentAccount(p) {
+  return unlinkSocialFromCurrentAccount({ ...p, provider: "google" });
+}
+
+/**
+ * Link a verified Facebook profile to the currently signed-in account.
+ * Same rules as Google: server-verified profile only; identity must be free.
+ */
+export async function linkFacebookToCurrentAccount(p) {
+  return linkSocialToCurrentAccount({ ...p, provider: "facebook" });
+}
+
+/**
+ * Unlink Facebook — releases socialId + email so that FB identity can sign in
+ * again or be linked to another account.
+ */
+export async function unlinkFacebookFromCurrentAccount(p) {
+  return unlinkSocialFromCurrentAccount({ ...p, provider: "facebook" });
+}
+
+/**
+ * Generic social link (google | facebook). One social binding per account.
+ */
+export async function linkSocialToCurrentAccount(p) {
   const {
+    provider,
     profile,
     accountCode,
     accounts,
@@ -796,20 +819,22 @@ export async function linkGoogleToCurrentAccount(p) {
     appIsAr = false,
   } = p;
 
+  const label = provider === "facebook" ? "Facebook" : "Google";
+
   if (!profile || !profile.providerId) {
     return {
       ok: false,
       error: appIsAr
-        ? "تعذّر قراءة بيانات Google. حاول مرة أخرى."
-        : "Couldn't read Google account details. Please try again.",
+        ? `تعذّر قراءة بيانات ${label}. حاول مرة أخرى.`
+        : `Couldn't read ${label} account details. Please try again.`,
     };
   }
   if (!accountCode || accountCode === "guest") {
     return {
       ok: false,
       error: appIsAr
-        ? "يجب تسجيل الدخول أولاً لربط Google."
-        : "You must be signed in to link Google.",
+        ? `يجب تسجيل الدخول أولاً لربط ${label}.`
+        : `You must be signed in to link ${label}.`,
     };
   }
 
@@ -828,40 +853,40 @@ export async function linkGoogleToCurrentAccount(p) {
     return {
       ok: false,
       error: appIsAr
-        ? "يمكن ربط Google للحسابات المفعّلة فقط."
-        : "Only active accounts can link Google.",
+        ? `يمكن ربط ${label} للحسابات المفعّلة فقط.`
+        : `Only active accounts can link ${label}.`,
     };
   }
 
-  // Already linked to this same Google identity
-  if (current.authProvider === "google" && current.socialId === providerId) {
+  // Already linked to this same identity
+  if (current.authProvider === provider && current.socialId === providerId) {
     return { ok: true, account: current, alreadyLinked: true };
   }
 
-  // Conflict: this Google identity belongs to another account
+  // Another account still owns this social identity (active binding only)
   const clash = list.find(
     (a) =>
       a &&
       a.code !== accountCode &&
-      a.authProvider === "google" &&
+      a.authProvider === provider &&
       a.socialId === providerId
   );
   if (clash) {
     return {
       ok: false,
       error: appIsAr
-        ? "حساب Google ده مربوط بحساب تاني في الموقع."
-        : "This Google account is already linked to a different user.",
+        ? `حساب ${label} ده مربوط بحساب تاني في الموقع.`
+        : `This ${label} account is already linked to a different user.`,
     };
   }
 
-  // Email clash only if another account STILL has Google bound with that email
-  if (email) {
+  // Email clash only while another account STILL has this provider bound
+  if (email && !email.endsWith("@facebook.local")) {
     const emailClash = list.find(
       (a) =>
         a &&
         a.code !== accountCode &&
-        a.authProvider === "google" &&
+        a.authProvider === provider &&
         a.socialId &&
         a.email &&
         String(a.email).toLowerCase() === email
@@ -870,19 +895,17 @@ export async function linkGoogleToCurrentAccount(p) {
       return {
         ok: false,
         error: appIsAr
-          ? "البريد الإلكتروني لـ Google مستخدم في حساب آخر مربوط بـ Google."
-          : "This Google email is already linked to another account.",
+          ? `البريد الإلكتروني لـ ${label} مستخدم في حساب آخر مربوط.`
+          : `This ${label} email is already linked to another account.`,
       };
     }
   }
 
   const updated = {
     ...current,
-    authProvider: "google",
+    authProvider: provider,
     socialId: providerId,
-    // Bind Google email to this account on link
     ...(email ? { email } : {}),
-    // Apply Google profile picture to the local account on link (user can change later)
     ...(profile.picture ? { avatar: profile.picture } : {}),
   };
 
@@ -892,8 +915,8 @@ export async function linkGoogleToCurrentAccount(p) {
         (cur || []).map((a) => (a.code === accountCode ? { ...a, ...updated } : a)),
       () =>
         makeLogEntry(
-          "account_link_google",
-          `${updated.name || updated.username} linked Google (${email || providerId})`,
+          `account_link_${provider}`,
+          `${updated.name || updated.username} linked ${label} (${email || providerId})`,
           updated.name || updated.username,
           accountCode
         )
@@ -913,17 +936,13 @@ export async function linkGoogleToCurrentAccount(p) {
 }
 
 /**
- * Unlink Google from the current account.
- * Requires a password (or another non-social login) so the user is not locked out.
- *
- * @param {object} p
- * @param {string} p.accountCode
- * @param {object[]} p.accounts
- * @param {function} p.persistAccounts
- * @param {boolean} [p.appIsAr]
+ * Generic social unlink. Clears authProvider, socialId, and email with null
+ * so the server merge deletes them permanently — identity becomes free again.
+ * Requires passwordHash to avoid lock-out.
  */
-export async function unlinkGoogleFromCurrentAccount(p) {
-  const { accountCode, accounts, persistAccounts, appIsAr = false } = p;
+export async function unlinkSocialFromCurrentAccount(p) {
+  const { provider, accountCode, accounts, persistAccounts, appIsAr = false } = p;
+  const label = provider === "facebook" ? "Facebook" : "Google";
 
   if (!accountCode || accountCode === "guest") {
     return {
@@ -938,38 +957,48 @@ export async function unlinkGoogleFromCurrentAccount(p) {
     return { ok: false, error: appIsAr ? "الحساب غير موجود." : "Account not found." };
   }
 
-  if (current.authProvider !== "google" && !current.socialId) {
+  // Already free — nothing to do
+  if (current.authProvider !== provider && !current.socialId) {
     return { ok: true, account: current, alreadyUnlinked: true };
   }
+  // Linked to a different provider — don't clear unless it matches
+  if (current.authProvider && current.authProvider !== provider) {
+    return {
+      ok: false,
+      error: appIsAr
+        ? `هذا الحساب مربوط بـ ${current.authProvider} وليس ${label}.`
+        : `This account is linked to ${current.authProvider}, not ${label}.`,
+    };
+  }
 
-  // Prevent lock-out: must have a password hash to sign in without Google
+  // Prevent lock-out: must have a password to sign in without social
   if (!current.passwordHash) {
     return {
       ok: false,
       error: appIsAr
-        ? "ضع كلمة مرور للحساب قبل إلغاء ربط Google."
-        : "Set a password on this account before unlinking Google.",
+        ? `ضع كلمة مرور للحساب قبل إلغاء ربط ${label}.`
+        : `Set a password on this account before unlinking ${label}.`,
     };
   }
 
   try {
-    // null (not omitted keys) so server-side merge deletes the fields permanently
+    // null (not omitted keys) so server-side merge deletes the fields permanently.
+    // After this, performSocialLogin will NOT match this identity on any account.
     await persistAccounts(
       (cur) =>
         (cur || []).map((a) => {
           if (a.code !== accountCode) return a;
-          const next = {
+          return {
             ...a,
             authProvider: null,
             socialId: null,
             email: null,
           };
-          return next;
         }),
       () =>
         makeLogEntry(
-          "account_unlink_google",
-          `${current.name || current.username} unlinked Google (email released)`,
+          `account_unlink_${provider}`,
+          `${current.name || current.username} unlinked ${label} (identity released)`,
           current.name || current.username,
           accountCode
         )
@@ -980,7 +1009,7 @@ export async function unlinkGoogleFromCurrentAccount(p) {
       ok: false,
       error: appIsAr
         ? "تعذّر إلغاء الربط. حاول مرة أخرى."
-        : "Couldn't unlink Google. Please try again.",
+        : `Couldn't unlink ${label}. Please try again.`,
     };
   }
 }

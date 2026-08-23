@@ -1,16 +1,19 @@
 /**
- * Google sign-in — loads the GIS SDK lazily (only when the user taps the
- * button) and hands the resulting ID token to our own /api/auth endpoint
- * for real verification before performSocialLogin() ever runs.
+ * Social sign-in helpers — load provider SDKs lazily and hand tokens to
+ * /api/auth for server-side verification before performSocialLogin() runs.
  *
  * Required env (client, public):
  *   VITE_GOOGLE_CLIENT_ID
+ *   VITE_FACEBOOK_APP_ID
  *
- * Server secret (Vercel only):
+ * Server secrets (Vercel):
  *   GOOGLE_CLIENT_ID
+ *   FACEBOOK_APP_ID
+ *   FACEBOOK_APP_SECRET
  */
 
 let googleScriptPromise = null;
+let facebookScriptPromise = null;
 
 function loadGoogleScript() {
   if (window.google?.accounts?.id) return Promise.resolve();
@@ -102,6 +105,116 @@ export function signInWithGoogle() {
           });
         } catch (err) {
           reject(err instanceof Error ? err : new Error("Couldn't start Google sign-in."));
+        }
+      })
+  );
+}
+
+/**
+ * Facebook Login — loads the FB JS SDK, opens the login dialog, then verifies
+ * the access token via /api/auth-facebook.
+ * Resolves with: { providerId, email, name, picture }
+ */
+export function signInWithFacebook() {
+  const appId = import.meta.env.VITE_FACEBOOK_APP_ID;
+  if (!appId) {
+    return Promise.reject(
+      new Error(
+        "Facebook sign-in isn't set up yet — missing VITE_FACEBOOK_APP_ID."
+      )
+    );
+  }
+
+  function loadFacebookScript() {
+    if (window.FB) return Promise.resolve();
+    if (facebookScriptPromise) return facebookScriptPromise;
+    facebookScriptPromise = new Promise((resolve, reject) => {
+      window.fbAsyncInit = function () {
+        try {
+          window.FB.init({
+            appId: String(appId),
+            cookie: true,
+            xfbml: false,
+            version: "v21.0",
+          });
+          resolve();
+        } catch (e) {
+          reject(e instanceof Error ? e : new Error("Facebook SDK init failed."));
+        }
+      };
+      if (document.getElementById("facebook-jssdk")) {
+        // Script tag already present — wait for FB or fail
+        const wait = setInterval(() => {
+          if (window.FB) {
+            clearInterval(wait);
+            try {
+              window.FB.init({
+                appId: String(appId),
+                cookie: true,
+                xfbml: false,
+                version: "v21.0",
+              });
+            } catch (_) {}
+            resolve();
+          }
+        }, 50);
+        setTimeout(() => {
+          clearInterval(wait);
+          if (!window.FB) reject(new Error("Failed to load Facebook sign-in."));
+        }, 8000);
+        return;
+      }
+      const s = document.createElement("script");
+      s.id = "facebook-jssdk";
+      s.src = "https://connect.facebook.net/en_US/sdk.js";
+      s.async = true;
+      s.defer = true;
+      s.onerror = () => reject(new Error("Failed to load Facebook sign-in."));
+      document.head.appendChild(s);
+    });
+    return facebookScriptPromise;
+  }
+
+  return loadFacebookScript().then(
+    () =>
+      new Promise((resolve, reject) => {
+        try {
+          window.FB.login(
+            async (response) => {
+              if (!response || response.status !== "connected" || !response.authResponse?.accessToken) {
+                reject(new Error("Facebook sign-in was cancelled."));
+                return;
+              }
+              const accessToken = response.authResponse.accessToken;
+              try {
+                const r = await fetch("/api/auth-facebook", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ accessToken }),
+                });
+                const data = await r.json();
+                if (!data.ok) {
+                  reject(new Error(data.error || "Facebook sign-in failed."));
+                  return;
+                }
+                resolve({
+                  providerId: data.providerId,
+                  email: data.email,
+                  name: data.name,
+                  picture: data.picture,
+                });
+              } catch (_) {
+                reject(
+                  new Error("Couldn't verify Facebook sign-in — check your connection.")
+                );
+              }
+            },
+            { scope: "public_profile,email", return_scopes: true }
+          );
+        } catch (err) {
+          reject(
+            err instanceof Error ? err : new Error("Couldn't start Facebook sign-in.")
+          );
         }
       })
   );

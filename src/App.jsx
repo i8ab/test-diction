@@ -360,7 +360,8 @@ export default function DictionaryApp() {
   const [accountCode, setAccountCode] = useState(
     () => initialOffline?.usableAccount?.code || ""
   );
-  const [googleLinkBusy, setGoogleLinkBusy] = useState(false); // this browser's signed-in account's personal code
+  const [googleLinkBusy, setGoogleLinkBusy] = useState(false);
+  const [facebookLinkBusy, setFacebookLinkBusy] = useState(false);
   const [vaultAccounts, setVaultAccounts] = useState(() => loadAccountVault());
   const [mainAccountCode, setMainAccountCodeState] = useState(() => getMainAccountCode());
   const [linkMode, setLinkMode] = useState(false);
@@ -1750,17 +1751,24 @@ useEffect(() => {
   }
 
   async function handleSocialLogin(provider) {
-    if (provider !== "google") {
-      setAuthError("Only Google sign-in is available.");
+    if (provider !== "google" && provider !== "facebook") {
+      setAuthError(
+        appIsAr
+          ? "مزوّد الدخول ده مش متاح حاليًا."
+          : "This sign-in provider is not available."
+      );
       return;
     }
-    const [{ signInWithGoogle }, { performSocialLogin }] = await Promise.all([
+    const [socialMod, { performSocialLogin }] = await Promise.all([
       import("./lib/state/socialAuth"),
       import("./lib/state/authFlow"),
     ]);
     setAuthError("");
     try {
-      const profile = await signInWithGoogle();
+      const profile =
+        provider === "facebook"
+          ? await socialMod.signInWithFacebook()
+          : await socialMod.signInWithGoogle();
       await performSocialLogin({
         provider,
         profile,
@@ -1790,7 +1798,7 @@ useEffect(() => {
         setSignupError,
       });
     } catch (err) {
-      setAuthError((err && err.message) || "Sign-in failed.");
+      setAuthError((err && err.message) || (appIsAr ? "فشل تسجيل الدخول." : "Sign-in failed."));
     }
   }
 
@@ -1897,8 +1905,8 @@ useEffect(() => {
   async function handleUnlinkGoogle() {
     if (googleLinkBusy || !accountCode || accountCode === "guest") return;
     const confirmMsg = appIsAr
-      ? "إلغاء ربط Google؟ ستحتاج اسم المستخدم وكلمة المرور لتسجيل الدخول."
-      : "Unlink Google? You'll need username and password to sign in.";
+      ? "إلغاء ربط Google؟ ستحتاج اسم المستخدم وكلمة المرور لتسجيل الدخول. حساب Google هيبقى حر تاني."
+      : "Unlink Google? You'll need username and password to sign in. This Google account will be free again.";
     if (!window.confirm(confirmMsg)) return;
     setGoogleLinkBusy(true);
     try {
@@ -1914,7 +1922,7 @@ useEffect(() => {
         else window.alert(result.error || "Unlink failed");
         return;
       }
-      // Drop null Google fields from in-memory accounts so UI refreshes immediately
+      // Drop null social fields from memory so UI refreshes; identity is free for re-use
       setAccounts((prev) =>
         (prev || []).map((a) => {
           if (!a || a.code !== accountCode) return a;
@@ -1926,7 +1934,7 @@ useEffect(() => {
         })
       );
       if (typeof showToast === "function") {
-        showToast(appIsAr ? "تم إلغاء ربط Google" : "Google unlinked");
+        showToast(appIsAr ? "تم إلغاء ربط Google — الحساب حر" : "Google unlinked — identity free");
       }
     } catch (e) {
       const msg = (e && e.message) || (appIsAr ? "تعذّر إلغاء الربط" : "Could not unlink");
@@ -1934,6 +1942,86 @@ useEffect(() => {
       else window.alert(msg);
     } finally {
       setGoogleLinkBusy(false);
+    }
+  }
+
+  async function handleLinkFacebook() {
+    if (facebookLinkBusy || !accountCode || accountCode === "guest") return;
+    setFacebookLinkBusy(true);
+    try {
+      const [{ signInWithFacebook }, { linkFacebookToCurrentAccount }] = await Promise.all([
+        import("./lib/state/socialAuth"),
+        import("./lib/state/authFlow"),
+      ]);
+      const profile = await signInWithFacebook();
+      const result = await linkFacebookToCurrentAccount({
+        profile,
+        accountCode,
+        accounts: accountsRef.current.length ? accountsRef.current : accounts,
+        setAccounts,
+        persistAccounts,
+        appIsAr,
+      });
+      if (!result.ok) {
+        if (typeof showToast === "function") showToast(result.error || "Link failed");
+        else window.alert(result.error || "Link failed");
+        return;
+      }
+      if (typeof showToast === "function") {
+        showToast(
+          result.alreadyLinked
+            ? (appIsAr ? "Facebook مربوط مسبقاً" : "Facebook already linked")
+            : (appIsAr ? "تم ربط حساب Facebook بنجاح" : "Facebook account linked successfully")
+        );
+      }
+    } catch (e) {
+      const msg = (e && e.message) || (appIsAr ? "تعذّر الربط" : "Could not link Facebook");
+      if (typeof showToast === "function") showToast(msg);
+      else window.alert(msg);
+    } finally {
+      setFacebookLinkBusy(false);
+    }
+  }
+
+  async function handleUnlinkFacebook() {
+    if (facebookLinkBusy || !accountCode || accountCode === "guest") return;
+    const confirmMsg = appIsAr
+      ? "إلغاء ربط Facebook؟ ستحتاج اسم المستخدم وكلمة المرور لتسجيل الدخول. حساب Facebook هيبقى حر تاني."
+      : "Unlink Facebook? You'll need username and password to sign in. This Facebook account will be free again.";
+    if (!window.confirm(confirmMsg)) return;
+    setFacebookLinkBusy(true);
+    try {
+      const { unlinkFacebookFromCurrentAccount } = await import("./lib/state/authFlow");
+      const result = await unlinkFacebookFromCurrentAccount({
+        accountCode,
+        accounts: accountsRef.current.length ? accountsRef.current : accounts,
+        persistAccounts,
+        appIsAr,
+      });
+      if (!result.ok) {
+        if (typeof showToast === "function") showToast(result.error || "Unlink failed");
+        else window.alert(result.error || "Unlink failed");
+        return;
+      }
+      setAccounts((prev) =>
+        (prev || []).map((a) => {
+          if (!a || a.code !== accountCode) return a;
+          const next = { ...a };
+          if (next.authProvider == null) delete next.authProvider;
+          if (next.socialId == null) delete next.socialId;
+          if (next.email == null) delete next.email;
+          return next;
+        })
+      );
+      if (typeof showToast === "function") {
+        showToast(appIsAr ? "تم إلغاء ربط Facebook — الحساب حر" : "Facebook unlinked — identity free");
+      }
+    } catch (e) {
+      const msg = (e && e.message) || (appIsAr ? "تعذّر إلغاء الربط" : "Could not unlink");
+      if (typeof showToast === "function") showToast(msg);
+      else window.alert(msg);
+    } finally {
+      setFacebookLinkBusy(false);
     }
   }
 
@@ -2317,6 +2405,9 @@ useEffect(() => {
       onLinkGoogle={handleLinkGoogle}
       onUnlinkGoogle={handleUnlinkGoogle}
       googleLinkBusy={googleLinkBusy}
+      onLinkFacebook={handleLinkFacebook}
+      onUnlinkFacebook={handleUnlinkFacebook}
+      facebookLinkBusy={facebookLinkBusy}
       siteBanner={siteBanner} examConfig={examConfig} onPersistExamConfig={persistExamConfig} onPersistSiteBanner={persistSiteBanner} academicUnits={academicUnits} activeUnitId={activeUnitId} onChangeActiveUnitId={setActiveUnitId} onPersistAcademicUnits={persistAcademicUnits}
       showAdmin={showAdmin} onOpenAdmin={openAdminModal} onCloseAdmin={closeAdminModal}
       onAdminAddAccount={handleAdminAddAccount} onAdminEditAccount={handleAdminEditAccount} onAdminDeleteAccount={handleAdminDeleteAccount}

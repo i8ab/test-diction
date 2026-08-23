@@ -1811,10 +1811,11 @@ useEffect(() => {
         try {
           pending = sessionStorage.getItem("tt_fb_oauth_pending");
         } catch (_) {}
-        const hasToken =
+        const urlBits = String(window.location.hash || "") + String(window.location.search || "");
+        const hasFbReturn =
           typeof window !== "undefined" &&
-          /access_token=/.test(String(window.location.hash || "") + String(window.location.search || ""));
-        if (!pending && !hasToken) return;
+          (/access_token=/.test(urlBits) || /[?&#]code=/.test(urlBits));
+        if (!pending && !hasFbReturn) return;
 
         const socialMod = await import("./lib/state/socialAuth");
         const profile = await socialMod.completeFacebookRedirectIfPresent();

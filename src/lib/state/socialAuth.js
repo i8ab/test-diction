@@ -124,6 +124,7 @@ export function signInWithGoogle() {
 
 const FB_PENDING_KEY = "tt_fb_oauth_pending"; // "login" | "link"
 const FB_STATE_KEY = "tt_fb_oauth_state";
+const FB_REDIRECT_KEY = "tt_fb_oauth_redirect";
 
 function isMobileUa() {
   try {
@@ -177,6 +178,33 @@ async function verifyFacebookToken(accessToken) {
   };
 }
 
+async function verifyFacebookCode(code, redirectUri) {
+  const r = await fetch("/api/auth-facebook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, redirectUri }),
+  });
+  let data = {};
+  try {
+    data = await r.json();
+  } catch (_) {
+    throw new Error(
+      r.status === 404
+        ? "Facebook auth API not found — redeploy with /api/auth rewrite."
+        : `Facebook server error (${r.status}).`
+    );
+  }
+  if (!data.ok) {
+    throw new Error(data.error || "Facebook sign-in failed on server.");
+  }
+  return {
+    providerId: data.providerId,
+    email: data.email,
+    name: data.name,
+    picture: data.picture,
+  };
+}
+
 /**
  * If the user just returned from Facebook OAuth redirect, finish the flow.
  * Call once on app boot. Returns profile or null.
@@ -186,13 +214,14 @@ export async function completeFacebookRedirectIfPresent() {
   const pending = sessionStorage.getItem(FB_PENDING_KEY);
   if (!pending) return null;
 
-  // response_type=token → access_token in hash
-  // response_type=code → code in query (we use token for SPA)
+  // response_type=code → ?code= in query (preferred)
+  // response_type=token → #access_token= in hash (legacy)
   const hash = (window.location.hash || "").replace(/^#/, "");
   const hashParams = new URLSearchParams(hash);
   const queryParams = new URLSearchParams(window.location.search || "");
   const accessToken =
     hashParams.get("access_token") || queryParams.get("access_token");
+  const code = queryParams.get("code") || hashParams.get("code");
   const error =
     hashParams.get("error_message") ||
     hashParams.get("error") ||
@@ -200,15 +229,16 @@ export async function completeFacebookRedirectIfPresent() {
     queryParams.get("error");
   const state = hashParams.get("state") || queryParams.get("state");
   const expectedState = sessionStorage.getItem(FB_STATE_KEY);
+  const storedRedirect = sessionStorage.getItem(FB_REDIRECT_KEY) || redirectBaseUri();
 
   // Clean URL immediately so refresh does not re-process
   try {
-    const clean = window.location.pathname + (window.location.search || "");
-    window.history.replaceState(null, "", clean.split("?")[0] || "/");
+    window.history.replaceState(null, "", window.location.pathname || "/");
   } catch (_) {}
 
   sessionStorage.removeItem(FB_PENDING_KEY);
   sessionStorage.removeItem(FB_STATE_KEY);
+  sessionStorage.removeItem(FB_REDIRECT_KEY);
 
   if (error) {
     throw new Error(
@@ -217,15 +247,17 @@ export async function completeFacebookRedirectIfPresent() {
         : `Facebook: ${error}`
     );
   }
-  if (!accessToken) {
-    // User bounced back without completing — treat as cancel, not crash
-    return null;
-  }
   if (expectedState && state && expectedState !== state) {
     throw new Error("Facebook login state mismatch. Please try again.");
   }
-
-  return verifyFacebookToken(accessToken);
+  if (code) {
+    return verifyFacebookCode(code, storedRedirect);
+  }
+  if (accessToken) {
+    return verifyFacebookToken(accessToken);
+  }
+  // User bounced back without completing — treat as cancel, not crash
+  return null;
 }
 
 function startFacebookRedirect(mode /* 'login' | 'link' */) {
@@ -239,18 +271,20 @@ function startFacebookRedirect(mode /* 'login' | 'link' */) {
   }
   const state =
     Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const redirectUriPlain = redirectBaseUri();
   try {
     sessionStorage.setItem(FB_PENDING_KEY, mode || "login");
     sessionStorage.setItem(FB_STATE_KEY, state);
+    sessionStorage.setItem(FB_REDIRECT_KEY, redirectUriPlain);
   } catch (_) {}
 
-  const redirectUri = encodeURIComponent(redirectBaseUri());
+  const redirectUri = encodeURIComponent(redirectUriPlain);
   const url =
     `https://www.facebook.com/v21.0/dialog/oauth` +
     `?client_id=${encodeURIComponent(APP_ID)}` +
     `&redirect_uri=${redirectUri}` +
     `&state=${encodeURIComponent(state)}` +
-    `&response_type=token` +
+    `&response_type=code` +
     `&scope=${encodeURIComponent("public_profile")}`;
 
   // Full navigation — popup not used on mobile

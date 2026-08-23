@@ -93,19 +93,52 @@ async function handleFacebook(req, res) {
   }
 
   const body = parseBody(req);
-  const accessToken = body.accessToken;
-  if (!accessToken || typeof accessToken !== "string") {
-    return res.status(400).json({ ok: false, error: "Missing access token." });
-  }
+  let accessToken = typeof body.accessToken === "string" ? body.accessToken : "";
 
   try {
+    // Prefer authorization code exchange (mobile redirect) — more reliable than implicit token.
+    if (!accessToken && body.code && typeof body.code === "string") {
+      const redirectUri =
+        typeof body.redirectUri === "string" && body.redirectUri.trim()
+          ? body.redirectUri.trim()
+          : "";
+      if (!redirectUri) {
+        return res.status(400).json({
+          ok: false,
+          error: "Missing redirectUri for Facebook code exchange.",
+        });
+      }
+      const tokenUrl =
+        `https://graph.facebook.com/v21.0/oauth/access_token` +
+        `?client_id=${encodeURIComponent(appId)}` +
+        `&client_secret=${encodeURIComponent(appSecret)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&code=${encodeURIComponent(body.code)}`;
+      const tokenRes = await fetch(tokenUrl);
+      const tokenData = await tokenRes.json().catch(() => ({}));
+      if (!tokenRes.ok || !tokenData.access_token) {
+        return res.status(401).json({
+          ok: false,
+          error:
+            (tokenData && (tokenData.error_message || tokenData.error?.message)) ||
+            "Could not exchange Facebook code for access token. Check Valid OAuth Redirect URIs.",
+        });
+      }
+      accessToken = tokenData.access_token;
+    }
+
+    if (!accessToken) {
+      return res.status(400).json({ ok: false, error: "Missing access token or code." });
+    }
+
     const appAccessToken = `${appId}|${appSecret}`;
     const debugRes = await fetch(
       `https://graph.facebook.com/debug_token?input_token=${encodeURIComponent(accessToken)}&access_token=${encodeURIComponent(appAccessToken)}`
     );
     const debug = await debugRes.json();
     const info = debug && debug.data;
-    if (!info || !info.is_valid || info.app_id !== appId) {
+    // Compare as strings — Meta sometimes returns app_id as number-like string
+    if (!info || !info.is_valid || String(info.app_id) !== String(appId)) {
       return res.status(401).json({ ok: false, error: "Invalid or expired Facebook token." });
     }
 
@@ -129,8 +162,11 @@ async function handleFacebook(req, res) {
       name: profile.name || (profile.email ? profile.email.split("@")[0] : `user_${profile.id}`),
       picture: (profile.picture && profile.picture.data && profile.picture.data.url) || null,
     });
-  } catch {
-    return res.status(500).json({ ok: false, error: "Could not verify Facebook sign-in." });
+  } catch (e) {
+    return res.status(500).json({
+      ok: false,
+      error: "Could not verify Facebook sign-in.",
+    });
   }
 }
 

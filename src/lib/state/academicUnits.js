@@ -1,5 +1,5 @@
 /**
- * Academic section units — shared via cloud settings (like examConfig).
+ * Baccalaureate Curriculum section units — shared via cloud settings (like examConfig).
  * Local cache keeps the last-known list available offline.
  */
 import { uid } from "../utils/quizHelpers";

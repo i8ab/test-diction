@@ -47,6 +47,12 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
   const [customMinutes, setCustomMinutes] = useState("120");
   const mode = "mcq"; // quiz is multiple-choice only
   const [dueOnly, setDueOnly] = useState(!!initialDueOnly);
+  // "studied" | "not_studied" | "both"
+  const [studiedFilter, setStudiedFilter] = useState("studied");
+  // Manual word selection: null = use all matching; Set of ids when picking
+  const [wordPickMode, setWordPickMode] = useState(false);
+  const [selectedWordIds, setSelectedWordIds] = useState(() => new Set());
+  const [wordSearch, setWordSearch] = useState("");
   // Restore mid-session after same-tab refresh
   const restoredRef = useRef(undefined);
   if (restoredRef.current === undefined) {
@@ -137,9 +143,45 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
 
   const rangeStart = useMemo(() => quizRangeStart(rangeKey, customMinutes, sessionStart), [rangeKey, customMinutes, sessionStart]);
   const matchingEntries = useMemo(() => {
-    const base = selectQuizEntries(unitFilteredEntries, studiedIds, studiedAt, rangeStart);
+    const pick = wordPickMode && selectedWordIds.size > 0 ? selectedWordIds : null;
+    const base = selectQuizEntries(unitFilteredEntries, studiedIds, studiedAt, rangeStart, studiedFilter, pick);
     return dueOnly ? base.filter((e) => isSrsDue(e.id, srsDueAt)) : base;
-  }, [unitFilteredEntries, studiedIds, studiedAt, rangeStart, dueOnly, srsDueAt]);
+  }, [unitFilteredEntries, studiedIds, studiedAt, rangeStart, dueOnly, srsDueAt, studiedFilter, wordPickMode, selectedWordIds]);
+
+  // Pool for the word-picker list (before manual selection), respecting studied filter + range
+  const pickerPool = useMemo(() => {
+    return selectQuizEntries(unitFilteredEntries, studiedIds, studiedAt, rangeStart, studiedFilter, null);
+  }, [unitFilteredEntries, studiedIds, studiedAt, rangeStart, studiedFilter]);
+
+  const filteredPickerPool = useMemo(() => {
+    const q = wordSearch.trim().toLowerCase();
+    if (!q) return pickerPool;
+    return pickerPool.filter((e) => {
+      const w = String(e.word || "").toLowerCase();
+      const m = String(e.meaning || e.def || "").toLowerCase();
+      return w.includes(q) || m.includes(q);
+    });
+  }, [pickerPool, wordSearch]);
+
+  function toggleWordId(id) {
+    setSelectedWordIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setStartError("");
+  }
+
+  function selectAllPickerWords() {
+    setSelectedWordIds(new Set(filteredPickerPool.map((e) => e.id)));
+    setStartError("");
+  }
+
+  function clearPickerWords() {
+    setSelectedWordIds(new Set());
+    setStartError("");
+  }
 
   function startQuiz() {
     const built = buildQuiz(matchingEntries, unitFilteredEntries, mode) || [];
@@ -400,8 +442,8 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
           <div style={{ marginTop: 14 }}>
             <p style={{ fontFamily: "'Source Sans 3', sans-serif", color: "var(--muted-strong)", fontSize: 14, margin: "0 0 14px" }}>
               {tr(isAr,
-                "Pick which studied words to be tested on. Questions are multiple choice — choose the correct meaning.",
-                "اختار الكلمات اللي ذاكرتها واللي عايز تختبر فيها. الأسئلة اختيار من متعدد — اختار المعنى الصحيح.")}
+                "Customize which words to be tested on. Questions are multiple choice — choose the correct meaning.",
+                "خصص الكلمات اللي عايز تختبر فيها. الأسئلة اختيار من متعدد — اختار المعنى الصحيح.")}
             </p>
 
             <UnitScopePicker
@@ -415,6 +457,19 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
               selectAllUnits={selectAllUnits}
               onChange={() => setStartError("")}
             />
+
+            <label style={labelStyle}>{tr(isAr, "Word source", "مصدر الكلمات")}</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 6, marginBottom: 12 }}>
+              {[
+                { key: "studied", en: "Studied", ar: "مدروسة" },
+                { key: "not_studied", en: "Not studied", ar: "غير مدروسة" },
+                { key: "both", en: "Both", ar: "الكل" },
+              ].map((o) => (
+                <button key={o.key} type="button" onClick={() => { setStudiedFilter(o.key); setStartError(""); }} style={chipStyle(studiedFilter === o.key)}>
+                  {tr(isAr, o.en, o.ar)}
+                </button>
+              ))}
+            </div>
 
             <label style={labelStyle}>{tr(isAr, "Studied within", "تمت دراستها خلال")}</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 6 }}>
@@ -441,13 +496,74 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16, fontSize: 13, color: "var(--muted-strong)" }}>
               <EyeIcon size={14} color="var(--success)" />
               {tr(isAr,
-                `${matchingEntries.length} studied word${matchingEntries.length === 1 ? "" : "s"} match this range.`,
-                `${matchingEntries.length} كلمة متاحة من الكلمات المدروسة في هذا النطاق.`)}
+                `${matchingEntries.length} word${matchingEntries.length === 1 ? "" : "s"} match this selection.`,
+                `${matchingEntries.length} كلمة مطابقة لهذا الاختيار.`)}
             </div>
             <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, fontSize: 13.5, color: "var(--muted-strong)", cursor: "pointer" }}>
               <input type="checkbox" checked={dueOnly} onChange={(e) => setDueOnly(e.target.checked)} />
               {tr(isAr, "Only words due for review (spaced repetition)", "الكلمات المستحقة للمراجعة فقط (التكرار المتباعد)")}
             </label>
+
+            {/* Manual word selection */}
+            <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, fontSize: 13.5, color: "var(--muted-strong)", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={wordPickMode}
+                onChange={(e) => {
+                  setWordPickMode(e.target.checked);
+                  if (!e.target.checked) setSelectedWordIds(new Set());
+                  setStartError("");
+                }}
+              />
+              {tr(isAr, "Pick specific words for this quiz", "اختيار كلمات محددة لهذا الاختبار")}
+            </label>
+            {wordPickMode && (
+              <div style={{
+                marginTop: 10, padding: 12, borderRadius: 12,
+                border: "1px solid rgba(var(--border-rgb),0.14)", background: "var(--input-bg)",
+              }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8, alignItems: "center" }}>
+                  <input
+                    value={wordSearch}
+                    onChange={(e) => setWordSearch(e.target.value)}
+                    placeholder={tr(isAr, "Search words…", "بحث عن كلمات…")}
+                    style={{
+                      flex: 1, minWidth: 120, padding: "7px 10px", borderRadius: 8,
+                      border: "1px solid rgba(var(--border-rgb),0.18)", background: "var(--card)",
+                      color: INK, fontSize: 13, fontFamily: "inherit",
+                    }}
+                  />
+                  <button type="button" onClick={selectAllPickerWords} style={{ ...chipStyle(false), padding: "6px 10px" }}>
+                    {tr(isAr, "Select all", "تحديد الكل")}
+                  </button>
+                  <button type="button" onClick={clearPickerWords} style={{ ...chipStyle(false), padding: "6px 10px" }}>
+                    {tr(isAr, "Clear", "مسح")}
+                  </button>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6, fontWeight: 600 }}>
+                  {tr(isAr, `${selectedWordIds.size} selected of ${pickerPool.length}`, `${selectedWordIds.size} محددة من ${pickerPool.length}`)}
+                </div>
+                <div style={{ maxHeight: 180, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+                  {filteredPickerPool.length === 0 && (
+                    <div style={{ fontSize: 12, color: "var(--muted)" }}>{tr(isAr, "No words match.", "لا توجد كلمات مطابقة.")}</div>
+                  )}
+                  {filteredPickerPool.map((e) => {
+                    const on = selectedWordIds.has(e.id);
+                    return (
+                      <label key={e.id} style={{
+                        display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8,
+                        background: on ? "var(--accent-1-soft)" : "var(--card)",
+                        border: on ? "1px solid var(--accent-1)" : "1px solid transparent",
+                        cursor: "pointer", fontSize: 13,
+                      }}>
+                        <input type="checkbox" checked={on} onChange={() => toggleWordId(e.id)} />
+                        <span dir="auto" style={{ fontWeight: 700, color: INK, flex: 1 }}>{e.word || "—"}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Mode: Practice vs Exam */}
             <label style={labelStyle}>{tr(isAr, "Mode", "الوضع")}</label>

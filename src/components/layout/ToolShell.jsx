@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { tr } from "../../lib/config/i18n";
 import { computeStreak } from "../../lib/utils/quizHelpers";
-import { TimerPage, CalendarPage, TodoPage, GoalsPage } from "../modals/lazyModals";
+import { TimerPage, CalendarPage, TodoPage, GoalsPage, DayAchievementsModal } from "../modals/lazyModals";
 import { FlameIcon, CheckIcon } from "../common/Icons";
 
 /**
@@ -20,6 +20,7 @@ export default function ToolShell({
   showCalendar, calendarBubble, closeCalendar, setCalendarBubble,
   showTodo, todoBubble, closeTodo, setTodoBubble, openTodo,
   showGoals, goalsBubble, closeGoals, setGoalsBubble, openGoals,
+  showDayAchievements, closeDayAchievements,
 }) {
   const paperFallback = (
     <div style={{ position: "fixed", inset: 0, zIndex: 6000, background: "var(--paper)" }} aria-hidden />
@@ -75,6 +76,16 @@ export default function ToolShell({
             initialBubble={goalsBubble}
             onClose={closeGoals}
             onBubbleChange={setGoalsBubble}
+          />
+        </Suspense>
+      )}
+
+      {showDayAchievements && (
+        <Suspense fallback={paperFallback}>
+          <DayAchievementsModal
+            isAr={appIsAr}
+            accountCode={accountCode || ""}
+            onClose={closeDayAchievements}
           />
         </Suspense>
       )}

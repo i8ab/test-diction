@@ -34,6 +34,7 @@ export function useToolViews() {
   const [todoBubble, setTodoBubble] = useState(() => loadTodoView().bubble);
   const [showGoals, setShowGoals] = useState(() => loadGoalsView().open);
   const [goalsBubble, setGoalsBubble] = useState(() => loadGoalsView().bubble);
+  const [showDayAchievements, setShowDayAchievements] = useState(false);
 
   useEffect(() => {
     saveTimerView(showTimer, timerBubble);
@@ -106,12 +107,21 @@ export function useToolViews() {
     setGoalsBubble(false);
   }, []);
 
+  const openDayAchievements = useCallback(() => {
+    setShowDayAchievements(true);
+  }, []);
+
+  const closeDayAchievements = useCallback(() => {
+    setShowDayAchievements(false);
+  }, []);
+
   /** True when a full-screen tool (not bubble) is covering the dictionary. */
   const toolFullscreen =
     (showTimer && !timerBubble) ||
     (showCalendar && !calendarBubble) ||
     (showTodo && !todoBubble) ||
-    (showGoals && !goalsBubble);
+    (showGoals && !goalsBubble) ||
+    showDayAchievements;
 
   return {
     showTimer,
@@ -138,6 +148,10 @@ export function useToolViews() {
     setGoalsBubble,
     openGoals,
     closeGoals,
+    showDayAchievements,
+    setShowDayAchievements,
+    openDayAchievements,
+    closeDayAchievements,
     toolFullscreen,
   };
 }

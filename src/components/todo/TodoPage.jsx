@@ -44,6 +44,7 @@ function normalizeTodoList(arr, { stripActive = false } = {}) {
           : null,
       priority: ["high", "medium", "low"].includes(t.priority) ? t.priority : "medium",
       dueDate: typeof t.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.dueDate) ? t.dueDate : null,
+      categoryId: typeof t.categoryId === "string" && t.categoryId ? t.categoryId : null,
       // Bumped on every local edit; used to decide which side "wins" a merge.
       updatedAt: typeof t.updatedAt === "number" ? t.updatedAt : Date.now(),
       subtasks: normalizeSubtasks(t.subtasks),
@@ -71,6 +72,44 @@ function saveTodosLocal(list, accountCode) {
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
+
+function todayISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+const CATEGORIES_KEY = "twoTongues.todoCategories";
+const CATEGORIES_KEY_FOR = (code) => (code ? `twoTongues.todoCategories.${code}` : CATEGORIES_KEY);
+
+function loadCategories(accountCode) {
+  try {
+    const key = CATEGORIES_KEY_FOR(accountCode);
+    const raw = localStorage.getItem(key) || (!accountCode ? null : localStorage.getItem(CATEGORIES_KEY));
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((c) => c && typeof c.name === "string" && c.name.trim())
+      .map((c) => ({
+        id: typeof c.id === "string" && c.id ? c.id : Math.random().toString(36).slice(2) + Date.now().toString(36),
+        name: String(c.name).trim().slice(0, 40),
+        color: typeof c.color === "string" && c.color ? c.color : "#6366f1",
+      }))
+      .slice(0, 50);
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveCategoriesLocal(list, accountCode) {
+  try {
+    localStorage.setItem(CATEGORIES_KEY_FOR(accountCode), JSON.stringify(list.slice(0, 50)));
+  } catch (_) {}
+}
+
 
 function formatElapsed(ms) {
   const totalSec = Math.max(0, Math.floor(ms / 1000));
@@ -141,7 +180,13 @@ export default function TodoPage({
   const [draft, setDraft] = useState("");
   const [draftNote, setDraftNote] = useState("");
   const [draftPriority, setDraftPriority] = useState("medium");
-  const [draftDue, setDraftDue] = useState("");
+  const [draftDue, setDraftDue] = useState(() => todayISO());
+  const [draftCategoryId, setDraftCategoryId] = useState(null);
+  const [categories, setCategories] = useState(() => loadCategories(accountCode));
+  const [showCategoryMgr, setShowCategoryMgr] = useState(false);
+  const [catDraftName, setCatDraftName] = useState("");
+  const [catDraftColor, setCatDraftColor] = useState("#6366f1");
+  const [editingCatId, setEditingCatId] = useState(null);
   const [showExtra, setShowExtra] = useState(false);
   const [viewMode, setViewMode] = useState(initialBubble ? "bubble" : "full");
   const [bubblePos, setBubblePos] = useState({ x: null, y: null });
@@ -160,6 +205,8 @@ export default function TodoPage({
     if (prevCodeRef.current !== accountCode) {
       prevCodeRef.current = accountCode;
       setTodos(loadTodos(accountCode));
+      setCategories(loadCategories(accountCode));
+      setDraftCategoryId(null);
     }
   }, [accountCode]);
 
@@ -167,6 +214,10 @@ export default function TodoPage({
   useEffect(() => {
     saveTodosLocal(todos, accountCode);
   }, [todos, accountCode]);
+
+  useEffect(() => {
+    saveCategoriesLocal(categories, accountCode);
+  }, [categories, accountCode]);
 
   const hasActive = todos.some((t) => t.activeSince);
   useEffect(() => {
@@ -194,6 +245,10 @@ export default function TodoPage({
     else if (filter === "working") list = todos.filter((t) => !t.done && t.activeSince);
     else if (filter === "done") list = todos.filter((t) => t.done);
     else if (filter === "high") list = todos.filter((t) => !t.done && t.priority === "high");
+    else if (filter.startsWith("cat:")) {
+      const cid = filter.slice(4);
+      list = todos.filter((t) => !t.done && t.categoryId === cid);
+    }
     return [...list].sort((a, b) => {
       if (Number(a.done) !== Number(b.done)) return Number(a.done) - Number(b.done);
       // Active (working) tasks first
@@ -226,6 +281,50 @@ export default function TodoPage({
     }
   }
 
+  function addCategory() {
+    const name = catDraftName.trim();
+    if (!name) return;
+    const id = uid();
+    setCategories((prev) => [...prev, { id, name: name.slice(0, 40), color: catDraftColor || "#6366f1" }]);
+    setCatDraftName("");
+    setCatDraftColor("#6366f1");
+    setEditingCatId(null);
+  }
+
+  function saveEditCategory() {
+    const name = catDraftName.trim();
+    if (!name || !editingCatId) return;
+    setCategories((prev) =>
+      prev.map((c) => (c.id === editingCatId ? { ...c, name: name.slice(0, 40), color: catDraftColor || c.color } : c))
+    );
+    setCatDraftName("");
+    setCatDraftColor("#6366f1");
+    setEditingCatId(null);
+  }
+
+  function startEditCategory(cat) {
+    setEditingCatId(cat.id);
+    setCatDraftName(cat.name);
+    setCatDraftColor(cat.color || "#6366f1");
+    setShowCategoryMgr(true);
+  }
+
+  function deleteCategory(id) {
+    setCategories((prev) => prev.filter((c) => c.id !== id));
+    setTodos((prev) => prev.map((t) => (t.categoryId === id ? { ...t, categoryId: null, updatedAt: Date.now() } : t)));
+    if (draftCategoryId === id) setDraftCategoryId(null);
+    if (editingCatId === id) {
+      setEditingCatId(null);
+      setCatDraftName("");
+    }
+  }
+
+  const categoryById = useMemo(() => {
+    const m = {};
+    for (const c of categories) m[c.id] = c;
+    return m;
+  }, [categories]);
+
   function addTodo(e) {
     e?.preventDefault?.();
     const { title, note } = splitTitleAndNote(draft, draftNote);
@@ -241,6 +340,7 @@ export default function TodoPage({
         activeSince: null,
         priority: draftPriority,
         dueDate: draftDue || null,
+        categoryId: draftCategoryId || null,
         updatedAt: Date.now(),
         subtasks: [],
       },
@@ -248,8 +348,9 @@ export default function TodoPage({
     ]);
     setDraft("");
     setDraftNote("");
-    setDraftDue("");
+    setDraftDue(todayISO());
     setDraftPriority("medium");
+    setDraftCategoryId(null);
     setShowExtra(false);
     inputRef.current?.focus?.();
   }
@@ -667,6 +768,116 @@ export default function TodoPage({
                   }}
                 />
               </div>
+              {/* Category / tag assignment */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginTop: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)" }}>
+                  {tr(isAr, "Category", "تصنيف")}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDraftCategoryId(null)}
+                  style={{
+                    padding: "3px 9px", borderRadius: 14, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                    border: !draftCategoryId ? "1.5px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.16)",
+                    background: !draftCategoryId ? "var(--accent-1-soft)" : "var(--card)",
+                    color: !draftCategoryId ? "var(--accent-1)" : "var(--muted-strong)",
+                  }}
+                >
+                  {tr(isAr, "None", "بدون")}
+                </button>
+                {categories.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setDraftCategoryId(c.id)}
+                    style={{
+                      padding: "3px 9px", borderRadius: 14, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                      border: draftCategoryId === c.id ? `1.5px solid ${c.color}` : "1px solid rgba(var(--border-rgb),0.16)",
+                      background: draftCategoryId === c.id ? `${c.color}22` : "var(--card)",
+                      color: c.color,
+                    }}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryMgr((v) => !v)}
+                  style={{
+                    padding: "3px 9px", borderRadius: 14, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                    border: "1px dashed rgba(var(--border-rgb),0.3)",
+                    background: "transparent",
+                    color: "var(--muted-strong)",
+                  }}
+                >
+                  {tr(isAr, "Manage…", "إدارة…")}
+                </button>
+              </div>
+              {showCategoryMgr && (
+                <div style={{
+                  marginTop: 8, padding: 10, borderRadius: 10,
+                  border: "1px solid rgba(var(--border-rgb),0.14)", background: "var(--input-bg)",
+                }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: INK, marginBottom: 6 }}>
+                    {editingCatId ? tr(isAr, "Edit category", "تعديل تصنيف") : tr(isAr, "Add category", "إضافة تصنيف")}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    <input
+                      value={catDraftName}
+                      onChange={(e) => setCatDraftName(e.target.value)}
+                      placeholder={tr(isAr, "Name (e.g. Math)", "الاسم (مثل: رياضيات)")}
+                      maxLength={40}
+                      style={{
+                        flex: 1, minWidth: 120, padding: "6px 8px", borderRadius: 7,
+                        border: "1px solid rgba(var(--border-rgb),0.16)", background: "var(--card)",
+                        color: INK, fontSize: 12, fontFamily: "inherit",
+                      }}
+                    />
+                    <input
+                      type="color"
+                      value={catDraftColor}
+                      onChange={(e) => setCatDraftColor(e.target.value)}
+                      title={tr(isAr, "Color", "اللون")}
+                      style={{ width: 36, height: 32, border: "none", background: "transparent", cursor: "pointer" }}
+                    />
+                    <button
+                      type="button"
+                      onClick={editingCatId ? saveEditCategory : addCategory}
+                      disabled={!catDraftName.trim()}
+                      style={{
+                        padding: "6px 12px", borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12,
+                        background: catDraftName.trim() ? "var(--accent-1)" : "rgba(var(--border-rgb),0.12)",
+                        color: catDraftName.trim() ? "#fff" : "var(--muted)",
+                        cursor: catDraftName.trim() ? "pointer" : "default",
+                      }}
+                    >
+                      {editingCatId ? tr(isAr, "Save", "حفظ") : tr(isAr, "Add", "إضافة")}
+                    </button>
+                    {editingCatId && (
+                      <button type="button" onClick={() => { setEditingCatId(null); setCatDraftName(""); }}
+                        style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(var(--border-rgb),0.2)", background: "var(--card)", fontSize: 12, cursor: "pointer", color: "var(--muted-strong)" }}>
+                        {tr(isAr, "Cancel", "إلغاء")}
+                      </button>
+                    )}
+                  </div>
+                  {categories.length > 0 && (
+                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                      {categories.map((c) => (
+                        <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                          <span style={{ width: 10, height: 10, borderRadius: 3, background: c.color, flexShrink: 0 }} />
+                          <span style={{ flex: 1, color: INK, fontWeight: 600 }}>{c.name}</span>
+                          <button type="button" onClick={() => startEditCategory(c)} style={{ border: "none", background: "transparent", color: "var(--muted-strong)", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
+                            {tr(isAr, "Edit", "تعديل")}
+                          </button>
+                          <button type="button" onClick={() => deleteCategory(c.id)} style={{ border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
+                            {tr(isAr, "Delete", "حذف")}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </form>
@@ -679,6 +890,7 @@ export default function TodoPage({
             { id: "working", label: tr(isAr, "Working", "شغّال") },
             { id: "high", label: tr(isAr, "High", "عالية") },
             { id: "done", label: tr(isAr, "Done", "خلصت") },
+            ...categories.map((c) => ({ id: `cat:${c.id}`, label: c.name, color: c.color })),
           ].map((f) => (
             <button
               key={f.id}
@@ -899,7 +1111,7 @@ export default function TodoPage({
                           </span>
                         )}
                       </span>
-                      {(t.dueDate || t.activeSince || (t.workedMs || 0) > 0) && (
+                      {(t.dueDate || t.activeSince || (t.workedMs || 0) > 0 || t.categoryId) && (
                         <span
                           style={{
                             display: "flex",
@@ -908,8 +1120,19 @@ export default function TodoPage({
                             fontSize: 11,
                             color: "var(--muted)",
                             fontWeight: 600,
+                            flexWrap: "wrap",
+                            alignItems: "center",
                           }}
                         >
+                          {t.categoryId && categoryById[t.categoryId] && (
+                            <span style={{
+                              padding: "1px 7px", borderRadius: 10, fontSize: 10, fontWeight: 700,
+                              background: `${categoryById[t.categoryId].color}22`,
+                              color: categoryById[t.categoryId].color,
+                            }}>
+                              {categoryById[t.categoryId].name}
+                            </span>
+                          )}
                           {t.dueDate && <span>📅 {t.dueDate}</span>}
                           {(t.activeSince || (t.workedMs || 0) > 0) && (
                             <span

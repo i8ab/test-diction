@@ -412,7 +412,7 @@ export default function AiPdfExtractModal({
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {[
                     { key: "en-ar", en: "English → Arabic", ar: "إنجليزي ← عربي" },
-                    { key: "academic", en: "Academic", ar: "أكاديمي" },
+                    { key: "academic", en: "Baccalaureate Curriculum", ar: "منهج البكالوريا" },
                     { key: "ar-ar", en: "Arabic → Arabic", ar: "عربي ← عربي" },
                   ].map((opt) => {
                     const active = targetSection === opt.key;

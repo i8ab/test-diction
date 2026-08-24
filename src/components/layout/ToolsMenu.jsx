@@ -46,6 +46,7 @@ export default function ToolsMenu({
   onTimer,
   onCalendar,
   onTodo,
+  onDayAchievements,
   onGoals,
   onQuickReview,
   onDictation,
@@ -188,6 +189,9 @@ export default function ToolsMenu({
         { key: "timer", icon: <ClockIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Timer", "مؤقّت"), onClick: onTimer },
         { key: "calendar", icon: <CalendarIcon size={18} />, tint: "#e85d04", label: tr(isAr, "Calendar", "التقويم"), onClick: onCalendar },
         { key: "todo", icon: <ListChecksIcon size={18} />, tint: "#30d158", label: tr(isAr, "To-do list", "قائمة المهام"), onClick: onTodo },
+        ...(typeof onDayAchievements === "function"
+          ? [{ key: "dayAch", icon: <MedalIcon size={18} />, tint: "#af52de", label: tr(isAr, "Day achievements", "إنجازات اليوم"), onClick: onDayAchievements }]
+          : []),
         { key: "lists", icon: <LibraryIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Word lists", "قوائم الكلمات"), onClick: onWordLists },
         { key: "challenges", icon: <SwordsIcon size={18} />, tint: "#d4a017", label: tr(isAr, "Challenges", "تحديات"), onClick: onChallenges },
         ...(typeof onConversation === "function"

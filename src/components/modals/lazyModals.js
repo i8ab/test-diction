@@ -49,6 +49,7 @@ export const WordZoomModal = safeLazy(() => import("./WordZoomModal"));
 export const TimerPage = safeLazy(() => import("../timer/TimerPage"));
 export const CalendarPage = safeLazy(() => import("../calendar/CalendarPage"));
 export const TodoPage = safeLazy(() => import("../todo/TodoPage"));
+export const DayAchievementsModal = safeLazy(() => import("./DayAchievementsModal"));
 export const QuickReviewModal = safeLazy(() => import("./QuickReviewModal"));
 export const GoalsPage = safeLazy(() => import("../goals/GoalsPage"));
 export const InfoGuideModal = safeLazy(() => import("./InfoGuideModal"));

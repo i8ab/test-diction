@@ -33,7 +33,7 @@ export function buildUserContext({
 
   const SECTION_KEYS = ["academic", "en-ar", "ar-ar"];
   const SECTION_LABELS = {
-    academic: "Academic",
+    academic: "Baccalaureate Curriculum",
     "en-ar": "EN→AR",
     "ar-ar": "AR→AR",
   };

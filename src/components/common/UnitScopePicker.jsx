@@ -3,7 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { BRASS, labelStyle } from "../../lib/config/theme";
 
 /**
- * Shared multi-unit scope for Academic section practice / exam tools.
+ * Shared multi-unit scope for Baccalaureate Curriculum section practice / exam tools.
  * Returns filtered entries + UI for presets + per-unit toggles.
  */
 export function useUnitScope(academicUnits, activeUnitId, entries) {

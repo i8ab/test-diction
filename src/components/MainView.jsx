@@ -212,6 +212,7 @@ export default function MainView({
     showTimer, setShowTimer, timerBubble, setTimerBubble, openTimer, closeTimer,
     showCalendar, setShowCalendar, calendarBubble, setCalendarBubble, openCalendar, closeCalendar,
     showTodo, setShowTodo, todoBubble, setTodoBubble, openTodo, closeTodo,
+    showDayAchievements, openDayAchievements, closeDayAchievements,
     showGoals, setShowGoals, goalsBubble, setGoalsBubble, openGoals, closeGoals,
     toolFullscreen,
   } = useToolViews();
@@ -754,6 +755,7 @@ export default function MainView({
               onTimer={openTimer}
               onCalendar={openCalendar}
               onTodo={openTodo}
+              onDayAchievements={openDayAchievements}
               onGoals={openGoals}
               onQuickReview={() => setShowQuickReview(true)}
               onWeaknessReview={() => setShowWeaknessReview(true)}
@@ -1412,6 +1414,8 @@ export default function MainView({
       closeCalendar={closeCalendar}
       setCalendarBubble={setCalendarBubble}
       showTodo={showTodo}
+      showDayAchievements={showDayAchievements}
+      closeDayAchievements={closeDayAchievements}
       todoBubble={todoBubble}
       closeTodo={closeTodo}
       setTodoBubble={setTodoBubble}

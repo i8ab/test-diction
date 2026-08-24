@@ -47,16 +47,23 @@ export const SRS_BOX_LABELS = [
  * Map cumulative correct/total stats to an SRS box level 0..5.
  * Never decreases on correct answers; level is based on accuracy + volume.
  */
+/**
+ * Map cumulative correct/total (+ optional consecutive correct) to SRS box 0..5.
+ * Mastery-focused: higher accuracy and volume required; streak of correct
+ * answers can accelerate progress, while low accuracy keeps the item low.
+ */
 export function srsLevelFromStats(stats) {
   if (!stats || !stats.total) return 0;
-  const { correct = 0, total = 0 } = stats;
+  const { correct = 0, total = 0, streak = 0 } = stats;
   const ratio = correct / total;
+  // Hard floor on weak accuracy
   if (total < 2 || ratio < 0.5) return 0;
   if (total < 4 || ratio < 0.65) return 1;
-  if (total < 6 || ratio < 0.75) return 2;
-  if (total < 10 || ratio < 0.85) return 3;
-  if (ratio < 0.92) return 4;
-  return 5;
+  if (total < 6 || ratio < 0.75) return streak >= 2 ? 3 : 2;
+  if (total < 10 || ratio < 0.85) return streak >= 3 ? 4 : 3;
+  if (ratio < 0.92) return streak >= 4 ? 5 : 4;
+  // Mastered only with strong accuracy and repeated success
+  return streak >= 3 || (total >= 12 && ratio >= 0.95) ? 5 : 4;
 }
 
 export function isSrsDue(entryId, srsDueAt) {
@@ -121,12 +128,25 @@ export function quizRangeStart(rangeKey, customMinutes, sessionStart) {
   return now - mins * 60 * 1000;
 }
 
-export function selectQuizEntries(entries, studiedIds, studiedAt, rangeStart) {
+/**
+ * Select quiz candidate entries.
+ * @param studiedFilter "studied" | "not_studied" | "both"
+ * @param selectedIds optional Set of entry ids to restrict to (manual word pick)
+ */
+export function selectQuizEntries(entries, studiedIds, studiedAt, rangeStart, studiedFilter = "studied", selectedIds = null) {
   const set = studiedIds instanceof Set ? studiedIds : new Set(studiedIds || []);
+  const pick = selectedIds instanceof Set ? selectedIds : (selectedIds ? new Set(selectedIds) : null);
   return (entries || []).filter((e) => {
-    if (!set.has(e.id)) return false;
-    const at = studiedAt && studiedAt[e.id];
-    if (rangeStart && typeof at === "number" && at < rangeStart) return false;
+    if (pick && !pick.has(e.id)) return false;
+    const isStudied = set.has(e.id);
+    if (studiedFilter === "studied" && !isStudied) return false;
+    if (studiedFilter === "not_studied" && isStudied) return false;
+    // "both" accepts either
+    if (studiedFilter === "studied" || studiedFilter === "both") {
+      const at = studiedAt && studiedAt[e.id];
+      // Only apply time-range when filtering studied words that have a timestamp
+      if (isStudied && rangeStart && typeof at === "number" && at < rangeStart) return false;
+    }
     return true;
   });
 }

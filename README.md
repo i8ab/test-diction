@@ -133,3 +133,16 @@ Push the repo as-is. Vercel detects Vite and turns `api/*.js` into serverless fu
 4. Implement the first two items of the security roadmap if the community grows beyond a trusted group.
 
 If `npm run build` fails, send the full error output.
+
+
+## Changes in this build (feature pass)
+
+| Feature | What was done |
+|---------|----------------|
+| **Quiz customization** | Setup screen lets you choose **Studied / Not studied / Both**, and optionally **pick specific words** from a searchable list. |
+| **Todo default date** | New tasks default the date field to **today**. |
+| **Todo categories** | Create, edit, delete custom category tags and assign them to tasks; filter by category. |
+| **Baccalaureate Curriculum** | The former **Academic** section is renamed everywhere in the UI. |
+| **Day achievements + SRS** | New tool under Tools: log daily achievements, opt into spaced repetition, review when due, toggle notifications. Mastery-focused intervals (repeated success required to advance). |
+| **Mastery focus** | SRS level promotion requires consecutive correct answers / higher accuracy thresholds. |
+

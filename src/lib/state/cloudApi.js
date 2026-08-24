@@ -11,6 +11,29 @@
 // Auth is username + password only. Writes go through /api/jsonbin; the
 // Supabase key never ships to the browser.
 
+import { authHeaders, clearSessionToken } from "./sessionAuth";
+
+function writeHeaders() {
+  return { "Content-Type": "application/json", ...authHeaders() };
+}
+
+/** Thrown when the server rejects a write because the session token is missing/invalid/expired. */
+export class SessionExpiredError extends Error {
+  constructor(message = "session_expired") {
+    super(message);
+    this.name = "SessionExpiredError";
+  }
+}
+
+function throwIfUnauthorized(res) {
+  if (res.status === 401 || res.status === 403) {
+    clearSessionToken({ markExpired: true });
+    throw new SessionExpiredError(
+      res.status === 403 ? "forbidden" : "session_expired"
+    );
+  }
+}
+
 // In-memory short TTL for non-fresh reads in the same tab session.
 // Does NOT replace fresh:true (signup/login/conflict paths still hit network).
 // Safe: 20s is short; any successful write invalidates immediately.
@@ -249,15 +272,12 @@ export class SaveConflictError extends Error {
 }
 
 export async function saveRecord(record, expectedVersion) {
-  const headers = { "Content-Type": "application/json" };
   const res = await fetch("/api/jsonbin", {
     method: "PUT",
-    headers,
+    headers: writeHeaders(),
     body: JSON.stringify({ ...record, expectedVersion }),
   });
-  if (res.status === 401) {
-    throw new Error("unauthorized");
-  }
+  throwIfUnauthorized(res);
   if (res.status === 409) {
     invalidateRecordCache();
     const data = await res.json().catch(() => null);
@@ -281,10 +301,9 @@ export async function saveAccountsOnly(
   },
   expectedVersion
 ) {
-  const headers = { "Content-Type": "application/json" };
   const res = await fetch("/api/jsonbin", {
     method: "PUT",
-    headers,
+    headers: writeHeaders(),
     body: JSON.stringify({
       scope: "accounts",
       accounts: accounts || [],
@@ -293,9 +312,7 @@ export async function saveAccountsOnly(
       expectedVersion,
     }),
   });
-  if (res.status === 401) {
-    throw new Error("unauthorized");
-  }
+  throwIfUnauthorized(res);
   if (res.status === 409) {
     invalidateRecordCache();
     const data = await res.json().catch(() => null);
@@ -318,13 +335,12 @@ export async function saveAccountsOnly(
 }
 
 async function putScoped(body, expectedVersion) {
-  const headers = { "Content-Type": "application/json" };
   const res = await fetch("/api/jsonbin", {
     method: "PUT",
-    headers,
+    headers: writeHeaders(),
     body: JSON.stringify({ ...body, expectedVersion }),
   });
-  if (res.status === 401) throw new Error("unauthorized");
+  throwIfUnauthorized(res);
   if (res.status === 409) {
     invalidateRecordCache();
     const data = await res.json().catch(() => null);
@@ -376,4 +392,36 @@ export async function patchSettings(key, value, expectedVersion) {
     expectedVersion
   );
   return typeof data.version === "number" ? data.version : expectedVersion + 1;
+}
+
+/**
+ * Replace activity logs only (no entries/accounts rewrite).
+ * Used by persistLogs — sign-in/out events are rare.
+ */
+export async function saveLogsOnly(logs, expectedVersion) {
+  const data = await putScoped(
+    { scope: "logsReplace", logs: Array.isArray(logs) ? logs : [] },
+    expectedVersion
+  );
+  return typeof data.version === "number" ? data.version : expectedVersion + 1;
+}
+
+/**
+ * Accounts + version only — preferred over fetchRecord for auth/migration paths
+ * that do not need the dictionary.
+ */
+export async function fetchAccountsBundle({ fresh = false } = {}) {
+  const [accounts, version] = await Promise.all([
+    fetchAccountsOnly({ fresh }),
+    fetchVersionOnly({ fresh }),
+  ]);
+  return {
+    accounts: accounts || [],
+    version: typeof version === "number" ? version : 0,
+    entries: [],
+    logs: [],
+    siteBanner: null,
+    examConfig: null,
+    academicUnits: null,
+  };
 }

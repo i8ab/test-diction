@@ -1,150 +1,135 @@
 # Bacaloria Community
 
-قاموس مفردات ثنائي اللغة + أدوات دراسة متكاملة (عربي ⇄ إنجليزي)، مع واجهة تدعم العربية والإنجليزية والألمانية والفرنسية.
+Bilingual vocabulary dictionary + integrated study tools (Arabic ⇄ English).  
+UI languages: **English** and **Arabic** (RTL supported).
 
-تطبيق ويب تقدمي (PWA) يعمل offline، مع مزامنة سحابية، نظام تكرار متباعد (SRS)، XP وإنجازات، مؤقت دراسة، تقويم، وإشعارات.
+Progressive Web App (PWA) with offline support, cloud sync, spaced repetition (SRS), XP & achievements, study timer, calendar, todos, and push notifications.
+
+**Current version: 1.1.3**
 
 ---
 
-## التشغيل المحلي
+## Local development
 
 ```bash
 npm install
 npm run dev      # http://localhost:5173
-npm run build    # ينتج مجلد dist جاهز للنشر
-npm run preview  # معاينة نسخة الإنتاج محليًا
+npm run build    # production build → dist/
+npm run preview  # preview production build
+npm test         # unit tests (Vitest)
+npm run test:watch
 ```
 
-### النشر على Vercel
+### Deploy on Vercel
 
-ارفع المشروع كما هو. Vercel يكتشف Vite تلقائيًا ويبني، ويُفعّل ملفات `api/*.js` كـ serverless functions.
+Push the repo as-is. Vercel detects Vite and turns `api/*.js` into serverless functions.
 
-**متغيرات البيئة المطلوبة (حسب ما تستخدم):**
+**Environment variables:**
 
-| المتغير | الوصف |
-|---------|--------|
-| `JSONBIN_BIN_ID` / `JSONBIN_MASTER_KEY` | إذا كنت تستخدم JSONBin |
-| `SUPABASE_URL` / `SUPABASE_ANON_KEY` (أو `SUPABASE_KEY`) | إذا انتقلت لـ Supabase |
-| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | لإشعارات Web Push |
-| `CRON_SECRET` | لحماية endpoint التذكيرات المجدولة |
+| Variable | Purpose |
+|----------|---------|
+| `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (or `SUPABASE_ANON_KEY`) | Primary data store |
+| `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | Write locks, push subscriptions |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push |
+| `CRON_SECRET` | Protect scheduled reminder endpoint |
+| `GOOGLE_CLIENT_ID` / `FACEBOOK_APP_ID` + `FACEBOOK_APP_SECRET` | Optional social login |
 
 ---
 
-## البنية الأساسية
+## Project structure
 
 ```
 ├── api/                    # Vercel serverless functions
-│   ├── jsonbin.js          # قراءة/كتابة البيانات السحابية
-│   ├── cambridge-audio.js  # صوت النطق من Cambridge
+│   ├── jsonbin.js          # Supabase proxy (entries, accounts, settings)
+│   ├── cambridge-audio.js  # Pronunciation audio proxy
 │   ├── tts.js
-│   ├── push-*.js           # إدارة الإشعارات
-│   └── login.js            # (متقاعد — الدخول باليوزر/باسورد فقط)
+│   ├── push*.js            # Web Push + reminders
+│   └── auth.js             # Social token verification
 ├── public/
-│   ├── sw.js               # Service Worker (offline + cache strategy)
+│   ├── sw.js               # Service worker (network-first shell)
 │   ├── manifest.json
-│   └── icons/
+│   └── icons/ + backgrounds/
 ├── src/
-│   ├── main.jsx            # نقطة الدخول
-│   ├── App.jsx             # المكوّن الجذري (حالة التطبيق + مصادقة + مزامنة)
-│   ├── index.css           # التنسيقات الرئيسية
-│   ├── components/
-│   │   ├── MainView.jsx    # الواجهة الرئيسية للقاموس
-│   │   ├── auth/           # شاشات التسجيل والدخول
-│   │   ├── layout/         # الهيدر، القوائم، البنرات
-│   │   ├── modals/         # كل النوافذ المنبثقة (Quiz, Flashcards, ...)
-│   │   ├── timer/          # مؤقت المذاكرة
-│   │   ├── calendar/       # تقويم الدراسة
-│   │   ├── todo/           # قائمة المهام
-│   │   ├── goals/
-│   │   ├── dashboard/
-│   │   └── common/         # مكوّنات مشتركة (أيقونات، بطاقات، ...)
+│   ├── App.jsx             # Root orchestration (still large — see docs/REFACTOR_PLAN.md)
+│   ├── components/         # UI (MainView, modals, timer, todo, calendar, …)
 │   └── lib/
 │       ├── config/         # i18n, theme, sections
-│       ├── state/          # إدارة الحالة (XP, achievements, storage, push, ...)
-│       └── utils/          # helpers (SRS, speech, auth, dictionary API, ...)
-├── lib/                    # كود مشترك بين الـ API functions (redis, webpush)
-├── vite.config.js
-└── vercel.json             # Cron للتذكيرات اليومية
+│       ├── state/          # XP, achievements, cloud queue, vault, …
+│       ├── hooks/
+│       └── utils/          # SRS, speech, authUtils, quizHelpers, …
+├── tests/                  # Vitest unit tests
+├── docs/REFACTOR_PLAN.md   # Incremental plan for large files
+├── SECURITY.md             # Auth model + hardening roadmap
+├── vitest.config.js
+└── vercel.json
 ```
 
 ---
 
-## الميزات الرئيسية
+## Main features
 
-### القاموس والدراسة
-- بحث سريع + إضافة كلمات يدوية
-- تعريفات وأمثلة تلقائية (dictionaryapi.dev + ترجمة عند الحاجة)
-- نظام SRS (تكرار متباعد) مبني على SM-2 مبسط
-- اختبارات متعددة الأنواع، بطاقات فلاش، إملاء، مراجعة سريعة
-- استخراج كلمات من نص
-- نطق (TTS + Cambridge audio) + تدريب نطق اختياري (Whisper في المتصفح)
+### Dictionary & study
+- Fast search, manual add, auto definitions (dictionaryapi.dev)
+- Simplified SM-2 spaced repetition
+- Quizzes, flashcards, dictation, quick/weakness review, cloze, sentence practice
+- TTS + Cambridge audio; optional on-device Whisper (lazy-loaded via `@huggingface/transformers`)
+- Academic units, word lists, notes, priorities
 
-### التحفيز والتقدم
-- نظام XP مع حدود يومية ومكافآت
-- إنجازات ومستويات وشارات وإطارات
-- سلسلة أيام (streak)
-- أهداف وتحديات
-- لوحة متصدرين ومقارنة تقدم
+### Motivation & progress
+- XP with daily caps, levels, badges, frames, streaks
+- Goals, challenges, leaderboard, weekly report
 
-### أدوات مساعدة
-- **مؤقت مذاكرة**: عد تنازلي / ساعة، تخصيص كامل، فقاعة عائمة، Picture-in-Picture على الديسكتوب، Screen Wake Lock
-- **تقويم دراسة**: عرض شهري بكثافة لونية + streak + ودجت عائم
-- قائمة مهام
-- وضع امتحان مع إعدادات أدمن
+### Productivity
+- Study timer (countdown / clock, floating bubble, PiP where supported, Screen Wake Lock)
+- Study calendar + floating widget
+- **Todo list** — localStorage only (per device / account code)
+- Exam mode + admin settings
 
-### التقنية
-- PWA كامل (manifest + service worker محسّن)
-- offline-first مع cache ذكي (network-first للـ shell، cache-first للأصول المُجزأة)
-- مزامنة سحابية مع معالجة تعارض الإصدارات
-- دعم RTL والثيمات وتكبير الواجهة
-- إشعارات Push مجدولة
+### Technical
+- Full PWA (manifest + service worker)
+- Offline-first with smart caching
+- Cloud sync with optimistic locking and conflict handling
+- RTL + theming + background images
 
 ---
 
-## ملاحظات معمارية مهمة
+## Changes in 1.1.3 (this pass)
 
-1. **الكود الكبير**: `App.jsx` و `MainView.jsx` وبعض الملفات الأخرى ما زالت كبيرة. يُفضّل استخراج hooks ومنطق الأعمال تدريجيًا.
-2. **الأمان**: المصادقة حاليًا تعتمد على hash في الواجهة وتخزين الحسابات في السحابة. مناسبة لمجتمع صغير؛ تحتاج تعزيز لاحقًا.
-3. **Whisper / transformers.js**: يُحمّل ديناميكيًا فقط عند الحاجة (لا يدخل الحزمة الرئيسية).
-4. **الموبايل أولًا**: أي ميزة جديدة يجب أن تُختبر على عرض ≤ 768px قبل اعتبارها جاهزة. تجنب `window.open` على الموبايل.
+| Issue | What was done |
+|-------|----------------|
+| **Duplicate files** | Removed leftover root `/components/modals/` (duplicates of `src/components/modals/`). |
+| **Todos** | Kept **localStorage only** (per device / account code) — no cloud sync, as requested. |
+| **i18n dead code** | Cleaned `tr()` — removed unused German/French parameters. Only `en` / `ar` are supported. Boolean `isAr` call sites remain compatible. |
+| **Testing** | Added Vitest + unit tests for `authUtils`, `quizHelpers`, and `xp` (`tests/`). Run with `npm test` after `npm install`. |
+| **Service worker** | Bumped cache version to `bacaloria-v1.1.3`. Documented a path to build-time automated versioning. |
+| **Documentation** | New `SECURITY.md`, `docs/REFACTOR_PLAN.md`, updated this README. Version bumped to 1.1.3. |
+| **Security** | Documented current model and a concrete hardening roadmap. No breaking auth rewrite (would invalidate existing accounts). |
+| **Large files / sync complexity** | Full extraction of 2500-line files and redesign of the offline queue were **not** performed in this pass (high risk of regressions). A safe incremental plan is in `docs/REFACTOR_PLAN.md`. |
 
----
+### Explicitly deferred (honest)
 
-## قواعد التعديل (مهمة)
-
-- اختبر على الموبايل قبل اعتبار الميزة منتهية.
-- لا تعتمد على popups صغيرة على الموبايل.
-- حافظ على مساحات لمس كافية (≥ ~40px).
-- استخدم `min/max/clamp` و `100dvh` و `env(safe-area-inset-*)` عند الحاجة.
-- أي تغيير في منطق الحفظ السحابي أو الـ SRS يجب أن يحافظ على التوافق مع البيانات الموجودة.
-
----
-
-## التحسينات في هذا الإصدار (1.1.0)
-
-- حذف ملف `src/components/TimerPage.jsx` المكرر (كان ميتًا وغير مستخدم).
-- حذف ملف Windows shortcut غير مستخدم (`lib/Documents.lnk`).
-- تحسين `vite.config.js` بـ manual chunks أفضل (فصل React، الـ modals، أدوات الدراسة، وtransformers).
-- توثيق أوضح وأشمل يغطي البنية والميزات ومتغيرات البيئة.
-- تحديث اسم الحزمة والوصف في `package.json`.
-- **تقسيم الكود (مكتمل هيكليًا — مراحل 1–20)**:
-  - `App.jsx` → ~1438 (كان ~2797, ≈ **−49%**)
-  - `MainView.jsx` → ~1065 (كان ~2190, ≈ **−51%**)
-    - `MainViewOverlays` · `ToolShell` · `WordListPanel` · `EntryFiltersBar`
-    - `MobileBottomNav` · `AccountRequestsModal`
-  - `HeaderMenu.jsx` → ~349 (كان ~2193, ≈ **−84%**)
-
-  **وحدات المنطق:** `entryMutations` · `adminLifecycle` · `cloudFlush` · `cloudQueue` ·
-  `vaultSession` · `authFlow` · `entryProgress` · hooks (`useEntrySearch`, `useStudyShortcuts`, …)
+1. **Full modularization** of `App.jsx`, `MainView.jsx`, `index.css`, `api/jsonbin.js` — follow the phased plan.
+2. **Production-grade auth** (JWT/sessions, rate limiting, Argon2, fully server-side authorization) — see `SECURITY.md`.
+3. **Complete German/French UI** — would require translating hundreds of strings; not started.
+4. **Automated SW version injection** at build time.
+5. **Browser-compat polyfills / graceful degradation matrix** for PiP and Screen Wake Lock (feature detection already exists in the timer code; broader QA is manual).
+6. **Deep simplification** of the multi-layer offline cache + queue (works; further simplification needs careful staging).
 
 ---
 
-## المساهمة / التعديلات القادمة المقترحة
+## Architecture notes (still valid)
 
-1. **الأمان** (مؤجّل بطلب المستخدم): مراجعة صلاحيات الأدمن، الجلسات، والـ API.
-2. اختبار يدوي شامل للمسارات الرئيسية.
-3. إضافة اختبارات وحدة لـ `quizHelpers`, `authUtils`, `xp`.
-4. تعزيز المصادقة (لاحقًا حسب الطلب).
-5. تحسينات أداء إضافية حسب الحاجة.
+- Prefer scoped fetches (`fetchMyAccount`, `fetchEntriesOnly`, …) over full-record loads.
+- Partial saves + cloud queue are the primary write path.
+- Mobile-first: test ≤ 768 px before considering a feature done.
+- See `src/lib/ARCHITECTURE_ISOLATION.md` for data-fetch rules.
 
-لو حصلت على أي خطأ أثناء `npm run build` أو التشغيل، أرسل رسالة الخطأ كاملة.
+---
+
+## Contributing / next steps
+
+1. Run `npm test` and fix any failures after dependency install.
+3. Execute Phase A of `docs/REFACTOR_PLAN.md` (extract more logic from `App.jsx`).
+4. Implement the first two items of the security roadmap if the community grows beyond a trusted group.
+
+If `npm run build` fails, send the full error output.

@@ -6,7 +6,7 @@ import {
   fetchEntriesOnly,
   fetchLogsOnly,
   fetchVersionOnly,
-  saveRecord,
+  saveLogsOnly,
   saveAccountsOnly,
   SaveConflictError,
   patchAccountFields,
@@ -24,6 +24,8 @@ import {
 import { useAppPreferences } from "./lib/hooks/useAppPreferences";
 import { useStudyReminders } from "./lib/hooks/useStudyReminders";
 import { migrateAccounts } from "./lib/utils/authUtils";
+import { ensureMigratedAccounts as ensureMigratedAccountsCore } from "./lib/state/authFlow";
+import { runAppBoot } from "./lib/state/cloudBootstrap";
 import SplashScreen from "./components/layout/SplashScreen";
 import { createSaveQueue, applyOps as applyOpsPure, MAX_SAVE_RETRIES as MAX_SAVE_RETRIES_CONST } from "./lib/state/cloudQueue";
 import { flushPendingAccounts as flushAccountsCloud, flushPendingEntries as flushEntriesCloud } from "./lib/state/cloudFlush";
@@ -775,467 +777,57 @@ useEffect(() => {
     window.history.replaceState({ authStage: stage, showAdd: false, showAccount: false, showAdmin: false, section: "en-ar" }, "");
   }
 
-  // One-time migration: assign usernames to legacy accounts that only had a
-  // name + personal code, and mark them active so they keep working.
+  // Phase A: migration logic lives in authFlow; App only binds the once-flag ref.
   async function ensureMigratedAccounts(rec) {
-    const { accounts: migrated, changed } = migrateAccounts(rec.accounts || []);
-    if (!changed || migrationDoneRef.current) {
-      return { ...rec, accounts: migrated };
-    }
-    migrationDoneRef.current = true;
-    try {
-      // كتابة جزئية: الحسابات فقط (بدون إعادة إرسال القاموس كامل)
-      const newVersion = await saveAccountsOnly(
-        { accounts: migrated },
-        rec.version || 0
-      );
-      return { ...rec, accounts: migrated, version: newVersion };
-    } catch (e) {
-      // Conflict or offline — still use migrated in-memory so the UI works;
-      // next successful save will persist usernames.
-      return { ...rec, accounts: migrated };
-    }
+    return ensureMigratedAccountsCore(rec, migrationDoneRef);
   }
 
   useEffect(() => {
     if (APP_BOOT_STARTED) return;
     APP_BOOT_STARTED = true;
-    let cancelled = false;
-    (async () => {
-      try {
-        // ── Load offline entries ONCE before any merge ──────────────
-        // The rAF-deferred effect (above) may have already populated
-        // entriesRef.current. Use it first; fall back to a single
-        // loadOfflineCache() call so we never JSON-parse twice.
-        let offlineEntries = entriesRef.current;
-        if (!offlineEntries || offlineEntries.length === 0) {
-          try {
-            const fullCache = loadOfflineCache();
-            offlineEntries = (fullCache && fullCache.entries) || [];
-            if (offlineEntries.length > 0) {
-              entriesRef.current = offlineEntries;
-              setEntries(offlineEntries);
-              setEntriesLoaded(true);
-            }
-          } catch (_) {}
-        }
-
-        // ============================================================
-        // مرحلة 1 من عزل الإجراءات: جلب مجزأ بدل السجل الكامل
-        // نجمع البيانات من عدة طلبات خفيفة ثم نبني كائن rec متوافق
-        // مع المنطق الحالي (الدمج / الموافقات / الجلسات)
-        // ============================================================
-        let rec;
-
-        // لو في كود شخصي محفوظ → نجيب الحساب أولاً عشان نعرف هل هو أدمن
-        const personalCode = savedPersonalCode || loadPersonalCode();
-        // القسم الحالي فقط أولاً (توفير باندويث) — باقي الأقسام عند التبديل أو prefetch
-        let primarySection = "en-ar";
-        try {
-          const s = localStorage.getItem("twoTongues.section");
-          if (s === "en-ar" || s === "ar-ar" || s === "academic") primarySection = s;
-        } catch (_) {}
-
-        if (personalCode) {
-          // طلبات متوازية: الحساب + الإعدادات العامة + كلمات القسم الحالي فقط
-          const [myAccount, bootstrap, sectionEntries] = await Promise.all([
-            fetchMyAccount(personalCode).catch(() => null),
-            fetchBootstrap().catch(() => ({})),
-            fetchEntriesOnly({ section: primarySection }).catch(() => []),
-          ]);
-
-          const isPrivileged =
-            myAccount &&
-            (myAccount.role === "admin" || myAccount.role === "teacher");
-
-          // الحسابات الكاملة واللوجات فقط للأدمن/المعلم
-          let accounts = myAccount ? [myAccount] : [];
-          let logs = [];
-          if (isPrivileged) {
-            const [allAccounts, allLogs] = await Promise.all([
-              fetchAccountsOnly().catch(() => []),
-              fetchLogsOnly().catch(() => []),
-            ]);
-            accounts = allAccounts.length ? allAccounts : accounts;
-            logs = allLogs;
-          }
-
-          // ادمج مع كاش الأقسام الأخرى عشان ما تختفيش لحد ما تتجلب
-          const entries = mergeSectionEntries(offlineEntries, sectionEntries, primarySection);
-          loadedSectionsRef.current.add(primarySection);
-
-          rec = {
-            entries: entries || [],
-            accounts,
-            logs,
-            siteBanner: bootstrap.siteBanner || null,
-            examConfig: bootstrap.examConfig || null,
-            academicUnits: bootstrap.academicUnits || null,
-            version: typeof bootstrap.version === "number" ? bootstrap.version : 0,
-          };
-        } else {
-          // مستخدم مش مسجل → إعدادات عامة + قسم واحد فقط
-          const [bootstrap, sectionEntries] = await Promise.all([
-            fetchBootstrap().catch(() => ({})),
-            fetchEntriesOnly({ section: primarySection }).catch(() => []),
-          ]);
-          const entries = mergeSectionEntries(offlineEntries, sectionEntries, primarySection);
-          loadedSectionsRef.current.add(primarySection);
-          rec = {
-            entries: entries || [],
-            accounts: [],
-            logs: [],
-            siteBanner: bootstrap.siteBanner || null,
-            examConfig: bootstrap.examConfig || null,
-            academicUnits: bootstrap.academicUnits || null,
-            version: typeof bootstrap.version === "number" ? bootstrap.version : 0,
-          };
-        }
-
-        rec = await ensureMigratedAccounts(rec);
-
-        // If user reloaded while a studied/favorite save was still in flight,
-        // offline cache holds the newer progress — merge it back and re-save.
-        // Use lightweight meta (accounts + cachedAt only, no entries) for speed.
-        const offline = loadOfflineMeta() || loadOfflineCache();
-        const { accounts: mergedAccounts, merged } = mergeOfflineProgress(rec.accounts || [], offline);
-        if (merged) {
-          rec = { ...rec, accounts: mergedAccounts };
-        }
-
-        // Re-apply intentional deletes that may not have landed on the server yet
-        // (delete → reload race). Also prune localStorage once the server
-        // no longer returns those codes.
-        let accountsForUi = rec.accounts || [];
-        if (pendingRemoveCodesRef.current.size) {
-          const drop = pendingRemoveCodesRef.current;
-          const stillOnServer = [];
-          accountsForUi = accountsForUi.filter((a) => {
-            if (!a || !a.code) return false;
-            if (drop.has(String(a.code))) {
-              stillOnServer.push(String(a.code));
-              return false;
-            }
-            return true;
-          });
-          // Codes the server already dropped can leave localStorage.
-          for (const code of [...drop]) {
-            if (!stillOnServer.includes(code)) {
-              drop.delete(code);
-              removePendingRemoveCode(code);
-            }
-          }
-          // If any deleted codes are still on the server, push remove again.
-          if (stillOnServer.length) {
-            try {
-              const cleaned = (rec.accounts || []).filter(
-                (a) => a && a.code && !drop.has(String(a.code))
-              );
-              // كتابة جزئية: accounts + remove فقط
-              const newVersion = await saveAccountsOnly(
-                { accounts: cleaned, removeAccountCodes: stillOnServer },
-                rec.version || 0
-              );
-              commitRecordVersion(newVersion);
-              rec = { ...rec, accounts: cleaned, version: newVersion };
-              accountsForUi = cleaned;
-            } catch (_) {
-              // Keep pendingRemoveCodes so the next load retries.
-            }
-          }
-        }
-
-        // Re-apply approvals that may not have landed (approve → reload race).
-        if (pendingApprovedCodesRef.current.size) {
-          const approved = pendingApprovedCodesRef.current;
-          const stillPendingOnServer = [];
-          accountsForUi = accountsForUi.map((a) => {
-            if (!a || !a.code) return a;
-            const key = String(a.code);
-            if (!approved.has(key)) return a;
-            if (a.status === "pending") {
-              stillPendingOnServer.push(key);
-              return { ...a, status: "active" };
-            }
-            approved.delete(key);
-            removePendingApproveCode(key);
-            return a;
-          });
-          if (stillPendingOnServer.length) {
-            try {
-              // كتابة جزئية: accounts + approve فقط
-              const newVersion = await saveAccountsOnly(
-                {
-                  accounts: accountsForUi,
-                  approveAccountCodes: stillPendingOnServer,
-                },
-                rec.version || 0
-              );
-              commitRecordVersion(newVersion);
-              rec = { ...rec, accounts: accountsForUi, version: newVersion };
-              for (const code of stillPendingOnServer) {
-                approved.delete(code);
-                removePendingApproveCode(code);
-              }
-            } catch (_) {}
-          }
-        }
-
-        setEntries(rec.entries);
-        entriesRef.current = rec.entries || [];
-        lastSyncedEntriesRef.current = rec.entries || [];
-        setAccounts(accountsForUi);
-        accountsRef.current = accountsForUi;
-        setLogs(rec.logs);
-        setSiteBanner(rec.siteBanner || null);
-        setExamConfig(normalizeExamConfig(rec.examConfig));
-        setAcademicUnits(normalizeAcademicUnits(rec.academicUnits));
-        academicUnitsRef.current = normalizeAcademicUnits(rec.academicUnits);
-        setLogsLoaded(true);
-        commitRecordVersion(rec.version);
-        saveOfflineCache({ ...rec, accounts: accountsForUi });
-        setIsOffline(false);
-
-        // prefetch هادئ لباقي الأقسام بعد ما الواجهة تشتغل (ما يعيقش الفتح)
-        const remaining = ["en-ar", "ar-ar", "academic"].filter(
-          (s) => !loadedSectionsRef.current.has(s)
-        );
-        if (remaining.length) {
-          const runPrefetch = () => {
-            remaining.forEach((sec, i) => {
-              setTimeout(async () => {
-                if (loadedSectionsRef.current.has(sec)) return;
-                try {
-                  const list = await fetchEntriesOnly({ section: sec });
-                  loadedSectionsRef.current.add(sec);
-                  setEntries((prev) => {
-                    const mergedList = mergeSectionEntries(prev, list, sec);
-                    entriesRef.current = mergedList;
-                    return mergedList;
-                  });
-                } catch (_) {}
-              }, 2500 + i * 1500); // متباعد عشان ما نضغطش الشبكة
-            });
-          };
-          if (typeof requestIdleCallback === "function") {
-            requestIdleCallback(runPrefetch, { timeout: 8000 });
-          } else {
-            setTimeout(runPrefetch, 4000);
-          }
-        }
-
-        if (merged) {
-          // Push merged progress to cloud in the background (version may race;
-          // flushPendingAccounts-style retries handle conflicts).
-          try {
-            let accountsToSave = mergedAccounts;
-            if (pendingRemoveCodesRef.current.size) {
-              const drop = pendingRemoveCodesRef.current;
-              accountsToSave = accountsToSave.filter((a) => a && a.code && !drop.has(String(a.code)));
-            }
-            const removeCodes = [...pendingRemoveCodesRef.current];
-            // كتابة جزئية: تقدّم الحسابات فقط (studied/favorites) بدون القاموس
-            const newVersion = await saveAccountsOnly(
-              {
-                accounts: accountsToSave,
-                ...(removeCodes.length ? { removeAccountCodes: removeCodes } : {}),
-              },
-              rec.version || 0
-            );
-            commitRecordVersion(newVersion);
-            saveOfflineCache({ ...rec, accounts: accountsToSave, version: newVersion });
-            clearPendingCloudSync();
-          } catch (_) {
-            // Keep pending flag so next load retries the merge.
-            markPendingCloudSync();
-          }
-        } else {
-          clearPendingCloudSync();
-        }
-        if (savedPersonalCode) {
-          let account = rec.accounts.find((a) => a.code === savedPersonalCode);
-          if (!account) {
-            // مسار نادر: الحساب مش موجود في النتيجة الأولى — إعادة جلب مجزأة
-            try {
-              let primarySec = "en-ar";
-              try {
-                const s = localStorage.getItem("twoTongues.section");
-                if (s === "en-ar" || s === "ar-ar" || s === "academic") primarySec = s;
-              } catch (_) {}
-              const [freshAccount, bootstrap, sectionEntries] = await Promise.all([
-                fetchMyAccount(savedPersonalCode, { fresh: true }).catch(() => null),
-                fetchBootstrap({ fresh: true }).catch(() => ({})),
-                fetchEntriesOnly({ fresh: true, section: primarySec }).catch(() => []),
-              ]);
-              const entries = mergeSectionEntries(
-                entriesRef.current || [],
-                sectionEntries,
-                primarySec
-              );
-              loadedSectionsRef.current.add(primarySec);
-              const isPriv =
-                freshAccount &&
-                (freshAccount.role === "admin" || freshAccount.role === "teacher");
-              let accountsList = freshAccount ? [freshAccount] : [];
-              let logsList = [];
-              if (isPriv) {
-                const [allAcc, allLogs] = await Promise.all([
-                  fetchAccountsOnly({ fresh: true }).catch(() => []),
-                  fetchLogsOnly({ fresh: true }).catch(() => []),
-                ]);
-                if (allAcc.length) accountsList = allAcc;
-                logsList = allLogs;
-              }
-              const freshRec = await ensureMigratedAccounts({
-                entries: entries || [],
-                accounts: accountsList,
-                logs: logsList,
-                siteBanner: bootstrap.siteBanner || null,
-                examConfig: bootstrap.examConfig || null,
-                academicUnits: bootstrap.academicUnits || null,
-                version: typeof bootstrap.version === "number" ? bootstrap.version : 0,
-              });
-              rec = freshRec;
-              setEntries(freshRec.entries);
-              setAccounts(freshRec.accounts);
-              setLogs(freshRec.logs);
-              setSiteBanner(freshRec.siteBanner || null);
-              setExamConfig(normalizeExamConfig(freshRec.examConfig));
-              setAcademicUnits(normalizeAcademicUnits(freshRec.academicUnits));
-              academicUnitsRef.current = normalizeAcademicUnits(freshRec.academicUnits);
-              commitRecordVersion(freshRec.version);
-              saveOfflineCache(freshRec);
-              account = freshRec.accounts.find((a) => a.code === savedPersonalCode);
-            } catch (e2) { /* fall through */ }
-          }
-          if (account && account.status !== "pending" && account.status !== "rejected" && account.status !== "blocked") {
-            // Session rules:
-            // - If this browser has a sessionId AND it differs from the cloud →
-            //   another device signed in → force login.
-            // - If local sessionId is missing (refresh, new tab, cleared storage)
-            //   but personalCode is still saved → stay signed in and re-bind
-            //   the local session to the cloud one (or claim a new one).
-            //   Logging out on missing localSid was kicking users on every
-            //   refresh / new tab.
-            // Stay signed in whenever personalCode matches a valid account.
-            // Never force-logout on sessionId mismatch (refresh, new tab,
-            // screenshot → visibility, or another device). Multi-device is OK;
-            // explicit Sign out is the only way out.
-            setName(account.name);
-            setIsAdmin(account.role === "admin" || account.role === "teacher");
-            setIsTeacher(account.role === "teacher");
-            setAccountCode(account.code);
-            // مزامنة سريعة للخزنة بعد استعادة الجلسة
-            try {
-              const v = upsertVaultAccount(account, { allowMulti: account.role === "admin" || account.role === "teacher" });
-              setVaultAccounts(v);
-              setMainAccountCodeState(getMainAccountCode() || account.code);
-            } catch (_) {}
-            setAuthStage("in");
-            syncBaseHistory("in");
-            const localSid = loadSessionId();
-            if (account.sessionId) {
-              // Prefer the cloud token so every tab in this browser agrees.
-              saveSessionId(account.sessionId);
-            } else if (!localSid) {
-              const sid = generateSessionId();
-              saveSessionId(sid);
-              const code = account.code;
-              const stamped = Date.now();
-              try {
-                // Best-effort claim; failure must NOT log the user out.
-                let ver = rec.version || 0;
-                let accs = rec.accounts || [];
-                for (let attempt = 0; attempt < 5; attempt++) {
-                  const nextAccounts = accs.map((a) =>
-                    a.code === code ? { ...a, sessionId: sid, sessionAt: stamped } : a
-                  );
-                  try {
-                    // كتابة جزئية: حقول الجلسة فقط على حساب واحد
-                    const newVersion = await patchAccountFields(
-                      code,
-                      { sessionId: sid, sessionAt: stamped },
-                      ver
-                    );
-                    setAccounts(nextAccounts);
-                    commitRecordVersion(newVersion);
-                    break;
-                  } catch (e) {
-                    if (e instanceof SaveConflictError) {
-                      accs = e.fresh.accounts || accs;
-                      ver = e.fresh.version || ver;
-                      commitRecordVersion(ver);
-                      // If someone else already set a session, adopt it.
-                      const freshAcc = accs.find((a) => a.code === code);
-                      if (freshAcc && freshAcc.sessionId) {
-                        saveSessionId(freshAcc.sessionId);
-                        setAccounts(accs);
-                        break;
-                      }
-                      continue;
-                    }
-                    setAccounts(accs.map((a) =>
-                      a.code === code ? { ...a, sessionId: sid, sessionAt: stamped } : a
-                    ));
-                    break;
-                  }
-                }
-              } catch (_) { /* stay signed in locally */ }
-            }
-          } else {
-            clearPersonalCode();
-            setAuthStage("login");
-            syncBaseHistory("login");
-          }
-        }
-      } catch (e) {
-        const cached = loadOfflineCache();
-        if (cached && ((cached.entries && cached.entries.length) || (cached.accounts && cached.accounts.length))) {
-          const { accounts: migrated } = migrateAccounts(cached.accounts || []);
-          setEntries(cached.entries);
-          setAccounts(migrated);
-          setLogs(cached.logs);
-          setSiteBanner(cached.siteBanner || null);
-          setExamConfig(normalizeExamConfig(cached.examConfig));
-          setAcademicUnits(normalizeAcademicUnits(cached.academicUnits));
-          academicUnitsRef.current = normalizeAcademicUnits(cached.academicUnits);
-          setIsOffline(true);
-          setOfflineCachedAt(cached.cachedAt);
-          if (savedPersonalCode) {
-            const account = migrated.find((a) => a.code === savedPersonalCode);
-            if (account && account.status !== "pending" && account.status !== "rejected" && account.status !== "blocked") {
-              setName(account.name);
-              setIsAdmin(account.role === "admin" || account.role === "teacher");
-              setIsTeacher(account.role === "teacher");
-              setAccountCode(account.code);
-              setAuthStage("in");
-              syncBaseHistory("in");
-            } else {
-              setAuthStage("login");
-              syncBaseHistory("login");
-            }
-          }
-        } else {
-          setLoadError("Couldn't load the shared dictionary. Check your connection and try refreshing.");
-          if (savedPersonalCode) {
-            setAuthStage("login");
-            syncBaseHistory("login");
-          }
-        }
-      } finally {
-        if (!cancelled) {
-          setEntriesLoaded(true);
-          setAccountsLoaded(true);
-          setLogsLoaded(true);
-        }
-      }
-    })();
+    const cancelledRef = { current: false };
+    runAppBoot(
+      {
+        entriesRef,
+        accountsRef,
+        loadedSectionsRef,
+        lastSyncedEntriesRef,
+        pendingRemoveCodesRef,
+        pendingApprovedCodesRef,
+        academicUnitsRef,
+        migrationDoneRef,
+        savedPersonalCode,
+        setEntries,
+        setEntriesLoaded,
+        setAccounts,
+        setAccountsLoaded,
+        setLogs,
+        setLogsLoaded,
+        setSiteBanner,
+        setExamConfig,
+        setAcademicUnits,
+        setIsOffline,
+        setOfflineCachedAt,
+        setLoadError,
+        setName,
+        setIsAdmin,
+        setIsTeacher,
+        setAccountCode,
+        setAuthStage,
+        setVaultAccounts,
+        setMainAccountCodeState,
+        commitRecordVersion,
+        mergeSectionEntries,
+        syncBaseHistory,
+      },
+      cancelledRef
+    );
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
     };
   }, []);
 
-  // Keep display name tied to the active account (fixes wrong name after refresh / vault switch)
+  // Keep display name tied to the active account  // Keep display name tied to the active account (fixes wrong name after refresh / vault switch)
   useEffect(() => {
     if (!accountCode || accountCode === "guest") return;
     const acct = (accounts || []).find((a) => a && a.code === accountCode);
@@ -1499,36 +1091,36 @@ useEffect(() => {
     return flushPendingAccounts();
   }, []);
 
-  // أحداث اللوج (sign in/out) — ما زال saveRecord كامل لأن الـ API
-  // لا يدعم scope=logs للكتابة بعد. نادر الحدوث؛ بقية المسارات جزئية.
+  // أحداث اللوج (sign in/out) — كتابة جزئية scope=logsReplace فقط (لا تعيد القاموس).
   const persistLogs = useCallback(async (next) => {
     setLogs(next);
     logsRef.current = next;
     return enqueueSave(async () => {
       let curVersion = recordVersionRef.current;
-      let curEntries = entriesRef.current;
-      let curAccounts = accountsRef.current;
-      let curBanner = siteBannerRef.current;
       for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
         try {
-          const newVersion = await saveRecord({ entries: curEntries, accounts: curAccounts, logs: next, siteBanner: curBanner}, curVersion);
+          const newVersion = await saveLogsOnly(next, curVersion);
           commitRecordVersion(newVersion);
           return;
         } catch (e) {
           if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
-            curEntries = e.fresh.entries || [];
-            curAccounts = e.fresh.accounts || [];
-            curVersion = e.fresh.version || 0;
-            if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
+            curVersion = e.fresh?.version || curVersion;
+            if (Array.isArray(e.fresh?.logs)) {
+              // Keep our pending next; only adopt server version for retry.
+            }
             commitRecordVersion(curVersion);
             await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
             continue;
           }
           if (e instanceof SaveConflictError && e.fresh) {
-            setEntries(e.fresh.entries || []);
-            setAccounts(e.fresh.accounts || []);
-            setLogs(e.fresh.logs || []);
-            if (e.fresh.siteBanner !== undefined) setSiteBanner(e.fresh.siteBanner || null);
+            if (Array.isArray(e.fresh.logs)) {
+              setLogs(e.fresh.logs);
+              logsRef.current = e.fresh.logs;
+            }
+            if (e.fresh.accounts) {
+              setAccounts(e.fresh.accounts || []);
+              accountsRef.current = e.fresh.accounts || [];
+            }
             commitRecordVersion(e.fresh.version || 0);
           }
           return;

@@ -1,14 +1,17 @@
 {
   "name": "bacaloria-community",
   "private": true,
-  "version": "1.1.2",
+  "version": "1.1.3",
   "type": "module",
-  "description": "Bacaloria Community \u2014 bilingual vocabulary dictionary and study tools (Arabic/English + multi-language UI)",
+  "description": "Bacaloria Community — bilingual vocabulary dictionary and study tools (Arabic/English + multi-language UI)",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "analyze": "vite build --mode production",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "lint:structure": "echo 'Check large files and dead code manually'"
   },
   "dependencies": {
@@ -23,6 +26,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
   }
 }

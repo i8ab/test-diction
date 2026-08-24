@@ -24,12 +24,17 @@
  *                  → one settings key:
  *                    site_banner | exam_config | academic_units | …
  *
+ *   logsReplace    { logs: [...] }
+ *                  → activity logs only (sign-in/out). Does not touch the
+ *                    dictionary or accounts.
+ *
  *   (no scope)     full record — ONLY for rare bulk ops (CSV import of
  *                  many rows, disaster recovery). Prefer granular scopes.
  *
  * Client helpers (cloudApi.js):
  *   patchAccountFields, saveAccountsOnly, patchEntry, deleteEntryRemote,
- *   patchSettings, saveRecord (full, last resort)
+ *   patchSettings, saveLogsOnly, saveRecord (full, last resort)
+ *   fetchAccountsBundle (accounts+version — prefer over fetchRecord for auth)
  *
  * When adding a new feature that writes to the cloud:
  *   1. Identify the smallest unit (one field / one row / one settings key).

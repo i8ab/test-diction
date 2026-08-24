@@ -1,9 +1,13 @@
 // UI language helpers (site chrome — not dictionary content).
-// Supports: English, Arabic only.
+// Supported languages: English and Arabic only.
 //
-// tr() is backward-compatible with the old boolean form:
-//   tr(isAr, en, ar)           // legacy
-//   tr(lang, en, ar, de, fr)   // de/fr args ignored (kept for call-site compatibility)
+// tr() remains backward-compatible with the legacy boolean form used throughout
+// the codebase (hundreds of call sites):
+//   tr(isAr, en, ar)     // legacy boolean
+//   tr(lang, en, ar)     // preferred string form ('en' | 'ar')
+//
+// German / French parameters that previously existed are intentionally removed.
+// They were never selectable and created dead code.
 
 export const UI_LANGS = [
   { id: "en", native: "English",  labelEn: "English" },
@@ -18,13 +22,12 @@ export function isRtlLang(lang) {
 
 /**
  * Pick a translated string.
- * @param {boolean|string} locale - true/false (legacy isAr) or 'en'|'ar'
- * @param {string} en
- * @param {string} [ar]
- * @param {string} [de] - ignored (compat)
- * @param {string} [fr] - ignored (compat)
+ * @param {boolean|string} locale - true/false (legacy isAr) or 'en' | 'ar'
+ * @param {string} en - English string
+ * @param {string} [ar] - Arabic string (falls back to English when missing)
+ * @returns {string}
  */
-export function tr(locale, en, ar, de, fr) {
+export function tr(locale, en, ar) {
   let lang = "en";
   if (typeof locale === "boolean") {
     lang = locale ? "ar" : "en";
@@ -32,7 +35,6 @@ export function tr(locale, en, ar, de, fr) {
     lang = locale;
   }
   if (lang === "ar") return ar != null && ar !== "" ? ar : en;
-  // de/fr no longer selectable — fall back to English
   return en;
 }
 

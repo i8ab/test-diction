@@ -4,7 +4,10 @@
  * cloud/state setters from the parent. Behavior matches the original 1:1.
  */
 import {
-  fetchRecord,
+  fetchAccountsBundle, // accounts + version — preferred for auth/migration
+  fetchBootstrap,
+  fetchEntriesOnly,
+  fetchLogsOnly,
   saveAccountsOnly,
   patchAccountFields,
   SaveConflictError,
@@ -16,8 +19,10 @@ import {
   hashPassword,
   verifyPasswordDetailed,
   normalizeUsername,
+  migrateAccounts,
 } from "../utils/authUtils";
 import { generatePersonalCode, savePersonalCode, saveSessionId, generateSessionId } from "./storage";
+import { requestSessionToken } from "./sessionAuth";
 import { capLogs, makeLogEntry } from "./logs";
 import {
   upsertVaultAccount,
@@ -28,6 +33,30 @@ import { normalizeExamConfig } from "./exam";
 import { getBacTrack, getSpecialtyOptions } from "../config/baccalaureate";
 
 const MAX_SIGNUP_RETRIES = 8;
+
+/**
+ * One-time migration: assign usernames to legacy accounts and mark active.
+ * Extracted from App.jsx (Phase A). Uses accounts-only write.
+ *
+ * @param {object} rec - at least { accounts, version }
+ * @param {{ current: boolean }} migrationDoneRef
+ */
+export async function ensureMigratedAccounts(rec, migrationDoneRef) {
+  const { accounts: migrated, changed } = migrateAccounts(rec.accounts || []);
+  if (!changed || (migrationDoneRef && migrationDoneRef.current)) {
+    return { ...rec, accounts: migrated };
+  }
+  if (migrationDoneRef) migrationDoneRef.current = true;
+  try {
+    const newVersion = await saveAccountsOnly(
+      { accounts: migrated },
+      rec.version || 0
+    );
+    return { ...rec, accounts: migrated, version: newVersion };
+  } catch (_) {
+    return { ...rec, accounts: migrated };
+  }
+}
 
 /**
  * @param {object} p
@@ -173,7 +202,8 @@ export async function performSignup(p) {
 
   try {
     let lastErr = null;
-    let rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
+    // Accounts + version only — do not load the full dictionary for signup.
+    let rec = await ensureMigratedAccounts(await fetchAccountsBundle({ fresh: true }));
     for (let attempt = 0; attempt <= MAX_SIGNUP_RETRIES; attempt++) {
       try {
         const clash = (rec.accounts || []).some(
@@ -182,10 +212,6 @@ export async function performSignup(p) {
         if (clash) {
           setSignupError("That username is already taken. Pick another.");
           setAccounts(rec.accounts);
-          setEntries(rec.entries);
-          setLogs(rec.logs);
-          setSiteBanner(rec.siteBanner || null);
-          setExamConfig(normalizeExamConfig(rec.examConfig));
           commitRecordVersion(rec.version);
           return;
         }
@@ -205,11 +231,8 @@ export async function performSignup(p) {
           { accounts: nextAccounts },
           rec.version
         );
-        setEntries(rec.entries);
         setAccounts(nextAccounts);
         setLogs(nextLogs);
-        setSiteBanner(rec.siteBanner || null);
-        setExamConfig(normalizeExamConfig(rec.examConfig));
         commitRecordVersion(newVersion);
         setSignupPassword("");
         setSignupPassword2("");
@@ -228,15 +251,13 @@ export async function performSignup(p) {
         if (err instanceof SaveConflictError && attempt < MAX_SIGNUP_RETRIES) {
           if (err.fresh && typeof err.fresh.version === "number") {
             rec = await ensureMigratedAccounts({
-              entries: err.fresh.entries || [],
               accounts: err.fresh.accounts || [],
-              logs: err.fresh.logs || [],
-              siteBanner: err.fresh.siteBanner ?? null,
-              examConfig: err.fresh.examConfig ?? null,
               version: err.fresh.version,
+              entries: [],
+              logs: err.fresh.logs || [],
             });
           } else {
-            rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
+            rec = await ensureMigratedAccounts(await fetchAccountsBundle({ fresh: true }));
           }
           await new Promise((r) => setTimeout(r, 40 + attempt * 30));
           continue;
@@ -248,7 +269,7 @@ export async function performSignup(p) {
   } catch (err) {
     if (err instanceof SaveConflictError) {
       try {
-        const rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
+        const rec = await ensureMigratedAccounts(await fetchAccountsBundle({ fresh: true }));
         const clash = (rec.accounts || []).some(
           (a) => normalizeUsername(a.username) === uCheck.username
         );
@@ -272,11 +293,8 @@ export async function performSignup(p) {
           { accounts: nextAccounts },
           rec.version
         );
-        setEntries(rec.entries);
         setAccounts(nextAccounts);
         setLogs(nextLogs);
-        setSiteBanner(rec.siteBanner || null);
-        setExamConfig(normalizeExamConfig(rec.examConfig));
         commitRecordVersion(newVersion);
         setSignupPassword("");
         setSignupPassword2("");
@@ -333,6 +351,7 @@ function grantSession(account, ctx) {
     recordVersionRef,
     commitRecordVersion,
     setAccounts,
+    passwordHashForToken,
   } = ctx;
 
   setName(account.name);
@@ -340,6 +359,14 @@ function grantSession(account, ctx) {
   if (typeof setIsTeacher === "function") setIsTeacher(account.role === "teacher");
   setAccountCode(account.code);
   savePersonalCode(account.code);
+
+  // Phase A: best-effort session token (does not block login if it fails).
+  const hash =
+    passwordHashForToken ||
+    (account && account.passwordHash ? account.passwordHash : "");
+  if (hash && account?.code) {
+    requestSessionToken({ code: account.code, passwordHash: hash }).catch(() => {});
+  }
   let linking = false;
   try {
     linking = sessionStorage.getItem("twoTongues.linkMode") === "1";
@@ -468,19 +495,28 @@ export async function performLogin(p) {
   let curAccounts = accounts;
   let account = null;
   try {
-    const rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
-    curAccounts = rec.accounts || [];
+    // Scoped parallel fetch — accounts for auth, bootstrap for banner/exam.
+    // Entries stay from boot/offline unless a fresh list is available.
+    const [accBundle, boot, entriesFresh, logsFresh] = await Promise.all([
+      ensureMigratedAccounts(await fetchAccountsBundle({ fresh: true })),
+      fetchBootstrap({ fresh: true }).catch(() => null),
+      fetchEntriesOnly({ fresh: true }).catch(() => null),
+      fetchLogsOnly({ fresh: true }).catch(() => null),
+    ]);
+    curAccounts = accBundle.accounts || [];
     if (pendingRemoveCodesRef.current.size) {
       const drop = pendingRemoveCodesRef.current;
       curAccounts = curAccounts.filter((a) => a && a.code && !drop.has(String(a.code)));
     }
     setAccounts(curAccounts);
     accountsRef.current = curAccounts;
-    setEntries(rec.entries || []);
-    setLogs(rec.logs || []);
-    setSiteBanner(rec.siteBanner || null);
-    if (rec.examConfig !== undefined) setExamConfig(normalizeExamConfig(rec.examConfig));
-    commitRecordVersion(rec.version);
+    if (Array.isArray(entriesFresh) && entriesFresh.length) setEntries(entriesFresh);
+    if (Array.isArray(logsFresh)) setLogs(logsFresh);
+    if (boot) {
+      if (boot.siteBanner !== undefined) setSiteBanner(boot.siteBanner || null);
+      if (boot.examConfig !== undefined) setExamConfig(normalizeExamConfig(boot.examConfig));
+    }
+    commitRecordVersion(accBundle.version);
     account = curAccounts.find((a) => normalizeUsername(a.username) === uCheck.username);
   } catch (_) {
     curAccounts = accountsRef.current.length ? accountsRef.current : accounts;
@@ -639,6 +675,7 @@ export async function performLogin(p) {
     recordVersionRef,
     commitRecordVersion,
     setAccounts,
+    passwordHashForToken: sessionAccount?.passwordHash || "",
   });
 }
 
@@ -709,7 +746,19 @@ export async function performSocialLogin(p) {
 
   let rec;
   try {
-    rec = await ensureMigratedAccounts(await fetchRecord({ fresh: true }));
+    const [accBundle, boot, entriesFresh, logsFresh] = await Promise.all([
+      ensureMigratedAccounts(await fetchAccountsBundle({ fresh: true })),
+      fetchBootstrap({ fresh: true }).catch(() => null),
+      fetchEntriesOnly({ fresh: true }).catch(() => null),
+      fetchLogsOnly({ fresh: true }).catch(() => null),
+    ]);
+    rec = {
+      ...accBundle,
+      entries: Array.isArray(entriesFresh) ? entriesFresh : [],
+      logs: Array.isArray(logsFresh) ? logsFresh : [],
+      siteBanner: boot?.siteBanner ?? null,
+      examConfig: boot?.examConfig ?? null,
+    };
   } catch (_) {
     setLoggingIn(false);
     setAuthError(
@@ -722,8 +771,8 @@ export async function performSocialLogin(p) {
 
   const curAccounts = rec.accounts || [];
   setAccounts(curAccounts);
-  setEntries(rec.entries);
-  setLogs(rec.logs);
+  if (rec.entries?.length) setEntries(rec.entries);
+  if (Array.isArray(rec.logs)) setLogs(rec.logs);
   setSiteBanner(rec.siteBanner || null);
   setExamConfig(normalizeExamConfig(rec.examConfig));
   commitRecordVersion(rec.version);

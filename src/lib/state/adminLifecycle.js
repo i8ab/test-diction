@@ -1,7 +1,14 @@
 /**
  * Admin approve / reject / delete account flows (optimistic UI + conflict retries).
  */
-import { SaveConflictError, saveRecord, saveAccountsOnly, fetchRecord } from "./cloudApi";
+import {
+  SaveConflictError,
+  SessionExpiredError,
+  saveAccountsOnly,
+  fetchAccountsOnly,
+  fetchVersionOnly,
+} from "./cloudApi";
+import { sessionExpiredMessage } from "./sessionAuth";
 import {
   saveOfflineCache,
   addPendingApproveCode,
@@ -124,17 +131,21 @@ export async function approveAccountRequest(targetCode, ctx) {
       }
     });
 
+    // Accounts + version only — no full dictionary load (isolation rule).
     try {
-      const rec = await fetchRecord({ fresh: true });
-      const serverAcc = (rec.accounts || []).find((a) => a && String(a.code) === codeKey);
+      const [accountsList, version] = await Promise.all([
+        fetchAccountsOnly({ fresh: true }),
+        fetchVersionOnly({ fresh: true }),
+      ]);
+      const serverAcc = (accountsList || []).find((a) => a && String(a.code) === codeKey);
       if (serverAcc && serverAcc.status === "active") {
         pendingApprovedCodesRef.current.delete(codeKey);
         removePendingApproveCode(codeKey);
-        setAccounts(rec.accounts || []);
-        accountsRef.current = rec.accounts || [];
-        if (typeof rec.version === "number") commitRecordVersion(rec.version);
+        setAccounts(accountsList || []);
+        accountsRef.current = accountsList || [];
+        if (typeof version === "number") commitRecordVersion(version);
       } else if (serverAcc && serverAcc.status === "pending") {
-        const forced = (rec.accounts || []).map((a) =>
+        const forced = (accountsList || []).map((a) =>
           a && String(a.code) === codeKey ? { ...a, status: "active" } : a
         );
         try {
@@ -143,7 +154,7 @@ export async function approveAccountRequest(targetCode, ctx) {
               accounts: forced,
               approveAccountCodes: [codeKey],
             },
-            rec.version || 0
+            version || 0
           );
           commitRecordVersion(newVersion);
           setAccounts(forced);
@@ -156,7 +167,10 @@ export async function approveAccountRequest(targetCode, ctx) {
 
     showToast(appIsAr ? "تمت الموافقة على الطلب." : "Request approved.");
     return { ok: true };
-  } catch (_) {
+  } catch (err) {
+    if (err instanceof SessionExpiredError) {
+      return { error: sessionExpiredMessage(appIsAr), sessionExpired: true };
+    }
     return { error: appIsAr ? "تعذّر قبول الطلب — حاول مرة أخرى." : "Couldn't approve the request — try again." };
   }
 }
@@ -246,13 +260,16 @@ export async function rejectAccountRequest(targetCode, ctx) {
         throw e;
       }
     }
-  } catch (_) {
+  } catch (err) {
     pendingRemoveCodesRef.current.delete(String(targetCode));
     removePendingRemoveCode(targetCode);
     setAccounts(previousAccounts);
     accountsRef.current = previousAccounts;
     setLogs(previousLogs);
     logsRef.current = previousLogs;
+    if (err instanceof SessionExpiredError) {
+      return { error: sessionExpiredMessage(appIsAr), sessionExpired: true };
+    }
     return { error: appIsAr ? "تعذّر رفض الطلب — حاول مرة أخرى." : "Couldn't reject the request — try again." };
   }
   showToast(appIsAr ? "تم رفض الطلب." : "Request rejected.");
@@ -349,7 +366,7 @@ export async function deleteAccount(targetCode, ctx) {
         }
       }
       return false;
-    } catch (_) {
+    } catch (err) {
       if (targetCode === accountCode) return false;
       pendingRemoveCodesRef.current.delete(String(targetCode));
       removePendingRemoveCode(targetCode);
@@ -357,7 +374,13 @@ export async function deleteAccount(targetCode, ctx) {
       accountsRef.current = previousAccounts;
       setLogs(previousLogs);
       logsRef.current = previousLogs;
-      showToast(appIsAr ? "تعذّر حذف الحساب — حاول مرة أخرى." : "Couldn't delete the account — try again.");
+      showToast(
+        err instanceof SessionExpiredError
+          ? sessionExpiredMessage(appIsAr)
+          : appIsAr
+            ? "تعذّر حذف الحساب — حاول مرة أخرى."
+            : "Couldn't delete the account — try again."
+      );
       return false;
     }
   };

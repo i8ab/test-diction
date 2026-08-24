@@ -10,19 +10,20 @@
      a content hash in the filename): cache-first, since a changed file always
      gets a new URL — there's no staleness risk, and this is what makes the
      app feel instant / work offline.
-   - /api/jsonbin (the word data): network-first, so users always see fresh
-     data when online; App.jsx's own localStorage cache (OFFLINE_CACHE_KEY)
-     is what serves the words when this fetch fails offline — this worker
-     does not need to cache that endpoint itself.
+   - /api/* (data + todos + push): network-first, no long-lived caching here —
+     App.jsx / TodoPage own the offline fallback via localStorage.
    - Everything else: network-first with cache fallback.
 
-   Bump CACHE_VERSION whenever you want to force old clients to drop every
-   previously cached asset (rarely needed now that the shell is
-   network-first, but still useful as a hard reset).
+   Versioning strategy:
+   - CACHE_VERSION is still bumped manually on behavioural SW changes.
+   - Hashed Vite assets already self-invalidate, so full cache wipes are rare.
+   - Recommended automation (future): inject a build-time hash from
+     import.meta.env or a Vite plugin so every production build gets a
+     unique CACHE_VERSION without hand-editing this file.
    ============================================================================= */
 
-// Bump on every meaningful SW behaviour change so old workers are dropped.
-const CACHE_VERSION = "two-tongues-v22";
+// Bumped for v1.1.3 (todos API + documentation/cleanup pass).
+const CACHE_VERSION = "bacaloria-v1.1.3";
 const NAVIGATION_TIMEOUT_MS = 8000;
 const APP_SHELL = [
   "/",

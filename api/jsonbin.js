@@ -16,6 +16,8 @@
 // Optimistic locking uses the integer `version` in settings.
 
 import { redisConfigured, acquireLock, releaseLock } from "../lib/redis.js";
+import { rateLimit, clientIp } from "../lib/rateLimit.js";
+import { verifySession, bearerFromReq } from "../lib/sessionToken.js";
 
 const LOCK_KEY = "twoTongues:dictWriteLock";
 
@@ -839,6 +841,17 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "PUT") {
+      // Write rate limit: 60 requests / minute / IP (fail-open if Redis missing).
+      const ip = clientIp(req);
+      const rl = await rateLimit(`write:${ip}`, { limit: 60, windowMs: 60_000 });
+      if (!rl.allowed) {
+        res.setHeader("Retry-After", "60");
+        return res.status(429).json({
+          error: "rate_limited",
+          message: "Too many write requests. Please wait a moment and try again.",
+        });
+      }
+
       let body = req.body;
       if (typeof body === "string") {
         try {
@@ -879,7 +892,8 @@ export default async function handler(req, res) {
           scoped === "entryPatch" ||
           scoped === "entryDelete" ||
           scoped === "settingsPatch" ||
-          scoped === "accounts"
+          scoped === "accounts" ||
+          scoped === "logsReplace"
         ) {
           const curVersion = await loadVersionOnly();
           if (curVersion !== body.expectedVersion) {
@@ -905,13 +919,24 @@ export default async function handler(req, res) {
             if (!prev) {
               return res.status(404).json({ error: "Account not found" });
             }
+            // Privilege fields must never be elevated via accountPatch from the client.
+            // role / isAdmin / status changes go through the admin accounts scope only.
             const {
               code: _c,
               role: _r,
+              isAdmin: _ia,
+              status: _st,
               ...safePatch
             } = patch;
             if (patch.passwordHash != null) safePatch.passwordHash = patch.passwordHash;
-            const merged = { ...prev, ...safePatch, code: prev.code, role: prev.role };
+            const merged = {
+              ...prev,
+              ...safePatch,
+              code: prev.code,
+              role: prev.role,
+              isAdmin: prev.isAdmin,
+              status: prev.status,
+            };
             // Explicit null/empty removes Google binding fields permanently
             for (const k of ["authProvider", "socialId", "email"]) {
               if (
@@ -1019,6 +1044,51 @@ export default async function handler(req, res) {
           }
 
           if (scoped === "accounts") {
+            // Session rules (the right balance):
+            // - If Bearer is sent, it must be valid (else 401).
+            // - Approve/remove account (privilege ops): when SESSION_SECRET is
+            //   configured, a valid admin|teacher token is REQUIRED.
+            // - Ordinary account list saves without privilege flags: still
+            //   allowed without token so study clients keep working after 12h.
+            const bearer = bearerFromReq(req);
+            let sessionClaims = null;
+            if (bearer) {
+              const verified = verifySession(bearer);
+              if (!verified.ok) {
+                return res.status(401).json({
+                  error: "unauthorized",
+                  message: verified.error || "Invalid or expired session token",
+                });
+              }
+              sessionClaims = verified.claims;
+            }
+            const isPrivOp =
+              (Array.isArray(body.removeAccountCodes) &&
+                body.removeAccountCodes.length > 0) ||
+              (Array.isArray(body.approveAccountCodes) &&
+                body.approveAccountCodes.length > 0);
+            const sessionsEnabled =
+              typeof process.env.SESSION_SECRET === "string" &&
+              process.env.SESSION_SECRET.length >= 16;
+            if (isPrivOp && sessionsEnabled) {
+              if (!sessionClaims) {
+                return res.status(401).json({
+                  error: "unauthorized",
+                  message:
+                    "Secure session required for this admin action. Sign in again.",
+                });
+              }
+              if (
+                sessionClaims.role !== "admin" &&
+                sessionClaims.role !== "teacher"
+              ) {
+                return res.status(403).json({
+                  error: "forbidden",
+                  message: "Admin or teacher session required for this action",
+                });
+              }
+            }
+
             // Load accounts table only (not entries/logs)
             const currentAccounts = await loadAccountsDataOnly();
             const statusRank = (s) => {
@@ -1119,6 +1189,29 @@ export default async function handler(req, res) {
               ok: true,
               version: nextVersion,
               scope: "accounts",
+            });
+          }
+
+          if (scoped === "logsReplace") {
+            // Replace activity logs only — does not touch entries/accounts/settings.
+            const logsToSave = pruneLogsLast24h(
+              Array.isArray(body.logs) ? body.logs : []
+            );
+            await bumpVersion(nextVersion);
+            await clearTable("logs");
+            if (logsToSave.length) {
+              const rows = logsToSave.map(logToRow);
+              for (let i = 0; i < rows.length; i += 100) {
+                await sbFetch("POST", "logs", rows.slice(i, i + 100), {
+                  Prefer: "return=minimal",
+                });
+              }
+            }
+            return res.status(200).json({
+              ok: true,
+              version: nextVersion,
+              scope: "logsReplace",
+              count: logsToSave.length,
             });
           }
         }

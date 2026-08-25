@@ -152,6 +152,7 @@ function redirectBaseUri() {
 }
 
 async function verifyFacebookToken(accessToken) {
+  throw new Error("Facebook sign-in has been removed from this application.");
   const r = await fetch("/api/auth-facebook", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -179,6 +180,7 @@ async function verifyFacebookToken(accessToken) {
 }
 
 async function verifyFacebookCode(code, redirectUri) {
+  throw new Error("Facebook sign-in has been removed from this application.");
   const r = await fetch("/api/auth-facebook", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -210,6 +212,10 @@ async function verifyFacebookCode(code, redirectUri) {
  * Call once on app boot. Returns profile or null.
  */
 export async function completeFacebookRedirectIfPresent() {
+  // Facebook sign-in removed — ignore any leftover OAuth query params.
+  return null;
+}
+async function completeFacebookRedirectIfPresent_DISABLED() {
   if (typeof window === "undefined") return null;
 
   // Read OAuth return params FIRST — do not require sessionStorage pending
@@ -311,6 +317,11 @@ function startFacebookRedirect(mode /* 'login' | 'link' */) {
  * Facebook Login — loads the FB JS SDK on desktop (popup), uses redirect on mobile.
  */
 export function signInWithFacebook() {
+  return Promise.reject(
+    new Error("Facebook sign-in has been removed from this application.")
+  );
+}
+function signInWithFacebook_DISABLED() {
   const APP_ID = facebookAppId();
   if (!APP_ID) {
     return Promise.reject(
@@ -492,8 +503,7 @@ export function signInWithFacebook() {
 
 /** Same as sign-in but marks pending mode as "link" for mobile redirect return. */
 export function signInWithFacebookForLink() {
-  if (isMobileUa()) {
-    return startFacebookRedirect("link");
-  }
-  return signInWithFacebook();
+  return Promise.reject(
+    new Error("Facebook sign-in has been removed from this application.")
+  );
 }

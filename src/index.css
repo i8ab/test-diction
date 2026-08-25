@@ -2800,6 +2800,30 @@ html[data-header-style="clear"] .app-stats-bar {
   box-shadow: none;
 }
 
+
+/* ── Search icon must never sit inside the placeholder text ── */
+.toolbar-search-wrap > svg:first-of-type,
+.toolbar-search-wrap .search-leading-icon {
+  pointer-events: none !important;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.toolbar-search-wrap .toolbar-search-input,
+.toolbar-search-wrap .app-chrome-search,
+html .toolbar-search-input.app-chrome-search,
+html[data-device="mobile"] .toolbar-search-input.app-chrome-search,
+html[data-device="tablet"] .toolbar-search-input.app-chrome-search {
+  /* Dedicated leading gutter for the icon (LTR + RTL via logical props) */
+  padding-inline-start: 2.75rem !important;
+  text-indent: 0 !important;
+}
+.toolbar-search-wrap {
+  /* Ensure icon slot is visually separated from typed text */
+  --search-icon-gutter: 2.75rem;
+}
+
 /* Keep focus readable on search */
 html .app-chrome-search:focus,
 html[data-skin] .app-chrome-search:focus,

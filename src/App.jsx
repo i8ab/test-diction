@@ -1,5 +1,10 @@
 import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from "react";
 import {
+  loadDayAchievements,
+  loadDayAchievementNotifsEnabled,
+  startDayAchievementDueWatcher,
+} from "./lib/state/dayAchievements";
+import {
   fetchBootstrap,
   fetchMyAccount,
   fetchAccountsOnly,
@@ -626,6 +631,22 @@ useEffect(() => {
       : setTimeout(run, 2500);
     return () => { cancelled = true; typeof cancelIdleCallback === "function" ? cancelIdleCallback(id) : clearTimeout(id); };
   }, [accountCode]);
+
+  // Day-achievement SRS: exact timers + ~1 min tick + server Web Push (no need for per-minute cron)
+  useEffect(() => {
+    if (!accountCode) return;
+    const enabled = loadDayAchievementNotifsEnabled(accountCode);
+    const stop = startDayAchievementDueWatcher({
+      accountCode,
+      enabled,
+      isAr: false,
+      intervalMs: 60 * 1000,
+      getList: () => loadDayAchievements(accountCode),
+    });
+    return () => { try { stop(); } catch (_) {} };
+  }, [accountCode]);
+
+
 
   // Restore XP from cloud account blob (survives clearing site data after re-login) — deferred
   useEffect(() => {
@@ -1641,6 +1662,8 @@ useEffect(() => {
   }
 
   async function handleLinkFacebook() {
+    // Facebook removed from product
+    return;
     if (facebookLinkBusy || !accountCode || accountCode === "guest") return;
     setFacebookLinkBusy(true);
     try {
@@ -1684,6 +1707,7 @@ useEffect(() => {
   }
 
   async function handleUnlinkFacebook() {
+    return;
     if (facebookLinkBusy || !accountCode || accountCode === "guest") return;
     const confirmMsg = appIsAr
       ? "إلغاء ربط Facebook؟ ستحتاج اسم المستخدم وكلمة المرور لتسجيل الدخول. حساب Facebook هيبقى حر تاني."

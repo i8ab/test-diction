@@ -971,7 +971,25 @@ export default function MainView({
           </div>
         <div className="toolbar-row mobile-sticky-search" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", position: "relative", zIndex: 50, marginBottom: 4 }}>
           <div className="toolbar-anim toolbar-search-wrap" style={{ position: "relative", flex: "1 1 240px", animationDelay: "0.02s", zIndex: 50 }}>
-            <SearchIcon size={16} color="var(--icon-muted)" style={{ position: "absolute", insetInlineStart: 12, top: "50%", transform: "translateY(-50%)" }} />
+            <span
+              className="search-leading-icon"
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                insetInlineStart: 14,
+                top: "50%",
+                transform: "translateY(-50%)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 20,
+                height: 20,
+                pointerEvents: "none",
+                zIndex: 2,
+              }}
+            >
+              <SearchIcon size={16} color="var(--icon-muted)" />
+            </span>
             <input
               ref={searchInputRef}
               value={query}
@@ -987,12 +1005,24 @@ export default function MainView({
               }}
               onBlur={() => setTimeout(() => { setShowSuggestions(false); setShowHistory(false); }, 120)}
               onKeyDown={handleSearchKeyDown}
-              placeholder={tr(isAr, `Search ${cfg.shortLabel}…`, `بحث في ${cfg.shortLabel}…`)} dir={section === "ar-ar" ? "rtl" : "auto"}
+              placeholder={tr(isAr, `Search ${cfg.shortLabel}…`, `بحث في ${cfg.shortLabel}…`)}
+              dir={section === "ar-ar" ? "rtl" : "auto"}
               role="combobox" aria-autocomplete="list" aria-expanded={showSuggestions && suggestions.length > 0}
               aria-controls="search-suggestions" aria-activedescendant={activeIndex >= 0 ? `search-suggestion-${activeIndex}` : undefined}
+              aria-label={tr(isAr, "Search dictionary", "بحث في القاموس")}
               autoComplete="off"
               className="toolbar-search-input app-chrome-search"
-              style={{ width: "100%", padding: "11px 12px", paddingInlineStart: 36, paddingInlineEnd: (query.trim() ? 68 : 0) + (speechSupported ? 38 : 12), fontSize: 15, border: "1px solid rgba(var(--border-rgb),0.2)", borderRadius: 12, color: INK }} />
+              style={{
+                width: "100%",
+                padding: "11px 12px",
+                paddingInlineStart: 44,
+                paddingInlineEnd: (query.trim() ? 68 : 0) + (speechSupported ? 38 : 12),
+                fontSize: 15,
+                border: "1px solid rgba(var(--border-rgb),0.2)",
+                borderRadius: 12,
+                color: INK,
+              }}
+            />
             {!!query.trim() && (
               <button
                 type="button"

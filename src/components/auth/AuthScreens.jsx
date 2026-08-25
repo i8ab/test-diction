@@ -117,19 +117,7 @@ function SocialButtons({ atr, handleSocialLogin, busy, setBusy }) {
           <GoogleGIcon />
           {busy === "google" ? atr("Connecting…", "جارٍ الاتصال…") : "Google"}
         </button>
-        <button
-          type="button"
-          onClick={() => go("facebook")}
-          disabled={!!busy}
-          style={{
-            ...socialBtnStyle,
-            flex: "1 1 140px",
-            opacity: busy && busy !== "facebook" ? 0.55 : 1,
-          }}
-        >
-          <FacebookFIcon />
-          {busy === "facebook" ? atr("Connecting…", "جارٍ الاتصال…") : "Facebook"}
-        </button>
+        {/* Facebook sign-in removed */}
       </div>
     </div>
   );

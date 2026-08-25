@@ -12,7 +12,8 @@
     { "source": "/api/push-subscribe", "destination": "/api/push?action=subscribe" },
     { "source": "/api/push-inbox", "destination": "/api/push?action=inbox" },
     { "source": "/api/push-broadcast", "destination": "/api/push?action=broadcast" },
-    { "source": "/api/push-test", "destination": "/api/push?action=test" }
+    { "source": "/api/push-test", "destination": "/api/push?action=test" },
+    { "source": "/api/push-dayach", "destination": "/api/push?action=dayAchSchedule" }
   ],
   "headers": [
     {

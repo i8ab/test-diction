@@ -28,6 +28,8 @@ const DEFAULT_INTERVAL_HOURS = 24;
 const ALLOWED_HOURS = new Set([1, 2, 3, 6, 12, 24]);
 
 const DEFAULT_TITLE = "وقت المراجعة! / Time to review!";
+const DAY_ACH_PREFIX = "twoTongues:dayAchDue:";
+
 const DEFAULT_BODY_TEMPLATE = (daysSince) =>
   `عدّى ${daysSince} يوم من غير ما تراجع. / It's been ${daysSince} day${daysSince === 1 ? "" : "s"} since you studied.`;
 
@@ -365,8 +367,97 @@ export default async function handler(req, res) {
       }
     }
 
+    // ── Day-achievement SRS pushes (independent of study-reminder slots) ──
+    // Client syncs due items to Redis; we notify once per (id, dueAt) when due.
+    let dayAchSent = 0;
+    let dayAchSkipped = 0;
+    for (const code of codes) {
+      let schedule = null;
+      try {
+        const raw = await redisCommand("GET", `${DAY_ACH_PREFIX}${code}`);
+        if (!raw) continue;
+        schedule = typeof raw === "string" ? JSON.parse(raw) : raw;
+      } catch (_) {
+        continue;
+      }
+      const items = (schedule && Array.isArray(schedule.items)) ? schedule.items : [];
+      if (!items.length) continue;
+
+      const subscriptions = await loadSubs(code);
+      if (!subscriptions.length) {
+        dayAchSkipped++;
+        continue;
+      }
+
+      let changed = false;
+      for (const it of items) {
+        if (!it || typeof it.dueAt !== "number") continue;
+        if (it.dueAt > now) continue;
+        // Already notified for this exact due timestamp?
+        if (it.notifiedDueAt != null && Number(it.notifiedDueAt) === Number(it.dueAt)) continue;
+
+        const title = (it.title && String(it.title).trim()) || "وقت المراجعة / Review Time";
+        const bodyText =
+          "حان وقت مراجعة إنجازك (تكرار متباعد). / Time to review your day achievement (spaced repetition).";
+        const payload = {
+          title,
+          body: bodyText,
+          url: "/",
+          tag: `day-ach-${code}-${it.id}-${it.dueAt}`,
+          renotify: true,
+          type: "day-achievement-srs",
+        };
+
+        let anyOk = false;
+        for (const subscription of subscriptions) {
+          const endpoint = subscription && subscription.endpoint;
+          if (!endpoint) continue;
+          const result = await sendPush(subscription, payload);
+          if (result.ok) {
+            anyOk = true;
+            dayAchSent++;
+          } else if (result.expired) {
+            expired++;
+            await removeExpiredEndpoint(code, endpoint);
+          }
+        }
+        if (anyOk) {
+          it.notifiedDueAt = it.dueAt;
+          changed = true;
+          try {
+            await addInboxItem(code, {
+              type: "day-achievement-srs",
+              title,
+              body: bodyText,
+              url: "/",
+              at: now,
+              id: `day-ach-${it.id}-${it.dueAt}`,
+            });
+          } catch (_) {}
+          pushDetail({
+            code,
+            status: "dayAchSent",
+            itemId: String(it.id).slice(0, 40),
+            title: String(title).slice(0, 80),
+          });
+        }
+      }
+      if (changed) {
+        try {
+          await redisCommand(
+            "SET",
+            `${DAY_ACH_PREFIX}${code}`,
+            JSON.stringify({ items, updatedAt: now }),
+            "EX",
+            60 * 24 * 3600
+          );
+        } catch (_) {}
+      }
+    }
+
     const body = {
       sent, skipped, expired, failed, logsCleared,
+      dayAchSent, dayAchSkipped,
       codes: codes.length, reasons,
       errors: errors.length ? errors : undefined,
       details, // per-account: code, status, messageIndex, bodyPreview, …

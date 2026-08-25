@@ -3,7 +3,7 @@
 ## Current model (v1.1.3+)
 
 - **Authentication**: Username + password. Passwords are hashed client-side with SHA-256 (`salt::password`) before being stored in the cloud record. The server never sees plaintext passwords for the classic flow.
-- **Social sign-in**: Optional Google / Facebook verification happens server-side in `api/auth.js` (token audience / app-secret checks).
+- **Social sign-in**: Optional Google verification (Facebook removed) happens server-side in `api/auth.js` (token audience / app-secret checks).
 - **Authorization**: Role field (`user` | `admin` | teacher flags). Admin-only operations are gated in the client; `accountPatch` can no longer elevate `role` / `isAdmin` / `status`.
 - **Data access**: All cloud reads/writes go through `/api/jsonbin` (Supabase proxy). Service-role key stays on the server.
 - **Write locking**: Redis distributed lock reduces concurrent overwrite races.

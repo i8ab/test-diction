@@ -588,6 +588,107 @@ async function handleTest(req, res) {
   }
 }
 
+
+/**
+ * POST { code }
+ * Send Web Push NOW for any day-achievement items that are due and not yet notified.
+ * Used by the client for near–real-time alerts (e.g. ~10 min), without waiting for cron.
+ */
+async function handleDayAchNotifyDue(req, res) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return res.status(405).json({ error: "Method not allowed." });
+  }
+  if (!redisConfigured()) {
+    return res.status(503).json({ error: "Redis not configured." });
+  }
+  if (!vapidConfigured()) {
+    return res.status(503).json({ error: "VAPID not configured." });
+  }
+
+  const body = parseBody(req) || {};
+  const code = getCode(body, req.query);
+  if (!code) return res.status(400).json({ error: "Missing code." });
+
+  const DAY_ACH_PREFIX = "twoTongues:dayAchDue:";
+  let schedule = null;
+  try {
+    const raw = await redisCommand("GET", `${DAY_ACH_PREFIX}${code}`);
+    if (!raw) return res.status(200).json({ ok: true, sent: 0, reason: "no_schedule" });
+    schedule = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch (_) {
+    return res.status(200).json({ ok: true, sent: 0, reason: "parse_error" });
+  }
+
+  const items = (schedule && Array.isArray(schedule.items)) ? schedule.items : [];
+  const now = Date.now();
+  const subscriptions = await loadSubs(code);
+  if (!subscriptions.length) {
+    return res.status(200).json({ ok: true, sent: 0, reason: "no_sub" });
+  }
+
+  let sent = 0;
+  let changed = false;
+
+  for (const it of items) {
+    if (!it || typeof it.dueAt !== "number") continue;
+    if (it.dueAt > now) continue;
+    if (it.notifiedDueAt != null && Number(it.notifiedDueAt) === Number(it.dueAt)) continue;
+
+    const title = (it.title && String(it.title).trim()) || "وقت المراجعة / Review Time";
+    const notifBody =
+      "حان وقت مراجعة إنجازك (تكرار متباعد). / Time to review your day achievement.";
+    const payload = {
+      title,
+      body: notifBody,
+      url: "/",
+      tag: `day-ach-${code}-${it.id}-${it.dueAt}`,
+      renotify: true,
+      type: "day-achievement-srs",
+    };
+
+    let anyOk = false;
+    for (const subscription of subscriptions) {
+      if (!subscription || !subscription.endpoint) continue;
+      const result = await sendPush(subscription, payload);
+      if (result.ok) {
+        anyOk = true;
+        sent++;
+      } else if (result.expired) {
+        await removeExpiredEndpoint(code, subscription.endpoint);
+      }
+    }
+    if (anyOk) {
+      it.notifiedDueAt = it.dueAt;
+      changed = true;
+      try {
+        await addInboxItem(code, {
+          type: "day-achievement-srs",
+          title,
+          body: notifBody,
+          url: "/",
+          at: now,
+          id: `day-ach-${it.id}-${it.dueAt}`,
+        });
+      } catch (_) {}
+    }
+  }
+
+  if (changed) {
+    try {
+      await redisCommand(
+        "SET",
+        `${DAY_ACH_PREFIX}${code}`,
+        JSON.stringify({ items, updatedAt: now }),
+        "EX",
+        60 * 24 * 3600
+      );
+    } catch (_) {}
+  }
+
+  return res.status(200).json({ ok: true, sent });
+}
+
 // ─── Main router ─────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -602,9 +703,16 @@ export default async function handler(req, res) {
       return handleBroadcast(req, res);
     case "test":
       return handleTest(req, res);
+    case "dayach":
+    case "dayAchSchedule":
+      return handleDayAchSchedule(req, res);
+    case "dayAchNotifyDue":
+    case "dayachnotify":
+      return handleDayAchNotifyDue(req, res);
     default:
       return res.status(400).json({
-        error: 'Missing or invalid action. Use "subscribe", "inbox", "broadcast", or "test".',
+        error: 'Missing or invalid action. Use "subscribe", "inbox", "broadcast", "test", "dayAchSchedule", or "dayAchNotifyDue".',
       });
   }
 }
+

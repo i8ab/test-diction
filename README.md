@@ -32,7 +32,7 @@ Push the repo as-is. Vercel detects Vite and turns `api/*.js` into serverless fu
 | `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | Write locks, push subscriptions |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push |
 | `CRON_SECRET` | Protect scheduled reminder endpoint |
-| `GOOGLE_CLIENT_ID` / `FACEBOOK_APP_ID` + `FACEBOOK_APP_SECRET` | Optional social login |
+| `GOOGLE_CLIENT_ID` | Optional social login |
 
 ---
 

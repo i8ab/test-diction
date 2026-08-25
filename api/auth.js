@@ -85,6 +85,12 @@ async function handleGoogle(req, res) {
 }
 
 async function handleFacebook(req, res) {
+  return res.status(410).json({
+    ok: false,
+    error: "Facebook sign-in has been removed from this application.",
+  });
+}
+async function handleFacebook_DISABLED_LEGACY(req, res) {
   const appId = process.env.FACEBOOK_APP_ID;
   const appSecret = process.env.FACEBOOK_APP_SECRET;
   if (!appId || !appSecret) {

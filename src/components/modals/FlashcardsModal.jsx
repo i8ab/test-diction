@@ -16,6 +16,32 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
   const [learningCount, setLearningCount] = useState(0);
   const [enterDir, setEnterDir] = useState(1); // 1 = next card enters from the "forward" side
   const [pulse, setPulse] = useState(null); // "knew" | "learning" | null — brief button feedback
+  // User-customizable flip card face color + transparency (persisted)
+  const [cardColor, setCardColor] = useState(() => {
+    try { return localStorage.getItem("twoTongues.flashcardColor") || "#ffffff"; } catch { return "#ffffff"; }
+  });
+  const [cardOpacity, setCardOpacity] = useState(() => {
+    try {
+      const v = parseFloat(localStorage.getItem("twoTongues.flashcardOpacity"));
+      return Number.isFinite(v) ? Math.min(1, Math.max(0.15, v)) : 0.95;
+    } catch { return 0.95; }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("twoTongues.flashcardColor", cardColor);
+      localStorage.setItem("twoTongues.flashcardOpacity", String(cardOpacity));
+    } catch (_) {}
+  }, [cardColor, cardOpacity]);
+  function hexToRgba(hex, alpha) {
+    const h = (hex || "#ffffff").replace("#", "");
+    const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+    const n = parseInt(full, 16);
+    if (!Number.isFinite(n)) return `rgba(255,255,255,${alpha})`;
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+  const cardFaceBg = hexToRgba(cardColor, cardOpacity);
+  const cardBackBg = hexToRgba(cardColor, Math.min(1, cardOpacity + 0.05));
 
   const {
     hasUnits,
@@ -157,6 +183,54 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
             <p style={{ fontSize: 13, color: "var(--icon-muted)", margin: "0 0 16px" }}>
               {tr(isAr, `${pool.length} word(s) in this deck.`, `${pool.length} كلمة في المجموعة دي.`)}
             </p>
+            {/* Card appearance: color + transparency */}
+            <div style={{
+              marginBottom: 16,
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: "1px solid rgba(var(--border-rgb),0.2)",
+              background: "var(--input-bg)",
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginBottom: 10 }}>
+                {tr(isAr, "Card look", "مظهر البطاقة")}
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--muted-strong)" }}>
+                  {tr(isAr, "Color", "اللون")}
+                  <input
+                    type="color"
+                    value={cardColor}
+                    onChange={(e) => setCardColor(e.target.value)}
+                    aria-label={tr(isAr, "Card color", "لون البطاقة")}
+                    style={{ width: 36, height: 28, border: "1px solid rgba(var(--border-rgb),0.3)", borderRadius: 6, padding: 0, cursor: "pointer", background: "transparent" }}
+                  />
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--muted-strong)", flex: "1 1 160px" }}>
+                  {tr(isAr, "Transparency", "الشفافية")}
+                  <input
+                    type="range"
+                    min={0.15}
+                    max={1}
+                    step={0.05}
+                    value={cardOpacity}
+                    onChange={(e) => setCardOpacity(parseFloat(e.target.value))}
+                    aria-label={tr(isAr, "Card opacity", "شفافية البطاقة")}
+                    style={{ flex: 1, minWidth: 80 }}
+                  />
+                  <span style={{ fontVariantNumeric: "tabular-nums", minWidth: 36 }}>{Math.round(cardOpacity * 100)}%</span>
+                </label>
+              </div>
+              <div
+                aria-hidden
+                style={{
+                  marginTop: 10,
+                  height: 36,
+                  borderRadius: 8,
+                  border: `1px solid ${cfg.accentSoft || "rgba(0,0,0,0.1)"}`,
+                  background: cardFaceBg,
+                }}
+              />
+            </div>
             {/* أزرار الإجراءات — عمودي مع مسافة مريحة عشان متلزقش */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 4 }}>
               <button type="button" onClick={startDeck} disabled={pool.length === 0} className="btn-shine"
@@ -201,11 +275,11 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
               <div onClick={() => setFlipped((f) => !f)} role="button" tabIndex={0}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFlipped((f) => !f); } }}
                 className={`flashcard-flip${flipped ? " is-flipped" : ""}`}>
-                <div className="flashcard-face" style={{ border: `1px solid ${cfg.accentSoft}`, background: "var(--input-bg)" }}>
+                <div className="flashcard-face" style={{ border: `1px solid ${cfg.accentSoft}`, background: cardFaceBg }}>
                   <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 30, fontWeight: 700, color: INK }}>{current.word}</span>
                   <span style={{ fontSize: 11, color: "var(--icon-muted)", marginTop: 4 }}>{tr(isAr, "Tap to flip", "اضغط عشان تقلب")}</span>
                 </div>
-                <div className="flashcard-face flashcard-face-back" style={{ border: `1px solid ${cfg.accent}`, background: cfg.accentSoft }}>
+                <div className="flashcard-face flashcard-face-back" style={{ border: `1px solid ${cfg.accent}`, background: cardBackBg }}>
                   <span dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: 22, fontWeight: 700, color: cfg.accent }}>{current.meaning}</span>
                   {current.definition && <span dir="rtl" style={{ fontFamily: "'Amiri', serif", fontSize: 14, color: "var(--muted-strong)" }}>{current.definition}</span>}
                   {current.example && <span dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 13, color: "var(--icon-muted)", fontStyle: "italic" }}>{current.example}</span>}

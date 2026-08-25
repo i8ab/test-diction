@@ -64,7 +64,7 @@ export default function AchievementsModal({
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 9000,
+        zIndex: 15000,
         background: "rgba(0,0,0,0.45)",
         display: "flex",
         alignItems: "flex-end",

@@ -72,10 +72,11 @@ function playUnlockChime() {
 }
 
 function openAchievementsFromToast(achievementId) {
+  // Opens Achievements overlay only — does NOT close quiz/exam/timer or change their state.
   try {
     window.dispatchEvent(
       new CustomEvent("twotongues:open-achievements", {
-        detail: { id: achievementId || null },
+        detail: { id: achievementId || null, fromToast: true },
       })
     );
   } catch (_) {}
@@ -301,7 +302,7 @@ export default function MinecraftAchievementToast({ isAr = false }) {
   const visible = queue.slice(0, 3);
   if (!visible.length || typeof document === "undefined") return null;
 
-  // Right edge of the screen — slides in horizontally from the side
+  // Right edge of the screen — always above quiz/exam/timer modals (z ≥ 20000)
   return createPortal(
     <div
       style={{
@@ -312,7 +313,7 @@ export default function MinecraftAchievementToast({ isAr = false }) {
         display: "flex",
         flexDirection: "column",
         alignItems: "flex-end",
-        zIndex: 12000,
+        zIndex: 20000,
         pointerEvents: "none",
         maxWidth: "min(360px, calc(100vw - 24px))",
       }}

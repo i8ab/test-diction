@@ -870,12 +870,8 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
     goBubble();
 
     // Phones cannot float a web UI over other apps — OS / browser limitation.
+    // Do not show a red error banner for this (UX: just use in-app bubble silently).
     if (isMobileLike()) {
-      setErrorMsg(tr(
-        isAr,
-        "On phones the bubble stays inside this app. Websites cannot float over other apps or outside the browser.",
-        "على الموبايل الفقاعة تفضل جوه التطبيق. المواقع متقدرش تطفو فوق تطبيقات تانية أو بره المتصفح — قيد من النظام."
-      ));
       return;
     }
 
@@ -1235,46 +1231,39 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
           </div>
         )}
 
-        {/* Today total + 24h session history */}
+        {/* Today total + compact 24h session history */}
         <div
           style={{
             width: "100%",
             maxWidth: 420,
-            marginTop: 4,
-            padding: "12px 14px",
-            borderRadius: 14,
-            background: "rgba(0,0,0,0.22)",
-            border: "1px solid rgba(255,255,255,0.1)",
+            marginTop: 2,
+            padding: "6px 10px",
+            borderRadius: 10,
+            background: "rgba(0,0,0,0.18)",
+            border: "1px solid rgba(255,255,255,0.08)",
             textAlign: "start",
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 700 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 12, fontWeight: 700 }}>
               {tr(isAr, "Today", "اليوم")}: {todayTotalMin} {tr(isAr, "min study", "د مذاكرة")}
             </span>
-            <span style={{ fontSize: 12, opacity: 0.75 }}>
-              {tr(isAr, "Last 24h log", "سجل ٢٤ ساعة")}: {last24hMin} {tr(isAr, "min", "د")}
+            <span style={{ fontSize: 11, opacity: 0.75 }}>
+              {tr(isAr, "Last 24h", "آخر ٢٤س")}: {last24hMin} {tr(isAr, "min", "د")}
             </span>
           </div>
-          <div style={{ fontSize: 11, opacity: 0.65, marginBottom: 8 }}>
-            {tr(isAr, "Session history auto-clears after 24 hours.", "سجل الجلسات بيتمسح تلقائي بعد ٢٤ ساعة.")}
-          </div>
-          {sessionLog.length === 0 ? (
-            <div style={{ fontSize: 12, opacity: 0.7 }}>
-              {tr(isAr, "No sessions in the last 24 hours yet.", "مفيش جلسات في آخر ٢٤ ساعة لسه.")}
-            </div>
-          ) : (
-            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 6, maxHeight: 140, overflowY: "auto" }}>
-              {sessionLog.slice(0, 12).map((s) => {
+          {sessionLog.length > 0 && (
+            <ul style={{ margin: "4px 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 2, maxHeight: 52, overflowY: "auto" }}>
+              {sessionLog.slice(0, 4).map((s) => {
                 const time = new Date(s.at).toLocaleTimeString(isAr ? "ar-EG" : "en-US", { hour: "2-digit", minute: "2-digit" });
                 const kind =
                   s.mode === "pomodoro"
                     ? s.phase === "break"
-                      ? tr(isAr, "Pomodoro break", "راحة بومودورو")
-                      : tr(isAr, "Pomodoro study", "مذاكرة بومودورو")
+                      ? tr(isAr, "Break", "راحة")
+                      : tr(isAr, "Study", "مذاكرة")
                     : tr(isAr, "Timer", "تايمر");
                 return (
-                  <li key={s.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12, opacity: 0.9 }}>
+                  <li key={s.id} style={{ display: "flex", justifyContent: "space-between", gap: 6, fontSize: 11, opacity: 0.85 }}>
                     <span>
                       {time} · {kind}
                       {s.mode === "pomodoro" && s.cycle ? ` #${s.cycle}` : ""}
@@ -1291,7 +1280,14 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
           {!pomoAwaiting && (
             !running ? (
               <button type="button" onClick={start} style={btnPrimary}>
-                {tr(isAr, "Start", "ابدأ")}
+                {(() => {
+                  const hasProgress =
+                    (prefs.mode === "stopwatch" && (elapsedMs > 0 || (accumulatedRef.current || 0) > 0)) ||
+                    (prefs.mode !== "stopwatch" && remainingMs > 0 && baseDurationRef.current && remainingMs < baseDurationRef.current);
+                  return hasProgress
+                    ? tr(isAr, "Continue", "متابعة")
+                    : tr(isAr, "Start", "ابدأ");
+                })()}
               </button>
             ) : (
               <button type="button" onClick={pause} style={btnPrimary}>
@@ -1304,7 +1300,7 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
           </button>
         </div>
 
-        {errorMsg && (
+        {errorMsg && !/float over other apps|تطفو فوق تطبيقات|cannot float|متقدرش تطفو/i.test(errorMsg) && (
           <div
             style={{
               maxWidth: 420,

@@ -52,6 +52,7 @@ export const TodoPage = safeLazy(() => import("../todo/TodoPage"));
 export const DayAchievementsModal = safeLazy(() => import("./DayAchievementsModal"));
 export const QuickReviewModal = safeLazy(() => import("./QuickReviewModal"));
 export const GoalsPage = safeLazy(() => import("../goals/GoalsPage"));
+export const LanguageNotesPage = safeLazy(() => import("../notes/LanguageNotesPage"));
 export const InfoGuideModal = safeLazy(() => import("./InfoGuideModal"));
 export const DictationModal = safeLazy(() => import("./DictationModal"));
 export const AchievementsModal = safeLazy(() => import("./AchievementsModal"));

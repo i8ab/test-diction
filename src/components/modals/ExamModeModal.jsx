@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useKeyboardAware, keyboardAwareBodyStyle } from "../../lib/utils/useKeyboardAware";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, primaryBtnStyle, errorStyle } from "../../lib/config/theme";
 import {
@@ -6,6 +7,7 @@ import {
 } from "../../lib/utils/quizHelpers";
 import { SpeakButton, XIcon, CheckIcon, QuizIcon, ClockIcon, FlameIcon } from "../common/Icons";
 import HowItWorksButton from "../common/HowItWorksButton";
+import InlineHowItWorks from "../common/InlineHowItWorks";
 import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { loadExamDate, daysUntilExam, formatExamCountdown } from "../../lib/state/exam";
@@ -43,7 +45,7 @@ export default function ExamModeModal({
   const restored = restoredRef.current;
 
   const [stage, setStage] = useState(() => (restored?.stage === "running" || restored?.stage === "done" ? restored.stage : "setup"));
-  const [modes, setModes] = useState(() => new Set(restored?.modes?.length ? restored.modes : ["mcq", "typing"]));
+  const [modes, setModes] = useState(() => new Set(restored?.modes?.length ? restored.modes.filter(m => m !== "flash") : ["mcq", "typing"]));
   const [limit, setLimit] = useState(() => restored?.limit || 15);
   const [timerMin, setTimerMin] = useState(() => restored?.timerMin || 0);
   const [startError, setStartError] = useState("");
@@ -209,7 +211,7 @@ export default function ExamModeModal({
     }
 
     const quizModes = [...modes].filter((m) => m !== "flash");
-    const flashOnly = modes.has("flash") && quizModes.length === 0;
+    const flashOnly = false; // Quick Flash removed from exam module
 
     if (flashOnly) {
       setQuestions([]);
@@ -507,7 +509,7 @@ export default function ExamModeModal({
       <BodyScrollLock />
       <div
         onClick={(e) => e.stopPropagation()}
-        className="modal-card"
+        className="modal-card kb-aware-modal"
         dir={isAr ? "rtl" : "ltr"}
         role="dialog"
         aria-modal="true"
@@ -603,9 +605,6 @@ export default function ExamModeModal({
 
             <label style={{ ...labelStyle, marginTop: 14 }}>{tr(isAr, "Question types (pick one or more)", "أنواع الأسئلة (اختار واحد أو أكتر)")}</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
-              <button type="button" onClick={() => toggleMode("flash")} style={chipStyle(modes.has("flash"))}>
-                {tr(isAr, "Quick flash", "مراجعة سريعة")}
-              </button>
               <button type="button" onClick={() => toggleMode("mcq")} style={chipStyle(modes.has("mcq"))}>
                 {tr(isAr, "Multiple choice", "اختيار من متعدد")}
               </button>

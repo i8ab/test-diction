@@ -89,6 +89,21 @@ const GUIDES = [
     whatEn: "Short recall for due words.", whatAr: "تذكّر سريع للمستحقة.",
     stepsEn: ["More ⋯ → Quick review (or press R).", "Fast pass over due or recent words."],
     stepsAr: ["المزيد ⋯ → مراجعة سريعة (أو R).", "مرور سريع على المستحقة أو الحديثة."] },
+  { id: "languageNotes", titleEn: "Language Notes", titleAr: "ملاحظات اللغة",
+    whatEn: "Group related words and keep examples, usage notes, and extra comments in one place.",
+    whatAr: "جمّع كلمات متشابهة واحفظ الأمثلة وملاحظات الاستخدام في مكان واحد.",
+    stepsEn: [
+      "More ⋯ → Language Notes.",
+      "Create a note with a name and optional description.",
+      "Add related words as: word1 - word2 - word3.",
+      "Collapsed list shows word (type) : meaning; expand for examples and notes.",
+    ],
+    stepsAr: [
+      "المزيد ⋯ → ملاحظات اللغة.",
+      "اعمل ملاحظة باسم ووصف اختياري.",
+      "ضيف كلمات متشابهة: كلمة١ - كلمة٢ - كلمة٣.",
+      "العرض المطوي: كلمة (نوع) : معنى؛ افتح للتفاصيل والأمثلة.",
+    ] },
   { id: "dashboard", titleEn: "Dashboard", titleAr: "لوحة القيادة",
     whatEn: "One place for today’s progress, due words, and weak words.", whatAr: "مكان واحد لتقدّم اليوم والمستحقة والضعيفة.",
     stepsEn: [

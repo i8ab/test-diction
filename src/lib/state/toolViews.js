@@ -11,6 +11,7 @@ const KEYS = {
   calendar: "twoTongues.calendarView",
   todo: "twoTongues.todoView",
   goals: "twoTongues.goalsView",
+  languageNotes: "twoTongues.languageNotesView",
 };
 
 /** session-only flag: timer UI was open when this tab refreshed */
@@ -78,4 +79,12 @@ export function loadGoalsView() {
 }
 export function saveGoalsView(open, bubble) {
   saveView(KEYS.goals, open, bubble);
+}
+
+
+export function loadLanguageNotesView() {
+  return loadView(KEYS.languageNotes);
+}
+export function saveLanguageNotesView(open, bubble) {
+  saveView(KEYS.languageNotes, open, bubble);
 }

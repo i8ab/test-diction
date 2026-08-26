@@ -66,9 +66,23 @@ export function srsLevelFromStats(stats) {
   return streak >= 3 || (total >= 12 && ratio >= 0.95) ? 5 : 4;
 }
 
-export function isSrsDue(entryId, srsDueAt) {
-  if (!srsDueAt || srsDueAt[entryId] == null) return true; // never scheduled → treat as due
-  return Number(srsDueAt[entryId]) <= Date.now();
+export function isSrsDue(entryId, srsDueAt, studiedAt = null) {
+  if (!srsDueAt || srsDueAt[entryId] == null) {
+    // Never scheduled: treat as due only if never studied, or studied long enough ago
+    if (studiedAt && studiedAt[entryId]) {
+      const ago = Date.now() - Number(studiedAt[entryId]);
+      // Grace: at least 30 minutes after last study before prompting again
+      if (ago < 30 * 60 * 1000) return false;
+    }
+    return true;
+  }
+  const due = Number(srsDueAt[entryId]);
+  // Hard grace: even if due time passed, wait at least 20 min after last study
+  if (studiedAt && studiedAt[entryId]) {
+    const ago = Date.now() - Number(studiedAt[entryId]);
+    if (ago < 20 * 60 * 1000) return false;
+  }
+  return due <= Date.now();
 }
 
 export function formatDueIn(dueMs, isAr) {
@@ -563,28 +577,28 @@ export function isTypingCorrect(typed, correct) {
 export function quizQuestionLabel(modeOrType, isAr, pos, multi = false) {
   let base;
   const t = modeOrType || "mcq";
+  // Every choice-based question is explicitly labeled "اختر" / "Choose"
   if (t === "cloze" || t === "sentence_completion") {
-    base = isAr ? "أكمل الجملة بالكلمة المناسبة" : "Complete the sentence with the suitable word";
+    base = isAr ? "اختر: أكمل الجملة بالكلمة المناسبة" : "Choose: complete the sentence with the suitable word";
   } else if (t === "typing") {
     base = isAr ? "اكتب المعنى" : "Type the meaning";
-  } else if (t === "open_sentence") {
-    base = isAr ? "اكتب جملة من عندك باستخدام الكلمة" : "Write a sentence of your own using the word";
   } else if (t === "open_define") {
     base = isAr ? "اكتب معنى الكلمة بأسلوبك" : "Write the meaning of the word in your own words";
   } else if (t === "synonym") {
     base = multi
-      ? (isAr ? "اختر مرادفين صحيحين" : "Pick two correct synonyms")
-      : (isAr ? "اختر المرادف الصحيح" : "Pick the correct synonym");
+      ? (isAr ? "اختر مرادفين صحيحين" : "Choose two correct synonyms")
+      : (isAr ? "اختر المرادف الصحيح" : "Choose the correct synonym");
   } else if (t === "antonym") {
     base = multi
-      ? (isAr ? "اختر مضادين صحيحين" : "Pick two correct antonyms")
-      : (isAr ? "اختر المضاد الصحيح" : "Pick the correct antonym");
+      ? (isAr ? "اختر مضادين صحيحين" : "Choose two correct antonyms")
+      : (isAr ? "اختر المضاد الصحيح" : "Choose the correct antonym");
   } else if (t === "meaning" || t === "mcq") {
     base = multi
-      ? (isAr ? "اختر معنيين صحيحين" : "Pick two correct meanings")
-      : (isAr ? "اختر المعنى الصحيح" : "Pick the correct meaning");
+      ? (isAr ? "اختر معنيين صحيحين" : "Choose two correct meanings")
+      : (isAr ? "اختر المعنى الصحيح" : "Choose the correct meaning");
   } else {
-    base = isAr ? "اختر الإجابة الصحيحة" : "Pick the correct answer";
+    // Default for any remaining choice question
+    base = isAr ? "اختر الإجابة الصحيحة" : "Choose the correct answer";
   }
   if (!pos) return base;
   const tag = posLabel(pos, isAr);
@@ -834,31 +848,8 @@ export function buildBaccalaureateQuiz(matchingEntries, allEntries, opts = {}) {
     const meaning = (senses[0] && senses[0].meaning) || entry.meaning || "";
     const example = pickEntryExample(entry);
 
-    // Type 1: Use the word in a sentence of your own
-    open.push({
-      id: `${entry.id}:open-sentence`,
-      entryId: entry.id,
-      word: entry.word,
-      meaning,
-      correct: entry.word,
-      correctAnswer: entry.word,
-      acceptedAnswers: [entry.word],
-      options: [],
-      type: "open_sentence",
-      mode: "open",
-      pos: (senses[0] && senses[0].pos) || entry.pos || "",
-      promptText: entry.word,
-      promptDir: wordDir,
-      promptFont: wordFont,
-      wordDir,
-      wordFont,
-      openInstruction: true,
-      sampleExample: example || "",
-    });
-
-    if (open.length >= openLimit) break;
-
-    // Type 2: Write / recall the meaning (productive)
+    // Open productive: write / recall the meaning (no "put the word in a sentence")
+    // Type: define in your own words
     if (meaning) {
       open.push({
         id: `${entry.id}:open-define`,
@@ -938,7 +929,7 @@ export function applySm2(prevCard, quality, prefs) {
     lapses += 1;
     interval = 0;
     ease = Math.max(SRS_MIN_EASE, ease - 0.2);
-    const dueAt = Date.now() + p.learningMinutes * 60 * 1000;
+    const dueAt = Date.now() + Math.max(30, p.learningMinutes || 30) * 60 * 1000;
     return {
       card: { ease, interval, reps, lapses, dueAt },
       dueAt,

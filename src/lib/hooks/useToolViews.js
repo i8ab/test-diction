@@ -8,10 +8,12 @@ import {
   saveTodoView,
   loadGoalsView,
   saveGoalsView,
+  loadLanguageNotesView,
+  saveLanguageNotesView,
 } from "../state/toolViews";
 
 /**
- * Open / bubble state for timer, calendar, todo, goals — persisted in localStorage.
+ * Open / bubble state for timer, calendar, todo, goals, language notes — persisted in localStorage.
  */
 export function useToolViews() {
   const [showTimer, setShowTimer] = useState(() => {
@@ -34,13 +36,26 @@ export function useToolViews() {
   const [todoBubble, setTodoBubble] = useState(() => loadTodoView().bubble);
   const [showGoals, setShowGoals] = useState(() => loadGoalsView().open);
   const [goalsBubble, setGoalsBubble] = useState(() => loadGoalsView().bubble);
+  const [showLanguageNotes, setShowLanguageNotes] = useState(() => {
+    try {
+      return !!loadLanguageNotesView().open;
+    } catch (_) {
+      return false;
+    }
+  });
+  const [languageNotesBubble, setLanguageNotesBubble] = useState(() => {
+    try {
+      return !!loadLanguageNotesView().bubble;
+    } catch (_) {
+      return false;
+    }
+  });
   const [showDayAchievements, setShowDayAchievements] = useState(false);
 
   useEffect(() => {
     saveTimerView(showTimer, timerBubble);
   }, [showTimer, timerBubble]);
 
-  // Ensure open state is written before the tab is discarded on refresh.
   useEffect(() => {
     function flush() {
       try {
@@ -66,6 +81,10 @@ export function useToolViews() {
   useEffect(() => {
     saveGoalsView(showGoals, goalsBubble);
   }, [showGoals, goalsBubble]);
+
+  useEffect(() => {
+    saveLanguageNotesView(showLanguageNotes, languageNotesBubble);
+  }, [showLanguageNotes, languageNotesBubble]);
 
   const openTimer = useCallback(() => {
     setTimerBubble(false);
@@ -107,6 +126,16 @@ export function useToolViews() {
     setGoalsBubble(false);
   }, []);
 
+  const openLanguageNotes = useCallback(() => {
+    setLanguageNotesBubble(false);
+    setShowLanguageNotes(true);
+  }, []);
+
+  const closeLanguageNotes = useCallback(() => {
+    setShowLanguageNotes(false);
+    setLanguageNotesBubble(false);
+  }, []);
+
   const openDayAchievements = useCallback(() => {
     setShowDayAchievements(true);
   }, []);
@@ -121,6 +150,7 @@ export function useToolViews() {
     (showCalendar && !calendarBubble) ||
     (showTodo && !todoBubble) ||
     (showGoals && !goalsBubble) ||
+    (showLanguageNotes && !languageNotesBubble) ||
     showDayAchievements;
 
   return {
@@ -148,6 +178,12 @@ export function useToolViews() {
     setGoalsBubble,
     openGoals,
     closeGoals,
+    showLanguageNotes,
+    setShowLanguageNotes,
+    languageNotesBubble,
+    setLanguageNotesBubble,
+    openLanguageNotes,
+    closeLanguageNotes,
     showDayAchievements,
     setShowDayAchievements,
     openDayAchievements,

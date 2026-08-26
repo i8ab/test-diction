@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useKeyboardAware, keyboardAwareBodyStyle } from "../../lib/utils/useKeyboardAware";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
 import {
@@ -7,6 +8,7 @@ import {
 } from "../../lib/utils/quizHelpers";
 import { SpeakButton, XIcon, CheckIcon, EyeIcon, QuizIcon } from "../common/Icons";
 import HowItWorksButton from "../common/HowItWorksButton";
+import InlineHowItWorks from "../common/InlineHowItWorks";
 import NumberStepper from "../common/NumberStepper";
 import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
@@ -439,7 +441,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
   return (
     <div onClick={handleClose} className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 6000 }}>
       <BodyScrollLock />
-      <div onClick={(e) => e.stopPropagation()} className="modal-card" dir={isAr ? "rtl" : "ltr"} role="dialog" aria-modal="true" aria-labelledby="quiz-modal-title"
+      <div onClick={(e) => e.stopPropagation()} className="modal-card kb-aware-modal" dir={isAr ? "rtl" : "ltr"} role="dialog" aria-modal="true" aria-labelledby="quiz-modal-title"
         style={{ width: "100%", maxWidth: 480, maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column", background: CARD, borderRadius: 20, padding: "20px 18px 18px", boxShadow: "0 24px 60px -16px rgba(0,0,0,0.45)", border: "1px solid rgba(var(--border-rgb),0.1)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, flexShrink: 0 }}>
           <h2 id="quiz-modal-title" style={{ fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, color: INK, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
@@ -447,7 +449,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
             {sectionLabel && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>· {sectionLabel}</span>}
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <HowItWorksButton isAr={isAr} guideId="quiz" />
+            <InlineHowItWorks isAr={isAr} guideId="quiz" />
             <button onClick={handleClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}><XIcon size={20} /></button>
           </div>
         </div>
@@ -679,7 +681,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
               </div>
 
               {/* Baccalaureate part indicator */}
-              {(q.mode === "open" || q.type === "open_sentence" || q.type === "open_define" || q.type === "sentence_completion") && (
+              {(q.mode === "open" || q.type === "open_define" || q.type === "sentence_completion" || q.mode === "mcq") && (
                 <div style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
                   marginBottom: 10, padding: "4px 10px", borderRadius: 999,
@@ -749,13 +751,8 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
               </div>
 
               {/* Open / productive response (Baccalaureate Part B) */}
-              {(q.mode === "open" || q.type === "open_sentence" || q.type === "open_define" || (!q.options || q.options.length === 0)) && (
+              {(q.mode === "open" || q.type === "open_define" || ((q.mode === "typing" || q.mode === "cloze") && (!q.options || q.options.length === 0))) && (
                 <div style={{ marginBottom: 16 }}>
-                  {q.type === "open_sentence" && (
-                    <p style={{ fontSize: 13, color: "var(--muted-strong)", margin: "0 0 8px", lineHeight: 1.5 }}>
-                      {tr(isAr,
-                        "Write one clear sentence that uses this word naturally. Spelling counts.",
-                        "اكتب جملة واضحة تستخدم فيها الكلمة بشكل طبيعي. الإملاء مهم.")}
                     </p>
                   )}
                   {q.type === "open_define" && (
@@ -798,15 +795,9 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                         if (!raw) return;
                         // For open_sentence we accept any non-empty use of the word (soft check)
                         let correct = false;
-                        if (q.type === "open_sentence") {
-                          const norm = raw.toLowerCase();
-                          const w = String(q.word || "").toLowerCase();
-                          correct = w ? norm.includes(w) : raw.length > 8;
-                        } else {
-                          correct = isTypingCorrect(raw, q.correct || q.correctAnswer || "");
-                          if (!correct && Array.isArray(q.acceptedAnswers)) {
-                            correct = q.acceptedAnswers.some((a) => isTypingCorrect(raw, a));
-                          }
+                        correct = isTypingCorrect(raw, q.correct || q.correctAnswer || "");
+                        if (!correct && Array.isArray(q.acceptedAnswers)) {
+                          correct = q.acceptedAnswers.some((a) => isTypingCorrect(raw, a));
                         }
                         saveAnswerAt(index, raw, correct);
                       }}

@@ -214,6 +214,7 @@ export default function MainView({
     showTodo, setShowTodo, todoBubble, setTodoBubble, openTodo, closeTodo,
     showDayAchievements, openDayAchievements, closeDayAchievements,
     showGoals, setShowGoals, goalsBubble, setGoalsBubble, openGoals, closeGoals,
+    showLanguageNotes, setShowLanguageNotes, languageNotesBubble, setLanguageNotesBubble, openLanguageNotes, closeLanguageNotes,
     toolFullscreen,
   } = useToolViews();
   const [nightStudy, setNightStudy] = useState(() => {
@@ -257,6 +258,7 @@ export default function MainView({
   useHistoryBackClose(showExamMode, () => setShowExamMode(false));
   useHistoryBackClose(!!zoomEntry, () => { setZoomEntry(null); setZoomAlreadyExists(false); });
   useHistoryBackClose(showGoals, closeGoals);
+  useHistoryBackClose(showLanguageNotes, closeLanguageNotes);
   useHistoryBackClose(showTodo, closeTodo);
   useHistoryBackClose(showInfoGuide, () => setShowInfoGuide(false));
   useHistoryBackClose(showWeaknessReview, () => setShowWeaknessReview(false));
@@ -764,6 +766,7 @@ export default function MainView({
               onExamMode={() => setShowExamMode(true)}
               onFlashcards={() => setShowFlashcards(true)}
               onTimer={openTimer}
+              onLanguageNotes={openLanguageNotes}
               onCalendar={openCalendar}
               onTodo={openTodo}
               onDayAchievements={openDayAchievements}
@@ -1464,8 +1467,13 @@ export default function MainView({
       setTodoBubble={setTodoBubble}
       openTodo={openTodo}
       showGoals={showGoals}
+      showLanguageNotes={showLanguageNotes}
       goalsBubble={goalsBubble}
       closeGoals={closeGoals}
+      closeLanguageNotes={closeLanguageNotes}
+      openLanguageNotes={openLanguageNotes}
+      languageNotesBubble={languageNotesBubble}
+      setLanguageNotesBubble={setLanguageNotesBubble}
       setGoalsBubble={setGoalsBubble}
       openGoals={openGoals}
     />

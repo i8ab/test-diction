@@ -3049,3 +3049,18 @@ select {
     max-width: min(92vw, 560px) !important;
   }
 }
+
+
+/* Keyboard-aware modals: keep focused fields visible on phone/tablet */
+.kb-aware-modal {
+  max-height: min(92dvh, 100dvh - var(--kb-inset, 0px)) !important;
+}
+@supports (height: 100dvh) {
+  .kb-aware-modal {
+    max-height: calc(100dvh - var(--kb-inset, 0px) - 8px) !important;
+  }
+}
+.kb-aware-modal input:focus,
+.kb-aware-modal textarea:focus {
+  scroll-margin-bottom: calc(24px + var(--kb-inset, 0px));
+}

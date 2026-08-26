@@ -147,6 +147,7 @@ function AuthScreens({
 }) {
   const isSocialSignup = !!(socialDraft && socialDraft.provider && socialDraft.providerId);
   const [showLoginPw, setShowLoginPw] = useState(false);
+  const [lampOn, setLampOn] = useState(true);
   const [showSignupPw, setShowSignupPw] = useState(false);
   const [showSignupPw2, setShowSignupPw2] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
@@ -1178,6 +1179,24 @@ function AuthScreens({
               )}
             </p>
           )}
+          {/* Lamp toggle — lights up the login form (responsive) */}
+          <div className="auth-lamp-stage" aria-hidden="false">
+            <button
+              type="button"
+              className={"auth-lamp" + (lampOn ? " is-on" : "")}
+              onClick={() => setLampOn((v) => !v)}
+              aria-label={atr("Toggle login form light", "تشغيل/إطفاء إضاءة نموذج الدخول")}
+              title={atr("Pull the string to toggle", "اسحب الخيط للتبديل")}
+            >
+              <span className="auth-lamp-shade" />
+              <span className="auth-lamp-bulb" />
+              <span className="auth-lamp-beam" />
+              <span className="auth-lamp-pull" />
+              <span className="auth-lamp-pole" />
+              <span className="auth-lamp-base" />
+            </button>
+          </div>
+          <div className={"auth-form-panel " + (lampOn ? "is-lit" : "is-dimmed")}>
           <form onSubmit={handleLogin}>
             <div className="auth-field-1">
               <label style={labelStyle} htmlFor="login-username"><UserIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Username", "اسم المستخدم")}</label>
@@ -1238,6 +1257,7 @@ function AuthScreens({
               {atr("Request one", "اطلب حسابًا")}
             </a>
           </p>
+          </div>
         </div>
       </Shell>
     );

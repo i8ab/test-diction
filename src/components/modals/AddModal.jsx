@@ -1,5 +1,6 @@
 // Add/edit-word form modal.
 import { useState, useEffect, useRef } from "react";
+import { useKeyboardAware, keyboardAwareBodyStyle } from "../../lib/utils/useKeyboardAware";
 import { tr } from "../../lib/config/i18n";
 import { normalizePairs } from "../../lib/utils/pairUtils";
 import { fetchDictionarySuggestion, DictionaryLookupError } from "../../lib/utils/dictionaryApi";

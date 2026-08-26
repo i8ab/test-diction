@@ -563,10 +563,14 @@ export function isTypingCorrect(typed, correct) {
 export function quizQuestionLabel(modeOrType, isAr, pos, multi = false) {
   let base;
   const t = modeOrType || "mcq";
-  if (t === "cloze") {
-    base = isAr ? "أكمل الفراغ بالكلمة الصحيحة" : "Fill in the blank with the correct word";
+  if (t === "cloze" || t === "sentence_completion") {
+    base = isAr ? "أكمل الجملة بالكلمة المناسبة" : "Complete the sentence with the suitable word";
   } else if (t === "typing") {
     base = isAr ? "اكتب المعنى" : "Type the meaning";
+  } else if (t === "open_sentence") {
+    base = isAr ? "اكتب جملة من عندك باستخدام الكلمة" : "Write a sentence of your own using the word";
+  } else if (t === "open_define") {
+    base = isAr ? "اكتب معنى الكلمة بأسلوبك" : "Write the meaning of the word in your own words";
   } else if (t === "synonym") {
     base = multi
       ? (isAr ? "اختر مرادفين صحيحين" : "Pick two correct synonyms")
@@ -585,7 +589,7 @@ export function quizQuestionLabel(modeOrType, isAr, pos, multi = false) {
   if (!pos) return base;
   const tag = posLabel(pos, isAr);
   if (!tag) return base;
-  return isAr ? `${base} — دي (${tag})` : `${base} — as a ${tag}`;
+  return isAr ? `${base} — (${tag})` : `${base} — as a ${tag}`;
 }
 
 export const QUIZ_RESULT_CATEGORIES = [
@@ -769,6 +773,117 @@ export function buildClozeQuiz(matchingEntries, allEntries, limit = 20) {
     }
   }
   return shuffle(questions);
+}
+
+
+
+/**
+ * Egyptian Baccalaureate–style English quiz builder.
+ * Separates multiple-choice (Part A) from open / productive questions (Part B).
+ * Question types mirror common Thanaweya Amma English paper patterns:
+ *   - MCQ meaning / synonym / antonym
+ *   - Sentence completion (cloze)
+ *   - Contextual choice
+ *   - Open: write a sentence using the word / give definition
+ */
+export function buildBaccalaureateQuiz(matchingEntries, allEntries, opts = {}) {
+  const {
+    mcqLimit = 12,
+    openLimit = 6,
+    includeCloze = true,
+  } = opts;
+  if (!matchingEntries || matchingEntries.length < 1) {
+    return { mcq: [], open: [], all: [] };
+  }
+
+  const mcq = buildQuiz(matchingEntries, allEntries, "mcq").slice(0, mcqLimit);
+
+  // Enrich MCQ with a few cloze items when examples exist
+  if (includeCloze) {
+    const cloze = buildClozeQuiz(matchingEntries, allEntries, Math.min(4, Math.ceil(mcqLimit / 3)));
+    for (const q of cloze) {
+      // Convert cloze to MCQ-style when possible by offering word options
+      const distractors = shuffle(
+        (allEntries || matchingEntries)
+          .filter((e) => e.id !== q.entryId && e.word)
+          .map((e) => e.word)
+      ).slice(0, 3);
+      if (distractors.length >= 2) {
+        const options = shuffle([q.correct, ...distractors]).slice(0, 4);
+        mcq.push({
+          ...q,
+          mode: "mcq",
+          type: "sentence_completion",
+          options,
+          multi: false,
+          selectCount: 1,
+        });
+      }
+    }
+  }
+
+  // Open / productive questions (essay-style / free response)
+  const open = [];
+  const openCandidates = shuffle([...matchingEntries]).slice(0, Math.min(matchingEntries.length, openLimit * 2));
+  for (const entry of openCandidates) {
+    if (open.length >= openLimit) break;
+    const isArWord = entry.section === "ar-ar";
+    const wordDir = isArWord ? "rtl" : "ltr";
+    const wordFont = isArWord ? "'Amiri', serif" : "'Fraunces', serif";
+    const senses = getEntrySenses(entry);
+    const meaning = (senses[0] && senses[0].meaning) || entry.meaning || "";
+    const example = pickEntryExample(entry);
+
+    // Type 1: Use the word in a sentence of your own
+    open.push({
+      id: `${entry.id}:open-sentence`,
+      entryId: entry.id,
+      word: entry.word,
+      meaning,
+      correct: entry.word,
+      correctAnswer: entry.word,
+      acceptedAnswers: [entry.word],
+      options: [],
+      type: "open_sentence",
+      mode: "open",
+      pos: (senses[0] && senses[0].pos) || entry.pos || "",
+      promptText: entry.word,
+      promptDir: wordDir,
+      promptFont: wordFont,
+      wordDir,
+      wordFont,
+      openInstruction: true,
+      sampleExample: example || "",
+    });
+
+    if (open.length >= openLimit) break;
+
+    // Type 2: Write / recall the meaning (productive)
+    if (meaning) {
+      open.push({
+        id: `${entry.id}:open-define`,
+        entryId: entry.id,
+        word: entry.word,
+        meaning,
+        correct: meaning,
+        correctAnswer: meaning,
+        acceptedAnswers: [meaning, ...(senses.map((s) => s.meaning).filter(Boolean))],
+        options: [],
+        type: "open_define",
+        mode: "open",
+        pos: (senses[0] && senses[0].pos) || entry.pos || "",
+        promptText: entry.word,
+        promptDir: wordDir,
+        promptFont: wordFont,
+        wordDir,
+        wordFont,
+        openInstruction: true,
+      });
+    }
+  }
+
+  const all = [...mcq.slice(0, mcqLimit), ...open.slice(0, openLimit)];
+  return { mcq: mcq.slice(0, mcqLimit), open: open.slice(0, openLimit), all };
 }
 
 

@@ -918,7 +918,7 @@ function AuthScreens({
             )}
             {signupError && <div style={errorStyle} role="alert" aria-live="assertive">{translateAdminError(signupError, appIsAr)}</div>}
             <button type="submit" disabled={signupSaving} className="btn-shine touch-target" style={{ ...primaryBtnStyle, minHeight: 48 }}>
-              {signupSaving ? <LoaderIcon size={16} /> : <PlusIcon size={16} />} {atr("Request account", "طلب إنشاء حساب")}
+              {signupSaving ? <LoaderIcon size={16} /> : <PlusIcon size={16} />} {atr("Send my request", "ابعت الطلب")}
             </button>
           </form>
           {!isSocialSignup && (
@@ -986,7 +986,7 @@ function AuthScreens({
     return (
       <Shell>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--muted-strong)", animation: "fadeIn 0.4s ease" }}>
-          <LoaderIcon size={18} /><span>{atr("Signing you in…", "جارٍ تسجيل الدخول…")}</span>
+          <LoaderIcon size={18} /><span>{atr("One moment — signing you in…", "لحظة واحدة — بنسجّلك دخول…")}</span>
         </div>
       </Shell>
     );
@@ -1228,7 +1228,7 @@ function AuthScreens({
             </div>
             {authError && <div style={errorStyle} role="alert" aria-live="assertive">{translateAdminError(authError, appIsAr)}</div>}
             <button type="submit" disabled={loggingIn} className="btn-shine auth-field-3 touch-target" style={{ ...primaryBtnStyle, minHeight: 48 }}>
-              {loggingIn ? <LoaderIcon size={16} /> : <LoginIcon size={16} />} {atr("Enter", "دخول")}
+              {loggingIn ? <LoaderIcon size={16} /> : <LoginIcon size={16} />} {atr("Let's go in", "يلا ندخل")}
             </button>
           </form>
           <SocialButtons atr={atr} handleSocialLogin={handleSocialLogin} busy={socialBusy} setBusy={setSocialBusy} />

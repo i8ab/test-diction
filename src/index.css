@@ -2926,3 +2926,126 @@ select {
 .section-tab {
   padding: 8px 14px !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   PUNCHY / AGGRESSIVE MODALS — striking, high-contrast, memorable
+   ═══════════════════════════════════════════════════════════════ */
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.62) !important;
+  backdrop-filter: blur(8px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(1.2) !important;
+}
+.modal-card {
+  border-radius: 16px !important;
+  border: 2px solid color-mix(in srgb, var(--accent-1) 55%, rgba(var(--border-rgb), 0.4)) !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.18),
+    0 12px 40px -8px rgba(0, 0, 0, 0.55),
+    0 32px 80px -24px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  background: color-mix(in srgb, var(--card) 96%, transparent) !important;
+  backdrop-filter: blur(20px) saturate(1.25) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.25) !important;
+  animation: modalPunchIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes modalPunchIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.modal-card h2,
+.modal-card [id$="-modal-title"] {
+  letter-spacing: -0.02em;
+  font-weight: 700 !important;
+}
+/* Strong primary action inside modals */
+.modal-card button[style*="primary"],
+.modal-card .btn-primary,
+.modal-actions button:first-child {
+  box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--accent-1) 55%, transparent) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CREATIVE LIST-OF-ITEMS — not ordinary buttons
+   ═══════════════════════════════════════════════════════════════ */
+.entry-card,
+.word-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px !important;
+  border: 1.5px solid color-mix(in srgb, var(--border-rgb) 35%, transparent) !important;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease !important;
+}
+.entry-card::before,
+.word-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--accent-1), var(--accent-2, var(--brass)));
+  opacity: 0.85;
+  border-radius: 14px 0 0 14px;
+}
+.entry-card:hover,
+.word-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent-1) 45%, transparent) !important;
+  box-shadow:
+    0 8px 28px -10px rgba(0, 0, 0, 0.28),
+    0 0 0 1px color-mix(in srgb, var(--accent-1) 20%, transparent) !important;
+}
+.entry-card:active,
+.word-card:active {
+  transform: translateY(0);
+}
+
+/* Creative chip / list item alternative layout */
+.list-item-creative {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  border: 1px solid rgba(var(--border-rgb), 0.18);
+  box-shadow: 0 4px 16px -8px rgba(0, 0, 0, 0.18);
+  transition: all 0.2s ease;
+}
+.list-item-creative:hover {
+  transform: translateX(4px);
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.25);
+}
+.list-item-creative .accent-rail {
+  width: 5px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, var(--accent-1), color-mix(in srgb, var(--accent-1) 40%, var(--brass)));
+}
+.list-item-creative .body {
+  flex: 1;
+  padding: 12px 14px;
+}
+
+/* Responsive polish */
+@media (max-width: 640px) {
+  .modal-card {
+    border-radius: 18px 18px 0 0 !important;
+    max-height: 92dvh !important;
+    margin-top: auto !important;
+  }
+  .entry-card,
+  .word-card {
+    border-radius: 12px !important;
+  }
+}
+@media (min-width: 768px) and (max-width: 1024px) {
+  .modal-card {
+    max-width: min(92vw, 560px) !important;
+  }
+}

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
 import {
-  uid, quizRangeStart, selectQuizEntries, isTypingCorrect, buildQuiz,
+  uid, quizRangeStart, selectQuizEntries, isTypingCorrect, buildQuiz, buildBaccalaureateQuiz,
   quizQuestionLabel, isSrsDue, quizResultCategory, QUIZ_RESULT_CATEGORIES, formatQuizDuration,
 } from "../../lib/utils/quizHelpers";
 import { SpeakButton, XIcon, CheckIcon, EyeIcon, QuizIcon } from "../common/Icons";
@@ -185,7 +185,19 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
   }
 
   function startQuiz() {
-    const built = buildQuiz(matchingEntries, unitFilteredEntries, mode) || [];
+    // Baccalaureate-style: MCQ (Part A) + Open productive questions (Part B)
+    // when the learner chooses the classic multiple-choice path.
+    let built = [];
+    if (mode === "mcq" || mode === "bac") {
+      const pack = buildBaccalaureateQuiz(matchingEntries, unitFilteredEntries, {
+        mcqLimit: 12,
+        openLimit: 5,
+        includeCloze: true,
+      });
+      built = pack.all || [];
+    } else {
+      built = buildQuiz(matchingEntries, unitFilteredEntries, mode) || [];
+    }
     if (!built.length) {
       setStartError(tr(isAr,
         "Not enough words yet to build a quiz from this selection — add a few more words to the dictionary or pick a wider time range.",
@@ -666,6 +678,22 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                 }} />
               </div>
 
+              {/* Baccalaureate part indicator */}
+              {(q.mode === "open" || q.type === "open_sentence" || q.type === "open_define" || q.type === "sentence_completion") && (
+                <div style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  marginBottom: 10, padding: "4px 10px", borderRadius: 999,
+                  background: q.mode === "open" ? "color-mix(in srgb, var(--accent-2) 18%, transparent)" : "color-mix(in srgb, var(--accent-1) 16%, transparent)",
+                  border: `1px solid color-mix(in srgb, ${q.mode === "open" ? "var(--accent-2)" : "var(--accent-1)"} 40%, transparent)`,
+                  fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase",
+                  color: q.mode === "open" ? "var(--accent-2)" : "var(--accent-1)",
+                }}>
+                  {q.mode === "open"
+                    ? tr(isAr, "Part B · Open response", "الجزء ب · إجابة مفتوحة")
+                    : tr(isAr, "Part A · Multiple choice", "الجزء أ · اختيار من متعدد")}
+                </div>
+              )}
+
               {/* Question type label */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                 <p style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-strong)", margin: 0, letterSpacing: "0.02em", textTransform: "uppercase" }}>
@@ -720,9 +748,91 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                 )}
               </div>
 
+              {/* Open / productive response (Baccalaureate Part B) */}
+              {(q.mode === "open" || q.type === "open_sentence" || q.type === "open_define" || (!q.options || q.options.length === 0)) && (
+                <div style={{ marginBottom: 16 }}>
+                  {q.type === "open_sentence" && (
+                    <p style={{ fontSize: 13, color: "var(--muted-strong)", margin: "0 0 8px", lineHeight: 1.5 }}>
+                      {tr(isAr,
+                        "Write one clear sentence that uses this word naturally. Spelling counts.",
+                        "اكتب جملة واضحة تستخدم فيها الكلمة بشكل طبيعي. الإملاء مهم.")}
+                    </p>
+                  )}
+                  {q.type === "open_define" && (
+                    <p style={{ fontSize: 13, color: "var(--muted-strong)", margin: "0 0 8px", lineHeight: 1.5 }}>
+                      {tr(isAr,
+                        "Explain the meaning in your own words — Arabic or English is fine.",
+                        "اشرح المعنى بأسلوبك — عربي أو إنجليزي تمامًا.")}
+                    </p>
+                  )}
+                  {q.sampleExample ? (
+                    <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 10px", fontStyle: "italic" }}>
+                      {tr(isAr, "Example you saw before: ", "مثال شفته قبل كده: ")}{q.sampleExample}
+                    </p>
+                  ) : null}
+                  <textarea
+                    value={typedAnswer}
+                    onChange={(e) => setTypedAnswer(e.target.value)}
+                    disabled={isLocked}
+                    rows={3}
+                    placeholder={tr(isAr, "Type your answer here…", "اكتب إجابتك هنا…")}
+                    dir="auto"
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      border: "1.5px solid rgba(var(--border-rgb),0.22)",
+                      background: "var(--input-bg)",
+                      color: INK,
+                      fontSize: 15,
+                      lineHeight: 1.5,
+                      resize: "vertical",
+                      fontFamily: "inherit",
+                    }}
+                  />
+                  {!isAnswered && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const raw = (typedAnswer || "").trim();
+                        if (!raw) return;
+                        // For open_sentence we accept any non-empty use of the word (soft check)
+                        let correct = false;
+                        if (q.type === "open_sentence") {
+                          const norm = raw.toLowerCase();
+                          const w = String(q.word || "").toLowerCase();
+                          correct = w ? norm.includes(w) : raw.length > 8;
+                        } else {
+                          correct = isTypingCorrect(raw, q.correct || q.correctAnswer || "");
+                          if (!correct && Array.isArray(q.acceptedAnswers)) {
+                            correct = q.acceptedAnswers.some((a) => isTypingCorrect(raw, a));
+                          }
+                        }
+                        saveAnswerAt(index, raw, correct);
+                      }}
+                      style={{ ...primaryBtnStyle, marginTop: 10, width: "100%" }}
+                    >
+                      {tr(isAr, "Submit answer", "تسليم الإجابة")}
+                    </button>
+                  )}
+                  {showFeedback && isAnswered && (
+                    <div style={{
+                      marginTop: 10, padding: "10px 12px", borderRadius: 10,
+                      background: currentAnswer?.correct ? "var(--success-bg)" : "var(--danger-bg)",
+                      border: `1px solid ${currentAnswer?.correct ? "var(--success)" : "var(--danger-border)"}`,
+                      fontSize: 13, color: currentAnswer?.correct ? "var(--success)" : "var(--danger)",
+                    }}>
+                      {currentAnswer?.correct
+                        ? tr(isAr, "Nice work — that looks solid.", "تمام، إجابة كويسة.")
+                        : tr(isAr, `Model answer: ${q.correctAnswer || q.correct || "—"}`, `الإجابة النموذجية: ${q.correctAnswer || q.correct || "—"}`)}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Options */}
               <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-                {q.options.map((opt, i) => {
+                {(q.options || []).map((opt, i) => {
                   const corrects = q.correctAnswers || [q.correct];
                   const isCorrectOpt = corrects.includes(opt);
                   const isSelectedOpt = selectedList.includes(opt);

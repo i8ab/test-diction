@@ -1,11 +1,109 @@
-/* Auth screens CSS — lazy-loaded with AuthScreens.jsx */
+/* Auth screens — elegant, natural, human-feeling (not template-y) */
 @keyframes floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
 @keyframes floatSlow { 0%, 100% { transform: translate(0,0) scale(1); } 50% { transform: translate(14px,-18px) scale(1.06); } }
 @keyframes staggerIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(22px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes softGlow {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-1) 0%, transparent); }
+  50% { box-shadow: 0 0 40px -8px color-mix(in srgb, var(--accent-1) 28%, transparent); }
+}
 
-.auth-card { animation: fadeInUp 0.55s cubic-bezier(0.22,1,0.36,1) both; }
+.auth-card {
+  animation: fadeInUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  border-radius: 20px !important;
+  border: 1.5px solid color-mix(in srgb, var(--accent-1) 22%, rgba(var(--border-rgb), 0.2)) !important;
+  box-shadow:
+    0 4px 6px -2px rgba(0, 0, 0, 0.06),
+    0 20px 48px -16px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  background: color-mix(in srgb, var(--card) 94%, transparent) !important;
+  backdrop-filter: blur(22px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(1.2) !important;
+  max-width: 420px;
+  width: 100%;
+  padding: 28px 26px 24px !important;
+}
 .auth-field-1 { animation: staggerIn 0.5s ease both 0.08s; }
 .auth-field-2 { animation: staggerIn 0.5s ease both 0.16s; }
 .auth-field-3 { animation: staggerIn 0.5s ease both 0.24s; }
 .auth-badge { animation: floatY 4.5s ease-in-out infinite; }
-.auth-orb { position: absolute; border-radius: 50%; opacity: 0.55; pointer-events: none; animation: floatSlow 10s ease-in-out infinite; will-change: transform; }
+.auth-orb {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.55;
+  pointer-events: none;
+  animation: floatSlow 10s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Natural form fields — soft, readable, not robotic */
+.auth-card input[type="text"],
+.auth-card input[type="password"],
+.auth-card input[type="email"],
+.auth-card input[type="date"],
+.auth-card select,
+.auth-card textarea {
+  border-radius: 12px !important;
+  border: 1.5px solid rgba(var(--border-rgb), 0.2) !important;
+  padding: 12px 14px !important;
+  font-size: 15px !important;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
+  background: var(--input-bg) !important;
+}
+.auth-card input:focus,
+.auth-card select:focus,
+.auth-card textarea:focus {
+  outline: none !important;
+  border-color: color-mix(in srgb, var(--accent-1) 55%, transparent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-1) 18%, transparent) !important;
+}
+
+/* Primary CTA — warm and confident */
+.auth-card button[type="submit"],
+.auth-card .auth-primary-btn {
+  border-radius: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.01em;
+  padding: 13px 18px !important;
+  box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--accent-1) 50%, transparent) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+.auth-card button[type="submit"]:hover,
+.auth-card .auth-primary-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px -8px color-mix(in srgb, var(--accent-1) 55%, transparent) !important;
+}
+.auth-card button[type="submit"]:active,
+.auth-card .auth-primary-btn:active {
+  transform: translateY(0);
+}
+
+/* Switch link between login / signup */
+.auth-switch-link {
+  font-size: 13.5px;
+  color: var(--muted-strong);
+  text-align: center;
+  margin-top: 18px;
+}
+.auth-switch-link button {
+  background: none;
+  border: none;
+  color: var(--accent-1);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 480px) {
+  .auth-card {
+    border-radius: 18px !important;
+    padding: 22px 18px 20px !important;
+    margin: 12px;
+  }
+}

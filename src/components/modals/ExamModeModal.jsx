@@ -528,7 +528,7 @@ export default function ExamModeModal({
             <FlameIcon size={19} color="#e85d04" />
             {tr(isAr, "Exam Mode", "وضع الامتحان")}
           </h2>
-          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <HowItWorksButton isAr={isAr} guideId="quiz" />
             <button
             onClick={handleClose}

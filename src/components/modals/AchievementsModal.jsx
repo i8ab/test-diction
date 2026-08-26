@@ -100,7 +100,7 @@ export default function AchievementsModal({
               ? tr(isAr, detail.en, detail.ar)
               : tr(isAr, "Achievements", "الإنجازات")}
           </h2>
-          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <HowItWorksButton isAr={isAr} guideId="achievements" />
             <button
             type="button"

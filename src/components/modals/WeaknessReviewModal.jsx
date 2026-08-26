@@ -181,7 +181,7 @@ export default function WeaknessReviewModal({
                 : tr(isAr, "No weak words", "لا توجد كلمات ضعيفة")}
             </div>
           </div>
-          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <HowItWorksButton isAr={isAr} guideId="srs" />
             <button
             type="button"

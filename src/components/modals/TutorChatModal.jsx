@@ -577,7 +577,7 @@ export default function TutorChatModal({
               </div>
             ) : null}
           </div>
-          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <HowItWorksButton isAr={isAr} guideId="settings" />
             <button
             type="button"

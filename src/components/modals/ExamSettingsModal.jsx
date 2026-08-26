@@ -158,7 +158,7 @@ export default function ExamSettingsModal({ examConfig, onPersist, isAr, onClose
             <FlameIcon size={18} color="#e85d04" />
             {tr(isAr, "Exam countdown", "عدّاد الامتحان")}
           </h2>
-          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <HowItWorksButton isAr={isAr} guideId="settings" />
             <button type="button" onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")}
             style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36 }}>

@@ -189,7 +189,7 @@ export default function SentencePracticeModal({
               {phase === "done" ? tr(isAr, "Finished", "انتهى") : `${idx + 1} / ${total}`}
             </div>
           </div>
-          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <HowItWorksButton isAr={isAr} guideId="cards" />
             <button
             type="button"

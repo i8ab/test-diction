@@ -132,7 +132,7 @@ export default function QuickReviewModal({
                 "جلسة قصيرة للكلمات اللي محتاجة مراجعة دلوقتي (مستحقة).")}
             </p>
           </div>
-          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <HowItWorksButton isAr={isAr} guideId="quick" />
             <button type="button" onClick={onClose} style={iconBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
             <XIcon size={18} />

@@ -627,7 +627,7 @@ export default function TodoPage({
         <button type="button" onClick={() => setViewMode("bubble")} style={headerBtn}>
           {tr(isAr, "Pin", "تثبيت")}
         </button>
-        <div style={ display: "flex", alignItems: "center", gap: 6 }>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <HowItWorksButton isAr={isAr} guideId="todo" />
             <button type="button" onClick={onClose} style={headerBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
           <XIcon size={15} />

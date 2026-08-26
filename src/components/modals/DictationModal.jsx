@@ -201,7 +201,7 @@ export default function DictationModal({
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: INK }}>
             {tr(isAr, "Listening & Dictation", "استماع وإملاء")}
           </h2>
-          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <HowItWorksButton isAr={isAr} guideId="quiz" />
             <button
             type="button"

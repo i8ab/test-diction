@@ -168,7 +168,7 @@ export default function DashboardPage({
               {name ? tr(isAr, `Hi, ${name}`, `مرحباً، ${name}`) : tr(isAr, "Your progress", "تقدّمك")}
             </div>
           </div>
-          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <HowItWorksButton isAr={isAr} guideId="dashboard" />
             <button
             type="button"

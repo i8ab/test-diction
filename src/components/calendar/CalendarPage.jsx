@@ -387,7 +387,7 @@ export default function CalendarPage({
           >
             {tr(isAr, "Pin", "تثبيت")}
           </button>
-          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <HowItWorksButton isAr={isAr} guideId="calendar" />
             <button type="button" onClick={onClose} style={headerBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
             <XIcon size={16} />

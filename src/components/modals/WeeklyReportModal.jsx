@@ -254,7 +254,7 @@ export default function WeeklyReportModal({
               </div>
             </div>
           </div>
-          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <HowItWorksButton isAr={isAr} guideId="dashboard" />
             <button
             type="button"

@@ -207,7 +207,7 @@ export default function RandomWordModal({
           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: INK }}>
             {tr(isAr, "Random word", "كلمة عشوائية")}
           </h2>
-          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <HowItWorksButton isAr={isAr} guideId="random" />
             <button
             type="button"

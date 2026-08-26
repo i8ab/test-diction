@@ -1,5 +1,6 @@
 import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
+import { Z_INDEX } from "../../lib/config/zIndex";
 import { XIcon, BookIcon, QuizIcon, MicIcon, LayersIcon, CheckIcon, FlameIcon, StarIcon } from "../common/Icons";
 import { INFO_SECTION_DEFS } from "./headerMenuInfo";
 
@@ -30,7 +31,7 @@ export default function InfoGuidePanel({
           onClick={() => { /* Stay open unless X */ }}
           className="modal-backdrop"
           style={{
-            position: "fixed", inset: 0, zIndex: 3600,
+            position: "fixed", inset: 0, zIndex: Z_INDEX.INFO_GUIDE,
             background: "rgba(0,0,0,0.45)",
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: 16,

@@ -753,7 +753,6 @@ export default function MainView({
                 onPersistSiteBanner={onPersistSiteBanner}
                 onOpenExamSettings={isAdmin ? () => setShowExamSettings(true) : undefined}
                 myAccountCode={accountCode}
-                onOpenInfo={() => setShowInfoGuide(true)}
                 onOpenAchievements={() => setShowAchievements(true)}
               />
               <ToolsMenu

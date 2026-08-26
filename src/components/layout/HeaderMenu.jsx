@@ -5,7 +5,6 @@ import NotificationsModal from "./NotificationsModal";
 import SettingsModal from "./SettingsModal";
 import AppearanceModal from "./AppearanceModal";
 import { preloadSettingsHeavy } from "../modals/lazyModals";
-import InfoGuidePanel from "./InfoGuidePanel";
 import { DeviceModeModal, LangModal, AccentModal } from "./PreferenceModals";
 
 import { SettingsIcon } from "../common/Icons";
@@ -46,7 +45,6 @@ export default function HeaderMenu({
   onPersistSiteBanner = null,
   onOpenExamSettings = null,
   myAccountCode = null,
-  onOpenInfo = null,
   onOpenAchievements = null,
   vaultAccounts = [],
   mainAccountCode = "",
@@ -83,8 +81,6 @@ export default function HeaderMenu({
       return v === "compact" || v === "comfortable" || v === "normal" ? v : "normal";
     } catch (_) { return "normal"; }
   });
-  const [infoOpen, setInfoOpen] = useState(false);
-  const [infoExpanded, setInfoExpanded] = useState(null);
   const ref = useRef(null);
 
 
@@ -128,29 +124,9 @@ export default function HeaderMenu({
     setSettingsOpen(false);
     setNotifOpen(false);
     setBannerOpen(false);
-    setInfoOpen(false);
-    setInfoExpanded(null);
-  }
-
-  function openInfoModal() {
-    setNotifOpen(false);
-    setBannerOpen(false);
-    setInfoExpanded(null);
-    // Keep settings open underneath — info guide stacks above it
-    if (onOpenInfo) {
-      onOpenInfo();
-      return;
-    }
-    setInfoOpen(true);
-  }
-
-  function closeInfoModal() {
-    setInfoOpen(false);
-    setInfoExpanded(null);
   }
 
   function openNotifModal() {
-    setInfoOpen(false);
     setBannerOpen(false);
     setNotifOpen(true);
   }
@@ -160,7 +136,6 @@ export default function HeaderMenu({
   }
 
   function openBannerModal() {
-    setInfoOpen(false);
     setNotifOpen(false);
     setBannerOpen(true);
   }
@@ -181,7 +156,7 @@ export default function HeaderMenu({
   }, [open]);
 
   useEffect(() => {
-    if (!settingsOpen && !notifOpen && !bannerOpen && !infoOpen && !langModalOpen && !deviceModalOpen && !accentModalOpen && !appearanceModalOpen) return;
+    if (!settingsOpen && !notifOpen && !bannerOpen && !langModalOpen && !deviceModalOpen && !accentModalOpen && !appearanceModalOpen) return;
     function onKeyDown(e) {
       if (e.key !== "Escape") return;
       // Close topmost modal first
@@ -189,17 +164,16 @@ export default function HeaderMenu({
       if (accentModalOpen) { setAccentModalOpen(false); return; }
       if (deviceModalOpen) { setDeviceModalOpen(false); return; }
       if (langModalOpen) { setLangModalOpen(false); return; }
-      if (infoOpen) { closeInfoModal(); return; }
       if (notifOpen) { closeNotifModal(); return; }
       if (bannerOpen) { closeBannerModal(); return; }
       if (settingsOpen) closeSettings();
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [settingsOpen, notifOpen, bannerOpen, infoOpen, langModalOpen, deviceModalOpen, accentModalOpen, appearanceModalOpen]);
+  }, [settingsOpen, notifOpen, bannerOpen, langModalOpen, deviceModalOpen, accentModalOpen, appearanceModalOpen]);
 
   // Lock background scroll for any open settings-style modal (click-outside still closes).
-  useBodyScrollLock(open || settingsOpen || notifOpen || bannerOpen || infoOpen || langModalOpen || accentModalOpen || appearanceModalOpen);
+  useBodyScrollLock(open || settingsOpen || notifOpen || bannerOpen || langModalOpen || accentModalOpen || appearanceModalOpen);
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
@@ -240,7 +214,6 @@ export default function HeaderMenu({
         onLogout={onLogout}
         onOpenNotif={openNotifModal}
         onOpenBanner={openBannerModal}
-        onOpenInfo={openInfoModal}
         onOpenExamSettings={onOpenExamSettings}
         onOpenAchievements={onOpenAchievements}
         onEnableReminders={onEnableReminders}
@@ -270,16 +243,6 @@ export default function HeaderMenu({
         onLogoutAll={onLogoutAll}
         onLinkAccount={onLinkAccount}
         myAccountCode={myAccountCode}
-      />
-
-      {/* Information modal — same style as Settings, sized to content */}
-      <InfoGuidePanel
-        open={infoOpen}
-        onClose={closeInfoModal}
-        isAr={isAr}
-        appLang={appLang}
-        infoExpanded={infoExpanded}
-        setInfoExpanded={setInfoExpanded}
       />
 
       <DeviceModeModal

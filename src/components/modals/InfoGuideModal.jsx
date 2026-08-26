@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { tr } from "../../lib/config/i18n";
+import { Z_INDEX } from "../../lib/config/zIndex";
 import { XIcon, ChevronIcon, BookIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
@@ -347,7 +348,7 @@ export default function InfoGuideModal({ isAr, onClose, initialId = null }) {
       aria-modal="true"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{
-        position: "fixed", inset: 0, zIndex: 9000,
+        position: "fixed", inset: 0, zIndex: Z_INDEX.INFO_GUIDE,
         background: "rgba(0,0,0,0.55)",
         display: "flex", alignItems: "center", justifyContent: "center",
         padding: 16,

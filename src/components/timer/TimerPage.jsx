@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import "./timer.css";
 import { tr } from "../../lib/config/i18n";
+import { Z_INDEX } from "../../lib/config/zIndex";
 import { XIcon, ClockIcon } from "../common/Icons";
 import HowItWorksButton from "../common/HowItWorksButton";
 import NumberStepper from "../common/NumberStepper";
@@ -982,7 +983,7 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
         onPointerCancel={onPointerUp}
         style={{
           position: "fixed",
-          zIndex: 6000,
+          zIndex: Z_INDEX.BUBBLE,
           ...(useDefaultCorner
             ? { bottom: "max(16px, env(safe-area-inset-bottom))", insetInlineEnd: 16 }
             : { left, top }),
@@ -1061,7 +1062,7 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 6000,
+        zIndex: Z_INDEX.TOOL_FULL,
         display: "flex",
         flexDirection: "column",
         background: bgCss,
@@ -1352,7 +1353,7 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
           style={{
             position: "fixed",
             inset: 0,
-            zIndex: 10000,
+            zIndex: Z_INDEX.CRITICAL,
             background: "rgba(0,0,0,0.65)",
             display: "flex",
             alignItems: "center",

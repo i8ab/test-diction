@@ -3,12 +3,12 @@ import { createPortal } from "react-dom";
 import { tr, UI_LANGS } from "../../lib/config/i18n";
 import {
   XIcon, SunIcon, MoonIcon, GlobeIcon, PaletteIcon, BellIcon, BellOffIcon,
-  UserIcon, LogoutIcon, UsersIcon, MenuIcon, LayersIcon, SettingsIcon, BookIcon,
+  UserIcon, LogoutIcon, UsersIcon, MenuIcon, LayersIcon, SettingsIcon,
   CheckIcon, TrashIcon, LoaderIcon, FlameIcon, StarIcon, MicIcon,
 } from "../common/Icons";
 import HowItWorksButton from "../common/HowItWorksButton";
 import { loadEnAccent } from "../../lib/utils/speech";
-import { preloadAdminModal, preloadExamSettingsModal, preloadInfoGuideModal } from "../modals/lazyModals";
+import { preloadAdminModal, preloadExamSettingsModal } from "../modals/lazyModals";
 import {
   BRAND_PRESETS,
   loadPresetId,
@@ -34,7 +34,6 @@ export default function SettingsModal({
   onLogout,
   onOpenNotif,
   onOpenBanner,
-  onOpenInfo,
   onOpenExamSettings = null,
   onOpenAchievements = null,
   onEnableReminders = null,
@@ -282,18 +281,6 @@ export default function SettingsModal({
                   <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
                     {enAccentPref === "uk" ? T("British", "بريطاني") : T("American", "أمريكي")}
                     {isAr ? " ◂" : " ▸"}
-                  </span>
-                }
-              />
-
-              <Row
-                tint="#5b8def"
-                icon={<BookIcon size={16} />}
-                label={T("Information", "معلومات")}
-                onClick={() => onOpenInfo && onOpenInfo()} onPointerDown={() => { try { preloadInfoGuideModal(); } catch (_) {} }}
-                trailing={
-                  <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
-                    {isAr ? "◂" : "▸"}
                   </span>
                 }
               />

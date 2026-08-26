@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
+import { Z_INDEX } from "../../lib/config/zIndex";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { dateKey, computeStreak } from "../../lib/utils/quizHelpers";
 import { loadTimerDayStats, getTodayTimerMinutes } from "../../lib/state/goals";
@@ -232,7 +233,7 @@ export default function CalendarPage({
     const todayCount = dayMap[todayKey]?.count || 0;
     const style = {
       position: "fixed",
-      zIndex: 5500,
+      zIndex: Z_INDEX.BUBBLE,
       width: 168,
       borderRadius: 14,
       background: CARD,
@@ -350,7 +351,7 @@ export default function CalendarPage({
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 6000,
+        zIndex: Z_INDEX.TOOL_FULL,
         background: "var(--paper)",
         display: "flex",
         flexDirection: "column",

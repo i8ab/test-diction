@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
+import { Z_INDEX } from "../../lib/config/zIndex";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { XIcon, CheckIcon, PlusIcon, TrashIcon } from "../common/Icons";
 import HowItWorksButton from "../common/HowItWorksButton";
@@ -531,7 +532,7 @@ export default function TodoPage({
   if (viewMode === "bubble") {
     const style = {
       position: "fixed",
-      zIndex: 5500,
+      zIndex: Z_INDEX.BUBBLE,
       width: 168,
       borderRadius: 12,
       background: CARD,
@@ -596,7 +597,7 @@ export default function TodoPage({
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 6000,
+        zIndex: Z_INDEX.TOOL_FULL,
         background: "var(--paper)",
         display: "flex",
         flexDirection: "column",

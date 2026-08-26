@@ -23,7 +23,7 @@
    ============================================================================= */
 
 // Bumped for v1.1.3 (todos API + documentation/cleanup pass).
-const CACHE_VERSION = "bacaloria-v1.1.3";
+const CACHE_VERSION = "bacaloria-v1.1.6-all-optimizations";
 const NAVIGATION_TIMEOUT_MS = 8000;
 const APP_SHELL = [
   "/",

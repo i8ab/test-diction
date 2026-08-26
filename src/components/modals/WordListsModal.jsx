@@ -10,6 +10,7 @@ import {
   loadSharedList,
 } from "../../lib/state/wordLists";
 import { XIcon, CheckIcon, ShareIcon, DownloadIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 export default function WordListsModal({
@@ -130,9 +131,12 @@ export default function WordListsModal({
           <div style={{ fontSize: 18, fontWeight: 800, color: INK }}>
             {tr(isAr, "Word lists", "قوائم الكلمات")}
           </div>
-          <button type="button" onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}>
+          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="lists" />
+            <button type="button" onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}>
             <XIcon size={20} />
           </button>
+          </div>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
 

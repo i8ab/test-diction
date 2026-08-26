@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { srsLevelFromStats, isSrsDue } from "../../lib/utils/quizHelpers";
 import { XIcon, CheckIcon, SpeakButton } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { SECTIONS } from "../../lib/config/sections";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
@@ -180,7 +181,9 @@ export default function WeaknessReviewModal({
                 : tr(isAr, "No weak words", "لا توجد كلمات ضعيفة")}
             </div>
           </div>
-          <button
+          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="srs" />
+            <button
             type="button"
             onClick={onClose}
             aria-label={tr(isAr, "Close", "إغلاق")}
@@ -192,6 +195,7 @@ export default function WeaknessReviewModal({
           >
             <XIcon size={18} />
           </button>
+          </div>
         </div>
 
         <UnitScopePicker

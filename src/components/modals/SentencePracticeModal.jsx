@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD } from "../../lib/config/theme";
 import { srsLevelFromStats, isSrsDue, shuffleArray } from "../../lib/utils/quizHelpers";
 import { XIcon, SpeakButton, CheckIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { SECTIONS } from "../../lib/config/sections";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
@@ -188,7 +189,9 @@ export default function SentencePracticeModal({
               {phase === "done" ? tr(isAr, "Finished", "انتهى") : `${idx + 1} / ${total}`}
             </div>
           </div>
-          <button
+          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="cards" />
+            <button
             type="button"
             onClick={onClose}
             aria-label={tr(isAr, "Close", "إغلاق")}
@@ -200,6 +203,7 @@ export default function SentencePracticeModal({
           >
             <XIcon size={18} />
           </button>
+          </div>
         </div>
 
         <UnitScopePicker

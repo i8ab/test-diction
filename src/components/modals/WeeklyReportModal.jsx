@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { srsLevelFromStats, computeStreak, isSrsDue, formatDueIn } from "../../lib/utils/quizHelpers";
 import { XIcon, DownloadIcon, StatsIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 /**
@@ -253,7 +254,9 @@ export default function WeeklyReportModal({
               </div>
             </div>
           </div>
-          <button
+          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="dashboard" />
+            <button
             type="button"
             onClick={onClose}
             aria-label={tr(isAr, "Close", "إغلاق")}
@@ -265,6 +268,7 @@ export default function WeeklyReportModal({
           >
             <XIcon size={18} />
           </button>
+          </div>
         </div>
 
         {/* Summary cards */}

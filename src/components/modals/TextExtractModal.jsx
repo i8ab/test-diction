@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, labelStyle, primaryBtnStyle, inputStyle } from "../../lib/config/theme";
 import { XIcon, WandIcon, CheckIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { SECTIONS } from "../../lib/config/sections";
 
@@ -150,9 +151,12 @@ export default function TextExtractModal({
               {tr(isAr, "Extract from text", "استخراج من نص")}
             </div>
           </div>
-          <button type="button" onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <HowItWorksButton isAr={isAr} guideId="add" />
+            <button type="button" onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 6 }}>
             <XIcon size={20} />
           </button>
+          </div>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
 

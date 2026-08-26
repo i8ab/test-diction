@@ -4,6 +4,7 @@ import { INK, CARD, BRASS, labelStyle, inputStyle, primaryBtnStyle, errorStyle }
 import { speakWord } from "../../lib/utils/speech";
 import { isTypingCorrect, uid } from "../../lib/utils/quizHelpers";
 import { SpeakButton, XIcon, CheckIcon, EyeIcon, MicIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import NumberStepper from "../common/NumberStepper";
@@ -200,7 +201,9 @@ export default function DictationModal({
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: INK }}>
             {tr(isAr, "Listening & Dictation", "استماع وإملاء")}
           </h2>
-          <button
+          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="quiz" />
+            <button
             type="button"
             onClick={onClose}
             aria-label={tr(isAr, "Close", "إغلاق")}
@@ -208,6 +211,7 @@ export default function DictationModal({
           >
             <XIcon size={20} />
           </button>
+          </div>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
 

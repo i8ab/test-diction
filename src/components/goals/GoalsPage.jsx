@@ -7,6 +7,7 @@ import {
   getTodayTimerMinutes, loadWeeklyChallenge,
 } from "../../lib/state/goals";
 import { XIcon, FlameIcon, CheckIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import NumberStepper from "../common/NumberStepper";
 import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
@@ -146,9 +147,12 @@ export default function GoalsPage({
         <button type="button" onClick={() => setViewMode("bubble")} style={headerBtn}>
           {tr(isAr, "Pin", "تثبيت")}
         </button>
-        <button type="button" onClick={onClose} style={headerBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
+        <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="goals" />
+            <button type="button" onClick={onClose} style={headerBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
           <XIcon size={16} />
         </button>
+          </div>
       </header>
 
       <div style={{ flex: 1, overflow: "auto", padding: "16px", maxWidth: 480, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>

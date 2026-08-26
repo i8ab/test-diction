@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, Fragment } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, primaryBtnStyle } from "../../lib/config/theme";
 import { XIcon, CheckIcon, PlusIcon, TrashIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import {
   loadDayAchievements,
@@ -243,7 +244,10 @@ export default function DayAchievementsModal({
     fontSize: 13,
     color: INK,
     borderBottom: "1px solid rgba(var(--border-rgb),0.08)",
-    verticalAlign: "middle",
+    verticalAlign: "top",
+    wordBreak: "break-word",
+    overflowWrap: "anywhere",
+    maxWidth: 280,
   };
 
   return (
@@ -323,22 +327,7 @@ export default function DayAchievementsModal({
             )}
           </h2>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <button
-              type="button"
-              onClick={() => setShowHelp((v) => !v)}
-              style={{
-                border: "1px solid rgba(var(--border-rgb),0.2)",
-                background: showHelp ? "var(--accent-1-soft)" : "var(--input-bg)",
-                cursor: "pointer",
-                color: "var(--muted-strong)",
-                fontSize: 12,
-                fontWeight: 700,
-                padding: "6px 10px",
-                borderRadius: 10,
-              }}
-            >
-              {tr(isAr, "How it works", "إزاي بتشتغل؟")}
-            </button>
+            <HowItWorksButton isAr={isAr} guideId="dayAchievements" />
             <button
               onClick={onClose}
               aria-label={tr(isAr, "Close", "إغلاق")}
@@ -621,8 +610,17 @@ export default function DayAchievementsModal({
                                 : "transparent",
                             }}
                           >
-                            <td style={tdStyle}>
-                              <div style={{ fontWeight: 700, fontSize: 13.5 }}>
+                            <td style={{ ...tdStyle, minWidth: 140, maxWidth: 320 }}>
+                              <div
+                                style={{
+                                  fontWeight: 700,
+                                  fontSize: 13.5,
+                                  wordBreak: "break-word",
+                                  overflowWrap: "anywhere",
+                                  whiteSpace: "normal",
+                                  lineHeight: 1.35,
+                                }}
+                              >
                                 {entry.title}
                               </div>
                               {entry.note ? (
@@ -630,11 +628,12 @@ export default function DayAchievementsModal({
                                   style={{
                                     fontSize: 11.5,
                                     color: "var(--muted)",
-                                    marginTop: 2,
-                                    maxWidth: 200,
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
+                                    marginTop: 4,
+                                    wordBreak: "break-word",
+                                    overflowWrap: "anywhere",
+                                    whiteSpace: "normal",
+                                    lineHeight: 1.4,
+                                    maxWidth: "100%",
                                   }}
                                 >
                                   {entry.note}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { tr } from "../../lib/config/i18n";
 import { XIcon, LoaderIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { srsLevelFromStats, computeStreak, dateKey } from "../../lib/utils/quizHelpers";
 import { loadXp, levelFromXp } from "../../lib/state/xp";
@@ -576,7 +577,9 @@ export default function TutorChatModal({
               </div>
             ) : null}
           </div>
-          <button
+          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="settings" />
+            <button
             type="button"
             onClick={onClose}
             aria-label={tr(isAr, "Close", "إغلاق")}
@@ -596,6 +599,7 @@ export default function TutorChatModal({
           >
             <XIcon size={16} />
           </button>
+          </div>
         </div>
 
         {/* Messages only — no preset questions */}

@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, primaryBtnStyle } from "../../lib/config/theme";
 import { XIcon, TrophyIcon, StarIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { loadXp, levelFromXp, LEVELS, XP_REWARDS, XP_RULES } from "../../lib/state/xp";
 
@@ -56,9 +57,12 @@ export default function LevelsModal({ accountCode, isAr, onClose }) {
               {tr(isAr, "Levels & XP", "المستويات والنقاط")}
             </div>
           </div>
-          <button type="button" onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <HowItWorksButton isAr={isAr} guideId="achievements" />
+            <button type="button" onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 6 }}>
             <XIcon size={20} />
           </button>
+          </div>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
 

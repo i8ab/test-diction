@@ -2,6 +2,7 @@ import { useMemo, useEffect } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, primaryBtnStyle } from "../../lib/config/theme";
 import { XIcon, StatsIcon, FlameIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { loadProgressSnapshots, loadXp, levelFromXp, snapshotProgress } from "../../lib/state/xp";
 
@@ -156,9 +157,12 @@ export default function ProgressCompareModal({
               {tr(isAr, "You vs past you", "أنت ونفسك القديمة")}
             </div>
           </div>
-          <button type="button" onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <HowItWorksButton isAr={isAr} guideId="dashboard" />
+            <button type="button" onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 6 }}>
             <XIcon size={20} />
           </button>
+          </div>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
 

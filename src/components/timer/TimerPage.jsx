@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import "./timer.css";
 import { tr } from "../../lib/config/i18n";
 import { XIcon, ClockIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import NumberStepper from "../common/NumberStepper";
 import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import {
@@ -1082,6 +1083,18 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
           flexWrap: "wrap",
         }}
       >
+        <HowItWorksButton
+          isAr={isAr}
+          guideId="timer"
+          style={{
+            ...btnGhost,
+            padding: "8px 12px",
+            fontSize: 13,
+            background: panelBg,
+            color: prefs.textColor,
+            border: `1px solid ${panelBorder}`,
+          }}
+        />
         <button type="button" onClick={() => setShowSettings(true)} style={{ ...btnGhost, padding: "8px 12px", fontSize: 13, whiteSpace: "nowrap" }}>
           {tr(isAr, "Settings", "إعدادات")}
         </button>
@@ -1189,6 +1202,8 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
               color={prefs.textColor}
               fontFamily={'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}
               fontSize={`clamp(56px, ${Math.max(10, prefs.fontSize * 0.16)}vw, ${Math.round(prefs.fontSize * 1.25)}px)`}
+              cardBg={prefs.flipCardBg || "#000000"}
+              cardOpacity={typeof prefs.flipCardOpacity === "number" ? prefs.flipCardOpacity : 1}
             />
           ) : (
             <PlainDigits
@@ -1231,19 +1246,20 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
           </div>
         )}
 
-        {/* Today total + compact 24h session history */}
-        <div
-          style={{
-            width: "100%",
-            maxWidth: 420,
-            marginTop: 2,
-            padding: "6px 10px",
-            borderRadius: 10,
-            background: "rgba(0,0,0,0.18)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            textAlign: "start",
-          }}
-        >
+        {/* Today total + compact 24h session history — toggleable via prefs.showLowerCounter */}
+        {prefs.showLowerCounter !== false && (
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 420,
+              marginTop: 2,
+              padding: "6px 10px",
+              borderRadius: 10,
+              background: "rgba(0,0,0,0.18)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              textAlign: "start",
+            }}
+          >
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <span style={{ fontSize: 12, fontWeight: 700 }}>
               {tr(isAr, "Today", "اليوم")}: {todayTotalMin} {tr(isAr, "min study", "د مذاكرة")}
@@ -1274,7 +1290,8 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
               })}
             </ul>
           )}
-        </div>
+          </div>
+        )}
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
           {!pomoAwaiting && (
@@ -1724,6 +1741,71 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
                   {tr(isAr, "Flip cards", "كروت قلّابة")}
                 </button>
               </div>
+            </section>
+
+            {prefs.flipDigits && (
+              <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div>
+                  <Label muted={muted}>{tr(isAr, "Card background", "خلفية الكرت")}</Label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <input
+                      type="color"
+                      value={prefs.flipCardBg || "#000000"}
+                      onChange={(e) => updatePref({ flipCardBg: e.target.value })}
+                      style={{ width: 48, height: 36, border: "none", background: "none", cursor: "pointer" }}
+                    />
+                    <span style={{ fontSize: 13, fontFamily: "ui-monospace, monospace", opacity: 0.8 }}>
+                      {prefs.flipCardBg || "#000000"}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <Label muted={muted}>
+                    {tr(isAr, "Card opacity", "شفافية الكرت")} — {Math.round((typeof prefs.flipCardOpacity === "number" ? prefs.flipCardOpacity : 1) * 100)}%
+                  </Label>
+                  <input
+                    type="range"
+                    min={10}
+                    max={100}
+                    value={Math.round((typeof prefs.flipCardOpacity === "number" ? prefs.flipCardOpacity : 1) * 100)}
+                    onChange={(e) => updatePref({ flipCardOpacity: Number(e.target.value) / 100 })}
+                    style={{ width: "100%", accentColor: prefs.textColor }}
+                  />
+                </div>
+              </section>
+            )}
+
+            <section>
+              <Label muted={muted}>{tr(isAr, "Lower counter", "العداد السفلي")}</Label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => updatePref({ showLowerCounter: true })}
+                  style={{
+                    ...btnGhost,
+                    outline: prefs.showLowerCounter !== false ? `2px solid ${prefs.textColor}` : "none",
+                  }}
+                >
+                  {tr(isAr, "Show", "إظهار")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updatePref({ showLowerCounter: false })}
+                  style={{
+                    ...btnGhost,
+                    outline: prefs.showLowerCounter === false ? `2px solid ${prefs.textColor}` : "none",
+                  }}
+                >
+                  {tr(isAr, "Hide", "إخفاء")}
+                </button>
+              </div>
+              <p style={{ fontSize: 12, opacity: 0.75, margin: "6px 0 0" }}>
+                {tr(
+                  isAr,
+                  "When hidden, only the main timer stays visible.",
+                  "عند الإخفاء يبقى المؤقت الرئيسي فقط مرئياً."
+                )}
+              </p>
             </section>
 
             {/* Size + color */}

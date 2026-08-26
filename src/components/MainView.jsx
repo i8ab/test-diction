@@ -236,6 +236,18 @@ export default function MainView({
   const [showExamMode, setShowExamMode] = useState(() => restored.tool === "exam");
   const [showExamSettings, setShowExamSettings] = useState(() => restored.tool === "examSettings");
   const [showInfoGuide, setShowInfoGuide] = useState(() => restored.tool === "infoGuide");
+  const [infoGuideInitialId, setInfoGuideInitialId] = useState(null);
+
+  // Global "How it works" open from any modal / screen via CustomEvent
+  useEffect(() => {
+    function onOpenGuide(e) {
+      const id = e?.detail?.guideId || null;
+      setInfoGuideInitialId(id);
+      setShowInfoGuide(true);
+    }
+    window.addEventListener("twoTongues:openInfoGuide", onOpenGuide);
+    return () => window.removeEventListener("twoTongues:openInfoGuide", onOpenGuide);
+  }, []);
 
   // System back button closes the top-most overlay on mobile instead of leaving the site.
   // NOTE: showAdd is managed by App.jsx history (openAddModal/closeAddModal) — do NOT
@@ -1338,6 +1350,8 @@ export default function MainView({
         wordPriorities={wordPriorities}
         showInfoGuide={showInfoGuide}
         setShowInfoGuide={setShowInfoGuide}
+        infoGuideInitialId={infoGuideInitialId}
+        setInfoGuideInitialId={setInfoGuideInitialId}
       />
 
       {dupNotice && dupNotice.entry && (

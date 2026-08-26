@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { shuffleArray, pickEntryExample, makeClozeFromExample } from "../../lib/utils/quizHelpers";
 import { XIcon, LayersIcon, SpeakerIcon, CheckIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { SECTIONS } from "../../lib/config/sections";
@@ -367,9 +368,12 @@ export default function SmartCardsModal({
               )}
             </div>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <HowItWorksButton isAr={isAr} guideId="flashcards" />
+            <button type="button" onClick={onClose} aria-label="Close" style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 6 }}>
             <XIcon size={20} />
           </button>
+          </div>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
 

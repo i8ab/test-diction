@@ -6,6 +6,7 @@ import {
   UserIcon, LogoutIcon, UsersIcon, MenuIcon, LayersIcon, SettingsIcon, BookIcon,
   CheckIcon, TrashIcon, LoaderIcon, FlameIcon, StarIcon, MicIcon,
 } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import { loadEnAccent } from "../../lib/utils/speech";
 import { preloadAdminModal, preloadExamSettingsModal, preloadInfoGuideModal } from "../modals/lazyModals";
 import {
@@ -190,7 +191,9 @@ export default function SettingsModal({
               }}>
                 {T("Settings", "الإعدادات")}
               </span>
-              <button
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <HowItWorksButton isAr={isAr} guideId="settings" />
+            <button
                 type="button"
                 onClick={closeSettings}
                 aria-label={T("Close", "إغلاق")}
@@ -209,6 +212,7 @@ export default function SettingsModal({
               >
                 <XIcon size={16} />
               </button>
+          </div>
             </div>
 
             <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", padding: "8px 12px 20px" }}>

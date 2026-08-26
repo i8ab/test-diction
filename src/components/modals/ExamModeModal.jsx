@@ -5,6 +5,7 @@ import {
   selectExamPool, buildQuiz, isTypingCorrect, quizQuestionLabel, uid,
 } from "../../lib/utils/quizHelpers";
 import { SpeakButton, XIcon, CheckIcon, QuizIcon, ClockIcon, FlameIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { loadExamDate, daysUntilExam, formatExamCountdown } from "../../lib/state/exam";
@@ -527,7 +528,9 @@ export default function ExamModeModal({
             <FlameIcon size={19} color="#e85d04" />
             {tr(isAr, "Exam Mode", "وضع الامتحان")}
           </h2>
-          <button
+          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="quiz" />
+            <button
             onClick={handleClose}
             aria-label={tr(isAr, "Close", "إغلاق")}
             style={{
@@ -538,6 +541,7 @@ export default function ExamModeModal({
           >
             <XIcon size={20} />
           </button>
+          </div>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
 

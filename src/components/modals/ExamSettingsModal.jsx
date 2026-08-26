@@ -10,6 +10,7 @@ import {
 } from "../../lib/state/exam";
 import { fetchSettings } from "../../lib/state/cloudApi";
 import { XIcon, FlameIcon, PlusIcon, TrashIcon, LoaderIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 const PRESET_COLORS = ["#e85d04", "#d62828", "#146C94", "#2a9d8f", "#6a4c93", "#b08d57", "#1d3557"];
@@ -157,10 +158,13 @@ export default function ExamSettingsModal({ examConfig, onPersist, isAr, onClose
             <FlameIcon size={18} color="#e85d04" />
             {tr(isAr, "Exam countdown", "عدّاد الامتحان")}
           </h2>
-          <button type="button" onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")}
+          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="settings" />
+            <button type="button" onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")}
             style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36 }}>
             <XIcon size={20} />
           </button>
+          </div>
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>

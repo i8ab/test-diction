@@ -8,6 +8,7 @@ import {
   isAchievementEarned,
 } from "../../lib/state/achievements";
 import { XIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 export default function AchievementsModal({
@@ -99,7 +100,9 @@ export default function AchievementsModal({
               ? tr(isAr, detail.en, detail.ar)
               : tr(isAr, "Achievements", "الإنجازات")}
           </h2>
-          <button
+          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="achievements" />
+            <button
             type="button"
             onClick={() => (detail ? setOpenSection(null) : onClose())}
             aria-label={tr(isAr, "Close", "إغلاق")}
@@ -107,6 +110,7 @@ export default function AchievementsModal({
           >
             <XIcon size={20} />
           </button>
+          </div>
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>

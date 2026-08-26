@@ -125,6 +125,7 @@ export default function MainViewOverlays(p) {
     showSentencePractice, setShowSentencePractice,
     showWeeklyReport, setShowWeeklyReport,
     showInfoGuide, setShowInfoGuide,
+    infoGuideInitialId, setInfoGuideInitialId,
     srsStats,
   } = p;
 
@@ -518,7 +519,14 @@ export default function MainViewOverlays(p) {
       </Suspense>
     {showInfoGuide && (
       <Suspense fallback={null}>
-        <InfoGuideModal isAr={appIsAr} onClose={() => setShowInfoGuide(false)} />
+        <InfoGuideModal
+          isAr={appIsAr}
+          initialId={infoGuideInitialId || null}
+          onClose={() => {
+            setShowInfoGuide(false);
+            if (typeof setInfoGuideInitialId === "function") setInfoGuideInitialId(null);
+          }}
+        />
       </Suspense>
     )}
 

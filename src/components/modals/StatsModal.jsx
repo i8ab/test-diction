@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle } from "../../lib/config/theme";
 import { isSrsDue, SRS_BOX_LABELS, computeStreak, formatDueIn } from "../../lib/utils/quizHelpers";
 import { XIcon, StatsIcon, FlameIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 // Builds a cumulative "words studied over time" series from `studiedAt`
@@ -149,7 +150,10 @@ function StatsModal({ entries, sectionLabel, studiedIds, studiedAt, srsBox, srsD
             <StatsIcon size={19} color={BRASS} /> {tr(isAr, "Your stats", "إحصائياتي")}
             {sectionLabel && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>· {sectionLabel}</span>}
           </h2>
-          <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}><XIcon size={20} /></button>
+          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="dashboard" />
+            <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}><XIcon size={20} /></button>
+          </div>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
 

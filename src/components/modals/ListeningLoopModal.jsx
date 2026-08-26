@@ -4,6 +4,7 @@ import { INK, CARD } from "../../lib/config/theme";
 import { isSrsDue, srsLevelFromStats, shuffleArray } from "../../lib/utils/quizHelpers";
 import { playCambridgeAudio, speakWord } from "../../lib/utils/speech";
 import { XIcon, SpeakButton } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { SECTIONS } from "../../lib/config/sections";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
@@ -211,7 +212,9 @@ export default function ListeningLoopModal({
               {phase === "done" ? tr(isAr, "Finished", "انتهى") : `${idx + 1} / ${total}`}
             </div>
           </div>
-          <button
+          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="pron" />
+            <button
             type="button"
             onClick={onClose}
             aria-label={tr(isAr, "Close", "إغلاق")}
@@ -223,6 +226,7 @@ export default function ListeningLoopModal({
           >
             <XIcon size={18} />
           </button>
+          </div>
         </div>
 
         <UnitScopePicker

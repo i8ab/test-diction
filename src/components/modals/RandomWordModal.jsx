@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { isSrsDue } from "../../lib/utils/quizHelpers";
 import { SpeakButton, XIcon, CheckIcon, EyeIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
@@ -206,7 +207,9 @@ export default function RandomWordModal({
           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: INK }}>
             {tr(isAr, "Random word", "كلمة عشوائية")}
           </h2>
-          <button
+          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="random" />
+            <button
             type="button"
             onClick={onClose}
             aria-label={tr(isAr, "Close", "إغلاق")}
@@ -214,6 +217,7 @@ export default function RandomWordModal({
           >
             <XIcon size={20} />
           </button>
+          </div>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
 

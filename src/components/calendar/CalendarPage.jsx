@@ -5,6 +5,7 @@ import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { dateKey, computeStreak } from "../../lib/utils/quizHelpers";
 import { loadTimerDayStats, getTodayTimerMinutes } from "../../lib/state/goals";
 import { XIcon, CalendarIcon, FlameIcon, ChevronIcon, ClockIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 const WEEKDAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -386,9 +387,12 @@ export default function CalendarPage({
           >
             {tr(isAr, "Pin", "تثبيت")}
           </button>
-          <button type="button" onClick={onClose} style={headerBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
+          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="calendar" />
+            <button type="button" onClick={onClose} style={headerBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
             <XIcon size={16} />
           </button>
+          </div>
         </div>
 
         {/* Badges row */}

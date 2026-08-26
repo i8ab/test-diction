@@ -44,6 +44,9 @@ export const DEFAULT_PREFS = {
   ambientVolume: 0.25,
   flipDigits: false, // optional flip-clock style digits
   sessionTitle: "", // optional label for this study session
+  showLowerCounter: true, // show/hide the mini session counter below the main timer
+  flipCardBg: "#000000", // background color of flip cards
+  flipCardOpacity: 1, // 0–1 transparency of flip card background
   // Pomodoro
   pomoWorkMin: 25,
   pomoBreakMin: 5,

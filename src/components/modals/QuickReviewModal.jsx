@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { isSrsDue } from "../../lib/utils/quizHelpers";
 import { XIcon, CheckIcon, SpeakButton } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { SECTIONS } from "../../lib/config/sections";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
@@ -131,9 +132,12 @@ export default function QuickReviewModal({
                 "جلسة قصيرة للكلمات اللي محتاجة مراجعة دلوقتي (مستحقة).")}
             </p>
           </div>
-          <button type="button" onClick={onClose} style={iconBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
+          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="quick" />
+            <button type="button" onClick={onClose} style={iconBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
             <XIcon size={18} />
           </button>
+          </div>
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>

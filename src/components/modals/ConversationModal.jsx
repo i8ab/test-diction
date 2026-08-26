@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD, labelStyle, primaryBtnStyle } from "../../lib/config/theme";
 import { shuffleArray } from "../../lib/utils/quizHelpers";
 import { XIcon, MicIcon, CheckIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { SECTIONS } from "../../lib/config/sections";
 
@@ -169,9 +170,12 @@ export default function ConversationModal({
               {tr(isAr, "Conversation", "محادثة")}
             </div>
           </div>
-          <button type="button" onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <HowItWorksButton isAr={isAr} guideId="cards" />
+            <button type="button" onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 6 }}>
             <XIcon size={20} />
           </button>
+          </div>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
 

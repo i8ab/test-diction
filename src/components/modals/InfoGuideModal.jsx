@@ -159,9 +159,41 @@ const GUIDES = [
     stepsEn: ["Orange Goals button or More ⋯ → Goals.", "Track words, quizzes, streak, or study minutes."],
     stepsAr: ["الزرار البرتقالي أو المزيد ⋯ → أهداف.", "تابع كلمات أو اختبارات أو سلسلة أو دقائق مذاكرة."] },
   { id: "timer", titleEn: "Study timer", titleAr: "مؤقّت المذاكرة",
-    whatEn: "Countdown or stopwatch.", whatAr: "عدّ تنازلي أو ساعة.",
-    stepsEn: ["More ⋯ → Timer. Pin for a floating bubble over the dictionary."],
-    stepsAr: ["المزيد ⋯ → مؤقّت. تثبيت = فقاعة فوق القاموس."] },
+    whatEn: "Full-screen countdown, stopwatch, or Pomodoro with optional flip-card digits and a mini session counter.",
+    whatAr: "عدّ تنازلي أو ساعة أو بومودورو بملء الشاشة، مع أرقام كروت قلّابة اختيارية وعداد جلسات مصغّر.",
+    stepsEn: [
+      "More ⋯ → Timer (or open from Goals).",
+      "Modes: Countdown · Stopwatch · Pomodoro (work/break cycles).",
+      "Settings: font, size, text color, background presets or custom image, alarm & ambient sounds.",
+      "Digit style: Normal or Flip cards. When Flip is on you can set card background color and opacity.",
+      "Lower counter: toggle Show/Hide the mini “Today / Last 24h” session log under the main timer.",
+      "Mini / bubble: keep a floating timer over the dictionary while you study.",
+    ],
+    stepsAr: [
+      "المزيد ⋯ → مؤقّت (أو من الأهداف).",
+      "الأوضاع: عدّ تنازلي · ساعة · بومودورو (دورات مذاكرة/راحة).",
+      "الإعدادات: خط، حجم، لون النص، خلفيات جاهزة أو صورة خاصة، أصوات تنبيه وأجواء.",
+      "شكل الأرقام: عادي أو كروت قلّابة. مع الكروت القلّابة تقدر تضبط لون خلفية الكرت وشفافيته.",
+      "العداد السفلي: إظهار/إخفاء سجل «اليوم / آخر ٢٤س» تحت المؤقت الرئيسي.",
+      "مصغّر / فقاعة: مؤقّت عائم فوق القاموس أثناء المذاكرة.",
+    ] },
+  { id: "dayAchievements", titleEn: "Day achievements (SRS table)", titleAr: "إنجازات اليوم (جدول التكرار)",
+    whatEn: "Personal study items with optional spaced-repetition schedule in a clear table layout.",
+    whatAr: "عناصر مذاكرة شخصية مع جدول تكرار متباعد اختياري بتخطيط واضح.",
+    stepsEn: [
+      "Open Day achievements from the tools menu or related banners.",
+      "Add an item with a title and optional note; enable SRS to schedule reviews.",
+      "Table columns: Item · Step (box level) · Next review · Streak · Actions.",
+      "Long titles and notes wrap cleanly so the table stays aligned on all screen sizes.",
+      "Rate your recall when reviewing to advance or reset the schedule.",
+    ],
+    stepsAr: [
+      "افتح إنجازات اليوم من قائمة الأدوات أو اللافتات المرتبطة.",
+      "أضف عنصراً بعنوان وملاحظة اختيارية؛ فعّل SRS لجدولة المراجعات.",
+      "أعمدة الجدول: العنصر · الدرجة · المراجعة الجاية · السلسلة · إجراءات.",
+      "العناوين والملاحظات الطويلة تلتف بشكل منظم حتى يبقى الجدول متناسقاً على كل الشاشات.",
+      "قيّم تذكّرك عند المراجعة لتقدّم الجدول أو إعادة ضبطه.",
+    ] },
   { id: "calendar", titleEn: "Calendar", titleAr: "التقويم",
     whatEn: "Map of study days and streak.", whatAr: "خريطة أيام المذاكرة والسلسلة.",
     stepsEn: ["More ⋯ → Calendar · tap a day for words studied that day.", "Pin to keep a floating widget."],
@@ -294,8 +326,8 @@ const GUIDES = [
     ] },
 ];
 
-export default function InfoGuideModal({ isAr, onClose }) {
-  const [activeId, setActiveId] = useState(null);
+export default function InfoGuideModal({ isAr, onClose, initialId = null }) {
+  const [activeId, setActiveId] = useState(initialId || null);
   const active = GUIDES.find((g) => g.id === activeId) || null;
 
   useEffect(() => {

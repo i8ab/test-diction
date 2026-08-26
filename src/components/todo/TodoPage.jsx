@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { XIcon, CheckIcon, PlusIcon, TrashIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 const TODO_KEY = "twoTongues.todos";
@@ -626,9 +627,12 @@ export default function TodoPage({
         <button type="button" onClick={() => setViewMode("bubble")} style={headerBtn}>
           {tr(isAr, "Pin", "تثبيت")}
         </button>
-        <button type="button" onClick={onClose} style={headerBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
+        <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="todo" />
+            <button type="button" onClick={onClose} style={headerBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
           <XIcon size={15} />
         </button>
+          </div>
       </header>
 
       {/* Add form */}

@@ -116,10 +116,12 @@ export function PlainDigits({ text, color, fontFamily, fontSize, textShadow }) {
   );
 }
 
-export function FlipClock({ text, color, fontFamily, fontSize }) {
+export function FlipClock({ text, color, fontFamily, fontSize, cardBg, cardOpacity }) {
   const chars = String(text || "00:00").split("");
   const n = chars.length;
   const height = fontSize || "96px";
+  const opacity = typeof cardOpacity === "number" ? Math.max(0, Math.min(1, cardOpacity)) : 1;
+  const bg = cardBg || "#000000";
 
   return (
     <div
@@ -133,6 +135,8 @@ export function FlipClock({ text, color, fontFamily, fontSize }) {
           'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
         ["--flip-h"]: height,
         ["--flip-fg"]: color || "#ffffff",
+        ["--flip-bg"]: bg,
+        ["--flip-bg-opacity"]: opacity,
       }}
     >
       {chars.map((ch, i) => {

@@ -3,6 +3,7 @@ import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { isSrsDue, computeStreak, SRS_BOX_LABELS, formatDueIn, loadSrsPrefs, saveSrsPrefs } from "../../lib/utils/quizHelpers";
 import { XIcon, FlameIcon, StatsIcon, LayersIcon, ClockIcon, CheckIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { getTodayTimerMinutes, loadWeeklyChallenge } from "../../lib/state/goals";
 
@@ -167,7 +168,9 @@ export default function DashboardPage({
               {name ? tr(isAr, `Hi, ${name}`, `مرحباً، ${name}`) : tr(isAr, "Your progress", "تقدّمك")}
             </div>
           </div>
-          <button
+          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="dashboard" />
+            <button
             type="button"
             onClick={onClose}
             aria-label={tr(isAr, "Close", "إغلاق")}
@@ -175,6 +178,7 @@ export default function DashboardPage({
           >
             <XIcon size={18} />
           </button>
+          </div>
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>

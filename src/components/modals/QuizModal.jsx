@@ -6,6 +6,7 @@ import {
   quizQuestionLabel, isSrsDue, quizResultCategory, QUIZ_RESULT_CATEGORIES, formatQuizDuration,
 } from "../../lib/utils/quizHelpers";
 import { SpeakButton, XIcon, CheckIcon, EyeIcon, QuizIcon } from "../common/Icons";
+import HowItWorksButton from "../common/HowItWorksButton";
 import NumberStepper from "../common/NumberStepper";
 import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
@@ -433,7 +434,10 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
             <QuizIcon size={19} color={BRASS} /> {tr(isAr, "Quiz", "اختبار")}
             {sectionLabel && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>· {sectionLabel}</span>}
           </h2>
-          <button onClick={handleClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}><XIcon size={20} /></button>
+          <div style={ display: "flex", alignItems: "center", gap: 6 }>
+            <HowItWorksButton isAr={isAr} guideId="quiz" />
+            <button onClick={handleClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}><XIcon size={20} /></button>
+          </div>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
 

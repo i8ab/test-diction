@@ -72,10 +72,10 @@
   font-weight: 700;
   line-height: calc(var(--flip-h) * 0.98125); /* 157/160 */
   text-align: center;
-  background: #000;
-  border: 1px solid #151515;
+  background: color-mix(in srgb, var(--flip-bg, #000) calc(var(--flip-bg-opacity, 1) * 100%), transparent);
+  border: 1px solid color-mix(in srgb, var(--flip-bg, #151515) calc(var(--flip-bg-opacity, 1) * 100%), transparent);
   border-radius: calc(var(--flip-h) * 0.0375); /* 6/160 */
-  box-shadow: 0 0 6px rgba(54, 54, 54, 0.5);
+  box-shadow: 0 0 6px rgba(54, 54, 54, calc(0.5 * var(--flip-bg-opacity, 1)));
   flex-shrink: 0;
 }
 
@@ -87,7 +87,7 @@
   left: 0;
   right: 0;
   overflow: hidden;
-  background: #151515;
+  background: color-mix(in srgb, var(--flip-bg, #151515) calc(var(--flip-bg-opacity, 1) * 100%), transparent);
   color: var(--flip-fg, #fff);
   font-size: calc(var(--flip-h) * 0.8125); /* 130/160 — fills the card */
   font-weight: 700;

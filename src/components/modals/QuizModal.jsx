@@ -753,8 +753,6 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
               {/* Open / productive response (Baccalaureate Part B) */}
               {(q.mode === "open" || q.type === "open_define" || ((q.mode === "typing" || q.mode === "cloze") && (!q.options || q.options.length === 0))) && (
                 <div style={{ marginBottom: 16 }}>
-                    </p>
-                  )}
                   {q.type === "open_define" && (
                     <p style={{ fontSize: 13, color: "var(--muted-strong)", margin: "0 0 8px", lineHeight: 1.5 }}>
                       {tr(isAr,

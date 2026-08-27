@@ -151,7 +151,29 @@ function AuthScreens({
   /** Secure login visual phases: idle | credentials | security | auth | done */
   const [loginAuthPhase, setLoginAuthPhase] = useState("idle");
   const [cordPull, setCordPull] = useState(0); // px dragged down
+  const [showCordFallback, setShowCordFallback] = useState(false);
+  const lampIdleTimerRef = useRef(null);
   const cordDragRef = useRef({ active: false, startY: 0, pulled: false });
+
+  // After 80s idle with lamp still off, show a simple tap fallback
+  useEffect(() => {
+    if (lampOn) {
+      setShowCordFallback(false);
+      if (lampIdleTimerRef.current) {
+        clearTimeout(lampIdleTimerRef.current);
+        lampIdleTimerRef.current = null;
+      }
+      return undefined;
+    }
+    if (lampIdleTimerRef.current) clearTimeout(lampIdleTimerRef.current);
+    lampIdleTimerRef.current = setTimeout(() => {
+      setShowCordFallback(true);
+    }, 80000);
+    return () => {
+      if (lampIdleTimerRef.current) clearTimeout(lampIdleTimerRef.current);
+    };
+  }, [lampOn]);
+
   const [showSignupPw, setShowSignupPw] = useState(false);
   const [showSignupPw2, setShowSignupPw2] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
@@ -1189,7 +1211,7 @@ function AuthScreens({
           )}
           {/* Lamp toggle — lights up the login form (responsive) */}
           <div className="lamp-login-root" aria-hidden="false">
-            <span className="lamp-login-hint">{atr("Pull the cord — or use the button on phones", "اسحب الحبل — أو استخدم الزر على الموبايل")}</span>
+            <span className="lamp-login-hint">{atr("Pull the cord to open login", "اسحب الحبل لفتح الدخول")}</span>
             <div
               className={"lamp-btn" + (lampOn ? " is-on" : "")}
               role="img"
@@ -1239,18 +1261,16 @@ function AuthScreens({
               </span>
             </div>
             {/* Touch / tablet: big tap target — same toggle as a successful cord pull */}
+            {showCordFallback && !lampOn && (
             <button
               type="button"
-              className="lamp-touch-bar"
-              onClick={() => setLampOn((on) => !on)}
-              aria-label={lampOn
-                ? atr("Turn lamp off", "إطفاء اللمبة")
-                : atr("Turn lamp on to sign in", "تشغيل اللمبة لتسجيل الدخول")}
+              className="lamp-touch-bar is-fallback"
+              onClick={() => setLampOn(true)}
+              aria-label={atr("Turn lamp on to sign in", "تشغيل اللمبة لتسجيل الدخول")}
             >
-              {lampOn
-                ? atr("Tap to turn lamp off", "اضغط لإطفاء اللمبة")
-                : atr("Tap to pull the cord", "اضغط لسحب الحبل")}
+              {atr("Having trouble? Tap here to open login", "مش شغال؟ اضغط هنا لفتح الدخول")}
             </button>
+            )}
             <div className={"lamp-form-wrap " + (lampOn ? "is-visible" : "is-hidden")}>
             <div className="lamp-form-card lamp-form-secure">
             <div className="lamp-secure-left">

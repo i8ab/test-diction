@@ -116,8 +116,8 @@
 /* Floor lamp */
 .lamp-btn {
   position: relative;
-  width: 130px;
-  height: 220px;
+  width: 150px;
+  height: 250px;
   border: none;
   background: transparent;
   cursor: grab;
@@ -353,61 +353,112 @@
   font-weight: 700;
 }
 
-/* ---- Tablet ---- */
-@media (max-width: 900px) {
+/* Touch bar: hidden by default; shown only via .is-fallback after long idle */
+.lamp-touch-bar {
+  display: none;
+}
+.lamp-touch-bar.is-fallback {
+  display: block;
+}
+
+/* Tablet & mid screens: KEEP horizontal — use the space */
+@media (max-width: 1100px) and (min-width: 641px) {
+  .lamp-login-root {
+    grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    min-height: min(58dvh, 520px);
+    gap: clamp(16px, 3vw, 32px);
+    padding: 28px 20px 24px;
+  }
+  .lamp-btn {
+    width: 150px;
+    height: 250px;
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: center;
+  }
+  .lamp-shade { width: 84px; height: 22px; }
+  .lamp-glow-disc { width: 76px; top: 48px; }
+  .lamp-beam { width: 170px; height: 160px; }
+  .lamp-pole { height: 145px; }
+  .lamp-form-wrap {
+    grid-column: 2;
+    grid-row: 2;
+    max-width: 480px;
+    justify-self: stretch;
+  }
+  .lamp-form-card.lamp-form-secure {
+    max-width: none;
+  }
+  /* Hide secure side-rail on tablet to avoid clipping */
+  .lamp-secure-right {
+    display: none;
+  }
+  .lamp-form-card.lamp-form-secure {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Wide desktop: big lamp, spacious form */
+@media (min-width: 1101px) {
+  .lamp-login-root {
+    grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+    min-height: min(70dvh, 580px);
+    padding: 36px 36px 32px;
+    gap: 48px;
+  }
+  .lamp-btn {
+    width: 180px;
+    height: 300px;
+  }
+  .lamp-shade { width: 96px; height: 24px; }
+  .lamp-glow-disc { width: 88px; top: 52px; height: 12px; }
+  .lamp-beam { width: 200px; height: 190px; }
+  .lamp-pole { height: 175px; width: 6px; }
+  .lamp-base { width: 64px; height: 14px; }
+  .lamp-form-wrap {
+    max-width: 520px;
+    justify-self: start;
+  }
+  .lamp-form-card.lamp-form-secure {
+    max-width: none;
+  }
+}
+
+/* Phone only: stack vertically */
+@media (max-width: 640px) {
   .lamp-login-root {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto auto;
     min-height: auto;
-    gap: 12px;
-    padding: 24px 14px 20px;
+    gap: 10px;
+    padding: 20px 12px 16px;
+    border-radius: 16px;
   }
   .lamp-btn {
     grid-column: 1;
     grid-row: 2;
-    width: 110px;
-    height: 190px;
+    width: 120px;
+    height: 200px;
+    justify-self: center;
+  }
+  .lamp-shade { width: 70px; height: 18px; }
+  .lamp-glow-disc { width: 62px; }
+  .lamp-beam { width: 130px; height: 120px; }
+  .lamp-pole { height: 115px; }
+  .lamp-pull {
+    width: 56px;
+    left: 54%;
+    padding: 14px 18px 18px;
+  }
+  .lamp-pull-knob {
+    width: 28px;
+    height: 28px;
   }
   .lamp-form-wrap {
     grid-column: 1;
     grid-row: 3;
-    max-width: 400px;
-  }
-  .lamp-touch-bar {
-    display: block;
-    grid-column: 1;
-    grid-row: 2;
-    align-self: end;
-    margin-top: 160px; /* sits under lamp art */
-  }
-  .lamp-login-root:has(.lamp-btn.is-on) .lamp-touch-bar {
-    /* when on, bar still useful to turn off */
-  }
-}
-
-/* ---- Phone ---- */
-@media (max-width: 520px) {
-  .lamp-login-root {
-    padding: 20px 10px 16px;
-    border-radius: 16px;
-    min-height: auto;
-  }
-  .lamp-btn {
-    width: 96px;
-    height: 168px;
-  }
-  .lamp-shade { width: 60px; height: 16px; }
-  .lamp-glow-disc { width: 54px; }
-  .lamp-beam { width: 110px; height: 100px; }
-  .lamp-pole { height: 100px; }
-  .lamp-pull {
-    width: 52px;
-    left: 55%;
-    padding: 12px 16px 16px; /* fat-finger zone */
-  }
-  .lamp-pull-knob {
-    width: 26px;
-    height: 26px;
+    max-width: 100%;
   }
   .lamp-form-wrap.is-hidden {
     transform: translateY(12px) scale(0.97);
@@ -418,33 +469,26 @@
   .lamp-form-card {
     padding: 16px 14px 14px;
   }
-  .lamp-touch-bar {
-    margin-top: 140px;
+  .lamp-form-card.lamp-form-secure {
+    grid-template-columns: 1fr;
+    max-width: none;
+  }
+  .lamp-secure-right {
+    display: none;
+  }
+  .lamp-touch-bar.is-fallback {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: end;
+    margin-top: 170px;
     width: min(100%, 260px);
     padding: 16px 14px;
     font-size: 14px;
+    justify-self: center;
   }
   .lamp-login-hint {
     font-size: 10px;
     letter-spacing: 0.08em;
-  }
-}
-
-/* Wide desktop: lamp on the side, roomy form */
-@media (min-width: 1100px) {
-  .lamp-login-root {
-    grid-template-columns: 160px minmax(0, 1fr);
-    min-height: min(68dvh, 560px);
-    padding: 32px 28px;
-    gap: 40px;
-  }
-  .lamp-btn {
-    width: 140px;
-    height: 240px;
-  }
-  .lamp-form-wrap {
-    max-width: 460px;
-    justify-self: start;
   }
 }
 

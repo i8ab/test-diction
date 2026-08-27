@@ -1189,18 +1189,13 @@ function AuthScreens({
           )}
           {/* Lamp toggle — lights up the login form (responsive) */}
           <div className="lamp-login-root" aria-hidden="false">
-            <span className="lamp-login-hint">{atr("Pull the string to toggle login", "اسحب الخيط لإظهار/إخفاء الدخول")}</span>
+            <span className="lamp-login-hint">{atr("Pull the cord — or use the button on phones", "اسحب الحبل — أو استخدم الزر على الموبايل")}</span>
             <div
               className={"lamp-btn" + (lampOn ? " is-on" : "")}
-              role="button"
-              tabIndex={0}
-              aria-label={atr("Pull the cord to show login", "اسحب الخيط لإظهار الدخول")}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setLampOn((on) => !on);
-                }
-              }}
+              role="img"
+              aria-label={lampOn
+                ? atr("Lamp is on — pull cord to turn off", "اللمبة شغالة — اسحب الحبل للإطفاء")
+                : atr("Lamp is off — pull cord to show login", "اللمبة مطفأة — اسحب الحبل لإظهار الدخول")}
             >
               <span className="lamp-shade" />
               <span className="lamp-glow-disc" />
@@ -1208,41 +1203,54 @@ function AuthScreens({
               <span className="lamp-pole" />
               <span className="lamp-base" />
               <span
-                className="lamp-pull"
-                style={{ height: 36 + cordPull, transition: cordDragRef.current.active ? "none" : "height 0.35s cubic-bezier(0.22,1,0.36,1)" }}
+                className={"lamp-pull" + (cordPull > 0 ? " is-dragging" : "")}
+                style={{
+                  height: 36 + cordPull,
+                  transition: cordDragRef.current.active ? "none" : "height 0.35s cubic-bezier(0.22,1,0.36,1)",
+                }}
                 onPointerDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  e.currentTarget.setPointerCapture?.(e.pointerId);
+                  try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
                   cordDragRef.current = { active: true, startY: e.clientY, pulled: false };
                 }}
                 onPointerMove={(e) => {
                   if (!cordDragRef.current.active) return;
-                  const dy = Math.max(0, Math.min(56, e.clientY - cordDragRef.current.startY));
+                  // Lower threshold on coarse pointers (touch)
+                  const dy = Math.max(0, Math.min(64, e.clientY - cordDragRef.current.startY));
                   setCordPull(dy);
-                  if (dy > 28) cordDragRef.current.pulled = true;
+                  const need = (e.pointerType === "touch" || e.pointerType === "pen") ? 24 : 32;
+                  if (dy >= need) cordDragRef.current.pulled = true;
                 }}
                 onPointerUp={(e) => {
                   if (!cordDragRef.current.active) return;
-                  const didPull = cordDragRef.current.pulled || cordPull >= 32;
+                  const need = (e.pointerType === "touch" || e.pointerType === "pen") ? 24 : 32;
+                  const didPull = cordDragRef.current.pulled || cordPull >= need;
                   cordDragRef.current = { active: false, startY: 0, pulled: false };
                   setCordPull(0);
-                  // سحبة كافية: لو مطفأة → تشغيل، لو شغالة → إطفاء
                   if (didPull) setLampOn((on) => !on);
                 }}
                 onPointerCancel={() => {
                   cordDragRef.current = { active: false, startY: 0, pulled: false };
                   setCordPull(0);
                 }}
-                onClick={(e) => {
-                  // Clicks without a proper pull do nothing — must drag the cord
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
               >
                 <span className="lamp-pull-knob" />
               </span>
             </div>
+            {/* Touch / tablet: big tap target — same toggle as a successful cord pull */}
+            <button
+              type="button"
+              className="lamp-touch-bar"
+              onClick={() => setLampOn((on) => !on)}
+              aria-label={lampOn
+                ? atr("Turn lamp off", "إطفاء اللمبة")
+                : atr("Turn lamp on to sign in", "تشغيل اللمبة لتسجيل الدخول")}
+            >
+              {lampOn
+                ? atr("Tap to turn lamp off", "اضغط لإطفاء اللمبة")
+                : atr("Tap to pull the cord", "اضغط لسحب الحبل")}
+            </button>
             <div className={"lamp-form-wrap " + (lampOn ? "is-visible" : "is-hidden")}>
             <div className="lamp-form-card lamp-form-secure">
             <div className="lamp-secure-left">

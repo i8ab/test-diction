@@ -81,90 +81,102 @@
 /* ═══════════════════════════════════════════
    LAMP LOGIN STAGE — full-screen dark scene
    ═══════════════════════════════════════════ */
+/* ========== Lamp Login — responsive stage ========== */
 .lamp-login-root {
   position: relative;
   width: 100%;
-  min-height: min(70dvh, 560px);
-  display: flex;
+  min-height: min(62dvh, 520px);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
   align-items: center;
-  justify-content: center;
-  gap: clamp(12px, 5vw, 48px);
-  flex-wrap: wrap;
-  padding: 20px 12px 28px;
-  background: radial-gradient(ellipse at 30% 50%, #1a1814 0%, #0a0a0a 55%, #000 100%);
+  justify-items: center;
+  gap: clamp(8px, 3vw, 36px);
+  padding: 28px 16px 24px;
+  background:
+    radial-gradient(ellipse at 22% 48%, #1f1a12 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 40%, #121018 0%, transparent 50%),
+    linear-gradient(165deg, #0c0b0a 0%, #050505 100%);
   border-radius: 20px;
   overflow: hidden;
+  isolation: isolate;
 }
 .lamp-login-hint {
-  position: absolute;
-  top: 14px;
-  left: 0;
-  right: 0;
+  grid-column: 1 / -1;
+  grid-row: 1;
   text-align: center;
   font-size: 11px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.28);
+  color: rgba(255,255,255,0.32);
   pointer-events: none;
+  margin-bottom: 4px;
 }
 
-/* Floor lamp SVG-like structure */
+/* Floor lamp */
 .lamp-btn {
   position: relative;
-  width: 120px;
-  height: 200px;
+  width: 130px;
+  height: 220px;
   border: none;
   background: transparent;
-  cursor: pointer;
+  cursor: grab;
   flex-shrink: 0;
   -webkit-tap-highlight-color: transparent;
   padding: 0;
   z-index: 2;
+  grid-column: 1;
+  grid-row: 2;
+  touch-action: none;
+  user-select: none;
 }
+.lamp-btn:active { cursor: grabbing; }
 .lamp-shade {
   position: absolute;
   top: 28px;
   left: 50%;
   transform: translateX(-50%);
-  width: 72px;
-  height: 18px;
+  width: 76px;
+  height: 20px;
   background: #1c1c1c;
   border-radius: 6px 6px 3px 3px;
   box-shadow: 0 2px 0 #0d0d0d;
   transition: background 0.35s ease, box-shadow 0.35s ease;
   z-index: 3;
+  pointer-events: none;
 }
 .lamp-btn.is-on .lamp-shade {
   background: #2a2a2a;
-  box-shadow: 0 0 12px rgba(255, 210, 80, 0.35);
+  box-shadow: 0 0 14px rgba(255, 210, 80, 0.4);
 }
 .lamp-glow-disc {
   position: absolute;
-  top: 42px;
+  top: 44px;
   left: 50%;
   transform: translateX(-50%);
-  width: 64px;
-  height: 8px;
+  width: 66px;
+  height: 9px;
   border-radius: 50%;
   background: transparent;
   transition: background 0.35s, box-shadow 0.4s;
   z-index: 2;
+  pointer-events: none;
 }
 .lamp-btn.is-on .lamp-glow-disc {
   background: #ffe566;
-  box-shadow: 0 0 20px 8px rgba(255, 220, 80, 0.55);
+  box-shadow: 0 0 22px 9px rgba(255, 220, 80, 0.55);
 }
 .lamp-beam {
   position: absolute;
-  top: 48px;
+  top: 50px;
   left: 50%;
-  width: 140px;
-  height: 130px;
+  width: 150px;
+  height: 140px;
   transform: translateX(-50%);
   background: linear-gradient(
     180deg,
-    rgba(255, 220, 90, 0.38) 0%,
-    rgba(255, 200, 60, 0.12) 45%,
+    rgba(255, 220, 90, 0.4) 0%,
+    rgba(255, 200, 60, 0.14) 45%,
     rgba(255, 180, 40, 0) 100%
   );
   clip-path: polygon(32% 0%, 68% 0%, 100% 100%, 0% 100%);
@@ -173,167 +185,266 @@
   pointer-events: none;
   z-index: 1;
 }
-.lamp-btn.is-on .lamp-beam {
-  opacity: 1;
-}
+.lamp-btn.is-on .lamp-beam { opacity: 1; }
 .lamp-pole {
   position: absolute;
-  top: 46px;
+  top: 48px;
   left: 50%;
   width: 5px;
-  height: 120px;
+  height: 125px;
   margin-left: -2.5px;
   background: linear-gradient(180deg, #333, #111);
   border-radius: 2px;
   z-index: 2;
+  pointer-events: none;
 }
 .lamp-base {
   position: absolute;
-  bottom: 8px;
+  bottom: 6px;
   left: 50%;
   transform: translateX(-50%);
-  width: 48px;
-  height: 10px;
+  width: 52px;
+  height: 11px;
   background: #151515;
   border-radius: 6px 6px 3px 3px;
   z-index: 2;
-}
-.lamp-pull {
-  position: absolute;
-  top: 44px;
-  left: calc(50% + 28px);
-  width: 2px;
-  height: 36px;
-  background: #777;
-  z-index: 4;
-}
-.lamp-pull-knob {
-  position: absolute;
-  bottom: -8px;
-  left: -5px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: linear-gradient(145deg, #e8c84a, #b8922a);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  pointer-events: none;
 }
 
-/* Login form card beside lamp */
+/* Cord — large touch target for mobile/tablet */
+.lamp-pull {
+  position: absolute;
+  top: 46px;
+  left: 58%;
+  width: 44px;           /* wide hit area */
+  height: 42px;
+  margin-left: -4px;
+  z-index: 5;
+  touch-action: none;
+  cursor: grab;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* invisible padding for fat fingers */
+  padding: 8px 12px 12px;
+  box-sizing: content-box;
+}
+.lamp-pull::before {
+  content: "";
+  display: block;
+  width: 2px;
+  flex: 1;
+  min-height: 28px;
+  background: linear-gradient(180deg, #888, #555);
+  border-radius: 1px;
+  pointer-events: none;
+}
+.lamp-pull-knob {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f0e6c8, #c4a574 55%, #8a7048);
+  box-shadow:
+    0 2px 6px rgba(0,0,0,0.45),
+    0 0 0 6px rgba(255, 220, 120, 0.08);
+  flex-shrink: 0;
+  pointer-events: none;
+  transition: transform 0.15s ease, box-shadow 0.2s;
+}
+.lamp-pull:active .lamp-pull-knob,
+.lamp-pull.is-dragging .lamp-pull-knob {
+  transform: scale(1.12);
+  box-shadow:
+    0 3px 10px rgba(0,0,0,0.5),
+    0 0 0 10px rgba(255, 220, 120, 0.15);
+}
+
+/* Mobile-friendly alternate control under lamp */
+.lamp-touch-bar {
+  display: none;
+  width: min(100%, 280px);
+  margin: 8px auto 0;
+  padding: 14px 16px;
+  border-radius: 999px;
+  border: 1.5px dashed rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.7);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-align: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  z-index: 3;
+}
+.lamp-touch-bar:active {
+  background: rgba(255, 220, 100, 0.12);
+  border-color: rgba(255, 210, 90, 0.45);
+}
+
 .lamp-form-wrap {
-  width: min(300px, 86vw);
-  transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  grid-column: 2;
+  grid-row: 2;
+  width: 100%;
+  max-width: 440px;
+  justify-self: center;
+  align-self: center;
+  z-index: 3;
 }
 .lamp-form-wrap.is-hidden {
   opacity: 0;
-  transform: translateX(16px) scale(0.96);
   pointer-events: none;
-  visibility: hidden;
-  position: absolute;
+  transform: translateX(16px) scale(0.97);
+  filter: brightness(0.55);
+  transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.22,1,0.36,1), filter 0.35s;
 }
 .lamp-form-wrap.is-visible {
   opacity: 1;
-  transform: translateX(0) scale(1);
   pointer-events: auto;
-  visibility: visible;
-  animation: lampFormIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform: none;
+  filter: none;
+  animation: lampFormIn 0.45s cubic-bezier(0.22,1,0.36,1) both;
 }
 .lamp-form-card {
-  background: rgba(28, 28, 32, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  padding: 20px 18px 18px;
-  box-shadow:
-    0 0 0 1px rgba(255, 210, 80, 0.06),
-    0 20px 50px -16px rgba(0, 0, 0, 0.65),
-    0 0 40px -10px rgba(255, 200, 60, 0.15);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  color: #f2f2f7;
-}
-.lamp-form-card h3 {
-  margin: 0 0 14px;
-  font-size: 17px;
-  font-weight: 700;
-  text-align: center;
-  color: #fff;
-}
-.lamp-form-card label {
-  display: block;
-  font-size: 11px;
-  font-weight: 700;
-  color: rgba(255,255,255,0.45);
-  margin-bottom: 4px;
-  margin-top: 10px;
-}
-.lamp-form-card input {
+  background: rgba(18, 16, 22, 0.92);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 18px;
+  padding: 18px 18px 16px;
+  box-shadow: 0 20px 50px -16px rgba(0,0,0,0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   width: 100%;
   box-sizing: border-box;
-  border-radius: 10px !important;
-  border: 1px solid rgba(255,255,255,0.12) !important;
-  background: rgba(0,0,0,0.35) !important;
-  color: #fff !important;
-  padding: 11px 12px !important;
-  font-size: 14px !important;
+}
+.lamp-form-card h3 {
+  margin: 0 0 4px;
+  font-family: "Fraunces", serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #f5f0e8;
+  text-align: center;
+}
+.lamp-form-card label {
+  color: rgba(255,255,255,0.55) !important;
+  font-size: 12px !important;
+}
+.lamp-form-card input {
+  background: rgba(255,255,255,0.06) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+  color: #f5f0e8 !important;
 }
 .lamp-form-card input::placeholder {
   color: rgba(255,255,255,0.28);
 }
 .lamp-form-card input:focus {
-  border-color: rgba(255, 200, 80, 0.45) !important;
-  box-shadow: 0 0 0 3px rgba(255, 200, 80, 0.12) !important;
-  outline: none !important;
-}
-.lamp-form-card .lamp-submit {
-  width: 100%;
-  margin-top: 16px;
-  border: none;
-  border-radius: 12px;
-  padding: 12px;
-  font-weight: 800;
-  font-size: 14px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  cursor: pointer;
-  color: #fff;
-  background: linear-gradient(135deg, #7b5cff, #5b4dff 50%, #6a5af0);
-  box-shadow: 0 6px 20px -6px rgba(100, 80, 255, 0.55);
-}
-.lamp-form-card .lamp-submit:disabled {
-  opacity: 0.6;
-  cursor: default;
+  border-color: rgba(123, 92, 255, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(123, 92, 255, 0.2) !important;
 }
 .lamp-form-card .lamp-switch {
   text-align: center;
-  margin-top: 14px;
-  font-size: 12.5px;
+  margin-top: 12px;
+  font-size: 13px;
   color: rgba(255,255,255,0.45);
 }
 .lamp-form-card .lamp-switch a {
-  color: #e8c84a;
+  color: #c4b5fd;
   font-weight: 700;
-  text-decoration: none;
 }
 
-@media (max-width: 520px) {
+/* ---- Tablet ---- */
+@media (max-width: 900px) {
   .lamp-login-root {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
     min-height: auto;
-    gap: 8px;
-    padding: 28px 12px 20px;
+    gap: 12px;
+    padding: 24px 14px 20px;
   }
   .lamp-btn {
-    width: 100px;
-    height: 160px;
+    grid-column: 1;
+    grid-row: 2;
+    width: 110px;
+    height: 190px;
   }
   .lamp-form-wrap {
-    width: min(320px, 92vw);
+    grid-column: 1;
+    grid-row: 3;
+    max-width: 400px;
+  }
+  .lamp-touch-bar {
+    display: block;
+    grid-column: 1;
+    grid-row: 2;
+    align-self: end;
+    margin-top: 160px; /* sits under lamp art */
+  }
+  .lamp-login-root:has(.lamp-btn.is-on) .lamp-touch-bar {
+    /* when on, bar still useful to turn off */
+  }
+}
+
+/* ---- Phone ---- */
+@media (max-width: 520px) {
+  .lamp-login-root {
+    padding: 20px 10px 16px;
+    border-radius: 16px;
+    min-height: auto;
+  }
+  .lamp-btn {
+    width: 96px;
+    height: 168px;
+  }
+  .lamp-shade { width: 60px; height: 16px; }
+  .lamp-glow-disc { width: 54px; }
+  .lamp-beam { width: 110px; height: 100px; }
+  .lamp-pole { height: 100px; }
+  .lamp-pull {
+    width: 52px;
+    left: 55%;
+    padding: 12px 16px 16px; /* fat-finger zone */
+  }
+  .lamp-pull-knob {
+    width: 26px;
+    height: 26px;
   }
   .lamp-form-wrap.is-hidden {
-    position: relative;
-    height: 0;
-    overflow: hidden;
-    margin: 0;
-    padding: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  .lamp-form-wrap.is-visible {
+    animation: fadeInUp 0.4s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  .lamp-form-card {
+    padding: 16px 14px 14px;
+  }
+  .lamp-touch-bar {
+    margin-top: 140px;
+    width: min(100%, 260px);
+    padding: 16px 14px;
+    font-size: 14px;
+  }
+  .lamp-login-hint {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+}
+
+/* Wide desktop: lamp on the side, roomy form */
+@media (min-width: 1100px) {
+  .lamp-login-root {
+    grid-template-columns: 160px minmax(0, 1fr);
+    min-height: min(68dvh, 560px);
+    padding: 32px 28px;
+    gap: 40px;
+  }
+  .lamp-btn {
+    width: 140px;
+    height: 240px;
+  }
+  .lamp-form-wrap {
+    max-width: 460px;
+    justify-self: start;
   }
 }
 

@@ -2221,15 +2221,16 @@ html[data-device="desktop"] .entry-speak-slot button {
 
 /* ── Night study mode: ultra-dim for late-night sessions ── */
 html[data-night-study="1"] {
-  --ink: #c8cdd6 !important;
+  --ink: #e2e6ed !important;
   --paper: #050608 !important;
   --card: #0c0e12 !important;
   --input-bg: #10131a !important;
-  --muted-strong: #7a8494 !important;
+  --muted: #9aa3b2 !important;
+  --muted-strong: #b0b8c6 !important;
   /* في وضع الدراسة الليلية نستخدم أخضر باهت للحفاظ على الاتساق مع نظام الألوان */
   --meaning: #34D399 !important;
-  --icon-muted: #6b7380 !important;
-  --border-rgb: 40, 48, 60 !important;
+  --icon-muted: #8b93a0 !important;
+  --border-rgb: 70, 80, 95 !important;
   color-scheme: dark;
 }
 html[data-night-study="1"] body {
@@ -2237,6 +2238,31 @@ html[data-night-study="1"] body {
 }
 html[data-night-study="1"] ::selection {
   background: rgba(80, 120, 180, 0.35);
+}
+/* Ensure text & numbers stay readable on pure-black night study (avoid washed-out / invisible white text) */
+html[data-night-study="1"] .app-stats-bar {
+  color: var(--ink);
+}
+html[data-night-study="1"] .app-stats-progress {
+  background: color-mix(in srgb, var(--ink) 18%, transparent) !important;
+}
+html[data-night-study="1"] .study-filter-row button:not(.btn-shine) {
+  color: var(--icon-muted) !important;
+}
+html[data-night-study="1"] .study-filter-row button.btn-shine {
+  color: #fff !important;
+}
+html[data-night-study="1"] .filter-chip-row select {
+  color: var(--ink) !important;
+}
+html[data-night-study="1"] .letter-divider span:last-child {
+  color: var(--muted-strong) !important;
+}
+html[data-night-study="1"] .letter-rail-btn {
+  color: var(--ink);
+}
+html[data-night-study="1"] .letter-rail-btn.has-words {
+  color: var(--letter-accent, var(--accent-1));
 }
 
 /* Reduced motion preference */
@@ -2816,6 +2842,14 @@ html[data-header-style="clear"] .app-stats-bar {
   box-shadow: none;
 }
 
+/* Progress track: avoid near-white bar on dark/black backgrounds (was rgba(border) ~ white) */
+.app-stats-progress {
+  background: color-mix(in srgb, var(--ink) 14%, transparent) !important;
+}
+html[data-theme="dark"] .app-stats-progress,
+html[data-theme="night"] .app-stats-progress {
+  background: color-mix(in srgb, var(--ink) 16%, transparent) !important;
+}
 
 /* ── Search icon must never sit inside the placeholder text ── */
 .toolbar-search-wrap > svg:first-of-type,

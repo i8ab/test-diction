@@ -1128,10 +1128,11 @@ function AuthScreens({
           className="auth-card"
           style={{
             ...authCardStyle,
-            maxWidth: "min(400px, 100%)",
+            maxWidth: "min(920px, 96vw)",
+            width: "100%",
             position: "relative",
             zIndex: "auto",
-            padding: "22px 26px 26px",
+            padding: "18px clamp(12px, 2.5vw, 28px) 22px",
           }}
           dir={appIsAr ? "rtl" : "ltr"}
         >

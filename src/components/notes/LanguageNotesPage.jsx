@@ -15,6 +15,7 @@ import {
 import { XIcon, PlusIcon, BookIcon, ChevronIcon, TrashIcon, CheckIcon } from "../common/Icons";
 import HowItWorksButton from "../common/HowItWorksButton";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
+import { Z_INDEX } from "../../lib/config/zIndex";
 
 /**
  * Language Notes — dedicated full-screen tool panel (same placement model as Timer / Todo).
@@ -86,35 +87,34 @@ export default function LanguageNotesPage({
 
   return (
     <div
-      className="modal-backdrop"
+      className="tool-full-page"
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 6000,
+        zIndex: Z_INDEX?.TOOL_FULL || 6000,
         background: "var(--paper, #0c0c0e)",
         display: "flex",
+        flexDirection: "column",
         alignItems: "stretch",
-        justifyContent: "center",
       }}
     >
       <BodyScrollLock />
       <div
-        className="modal-card"
         dir={isAr ? "rtl" : "ltr"}
         role="dialog"
         aria-modal="true"
         aria-labelledby="lang-notes-title"
         style={{
           width: "100%",
-          maxWidth: 720,
+          maxWidth: "100%",
           height: "100%",
           maxHeight: "100dvh",
           borderRadius: 0,
           display: "flex",
           flexDirection: "column",
-          background: CARD,
+          background: "var(--paper, #0c0c0e)",
           overflow: "hidden",
-          margin: "0 auto",
+          margin: 0,
         }}
       >
         <div
@@ -122,10 +122,12 @@ export default function LanguageNotesPage({
             display: "flex",
             alignItems: "center",
             gap: 10,
-            padding: "14px 16px",
+            padding: "12px clamp(14px, 3vw, 28px)",
             borderBottom: "1px solid rgba(var(--border-rgb),0.14)",
             flexShrink: 0,
-            background: "color-mix(in srgb, var(--card) 96%, transparent)",
+            background: "var(--card)",
+            width: "100%",
+            boxSizing: "border-box",
           }}
         >
           {active && (
@@ -208,8 +210,12 @@ export default function LanguageNotesPage({
           style={{
             flex: 1,
             overflow: "auto",
-            padding: "16px 16px calc(28px + var(--kb-inset, 0px))",
+            padding: "16px clamp(14px, 3vw, 28px) calc(28px + var(--kb-inset, 0px))",
             WebkitOverflowScrolling: "touch",
+            maxWidth: 720,
+            width: "100%",
+            margin: "0 auto",
+            boxSizing: "border-box",
           }}
         >
           {!active && (

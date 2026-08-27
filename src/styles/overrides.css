@@ -281,7 +281,7 @@ html[data-device="mobile"] .app-main-row {
   width: 52px !important;
   height: 52px !important;
   /* bottom nav ≈ 56px + safe-area → sit clearly above with 14px gap */
-  bottom: calc(70px + env(safe-area-inset-bottom, 0px)) !important;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
   right: 14px !important;
   left: auto !important;
   box-shadow: 0 4px 14px -4px rgba(var(--focus-rgb), 0.45) !important;
@@ -304,7 +304,7 @@ html[data-device="mobile"][dir="rtl"] .mobile-fab-add,
 
 @media (orientation: landscape) and (max-height: 500px) {
   .mobile-fab-add {
-    bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
     width: 48px !important;
     height: 48px !important;
   }
@@ -320,4 +320,11 @@ html[data-theme="dark"] .entry-card .entry-meaning-text,
 html[data-theme="night"] .entry-card .entry-meaning-text {
   color: #4ade80 !important;
   -webkit-text-fill-color: #4ade80 !important;
+}
+
+
+/* Force FAB fully above bottom nav on mobile (full circle visible) */
+html[data-device="mobile"] .mobile-fab-add {
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
+  z-index: 95 !important;
 }

@@ -742,10 +742,16 @@ export default function LanguageNotesPage({
                                     }}
                                   >
                                     <span style={{ fontWeight: 700, color: "var(--accent-1)", fontSize: 14 }}>
+                                      {e.ruleBefore ? (
+                                        <span style={{ fontWeight: 600 }}>({e.ruleBefore}) </span>
+                                      ) : null}
                                       {e.word}
+                                      {e.ruleAfter ? (
+                                        <span style={{ fontWeight: 600 }}> ({e.ruleAfter})</span>
+                                      ) : null}
                                       {e.type ? (
                                         <span style={{ fontWeight: 600, color: "var(--muted)", marginInlineStart: 6 }}>
-                                          ({e.type})
+                                          [{e.type}]
                                         </span>
                                       ) : null}
                                     </span>
@@ -755,8 +761,15 @@ export default function LanguageNotesPage({
                                       </span>
                                     ) : null}
                                   </div>
+                                  {(e.ruleBefore || e.ruleAfter) && (
+                                    <div style={{ fontSize: 12, color: "var(--muted-strong)", marginBottom: 4 }}>
+                                      <span style={{ fontWeight: 700 }}>rule:</span>{" "}
+                                      {e.ruleBefore ? `before → (${e.ruleBefore})` : ""}
+                                      {e.ruleBefore && e.ruleAfter ? " · " : ""}
+                                      {e.ruleAfter ? `after → (${e.ruleAfter})` : ""}
+                                    </div>
+                                  )}
                                   <Line label="ex" value={e.example} />
-                                  <Line label="role" value={e.role} />
                                   <Line label="note" value={e.note} />
                                   <Line label="additional" value={e.additionalNote} />
                                   <button
@@ -862,7 +875,8 @@ function EntryEditor({ entry, isAr, onSave, onCancel }) {
   const [type, setType] = useState(entry.type || "");
   const [meaning, setMeaning] = useState(entry.meaning || "");
   const [example, setExample] = useState(entry.example || "");
-  const [role, setRole] = useState(entry.role || "");
+  const [ruleBefore, setRuleBefore] = useState(entry.ruleBefore || entry.role || "");
+  const [ruleAfter, setRuleAfter] = useState(entry.ruleAfter || "");
   const [note, setNote] = useState(entry.note || "");
   const [additionalNote, setAdditionalNote] = useState(entry.additionalNote || "");
 
@@ -871,13 +885,36 @@ function EntryEditor({ entry, isAr, onSave, onCancel }) {
       <Field label={tr(isAr, "Type (n / v / adj…)", "النوع (n / v / adj…)")} value={type} onChange={setType} />
       <Field label={tr(isAr, "Meaning", "المعنى")} value={meaning} onChange={setMeaning} />
       <Field label="ex:" value={example} onChange={setExample} multiline />
-      <Field label={tr(isAr, "Role", "Role / الدور")} value={role} onChange={setRole} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <Field
+          label={tr(isAr, "Rule before (e.g. be)", "Rule before — قبل الكلمة (مثل: be)")}
+          value={ruleBefore}
+          onChange={setRuleBefore}
+        />
+        <Field
+          label={tr(isAr, "Rule after (e.g. + inf.)", "Rule after — بعد الكلمة (مثل: + inf.)")}
+          value={ruleAfter}
+          onChange={setRuleAfter}
+        />
+      </div>
+      <div style={{ fontSize: 12, color: "var(--muted-strong)", marginTop: -4 }}>
+        {tr(
+          isAr,
+          "Preview: ",
+          "معاينة: "
+        )}
+        <span style={{ color: "var(--accent-1)", fontWeight: 700 }}>
+          {ruleBefore ? `(${ruleBefore}) ` : ""}
+          {entry.word || "…"}
+          {ruleAfter ? ` (${ruleAfter})` : ""}
+        </span>
+      </div>
       <Field label="note:" value={note} onChange={setNote} multiline />
       <Field label="additional note:" value={additionalNote} onChange={setAdditionalNote} multiline />
       <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
         <button
           type="button"
-          onClick={() => onSave({ type, meaning, example, role, note, additionalNote })}
+          onClick={() => onSave({ type, meaning, example, ruleBefore, ruleAfter, note, additionalNote })}
           style={{ ...primaryBtnStyle, flex: 1 }}
         >
           <CheckIcon size={14} /> {tr(isAr, "Save", "حفظ")}

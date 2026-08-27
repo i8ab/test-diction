@@ -31,13 +31,18 @@ function renderGroup(group) {
   const entries = group.entries || [];
   const items = entries
     .map((e) => {
-      const lemma = [e.word, e.type ? `(${e.type})` : ""].filter(Boolean).join(" ");
+      // Grammar frame: (ruleBefore) word (+ ruleAfter) — e.g. (be) able to (+ inf.)
+      const before = (e.ruleBefore || "").trim();
+      const after = (e.ruleAfter || "").trim();
+      const typeBit = e.type ? ` <span class="type">(${escapeHtml(e.type)})</span>` : "";
+      const lemmaCore =
+        (before ? `<span class="rule-before">(${escapeHtml(before)})</span> ` : "") +
+        `<strong>${escapeHtml(e.word || "")}</strong>` +
+        (after ? ` <span class="rule-after">(${escapeHtml(after)})</span>` : "") +
+        typeBit;
       const meaning = e.meaning || "";
       const example = e.example
         ? `<div class="ex">- ${highlightExample(e.example, group.relatedWords)}</div>`
-        : "";
-      const role = e.role
-        ? `<div class="note-line"><span class="note-lab">role:</span> ${escapeHtml(e.role)}</div>`
         : "";
       const note = e.note
         ? `<div class="note-line"><span class="note-lab">note:</span> ${escapeHtml(e.note)}</div>`
@@ -48,11 +53,10 @@ function renderGroup(group) {
       return `
         <div class="entry">
           <div class="entry-row">
-            <div class="lemma">• <strong>${escapeHtml(lemma)}</strong></div>
+            <div class="lemma">• ${lemmaCore}</div>
             <div class="meaning" dir="rtl">${escapeHtml(meaning)}</div>
           </div>
           ${example}
-          ${role}
           ${note}
           ${add}
         </div>`;
@@ -147,6 +151,8 @@ function buildHtml(notes) {
   }
   .lemma { color: #1a4fbf; font-size: 13.5px; flex: 1; min-width: 0; }
   .lemma strong { font-weight: 700; }
+  .rule-before, .rule-after { font-weight: 600; color: #1a4fbf; }
+  .type { font-weight: 600; color: #5a6a9a; font-size: 12px; }
   .meaning {
     color: #222; font-size: 14px;
     font-family: "Amiri", "Times New Roman", serif;

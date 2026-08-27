@@ -8,7 +8,7 @@
  *     {
  *       id,
  *       relatedWords: ["word1", "word2"],
- *       entries: [{ word, type, meaning, example, note, additionalNote, role }]
+ *       entries: [{ word, type, meaning, example, note, additionalNote, ruleBefore, ruleAfter }]
  *     }
  *   ]
  * }
@@ -110,7 +110,8 @@ export function addGroup(accountCode, noteId, relatedWords = []) {
       example: "",
       note: "",
       additionalNote: "",
-      role: "",
+      ruleBefore: "",
+      ruleAfter: "",
     })),
   };
   note.groups = [...(note.groups || []), group];
@@ -139,7 +140,8 @@ export function updateGroup(accountCode, noteId, groupId, patch) {
           example: "",
           note: "",
           additionalNote: "",
-          role: "",
+          ruleBefore: "",
+          ruleAfter: "",
         }
       );
     });

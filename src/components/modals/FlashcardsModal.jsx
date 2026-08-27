@@ -136,7 +136,7 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
             {sectionLabel && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>· {sectionLabel}</span>}
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <InlineHowItWorks isAr={isAr} guideId="flashcards" />
+            <HowItWorksButton isAr={isAr} guideId="flashcards" />
             <button onClick={onClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}><XIcon size={20} /></button>
           </div>
         </div>

@@ -243,8 +243,9 @@ export default function MainView({
   useEffect(() => {
     function onOpenGuide(e) {
       const id = e?.detail?.guideId || null;
-      setInfoGuideInitialId(id);
-      setShowInfoGuide(true);
+      // Big "How to use the site" list disabled — per-screen portal guides only.
+      // setInfoGuideInitialId(id);
+      // setShowInfoGuide(true);
     }
     window.addEventListener("twoTongues:openInfoGuide", onOpenGuide);
     return () => window.removeEventListener("twoTongues:openInfoGuide", onOpenGuide);

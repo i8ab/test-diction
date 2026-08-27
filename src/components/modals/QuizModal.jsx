@@ -449,7 +449,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
             {sectionLabel && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>· {sectionLabel}</span>}
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <InlineHowItWorks isAr={isAr} guideId="quiz" />
+            <HowItWorksButton isAr={isAr} guideId="quiz" />
             <button onClick={handleClose} aria-label={tr(isAr, "Close", "إغلاق")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", width: 36, height: 36, padding: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 0 }}><XIcon size={20} /></button>
           </div>
         </div>

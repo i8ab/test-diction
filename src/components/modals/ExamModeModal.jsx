@@ -531,7 +531,7 @@ export default function ExamModeModal({
             {tr(isAr, "Exam Mode", "وضع الامتحان")}
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <HowItWorksButton isAr={isAr} guideId="quiz" />
+            <HowItWorksButton isAr={isAr} guideId="exam" />
             <button
             onClick={handleClose}
             aria-label={tr(isAr, "Close", "إغلاق")}

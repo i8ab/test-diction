@@ -1,4 +1,4 @@
-/* Auth screens — elegant, natural, human-feeling (not template-y) */
+/* Auth screens — elegant + Lamp Toggle Login (matches reference animation) */
 @keyframes floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
 @keyframes floatSlow { 0%, 100% { transform: translate(0,0) scale(1); } 50% { transform: translate(14px,-18px) scale(1.06); } }
 @keyframes staggerIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -6,9 +6,13 @@
   from { opacity: 0; transform: translateY(22px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
-@keyframes softGlow {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-1) 0%, transparent); }
-  50% { box-shadow: 0 0 40px -8px color-mix(in srgb, var(--accent-1) 28%, transparent); }
+@keyframes lampFormIn {
+  from { opacity: 0; transform: translateX(18px) scale(0.96); filter: brightness(0.6); }
+  to { opacity: 1; transform: translateX(0) scale(1); filter: brightness(1); }
+}
+@keyframes lampFormOut {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to { opacity: 0; transform: translateX(12px) scale(0.96); }
 }
 
 .auth-card {
@@ -39,7 +43,6 @@
   will-change: transform;
 }
 
-/* Natural form fields — soft, readable, not robotic */
 .auth-card input[type="text"],
 .auth-card input[type="password"],
 .auth-card input[type="email"],
@@ -61,7 +64,6 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-1) 18%, transparent) !important;
 }
 
-/* Primary CTA — warm and confident */
 .auth-card button[type="submit"],
 .auth-card .auth-primary-btn {
   border-radius: 14px !important;
@@ -74,166 +76,263 @@
 .auth-card button[type="submit"]:hover,
 .auth-card .auth-primary-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 24px -8px color-mix(in srgb, var(--accent-1) 55%, transparent) !important;
-}
-.auth-card button[type="submit"]:active,
-.auth-card .auth-primary-btn:active {
-  transform: translateY(0);
 }
 
-/* Switch link between login / signup */
-.auth-switch-link {
-  font-size: 13.5px;
-  color: var(--muted-strong);
-  text-align: center;
-  margin-top: 18px;
-}
-.auth-switch-link button {
-  background: none;
-  border: none;
-  color: var(--accent-1);
-  font-weight: 700;
-  cursor: pointer;
-  padding: 0 4px;
-  font-size: inherit;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-@media (max-width: 480px) {
-  .auth-card {
-    border-radius: 18px !important;
-    padding: 22px 18px 20px !important;
-    margin: 12px;
-  }
-}
-
-/* ── Lamp-style login toggle (inspired by lamp login animation) ── */
-.auth-lamp-stage {
+/* ═══════════════════════════════════════════
+   LAMP LOGIN STAGE — full-screen dark scene
+   ═══════════════════════════════════════════ */
+.lamp-login-root {
+  position: relative;
+  width: 100%;
+  min-height: min(70dvh, 560px);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(16px, 4vw, 36px);
+  gap: clamp(12px, 5vw, 48px);
   flex-wrap: wrap;
-  padding: 12px 8px 8px;
-  min-height: 160px;
+  padding: 20px 12px 28px;
+  background: radial-gradient(ellipse at 30% 50%, #1a1814 0%, #0a0a0a 55%, #000 100%);
+  border-radius: 20px;
+  overflow: hidden;
 }
-.auth-lamp {
+.lamp-login-hint {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.28);
+  pointer-events: none;
+}
+
+/* Floor lamp SVG-like structure */
+.lamp-btn {
   position: relative;
-  width: 72px;
-  height: 120px;
+  width: 120px;
+  height: 200px;
+  border: none;
+  background: transparent;
   cursor: pointer;
   flex-shrink: 0;
   -webkit-tap-highlight-color: transparent;
+  padding: 0;
+  z-index: 2;
 }
-.auth-lamp-pole {
+.lamp-shade {
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 72px;
+  height: 18px;
+  background: #1c1c1c;
+  border-radius: 6px 6px 3px 3px;
+  box-shadow: 0 2px 0 #0d0d0d;
+  transition: background 0.35s ease, box-shadow 0.35s ease;
+  z-index: 3;
+}
+.lamp-btn.is-on .lamp-shade {
+  background: #2a2a2a;
+  box-shadow: 0 0 12px rgba(255, 210, 80, 0.35);
+}
+.lamp-glow-disc {
+  position: absolute;
+  top: 42px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 64px;
+  height: 8px;
+  border-radius: 50%;
+  background: transparent;
+  transition: background 0.35s, box-shadow 0.4s;
+  z-index: 2;
+}
+.lamp-btn.is-on .lamp-glow-disc {
+  background: #ffe566;
+  box-shadow: 0 0 20px 8px rgba(255, 220, 80, 0.55);
+}
+.lamp-beam {
+  position: absolute;
+  top: 48px;
+  left: 50%;
+  width: 140px;
+  height: 130px;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 220, 90, 0.38) 0%,
+    rgba(255, 200, 60, 0.12) 45%,
+    rgba(255, 180, 40, 0) 100%
+  );
+  clip-path: polygon(32% 0%, 68% 0%, 100% 100%, 0% 100%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+.lamp-btn.is-on .lamp-beam {
+  opacity: 1;
+}
+.lamp-pole {
+  position: absolute;
+  top: 46px;
+  left: 50%;
+  width: 5px;
+  height: 120px;
+  margin-left: -2.5px;
+  background: linear-gradient(180deg, #333, #111);
+  border-radius: 2px;
+  z-index: 2;
+}
+.lamp-base {
   position: absolute;
   bottom: 8px;
   left: 50%;
-  width: 4px;
-  height: 70px;
-  margin-left: -2px;
-  background: #2a2a2a;
-  border-radius: 2px;
-}
-.auth-lamp-base {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 36px;
-  height: 8px;
-  margin-left: -18px;
-  background: #1a1a1a;
-  border-radius: 4px 4px 2px 2px;
-}
-.auth-lamp-shade {
-  position: absolute;
-  top: 18px;
-  left: 50%;
-  width: 56px;
-  height: 14px;
-  margin-left: -28px;
-  background: #1a1a1a;
-  border-radius: 4px 4px 2px 2px;
-  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-  transform-origin: center top;
-}
-.auth-lamp.is-on .auth-lamp-shade {
-  transform: rotate(0deg);
-}
-.auth-lamp-bulb {
-  position: absolute;
-  top: 28px;
-  left: 50%;
-  width: 10px;
+  transform: translateX(-50%);
+  width: 48px;
   height: 10px;
-  margin-left: -5px;
-  border-radius: 50%;
-  background: #666;
-  transition: background 0.3s, box-shadow 0.4s;
+  background: #151515;
+  border-radius: 6px 6px 3px 3px;
+  z-index: 2;
 }
-.auth-lamp.is-on .auth-lamp-bulb {
-  background: #ffe566;
-  box-shadow: 0 0 16px 6px rgba(255, 220, 80, 0.55);
-}
-.auth-lamp-beam {
+.lamp-pull {
   position: absolute;
-  top: 36px;
-  left: 50%;
-  width: 0;
-  height: 0;
-  margin-left: 0;
-  border-left: 40px solid transparent;
-  border-right: 40px solid transparent;
-  border-top: 70px solid rgba(255, 220, 80, 0);
-  transform: translateX(-40px);
-  transition: border-top-color 0.4s ease;
-  pointer-events: none;
-}
-.auth-lamp.is-on .auth-lamp-beam {
-  border-top-color: rgba(255, 220, 80, 0.22);
-}
-.auth-lamp-pull {
-  position: absolute;
-  top: 28px;
-  right: 4px;
+  top: 44px;
+  left: calc(50% + 28px);
   width: 2px;
-  height: 28px;
-  background: #888;
+  height: 36px;
+  background: #777;
+  z-index: 4;
 }
-.auth-lamp-pull::after {
-  content: "";
+.lamp-pull-knob {
   position: absolute;
-  bottom: -6px;
-  left: -4px;
-  width: 10px;
-  height: 10px;
+  bottom: -8px;
+  left: -5px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: #c9a227;
-}
-.auth-form-panel {
-  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), filter 0.35s;
-}
-.auth-form-panel.is-dimmed {
-  opacity: 0.35;
-  filter: brightness(0.7);
-  pointer-events: none;
-  transform: scale(0.98);
-}
-.auth-form-panel.is-lit {
-  opacity: 1;
-  filter: none;
-  pointer-events: auto;
-  transform: scale(1);
+  background: linear-gradient(145deg, #e8c84a, #b8922a);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 
-@media (max-width: 480px) {
-  .auth-lamp-stage {
-    min-height: 130px;
-    gap: 12px;
+/* Login form card beside lamp */
+.lamp-form-wrap {
+  width: min(300px, 86vw);
+  transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lamp-form-wrap.is-hidden {
+  opacity: 0;
+  transform: translateX(16px) scale(0.96);
+  pointer-events: none;
+  visibility: hidden;
+  position: absolute;
+}
+.lamp-form-wrap.is-visible {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  pointer-events: auto;
+  visibility: visible;
+  animation: lampFormIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.lamp-form-card {
+  background: rgba(28, 28, 32, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 20px 18px 18px;
+  box-shadow:
+    0 0 0 1px rgba(255, 210, 80, 0.06),
+    0 20px 50px -16px rgba(0, 0, 0, 0.65),
+    0 0 40px -10px rgba(255, 200, 60, 0.15);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: #f2f2f7;
+}
+.lamp-form-card h3 {
+  margin: 0 0 14px;
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+  color: #fff;
+}
+.lamp-form-card label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.45);
+  margin-bottom: 4px;
+  margin-top: 10px;
+}
+.lamp-form-card input {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  background: rgba(0,0,0,0.35) !important;
+  color: #fff !important;
+  padding: 11px 12px !important;
+  font-size: 14px !important;
+}
+.lamp-form-card input::placeholder {
+  color: rgba(255,255,255,0.28);
+}
+.lamp-form-card input:focus {
+  border-color: rgba(255, 200, 80, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(255, 200, 80, 0.12) !important;
+  outline: none !important;
+}
+.lamp-form-card .lamp-submit {
+  width: 100%;
+  margin-top: 16px;
+  border: none;
+  border-radius: 12px;
+  padding: 12px;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #7b5cff, #5b4dff 50%, #6a5af0);
+  box-shadow: 0 6px 20px -6px rgba(100, 80, 255, 0.55);
+}
+.lamp-form-card .lamp-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.lamp-form-card .lamp-switch {
+  text-align: center;
+  margin-top: 14px;
+  font-size: 12.5px;
+  color: rgba(255,255,255,0.45);
+}
+.lamp-form-card .lamp-switch a {
+  color: #e8c84a;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+@media (max-width: 520px) {
+  .lamp-login-root {
+    flex-direction: column;
+    min-height: auto;
+    gap: 8px;
+    padding: 28px 12px 20px;
   }
-  .auth-lamp {
-    width: 56px;
-    height: 100px;
+  .lamp-btn {
+    width: 100px;
+    height: 160px;
+  }
+  .lamp-form-wrap {
+    width: min(320px, 92vw);
+  }
+  .lamp-form-wrap.is-hidden {
+    position: relative;
+    height: 0;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
   }
 }

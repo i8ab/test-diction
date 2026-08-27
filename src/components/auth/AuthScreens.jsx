@@ -147,7 +147,7 @@ function AuthScreens({
 }) {
   const isSocialSignup = !!(socialDraft && socialDraft.provider && socialDraft.providerId);
   const [showLoginPw, setShowLoginPw] = useState(false);
-  const [lampOn, setLampOn] = useState(true);
+  const [lampOn, setLampOn] = useState(false);
   const [showSignupPw, setShowSignupPw] = useState(false);
   const [showSignupPw2, setShowSignupPw2] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
@@ -1180,23 +1180,26 @@ function AuthScreens({
             </p>
           )}
           {/* Lamp toggle — lights up the login form (responsive) */}
-          <div className="auth-lamp-stage" aria-hidden="false">
+          <div className="lamp-login-root" aria-hidden="false">
+            <span className="lamp-login-hint">{atr("Pull the string to toggle login", "اسحب الخيط لإظهار/إخفاء الدخول")}</span>
             <button
               type="button"
-              className={"auth-lamp" + (lampOn ? " is-on" : "")}
+              className={"lamp-btn" + (lampOn ? " is-on" : "")}
               onClick={() => setLampOn((v) => !v)}
-              aria-label={atr("Toggle login form light", "تشغيل/إطفاء إضاءة نموذج الدخول")}
-              title={atr("Pull the string to toggle", "اسحب الخيط للتبديل")}
+              aria-label={atr("Toggle login form", "إظهار/إخفاء نموذج الدخول")}
+              title={atr("Pull the string to toggle login", "اسحب الخيط للتبديل")}
             >
-              <span className="auth-lamp-shade" />
-              <span className="auth-lamp-bulb" />
-              <span className="auth-lamp-beam" />
-              <span className="auth-lamp-pull" />
-              <span className="auth-lamp-pole" />
-              <span className="auth-lamp-base" />
+              <span className="lamp-shade" />
+              <span className="lamp-glow-disc" />
+              <span className="lamp-beam" />
+              <span className="lamp-pole" />
+              <span className="lamp-base" />
+              <span className="lamp-pull"><span className="lamp-pull-knob" /></span>
             </button>
-          </div>
-          <div className={"auth-form-panel " + (lampOn ? "is-lit" : "is-dimmed")}>
+            <div className={"lamp-form-wrap " + (lampOn ? "is-visible" : "is-hidden")}>
+            <div className="lamp-form-card">
+            <h3>{atr("Welcome Back", "مرحبًا بعودتك")}</h3>
+
           <form onSubmit={handleLogin}>
             <div className="auth-field-1">
               <label style={labelStyle} htmlFor="login-username"><UserIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Username", "اسم المستخدم")}</label>
@@ -1257,6 +1260,8 @@ function AuthScreens({
               {atr("Request one", "اطلب حسابًا")}
             </a>
           </p>
+            </div>
+          </div>
           </div>
         </div>
       </Shell>

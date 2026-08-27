@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, inputStyle, primaryBtnStyle } from "../../lib/config/theme";
 import {
@@ -17,9 +17,8 @@ import HowItWorksButton from "../common/HowItWorksButton";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 /**
- * Language Notes — independent tool tab (like Timer).
- * List view shows note cards with word (type) : meaning.
- * Expanded view shows examples + additional notes per word group.
+ * Language Notes — dedicated full-screen tool panel (same placement model as Timer / Todo).
+ * Not a floating/draggable window over the dictionary.
  */
 export default function LanguageNotesPage({
   accountCode,
@@ -34,7 +33,7 @@ export default function LanguageNotesPage({
   const [newDesc, setNewDesc] = useState("");
   const [expandedGroup, setExpandedGroup] = useState(null);
   const [draftWords, setDraftWords] = useState("");
-  const [editEntry, setEditEntry] = useState(null); // { groupId, word }
+  const [editEntry, setEditEntry] = useState(null);
 
   useEffect(() => {
     setNotes(loadLanguageNotes(accountCode));
@@ -85,101 +84,40 @@ export default function LanguageNotesPage({
     refresh();
   }
 
-  const panelRef = useRef(null);
-  const dragRef = useRef({ active: false, ox: 0, oy: 0, x: 0, y: 0 });
-  const [pos, setPos] = useState({ x: 0, y: 0 });
-  const [size, setSize] = useState({ w: 420, h: 560 });
-  const resizeRef = useRef({ active: false, startX: 0, startY: 0, startW: 0, startH: 0 });
-
-  function onDragStart(e) {
-    if (e.button != null && e.button !== 0) return;
-    // only from header drag handle
-    dragRef.current = {
-      active: true,
-      ox: e.clientX - pos.x,
-      oy: e.clientY - pos.y,
-      x: pos.x,
-      y: pos.y,
-    };
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-  }
-  function onDragMove(e) {
-    if (!dragRef.current.active) return;
-    setPos({
-      x: e.clientX - dragRef.current.ox,
-      y: e.clientY - dragRef.current.oy,
-    });
-  }
-  function onDragEnd() {
-    dragRef.current.active = false;
-  }
-
-  function onResizeStart(e) {
-    e.stopPropagation();
-    e.preventDefault();
-    resizeRef.current = {
-      active: true,
-      startX: e.clientX,
-      startY: e.clientY,
-      startW: size.w,
-      startH: size.h,
-    };
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-  }
-  function onResizeMove(e) {
-    if (!resizeRef.current.active) return;
-    const dw = e.clientX - resizeRef.current.startX;
-    const dh = e.clientY - resizeRef.current.startY;
-    setSize({
-      w: Math.max(300, Math.min(720, resizeRef.current.startW + dw)),
-      h: Math.max(320, Math.min(window.innerHeight - 24, resizeRef.current.startH + dh)),
-    });
-  }
-  function onResizeEnd() {
-    resizeRef.current.active = false;
-  }
-
   return (
     <div
+      className="modal-backdrop"
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 6100,
-        pointerEvents: "none",
+        zIndex: 6000,
+        background: "var(--paper, #0c0c0e)",
+        display: "flex",
+        alignItems: "stretch",
+        justifyContent: "center",
       }}
-      aria-hidden={false}
     >
+      <BodyScrollLock />
       <div
-        ref={panelRef}
         className="modal-card"
         dir={isAr ? "rtl" : "ltr"}
         role="dialog"
-        aria-modal="false"
+        aria-modal="true"
         aria-labelledby="lang-notes-title"
         style={{
-          pointerEvents: "auto",
-          position: "fixed",
-          left: `calc(50% + ${pos.x}px)`,
-          top: `calc(8% + ${pos.y}px)`,
-          transform: "translateX(-50%)",
-          width: `min(92vw, ${size.w}px)`,
-          height: `min(88dvh, ${size.h}px)`,
-          borderRadius: 16,
+          width: "100%",
+          maxWidth: 720,
+          height: "100%",
+          maxHeight: "100dvh",
+          borderRadius: 0,
           display: "flex",
           flexDirection: "column",
           background: CARD,
           overflow: "hidden",
-          boxShadow: "0 24px 64px -12px rgba(0,0,0,0.45)",
-          border: "1.5px solid color-mix(in srgb, var(--accent-1) 35%, rgba(var(--border-rgb),0.25))",
-          position: "fixed",
+          margin: "0 auto",
         }}
       >
-        {/* Header */}
         <div
-          onPointerDown={onDragStart}
-          onPointerMove={onDragMove}
-          onPointerUp={onDragEnd}
-          onPointerCancel={onDragEnd}
           style={{
             display: "flex",
             alignItems: "center",
@@ -187,9 +125,7 @@ export default function LanguageNotesPage({
             padding: "14px 16px",
             borderBottom: "1px solid rgba(var(--border-rgb),0.14)",
             flexShrink: 0,
-            cursor: "grab",
-            touchAction: "none",
-            userSelect: "none",
+            background: "color-mix(in srgb, var(--card) 96%, transparent)",
           }}
         >
           {active && (
@@ -227,9 +163,7 @@ export default function LanguageNotesPage({
             }}
           >
             <BookIcon size={18} color={BRASS} />
-            {active
-              ? active.name
-              : tr(isAr, "Language Notes", "ملاحظات اللغة")}
+            {active ? active.name : tr(isAr, "Language Notes", "ملاحظات اللغة")}
           </h2>
           <HowItWorksButton isAr={isAr} guideId="languageNotes" />
           {typeof onMinimize === "function" && (
@@ -270,11 +204,16 @@ export default function LanguageNotesPage({
           </button>
         </div>
 
-        {/* Body */}
-        <div style={{ flex: 1, overflow: "auto", padding: "16px 16px 28px", WebkitOverflowScrolling: "touch" }}>
+        <div
+          style={{
+            flex: 1,
+            overflow: "auto",
+            padding: "16px 16px calc(28px + var(--kb-inset, 0px))",
+            WebkitOverflowScrolling: "touch",
+          }}
+        >
           {!active && (
             <>
-              {/* Create */}
               {!creating ? (
                 <button
                   type="button"
@@ -309,10 +248,19 @@ export default function LanguageNotesPage({
                     style={{ ...inputStyle, width: "100%", resize: "vertical" }}
                   />
                   <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                    <button type="button" onClick={handleCreate} disabled={!newName.trim()} style={{ ...primaryBtnStyle, flex: 1, opacity: newName.trim() ? 1 : 0.5 }}>
+                    <button
+                      type="button"
+                      onClick={handleCreate}
+                      disabled={!newName.trim()}
+                      style={{ ...primaryBtnStyle, flex: 1, opacity: newName.trim() ? 1 : 0.5 }}
+                    >
                       {tr(isAr, "Create", "إنشاء")}
                     </button>
-                    <button type="button" onClick={() => setCreating(false)} style={{ ...primaryBtnStyle, flex: 1, background: "var(--input-bg)", color: INK }}>
+                    <button
+                      type="button"
+                      onClick={() => setCreating(false)}
+                      style={{ ...primaryBtnStyle, flex: 1, background: "var(--input-bg)", color: INK }}
+                    >
                       {tr(isAr, "Cancel", "إلغاء")}
                     </button>
                   </div>
@@ -321,7 +269,11 @@ export default function LanguageNotesPage({
 
               {notes.length === 0 && (
                 <p style={{ textAlign: "center", color: "var(--muted)", fontSize: 14, marginTop: 40 }}>
-                  {tr(isAr, "No language notes yet. Create one to group related words.", "مفيش ملاحظات لسه. اعمل واحدة لتجميع كلمات متشابهة.")}
+                  {tr(
+                    isAr,
+                    "No language notes yet. Create one to group related words.",
+                    "مفيش ملاحظات لسه. اعمل واحدة لتجميع كلمات متشابهة."
+                  )}
                 </p>
               )}
 
@@ -329,7 +281,11 @@ export default function LanguageNotesPage({
                 const preview = [];
                 for (const g of n.groups || []) {
                   for (const e of g.entries || []) {
-                    if (e.word) preview.push(`${e.word}${e.type ? ` (${e.type})` : ""}${e.meaning ? ` : ${e.meaning}` : ""}`);
+                    if (e.word) {
+                      preview.push(
+                        `${e.word}${e.type ? ` (${e.type})` : ""}${e.meaning ? ` : ${e.meaning}` : ""}`
+                      );
+                    }
                   }
                 }
                 return (
@@ -337,7 +293,6 @@ export default function LanguageNotesPage({
                     key={n.id}
                     type="button"
                     onClick={() => setActiveId(n.id)}
-                    className="list-item-creative"
                     style={{
                       width: "100%",
                       textAlign: "start",
@@ -351,11 +306,21 @@ export default function LanguageNotesPage({
                       overflow: "hidden",
                     }}
                   >
-                    <span className="accent-rail" style={{ width: 5, background: "linear-gradient(180deg, var(--accent-1), var(--brass))" }} />
+                    <span
+                      style={{
+                        width: 5,
+                        flexShrink: 0,
+                        background: "linear-gradient(180deg, var(--accent-1), var(--brass))",
+                      }}
+                    />
                     <span style={{ flex: 1, padding: "12px 14px" }}>
-                      <span style={{ display: "block", fontWeight: 700, fontSize: 15, color: INK, marginBottom: 4 }}>{n.name}</span>
+                      <span style={{ display: "block", fontWeight: 700, fontSize: 15, color: INK, marginBottom: 4 }}>
+                        {n.name}
+                      </span>
                       {n.description && (
-                        <span style={{ display: "block", fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>{n.description}</span>
+                        <span style={{ display: "block", fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>
+                          {n.description}
+                        </span>
                       )}
                       {preview.length > 0 ? (
                         <span style={{ display: "block", fontSize: 13, color: "var(--muted-strong)", lineHeight: 1.45 }}>
@@ -363,7 +328,9 @@ export default function LanguageNotesPage({
                           {preview.length > 4 ? "…" : ""}
                         </span>
                       ) : (
-                        <span style={{ fontSize: 12, color: "var(--muted)" }}>{tr(isAr, "Empty — tap to add word groups", "فاضية — اضغط لإضافة مجموعات")}</span>
+                        <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                          {tr(isAr, "Empty — tap to add word groups", "فاضية — اضغط لإضافة مجموعات")}
+                        </span>
                       )}
                     </span>
                   </button>
@@ -378,8 +345,15 @@ export default function LanguageNotesPage({
                 <p style={{ fontSize: 13, color: "var(--muted-strong)", margin: "0 0 14px" }}>{active.description}</p>
               )}
 
-              {/* Add related words row */}
-              <div style={{ marginBottom: 16, padding: 12, borderRadius: 12, background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.14)" }}>
+              <div
+                style={{
+                  marginBottom: 16,
+                  padding: 12,
+                  borderRadius: 12,
+                  background: "var(--input-bg)",
+                  border: "1px solid rgba(var(--border-rgb),0.14)",
+                }}
+              >
                 <label style={{ ...labelStyle, marginTop: 0 }}>
                   {tr(isAr, "Related words (word1 - word2 - word3)", "كلمات متشابهة (كلمة١ - كلمة٢ - كلمة٣)")}
                 </label>
@@ -390,7 +364,17 @@ export default function LanguageNotesPage({
                     placeholder="affect - effect - impact"
                     style={{ ...inputStyle, flex: 1 }}
                   />
-                  <button type="button" onClick={handleAddGroup} disabled={!draftWords.trim()} style={{ ...primaryBtnStyle, width: "auto", padding: "10px 14px", opacity: draftWords.trim() ? 1 : 0.5 }}>
+                  <button
+                    type="button"
+                    onClick={handleAddGroup}
+                    disabled={!draftWords.trim()}
+                    style={{
+                      ...primaryBtnStyle,
+                      width: "auto",
+                      padding: "10px 14px",
+                      opacity: draftWords.trim() ? 1 : 0.5,
+                    }}
+                  >
                     <PlusIcon size={15} />
                   </button>
                 </div>
@@ -409,7 +393,6 @@ export default function LanguageNotesPage({
                       background: "color-mix(in srgb, var(--card) 96%, transparent)",
                     }}
                   >
-                    {/* Horizontal related words row */}
                     <button
                       type="button"
                       onClick={() => setExpandedGroup(isOpen ? null : g.id)}
@@ -431,7 +414,6 @@ export default function LanguageNotesPage({
                           fontWeight: 700,
                           fontSize: 14.5,
                           color: INK,
-                          letterSpacing: "0.01em",
                           overflowX: "auto",
                           whiteSpace: "nowrap",
                         }}
@@ -463,7 +445,6 @@ export default function LanguageNotesPage({
                       </button>
                     </button>
 
-                    {/* Collapsed: word (type) : meaning */}
                     {!isOpen && (
                       <div style={{ padding: "0 14px 12px" }}>
                         {(g.entries || []).map((e) => (
@@ -476,7 +457,6 @@ export default function LanguageNotesPage({
                       </div>
                     )}
 
-                    {/* Expanded: full fields */}
                     {isOpen && (
                       <div style={{ padding: "0 14px 14px", borderTop: "1px solid rgba(var(--border-rgb),0.1)" }}>
                         {(g.entries || []).map((e) => {
@@ -502,11 +482,11 @@ export default function LanguageNotesPage({
                                 />
                               ) : (
                                 <>
-                                  <Line label="type" value={e.type} isAr={isAr} />
-                                  <Line label="meaning" value={e.meaning} isAr={isAr} />
-                                  <Line label="ex" value={e.example} isAr={isAr} />
-                                  <Line label="note" value={e.note} isAr={isAr} />
-                                  <Line label="additional note" value={e.additionalNote} isAr={isAr} />
+                                  <Line label="type" value={e.type} />
+                                  <Line label="meaning" value={e.meaning} />
+                                  <Line label="ex" value={e.example} />
+                                  <Line label="note" value={e.note} />
+                                  <Line label="additional note" value={e.additionalNote} />
                                   <button
                                     type="button"
                                     onClick={() => setEditEntry({ groupId: g.id, word: e.word })}
@@ -561,33 +541,12 @@ export default function LanguageNotesPage({
             </>
           )}
         </div>
-        {/* Resize handle — bottom-end corner */}
-        <div
-          className="lang-notes-resize"
-          onPointerDown={onResizeStart}
-          onPointerMove={onResizeMove}
-          onPointerUp={onResizeEnd}
-          onPointerCancel={onResizeEnd}
-          style={{
-            position: "absolute",
-            insetInlineEnd: 4,
-            bottom: 4,
-            width: 18,
-            height: 18,
-            cursor: "nwse-resize",
-            touchAction: "none",
-            opacity: 0.45,
-            background: "linear-gradient(135deg, transparent 50%, var(--muted) 50%)",
-            borderRadius: 2,
-          }}
-          aria-hidden
-        />
       </div>
     </div>
   );
 }
 
-function Line({ label, value, isAr }) {
+function Line({ label, value }) {
   if (!value) return null;
   return (
     <div style={{ fontSize: 13, marginBottom: 4, lineHeight: 1.45 }}>
@@ -632,11 +591,7 @@ function Field({ label, value, onChange, multiline }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={multiline ? 2 : undefined}
-        style={{
-          ...inputStyle,
-          width: "100%",
-          resize: multiline ? "vertical" : undefined,
-        }}
+        style={{ ...inputStyle, width: "100%", resize: multiline ? "vertical" : undefined }}
       />
     </label>
   );

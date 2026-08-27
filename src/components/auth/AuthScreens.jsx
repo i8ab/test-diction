@@ -148,6 +148,8 @@ function AuthScreens({
   const isSocialSignup = !!(socialDraft && socialDraft.provider && socialDraft.providerId);
   const [showLoginPw, setShowLoginPw] = useState(false);
   const [lampOn, setLampOn] = useState(false);
+  /** Secure login visual phases: idle | credentials | security | auth | done */
+  const [loginAuthPhase, setLoginAuthPhase] = useState("idle");
   const [cordPull, setCordPull] = useState(0); // px dragged down
   const cordDragRef = useRef({ active: false, startY: 0, pulled: false });
   const [showSignupPw, setShowSignupPw] = useState(false);
@@ -1196,7 +1198,7 @@ function AuthScreens({
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  setLampOn((v) => !v);
+                  setLampOn((on) => !on);
                 }
               }}
             >
@@ -1222,29 +1224,46 @@ function AuthScreens({
                 }}
                 onPointerUp={(e) => {
                   if (!cordDragRef.current.active) return;
-                  const didPull = cordDragRef.current.pulled || cordPull > 28;
+                  const didPull = cordDragRef.current.pulled || cordPull >= 32;
                   cordDragRef.current = { active: false, startY: 0, pulled: false };
                   setCordPull(0);
-                  if (didPull) setLampOn((v) => !v);
+                  // سحبة كافية: لو مطفأة → تشغيل، لو شغالة → إطفاء
+                  if (didPull) setLampOn((on) => !on);
                 }}
                 onPointerCancel={() => {
                   cordDragRef.current = { active: false, startY: 0, pulled: false };
                   setCordPull(0);
                 }}
                 onClick={(e) => {
-                  // Tap on knob also toggles (mobile-friendly)
+                  // Clicks without a proper pull do nothing — must drag the cord
+                  e.preventDefault();
                   e.stopPropagation();
-                  if (cordPull < 4) setLampOn((v) => !v);
                 }}
               >
                 <span className="lamp-pull-knob" />
               </span>
             </div>
             <div className={"lamp-form-wrap " + (lampOn ? "is-visible" : "is-hidden")}>
-            <div className="lamp-form-card">
+            <div className="lamp-form-card lamp-form-secure">
+            <div className="lamp-secure-left">
             <h3>{atr("Welcome Back", "مرحبًا بعودتك")}</h3>
+            <p className="lamp-secure-sub">{atr("Sign in to continue to your account.", "سجّل دخول عشان تكمل لحسابك.")}</p>
 
-          <form onSubmit={handleLogin}>
+          <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (loggingIn || loginAuthPhase !== "idle" && loginAuthPhase !== "done") return;
+              setLoginAuthPhase("credentials");
+              await new Promise((r) => setTimeout(r, 450));
+              setLoginAuthPhase("security");
+              await new Promise((r) => setTimeout(r, 500));
+              setLoginAuthPhase("auth");
+              try {
+                await handleLogin(e);
+              } finally {
+                setLoginAuthPhase((p) => (p === "auth" ? "done" : p));
+                setTimeout(() => setLoginAuthPhase("idle"), 1200);
+              }
+            }}>
             <div className="auth-field-1">
               <label style={labelStyle} htmlFor="login-username"><UserIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Username", "اسم المستخدم")}</label>
               <input id="login-username" value={usernameInput} onChange={(e) => setUsernameInput(e.target.value.replace(/\s/g, "").toLowerCase())} placeholder={atr("Your username", "اسم المستخدم")} style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace" }} autoCapitalize="off" autoCorrect="off" autoComplete="username" spellCheck={false} dir="ltr" />
@@ -1293,10 +1312,39 @@ function AuthScreens({
               </div>
             </div>
             {authError && <div style={errorStyle} role="alert" aria-live="assertive">{translateAdminError(authError, appIsAr)}</div>}
-            <button type="submit" disabled={loggingIn} className="btn-shine auth-field-3 touch-target" style={{ ...primaryBtnStyle, minHeight: 48 }}>
-              {loggingIn ? <LoaderIcon size={16} /> : <LoginIcon size={16} />} {atr("Let's go in", "يلا ندخل")}
+            <button
+              type="submit"
+              disabled={loggingIn || (loginAuthPhase !== "idle" && loginAuthPhase !== "done")}
+              className="lamp-submit auth-field-3 touch-target"
+            >
+              {loginAuthPhase === "credentials" || loginAuthPhase === "security" || loginAuthPhase === "auth"
+                ? (<>🔒 {atr("Authenticating…", "جارٍ التحقق…")}</>)
+                : loginAuthPhase === "done"
+                ? (<>✓ {atr("Signed in", "تم الدخول")}</>)
+                : (<>{atr("Login", "دخول")}</>)}
             </button>
           </form>
+            </div>
+            <div className="lamp-secure-right" aria-hidden="true">
+              <div className={"lamp-secure-icon " + (
+                loginAuthPhase === "done" ? "is-ok" :
+                loginAuthPhase === "auth" || loginAuthPhase === "security" ? "is-lock" :
+                loginAuthPhase === "credentials" ? "is-scan" : "is-idle"
+              )}>
+                {loginAuthPhase === "done" ? "✓" : loginAuthPhase === "idle" ? "◎" : "🔒"}
+              </div>
+              <ul className="lamp-secure-steps">
+                <li className={["credentials","security","auth","done"].includes(loginAuthPhase) ? "done" : ""}>
+                  <span className="dot" /> {atr("Credentials", "بيانات الدخول")}
+                </li>
+                <li className={["security","auth","done"].includes(loginAuthPhase) ? "done" : ""}>
+                  <span className="dot" /> {atr("Security Check", "فحص الأمان")}
+                </li>
+                <li className={["auth","done"].includes(loginAuthPhase) ? "done" : loginAuthPhase === "auth" ? "active" : ""}>
+                  <span className="dot" /> {atr("Authentication", "المصادقة")}
+                </li>
+              </ul>
+            </div>
           <SocialButtons atr={atr} handleSocialLogin={handleSocialLogin} busy={socialBusy} setBusy={setSocialBusy} />
           <p className="auth-field-3" style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 13, color: "var(--muted-strong)", textAlign: "center", marginTop: 18 }}>
             {atr("Don't have an account?", "ليس لديك حساب؟")}{" "}

@@ -309,3 +309,39 @@ html[data-device="mobile"] .mobile-bottom-nav {
 html[data-device="mobile"] .app-main-row {
   padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
 }
+
+/* ---------- Mobile FAB (add word) — less elevated, calmer ---------- */
+.mobile-fab-add {
+  width: 52px !important;
+  height: 52px !important;
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+  right: 14px !important;
+  box-shadow: 0 4px 14px -4px rgba(var(--focus-rgb), 0.45) !important;
+  background: var(--accent-1) !important;
+  border: 1px solid color-mix(in srgb, var(--accent-1) 70%, #000) !important;
+  transform: none !important;
+}
+
+html[dir="rtl"] .mobile-fab-add,
+html[data-device="mobile"][dir="rtl"] .mobile-fab-add,
+[dir="rtl"] .mobile-fab-add {
+  right: auto !important;
+  left: 14px !important;
+}
+
+.mobile-fab-add:active {
+  transform: scale(0.97) !important;
+  box-shadow: 0 2px 8px -2px rgba(var(--focus-rgb), 0.4) !important;
+}
+
+/* Keep Arabic meanings green regardless of skin ink tones */
+.entry-card .entry-meaning-text,
+.entry-card span.entry-meaning-text {
+  color: #16a34a !important;
+  -webkit-text-fill-color: #16a34a !important;
+}
+html[data-theme="dark"] .entry-card .entry-meaning-text,
+html[data-theme="night"] .entry-card .entry-meaning-text {
+  color: #4ade80 !important;
+  -webkit-text-fill-color: #4ade80 !important;
+}

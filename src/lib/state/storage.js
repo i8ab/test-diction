@@ -124,11 +124,13 @@ export const SKIN_PRESETS = {
       paper: "#F4ECD9", card: "#FFFCF5", ink: "#2A2218",
       muted: "#9A8B72", "muted-strong": "#5C4E3A", "icon-muted": "#7A6B54",
       "input-bg": "#EDE4D0", "border-rgb": "140,118,80", meaning: "#4A3C28",
+      "accent-1": "#228B4A", "accent-2": "#3D9B5C", "accent-1-soft": "#D8F0E0", "accent-2-soft": "#E4F5EA", "focus-rgb": "34,139,74",
     },
     dark: {
       paper: "#14100B", card: "#1F1A13", ink: "#F2E8D6",
       muted: "#A89878", "muted-strong": "#C8B898", "icon-muted": "#B0A080",
       "input-bg": "#2A2218", "border-rgb": "150,130,90", meaning: "#D8C8A8",
+      "accent-1": "#3DDB7A", "accent-2": "#5AE89A", "accent-1-soft": "#1A3A28", "accent-2-soft": "#1E4230", "focus-rgb": "61,219,122",
     },
     bgImage: "/backgrounds/paper.webp",
     bg: {
@@ -147,11 +149,13 @@ export const SKIN_PRESETS = {
       paper: "#E6E8EF", card: "#F3F4F8", ink: "#161922",
       muted: "#7A8294", "muted-strong": "#4A5266", "icon-muted": "#6A7284",
       "input-bg": "#DCDFE8", "border-rgb": "60,70,90", meaning: "#2A3448",
+      "accent-1": "#3B7EA8", "accent-2": "#6BAFD1", "accent-1-soft": "#D4E8F4", "accent-2-soft": "#E4F2F8", "focus-rgb": "59,126,168",
     },
     dark: {
       paper: "#04050A", card: "#0C0E14", ink: "#E6EAF4",
       muted: "#7A8498", "muted-strong": "#A0AABC", "icon-muted": "#8A94A8",
       "input-bg": "#12151C", "border-rgb": "50,60,80", meaning: "#B0BACC",
+      "accent-1": "#6BAFD1", "accent-2": "#8EC8E4", "accent-1-soft": "#1A2A38", "accent-2-soft": "#1E3242", "focus-rgb": "107,175,209",
     },
     bgImage: "/backgrounds/midnight.webp",
     bg: {
@@ -216,11 +220,13 @@ export const SKIN_PRESETS = {
       paper: "#F0F3F6", card: "#F8FAFC", ink: "#1A2630",
       muted: "#72828E", "muted-strong": "#445460", "icon-muted": "#627280",
       "input-bg": "#E2E8EE", "border-rgb": "75,95,115", meaning: "#283848",
+      "accent-1": "#4A5F73", "accent-2": "#64748B", "accent-1-soft": "#E2E8EE", "accent-2-soft": "#EEF2F6", "focus-rgb": "74,95,115",
     },
     dark: {
       paper: "#0C1014", card: "#141A20", ink: "#E2E8F0",
       muted: "#7A8A98", "muted-strong": "#A0B0BE", "icon-muted": "#8A9AA8",
       "input-bg": "#1A2228", "border-rgb": "70,90,110", meaning: "#B0C0CE",
+      "accent-1": "#8494A8", "accent-2": "#A0B0C0", "accent-1-soft": "#1A2228", "accent-2-soft": "#222A32", "focus-rgb": "132,148,168",
     },
     bgImage: "/backgrounds/slate.webp",
     bg: {
@@ -239,11 +245,13 @@ export const SKIN_PRESETS = {
       paper: "#F6EFE4", card: "#FFF8EF", ink: "#352818",
       muted: "#A08A70", "muted-strong": "#6A5438", "icon-muted": "#8A7458",
       "input-bg": "#EDE2D2", "border-rgb": "140,110,70", meaning: "#5A4028",
+      "accent-1": "#B8860B", "accent-2": "#C9A227", "accent-1-soft": "#F5EBD0", "accent-2-soft": "#F8F2E0", "focus-rgb": "184,134,11",
     },
     dark: {
       paper: "#14100C", card: "#1E1812", ink: "#F0E4D6",
       muted: "#A89880", "muted-strong": "#C8B8A0", "icon-muted": "#B0A088",
       "input-bg": "#282018", "border-rgb": "140,120,90", meaning: "#D8C8B0",
+      "accent-1": "#D4B04A", "accent-2": "#E8C860", "accent-1-soft": "#3A2E14", "accent-2-soft": "#423618", "focus-rgb": "212,176,74",
     },
     bgImage: "/backgrounds/warm.webp",
     bg: {
@@ -262,11 +270,13 @@ export const SKIN_PRESETS = {
       paper: "#F2F4FC", card: "#FBFCFF", ink: "#1E2040",
       muted: "#7A7EA8", "muted-strong": "#4A4E78", "icon-muted": "#6A6E98",
       "input-bg": "#E6E8F6", "border-rgb": "90,100,160", meaning: "#2A2E60",
+      "accent-1": "#6D28D9", "accent-2": "#7C3AED", "accent-1-soft": "#EDE4FF", "accent-2-soft": "#F3ECFF", "focus-rgb": "109,40,217",
     },
     dark: {
       paper: "#0A0C18", card: "#121428", ink: "#E4E6F8",
       muted: "#8A8EB8", "muted-strong": "#B0B4D8", "icon-muted": "#9A9EC8",
       "input-bg": "#1A1C30", "border-rgb": "80,90,150", meaning: "#C0C4E8",
+      "accent-1": "#A78BFA", "accent-2": "#C4B5FD", "accent-1-soft": "#2A1A48", "accent-2-soft": "#322058", "focus-rgb": "167,139,250",
     },
     bgImage: "/backgrounds/aurora.webp",
     bg: {
@@ -285,11 +295,13 @@ export const SKIN_PRESETS = {
       paper: "#FBF3EC", card: "#FFF9F4", ink: "#3A2820",
       muted: "#A88878", "muted-strong": "#785848", "icon-muted": "#987868",
       "input-bg": "#F2E6DC", "border-rgb": "160,110,80", meaning: "#5A3C28",
+      "accent-1": "#E85A2A", "accent-2": "#FF6B35", "accent-1-soft": "#FCE8E0", "accent-2-soft": "#FDF0EA", "focus-rgb": "232,90,42",
     },
     dark: {
       paper: "#140E0C", card: "#1E1612", ink: "#F4E6DC",
       muted: "#B09888", "muted-strong": "#D0B8A8", "icon-muted": "#C0A898",
       "input-bg": "#2A201A", "border-rgb": "150,110,80", meaning: "#E0C8B8",
+      "accent-1": "#FF8A5A", "accent-2": "#FFA070", "accent-1-soft": "#3A2218", "accent-2-soft": "#42281C", "focus-rgb": "255,138,90",
     },
     bgImage: "/backgrounds/dusk.webp",
     bg: {
@@ -308,11 +320,13 @@ export const SKIN_PRESETS = {
       paper: "#F0F4F6", card: "#F8FBFC", ink: "#243038",
       muted: "#7A9098", "muted-strong": "#4A6068", "icon-muted": "#6A8088",
       "input-bg": "#E4EAEE", "border-rgb": "90,120,130", meaning: "#2A4048",
+      "accent-1": "#0284C7", "accent-2": "#0EA5E9", "accent-1-soft": "#E0F2FE", "accent-2-soft": "#ECF9FF", "focus-rgb": "2,132,199",
     },
     dark: {
       paper: "#0C1216", card: "#141C22", ink: "#E0EAF0",
       muted: "#7A949C", "muted-strong": "#A0B8C0", "icon-muted": "#8AA4AC",
       "input-bg": "#1A242A", "border-rgb": "80,110,120", meaning: "#B0C8D0",
+      "accent-1": "#38BDF8", "accent-2": "#7DD3FC", "accent-1-soft": "#0C2838", "accent-2-soft": "#123040", "focus-rgb": "56,189,248",
     },
     bgImage: "/backgrounds/mist.webp",
     bg: {
@@ -331,11 +345,13 @@ export const SKIN_PRESETS = {
       paper: "#F6F2FA", card: "#FCFAFE", ink: "#2E2440",
       muted: "#8A7AA0", "muted-strong": "#5A4A70", "icon-muted": "#7A6A90",
       "input-bg": "#EBE4F2", "border-rgb": "120,100,160", meaning: "#3E3458",
+      "accent-1": "#8B5CF6", "accent-2": "#A78BFA", "accent-1-soft": "#EDE9FE", "accent-2-soft": "#F5F3FF", "focus-rgb": "139,92,246",
     },
     dark: {
       paper: "#100E18", card: "#1A1624", ink: "#ECE4F6",
       muted: "#9A8AB0", "muted-strong": "#C0B0D0", "icon-muted": "#B0A0C0",
       "input-bg": "#221C30", "border-rgb": "110,90,150", meaning: "#D0C0E0",
+      "accent-1": "#C4B5FD", "accent-2": "#DDD6FE", "accent-1-soft": "#2A2040", "accent-2-soft": "#322850", "focus-rgb": "196,181,253",
     },
     bgImage: "/backgrounds/lavender.webp",
     bg: {
@@ -354,11 +370,13 @@ export const SKIN_PRESETS = {
       paper: "#F7F0E2", card: "#FFFBF2", ink: "#3A3020",
       muted: "#A09070", "muted-strong": "#6A5A3A", "icon-muted": "#8A7A58",
       "input-bg": "#EEE4D0", "border-rgb": "150,130,90", meaning: "#5A4A28",
+      "accent-1": "#C4922A", "accent-2": "#D4A017", "accent-1-soft": "#F5E8C8", "accent-2-soft": "#F8EFDA", "focus-rgb": "196,146,42",
     },
     dark: {
       paper: "#14110C", card: "#1E1A14", ink: "#F0E6D4",
       muted: "#A89878", "muted-strong": "#C8B898", "icon-muted": "#B0A080",
       "input-bg": "#282218", "border-rgb": "140,120,80", meaning: "#D8C8A8",
+      "accent-1": "#E0B84A", "accent-2": "#F0C85A", "accent-1-soft": "#3A3018", "accent-2-soft": "#423818", "focus-rgb": "224,184,74",
     },
     bgImage: "/backgrounds/sand.webp",
     bg: {
@@ -516,6 +534,7 @@ export function applyAccentTheme(id, mode, customHex) {
 const BASE_SURFACE_VARS = [
   "paper", "card", "ink", "muted", "muted-strong", "icon-muted",
   "input-bg", "border-rgb", "meaning",
+  "accent-1", "accent-2", "accent-1-soft", "accent-2-soft", "focus-rgb",
 ];
 
 export function loadSavedSkin() {

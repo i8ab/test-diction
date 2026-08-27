@@ -220,7 +220,7 @@ export default function MainView({
   const [nightStudy, setNightStudy] = useState(() => {
     try { return localStorage.getItem("twoTongues.nightStudy") === "1"; } catch (_) { return false; }
   });
-  /* nav-tab sync: clear sticky highlight when tool closes */
+  /* nav-tab sync: clear sticky highlight when tool/account closes → back to board (words) */
   useEffect(() => {
     if (!showQuiz && mobileNavTab === "quiz") setMobileNavTab("words");
   }, [showQuiz]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -230,6 +230,9 @@ export default function MainView({
   useEffect(() => {
     if (!showTodo && mobileNavTab === "todo") setMobileNavTab("words");
   }, [showTodo]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!showAccount && mobileNavTab === "account") setMobileNavTab("words");
+  }, [showAccount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [showSmartCards, setShowSmartCards] = useState(() => restored.tool === "smartCards");
   const [showConversation, setShowConversation] = useState(() => restored.tool === "conversation");

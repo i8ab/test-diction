@@ -258,3 +258,54 @@ html[dir="rtl"] .letter-divider > span:first-child {
 body::before {
   background-color: var(--paper) !important;
 }
+
+/* ---------- Mobile bottom nav (native bar) — solid, no blur, badge visible ---------- */
+.mobile-bottom-nav,
+html[data-device="mobile"] .mobile-bottom-nav {
+  background: var(--paper) !important;
+  background-image: none !important;
+  background-color: var(--paper) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-top: 1px solid rgba(var(--border-rgb), 0.16) !important;
+  box-shadow: 0 -4px 16px -8px rgba(var(--border-rgb), 0.2) !important;
+  /* Fill full width of the screen bottom */
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+}
+
+.mobile-nav-icon-wrap {
+  position: relative !important;
+  display: inline-flex !important;
+  overflow: visible !important;
+}
+
+.mobile-nav-badge {
+  position: absolute !important;
+  top: -8px !important;
+  inset-inline-end: -12px !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  padding: 0 5px !important;
+  border-radius: 999px !important;
+  background: #ff3b30 !important;
+  color: #fff !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  z-index: 5 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  overflow: visible !important;
+  box-shadow: 0 0 0 2px var(--paper) !important;
+  pointer-events: none !important;
+}
+
+/* Keep list content clear of the solid bottom bar */
+html[data-device="mobile"] .app-main-row {
+  padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+}

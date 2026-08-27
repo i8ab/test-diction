@@ -565,6 +565,21 @@ export function applySkinTheme(id, mode) {
       });
     }
 
+    // Each skin carries its own accent character (from preview.accent).
+    // Custom accent picker can still override afterwards via applyAccentTheme.
+    const skinAccent = (skin.preview && skin.preview.accent) || null;
+    if (skinAccent && /^#[0-9A-Fa-f]{6}$/.test(skinAccent)) {
+      const built = buildCustomAccent(skinAccent);
+      if (built) {
+        const colors = isDark ? built.dark : built.light;
+        root.style.setProperty("--accent-1", colors.a1);
+        root.style.setProperty("--accent-2", colors.a2);
+        root.style.setProperty("--accent-1-soft", colors.soft1);
+        root.style.setProperty("--accent-2-soft", colors.soft2);
+        root.style.setProperty("--focus-rgb", colors.focus);
+      }
+    }
+
     // Overlay gradients/patterns (above the photo)
     if (bg) {
       root.style.setProperty("--app-bg", bg);

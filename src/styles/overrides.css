@@ -3,45 +3,9 @@
    so the Manuscript Desk redesign is clearly visible.
    ============================================================ */
 
-/* ---------- Refined tokens (force win over legacy :root) ---------- */
-:root {
-  --paper: #F5EFE4 !important;
-  --card: #FFFCF6 !important;
-  --ink: #261E17 !important;
-  --accent-1: #9C3A22 !important;
-  --accent-1-soft: #F0D5C6 !important;
-  --accent-2: #B07A24 !important;
-  --accent-2-soft: #F3E4C0 !important;
-  --muted: #95866F !important;
-  --muted-strong: #645640 !important;
-  --icon-muted: #7E6E56 !important;
-  --input-bg: #EDE5D4 !important;
-  --border-rgb: 38, 30, 23 !important;
-  --focus-rgb: 156, 58, 34 !important;
-  --meaning: #15803d !important;
-  --shadow-card: 0 1px 0 rgba(255,255,255,0.5) inset, 0 6px 18px -10px rgba(38,30,23,0.18) !important;
-  --shadow-elevated: 0 10px 28px -12px rgba(38,30,23,0.28) !important;
-  --radius-md: 14px !important;
-  --radius-lg: 18px !important;
-  --modal-radius: 20px !important;
-}
-
-html[data-theme="dark"] {
-  --paper: #15110D !important;
-  --card: #1F1913 !important;
-  --ink: #F2EAD9 !important;
-  --accent-1: #E08A5C !important;
-  --accent-1-soft: #3D2A1C !important;
-  --accent-2: #D9AE52 !important;
-  --accent-2-soft: #2F2718 !important;
-  --muted: #A0927C !important;
-  --muted-strong: #C9BBA5 !important;
-  --icon-muted: #B0A28C !important;
-  --input-bg: #2A221A !important;
-  --border-rgb: 200, 185, 160 !important;
-  --focus-rgb: 224, 138, 92 !important;
-  --meaning: #4ade80 !important;
-}
+/* Color tokens are NOT locked here — skins/accents apply via JS
+   (documentElement.style) and must win. Do not put !important on
+   --paper/--card/--ink/--accent-* or skins will never change colors. */
 
 /* ---------- Entry / Word cards — clearly different ---------- */
 .entry-card,
@@ -310,12 +274,16 @@ html[data-device="mobile"] .app-main-row {
   padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
 }
 
-/* ---------- Mobile FAB (add word) — less elevated, calmer ---------- */
+/* ---------- Mobile FAB (add word) — ABOVE bottom nav, never under it ---------- */
 .mobile-fab-add {
+  position: fixed !important;
+  z-index: 90 !important;
   width: 52px !important;
   height: 52px !important;
-  bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+  /* bottom nav ≈ 56px + safe-area → sit clearly above with 14px gap */
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px)) !important;
   right: 14px !important;
+  left: auto !important;
   box-shadow: 0 4px 14px -4px rgba(var(--focus-rgb), 0.45) !important;
   background: var(--accent-1) !important;
   border: 1px solid color-mix(in srgb, var(--accent-1) 70%, #000) !important;
@@ -332,6 +300,14 @@ html[data-device="mobile"][dir="rtl"] .mobile-fab-add,
 .mobile-fab-add:active {
   transform: scale(0.97) !important;
   box-shadow: 0 2px 8px -2px rgba(var(--focus-rgb), 0.4) !important;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .mobile-fab-add {
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+    width: 48px !important;
+    height: 48px !important;
+  }
 }
 
 /* Keep Arabic meanings green regardless of skin ink tones */

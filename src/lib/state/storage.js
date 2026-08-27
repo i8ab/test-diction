@@ -520,12 +520,12 @@ export function applyAccentTheme(id, mode, customHex) {
   const colors = isDark ? theme.dark : theme.light;
   try {
     const root = document.documentElement;
-    root.style.setProperty("--accent-1", colors.a1);
-    root.style.setProperty("--accent-2", colors.a2);
-    root.style.setProperty("--accent-1-soft", colors.soft1);
-    root.style.setProperty("--accent-2-soft", colors.soft2);
-    root.style.setProperty("--focus-rgb", colors.focus);
-    if (colors.meaning) root.style.setProperty("--meaning", colors.meaning);
+    root.style.setProperty("--accent-1", colors.a1, "important");
+    root.style.setProperty("--accent-2", colors.a2, "important");
+    root.style.setProperty("--accent-1-soft", colors.soft1, "important");
+    root.style.setProperty("--accent-2-soft", colors.soft2, "important");
+    root.style.setProperty("--focus-rgb", colors.focus, "important");
+    if (colors.meaning) root.style.setProperty("--meaning", colors.meaning, "important");
   } catch (_) {}
 }
 
@@ -580,7 +580,7 @@ export function applySkinTheme(id, mode) {
 
     if (palette) {
       Object.entries(palette).forEach(([key, val]) => {
-        root.style.setProperty(`--${key}`, val);
+        root.style.setProperty(`--${key}`, val, "important");
       });
     }
 
@@ -591,11 +591,11 @@ export function applySkinTheme(id, mode) {
       const built = buildCustomAccent(skinAccent);
       if (built) {
         const colors = isDark ? built.dark : built.light;
-        root.style.setProperty("--accent-1", colors.a1);
-        root.style.setProperty("--accent-2", colors.a2);
-        root.style.setProperty("--accent-1-soft", colors.soft1);
-        root.style.setProperty("--accent-2-soft", colors.soft2);
-        root.style.setProperty("--focus-rgb", colors.focus);
+        root.style.setProperty("--accent-1", colors.a1, "important");
+        root.style.setProperty("--accent-2", colors.a2, "important");
+        root.style.setProperty("--accent-1-soft", colors.soft1, "important");
+        root.style.setProperty("--accent-2-soft", colors.soft2, "important");
+        root.style.setProperty("--focus-rgb", colors.focus, "important");
       }
     }
 

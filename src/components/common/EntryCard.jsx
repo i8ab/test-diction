@@ -121,21 +121,25 @@ function EntryCard({
   const actionRadius = touchy ? 12 : 10;
   const iconSize = touchy ? 18 : 16;
 
-  const moreItemStyle = (color) => ({
+  const moreTileStyle = (active) => ({
     display: "flex",
+    flexDirection: "column",
     alignItems: "center",
-    gap: 10,
-    width: "100%",
-    padding: "10px 12px",
-    border: "none",
-    borderRadius: 10,
-    background: "transparent",
-    color,
-    fontSize: 13,
-    fontWeight: 600,
+    justifyContent: "center",
+    gap: 5,
+    minHeight: touchy ? 56 : 52,
+    padding: "10px 8px",
+    border: "1px solid rgba(var(--border-rgb),0.1)",
+    borderRadius: 12,
+    background: active
+      ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))"
+      : "var(--card)",
+    color: active ? "var(--accent-1)" : "var(--ink)",
+    fontSize: 12,
+    fontWeight: 700,
     fontFamily: "var(--font-latin)",
     cursor: "pointer",
-    textAlign: "start",
+    boxShadow: "0 1px 0 rgba(255,255,255,0.2) inset",
   });
 
   // Cambridge + speak + chevron: same control *type* as mobile on every device
@@ -464,133 +468,142 @@ function EntryCard({
         )}
       </div>
 
-      {/* Action bar — hierarchy: Study + Zoom primary; rest under More */}
+      {/* Action bar — Study + Zoom primary; More expands a full panel (never clipped) */}
       <div
         className="entry-action-bar"
         ref={moreMenuRef}
         style={{
           display: "flex",
-          flexWrap: "nowrap",
-          justifyContent: "stretch",
-          alignItems: "stretch",
-          gap: touchy ? 8 : 6,
+          flexDirection: "column",
+          gap: 0,
           marginTop: 12,
           paddingTop: 10,
           borderTop: "1px solid rgba(var(--border-rgb),0.12)",
           width: "100%",
-          position: "relative",
         }}
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <button
-          type="button"
-          className="entry-action-btn entry-action-primary"
+        <div
+          className="entry-action-primary-row"
           style={{
-            ...actionBtnBase,
-            flex: 1.2,
-            color: isStudied ? "var(--success)" : "var(--ink)",
-            background: isStudied
-              ? "color-mix(in srgb, var(--success) 14%, var(--input-bg))"
-              : "var(--input-bg)",
-            border: isStudied
-              ? "1px solid color-mix(in srgb, var(--success) 35%, transparent)"
-              : "1px solid rgba(var(--border-rgb),0.12)",
-            fontWeight: 700,
+            display: "flex",
+            flexWrap: "nowrap",
+            gap: touchy ? 8 : 6,
+            width: "100%",
+            alignItems: "stretch",
           }}
-          onClick={(e) => { e.stopPropagation(); setMoreOpen(false); onToggleStudied(entry.id); }}
-          aria-pressed={isStudied}
-          aria-label={tr(isAr, "Studied", "دراسة")}
-          title={tr(isAr, "Studied", "دراسة")}
         >
-          {isStudied ? <EyeIcon size={iconSize} /> : <EyeOffIcon size={iconSize} />}
-          <span>{tr(isAr, "Study", "دراسة")}</span>
-        </button>
-        <button
-          type="button"
-          className="entry-action-btn entry-action-primary"
-          style={{
-            ...actionBtnBase,
-            flex: 1.2,
-            color: "var(--ink)",
-            fontWeight: 700,
-          }}
-          onClick={(e) => { e.stopPropagation(); setMoreOpen(false); onOpenZoom(entry.id); }}
-          aria-label={tr(isAr, "Zoom", "تكبير")}
-          title={tr(isAr, "Zoom", "تكبير")}
-        >
-          <ZoomIcon size={iconSize} />
-          <span>{tr(isAr, "Zoom", "تكبير")}</span>
-        </button>
-        <button
-          type="button"
-          className="entry-action-btn entry-action-more"
-          style={{
-            ...actionBtnBase,
-            flex: "0 0 auto",
-            minWidth: touchy ? 52 : 48,
-            color: moreOpen ? "var(--accent-1)" : "var(--icon-muted)",
-            background: moreOpen
-              ? "color-mix(in srgb, var(--accent-1) 12%, var(--input-bg))"
-              : "var(--input-bg)",
-          }}
-          onClick={(e) => { e.stopPropagation(); setMoreOpen((v) => !v); setConfirmDel(false); }}
-          aria-expanded={moreOpen}
-          aria-haspopup="menu"
-          aria-label={tr(isAr, "More actions", "المزيد")}
-          title={tr(isAr, "More", "المزيد")}
-        >
-          <MoreIcon size={iconSize} />
-          <span>{tr(isAr, "More", "المزيد")}</span>
-        </button>
+          <button
+            type="button"
+            className="entry-action-btn entry-action-primary"
+            style={{
+              ...actionBtnBase,
+              flex: 1,
+              color: isStudied ? "var(--success)" : "var(--ink)",
+              background: isStudied
+                ? "color-mix(in srgb, var(--success) 14%, var(--input-bg))"
+                : "var(--input-bg)",
+              border: isStudied
+                ? "1px solid color-mix(in srgb, var(--success) 35%, transparent)"
+                : "1px solid rgba(var(--border-rgb),0.12)",
+              fontWeight: 700,
+            }}
+            onClick={(e) => { e.stopPropagation(); setMoreOpen(false); onToggleStudied(entry.id); }}
+            aria-pressed={isStudied}
+            aria-label={tr(isAr, "Studied", "دراسة")}
+            title={tr(isAr, "Studied", "دراسة")}
+          >
+            {isStudied ? <EyeIcon size={iconSize} /> : <EyeOffIcon size={iconSize} />}
+            <span>{tr(isAr, "Study", "دراسة")}</span>
+          </button>
+          <button
+            type="button"
+            className="entry-action-btn entry-action-primary"
+            style={{
+              ...actionBtnBase,
+              flex: 1,
+              color: "var(--ink)",
+              fontWeight: 700,
+            }}
+            onClick={(e) => { e.stopPropagation(); setMoreOpen(false); onOpenZoom(entry.id); }}
+            aria-label={tr(isAr, "Zoom", "تكبير")}
+            title={tr(isAr, "Zoom", "تكبير")}
+          >
+            <ZoomIcon size={iconSize} />
+            <span>{tr(isAr, "Zoom", "تكبير")}</span>
+          </button>
+          <button
+            type="button"
+            className="entry-action-btn entry-action-more"
+            style={{
+              ...actionBtnBase,
+              flex: "0 0 auto",
+              minWidth: touchy ? 56 : 52,
+              color: moreOpen ? "var(--accent-1)" : "var(--icon-muted)",
+              background: moreOpen
+                ? "color-mix(in srgb, var(--accent-1) 14%, var(--input-bg))"
+                : "var(--input-bg)",
+              border: moreOpen
+                ? "1px solid color-mix(in srgb, var(--accent-1) 40%, transparent)"
+                : "1px solid rgba(var(--border-rgb),0.12)",
+              fontWeight: 700,
+            }}
+            onClick={(e) => { e.stopPropagation(); setMoreOpen((v) => !v); setConfirmDel(false); }}
+            aria-expanded={moreOpen}
+            aria-controls={`entry-more-panel-${entry.id}`}
+            aria-label={tr(isAr, "More actions", "المزيد")}
+            title={tr(isAr, "More", "المزيد")}
+          >
+            <MoreIcon size={iconSize} />
+            <span>{tr(isAr, "More", "المزيد")}</span>
+          </button>
+        </div>
 
         {moreOpen && (
           <div
+            id={`entry-more-panel-${entry.id}`}
             role="menu"
-            className="entry-more-menu"
+            className="entry-more-panel"
             style={{
-              position: "absolute",
-              bottom: "calc(100% + 6px)",
-              insetInlineEnd: 0,
-              zIndex: 20,
-              minWidth: 180,
-              padding: 6,
+              marginTop: 8,
+              padding: 8,
               borderRadius: 14,
-              background: "var(--card)",
-              border: "1px solid rgba(var(--border-rgb),0.14)",
-              boxShadow: "0 12px 32px -12px rgba(0,0,0,0.35)",
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
+              background: "color-mix(in srgb, var(--input-bg) 88%, var(--card))",
+              border: "1px solid rgba(var(--border-rgb),0.12)",
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 6,
+              width: "100%",
+              boxSizing: "border-box",
+              animation: "entryMoreIn 0.2s cubic-bezier(0.22,1,0.36,1) both",
             }}
-            onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
               role="menuitem"
-              className="entry-more-item"
-              style={moreItemStyle(isFavorite ? BRASS : "var(--ink)")}
-              onClick={(e) => { e.stopPropagation(); onToggleFavorite(entry.id); setMoreOpen(false); }}
+              className="entry-more-tile"
+              style={moreTileStyle(isFavorite)}
+              onClick={(e) => { e.stopPropagation(); onToggleFavorite(entry.id); }}
             >
-              <StarIcon size={16} fill={isFavorite ? BRASS : "none"} />
+              <StarIcon size={17} fill={isFavorite ? BRASS : "none"} />
               <span>{tr(isAr, "Favorite", "مفضلة")}</span>
+              {isFavorite && <span className="entry-more-dot" aria-hidden="true" />}
             </button>
             {typeof onCyclePriority === "function" && (
               <button
                 type="button"
                 role="menuitem"
-                className="entry-more-item"
-                style={moreItemStyle(
-                  priority === 3 ? "#ff3b30" : priority === 2 ? "#ff9f0a" : priority === 1 ? "#34c759" : "var(--ink)"
-                )}
+                className="entry-more-tile"
+                style={moreTileStyle(priority > 0)}
                 onClick={(e) => { e.stopPropagation(); onCyclePriority(entry.id); }}
               >
-                <FlameIcon size={16} />
+                <FlameIcon size={17} />
                 <span>{
-                  priority === 3 ? tr(isAr, "Priority: High", "أولوية: عالية")
-                  : priority === 2 ? tr(isAr, "Priority: Med", "أولوية: متوسطة")
-                  : priority === 1 ? tr(isAr, "Priority: Low", "أولوية: منخفضة")
-                  : tr(isAr, "Set priority", "تعيين أولوية")
+                  priority === 3 ? tr(isAr, "High", "عالية")
+                  : priority === 2 ? tr(isAr, "Med", "متوسطة")
+                  : priority === 1 ? tr(isAr, "Low", "منخفضة")
+                  : tr(isAr, "Priority", "أولوية")
                 }</span>
               </button>
             )}
@@ -598,11 +611,11 @@ function EntryCard({
               <button
                 type="button"
                 role="menuitem"
-                className="entry-more-item"
-                style={moreItemStyle("var(--ink)")}
+                className="entry-more-tile"
+                style={moreTileStyle(false)}
                 onClick={(e) => { e.stopPropagation(); setMoreOpen(false); onEdit(entry.id); }}
               >
-                <EditIcon size={15} />
+                <EditIcon size={16} />
                 <span>{tr(isAr, "Edit", "تعديل")}</span>
               </button>
             )}
@@ -610,8 +623,15 @@ function EntryCard({
               <button
                 type="button"
                 role="menuitem"
-                className="entry-more-item"
-                style={moreItemStyle(confirmDel ? "var(--danger)" : "var(--ink)")}
+                className="entry-more-tile"
+                style={{
+                  ...moreTileStyle(confirmDel),
+                  color: confirmDel ? "var(--danger)" : "var(--ink)",
+                  borderColor: confirmDel ? "color-mix(in srgb, var(--danger) 40%, transparent)" : "rgba(var(--border-rgb),0.1)",
+                  background: confirmDel
+                    ? "color-mix(in srgb, var(--danger) 12%, var(--card))"
+                    : "var(--card)",
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (confirmDel) { onDelete(entry.id); setMoreOpen(false); setConfirmDel(false); }
@@ -619,8 +639,8 @@ function EntryCard({
                 }}
                 onBlur={() => setConfirmDel(false)}
               >
-                <TrashIcon size={15} />
-                <span>{confirmDel ? tr(isAr, "Tap again to delete", "اضغط مرة أخرى للحذف") : tr(isAr, "Delete", "حذف")}</span>
+                <TrashIcon size={16} />
+                <span>{confirmDel ? tr(isAr, "Confirm?", "تأكيد؟") : tr(isAr, "Delete", "حذف")}</span>
               </button>
             )}
           </div>

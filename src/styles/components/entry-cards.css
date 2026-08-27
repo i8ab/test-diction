@@ -176,28 +176,43 @@ html[data-device="tablet"] .letter-divider {
   font-size: 1.1rem;
 }
 
-/* ---------- Action hierarchy: primary Study/Zoom + More ---------- */
+
+/* ---------- Action hierarchy: Study/Zoom + expanding More panel ---------- */
 .entry-action-bar {
   position: relative;
+  overflow: visible;
 }
 .entry-action-btn.entry-action-primary {
   font-weight: 700;
 }
-.entry-action-btn.entry-action-more span {
-  font-size: 11px;
+.entry-more-panel {
+  overflow: visible;
 }
-.entry-more-menu {
-  animation: fadeUp 0.18s var(--ease-out, ease) both;
+.entry-more-tile:active {
+  transform: scale(0.97);
 }
-.entry-more-item:hover,
-.entry-more-item:focus-visible {
-  background: color-mix(in srgb, var(--accent-1) 10%, transparent) !important;
-  outline: none;
+.entry-more-tile:focus-visible {
+  outline: 2px solid rgba(var(--focus-rgb), 0.45);
+  outline-offset: 1px;
+}
+@keyframes entryMoreIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .entry-more-panel {
+    animation: none !important;
+  }
 }
 
-/* Word title stronger hierarchy */
-.entry-card .entry-card-word,
-.entry-card .entry-word {
-  font-size: 1.12em;
-  line-height: 1.25;
+/* Never clip the expanded more panel */
+.entry-card,
+.word-card {
+  overflow: visible !important;
 }

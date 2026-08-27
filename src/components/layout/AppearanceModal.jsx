@@ -599,8 +599,8 @@ export default function AppearanceModal({
             </div>
           </AppearanceSection>
 
-          {/* ── Accent color ── */}
-          {onChangeAccent && (
+          {/* ── Accent color (removed: accent follows background/skin only) ── */}
+          {false && onChangeAccent && (
             <AppearanceSection {...sp("accent")} title={T("Color theme", "لون الواجهة")} summary={accentLabel}>
               <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted-strong)", lineHeight: 1.4 }}>
                 {T("Pick a vibrant palette, or choose any custom color.", "اختار لوحة ألوان زاهية، أو لون مخصص بالكامل.")}

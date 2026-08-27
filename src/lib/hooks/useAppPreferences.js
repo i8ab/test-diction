@@ -187,8 +187,7 @@ export function useAppPreferences() {
     if (!id) return;
     setSkinState(id);
     saveSkin(id);
-    // Each background/skin gets its own accent character on pick.
-    // User can still override later with the accent color picker.
+    // Accent follows the chosen background/skin only.
     try {
       const preset = SKIN_PRESETS[id];
       const hex = preset && preset.preview && preset.preview.accent;
@@ -200,16 +199,20 @@ export function useAppPreferences() {
     } catch (_) {}
   }, []);
 
-  // Skin first (brings its own accent character), then user accent wins on top.
+  // Accent is driven ONLY by the background/skin — no separate accent picker.
   useEffect(() => {
     applySkinTheme(skin, resolveTheme(theme));
-    applyAccentTheme(
-      accentTheme,
-      resolveTheme(theme),
-      accentTheme === "custom" ? loadCustomAccentHex() : null
-    );
-    saveAccent(accentTheme);
-  }, [skin, accentTheme, theme]);
+    // Apply skin's preview accent as the sole accent source
+    try {
+      const preset = SKIN_PRESETS[skin];
+      const hex = preset && preset.preview && preset.preview.accent;
+      if (hex && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
+        applyAccentTheme("custom", resolveTheme(theme), hex);
+        saveCustomAccentHex(hex);
+        saveAccent("custom");
+      }
+    } catch (_) {}
+  }, [skin, theme]);
 
   // --- UI scale ---
   const [uiScale, setUiScaleState] = useState(() => loadUiScale());

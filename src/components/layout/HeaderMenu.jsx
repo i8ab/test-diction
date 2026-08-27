@@ -225,7 +225,7 @@ export default function HeaderMenu({
         pendingCount={pendingCount}
         onOpenLang={() => setLangModalOpen(true)}
         onOpenDevice={() => setDeviceModalOpen(true)}
-        onOpenAccent={() => setAccentModalOpen(true)}
+        onOpenAccent={undefined}
         onOpenAppearance={() => setAppearanceModalOpen(true)}
         deviceMode={deviceMode}
         brandPresetId={brandPresetId}
@@ -261,14 +261,7 @@ export default function HeaderMenu({
         appLang={appLang}
         onChangeAppLang={onChangeAppLang}
       />
-      <AccentModal
-        open={accentModalOpen}
-        onClose={() => setAccentModalOpen(false)}
-        isAr={isAr}
-        appLang={appLang}
-        accentTheme={accentTheme}
-        onChangeAccent={onChangeAccent}
-      />
+      {/* AccentModal removed — accent follows skin/background */}
 
       <NotificationsModal
         open={notifOpen}

@@ -135,6 +135,22 @@
     --font-latin: "Source Sans 3", system-ui, sans-serif;
     --font-arabic: "Amiri", "Times New Roman", serif;
     --font-display: "Fraunces", "Amiri", Georgia, serif;
+
+    /* Design System — spacing & radius scale (Calm Focused Modern) */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-pill: 999px;
+    --shadow-soft: 0 8px 24px -14px rgba(var(--border-rgb), 0.35);
+    --shadow-card: 0 1px 0 rgba(255,255,255,0.35) inset, 0 10px 28px -16px rgba(var(--border-rgb), 0.28);
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
   }
   html[data-theme="dark"] {
     --paper: #1B1712;
@@ -3237,4 +3253,157 @@ a:focus-visible,
   background: #E85D4C !important;
   box-shadow: 0 2px 6px -2px rgba(232, 93, 76, 0.55);
   font-variant-numeric: tabular-nums;
+}
+
+
+/* ========== PHASE COMPLETE — Header / Cards / Tabs / Modals / Motion ========== */
+
+/* Header glass refinement */
+header.app-header,
+header[data-header-style],
+.app-header {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+html[data-header-style="glass"] header,
+header.glass {
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  border-bottom: 1px solid rgba(var(--border-rgb), 0.1);
+  box-shadow: 0 8px 24px -18px rgba(var(--border-rgb), 0.22);
+}
+
+/* Section tabs — refined active state */
+header .section-tab {
+  border-radius: var(--radius-md, 12px);
+  transition: color 0.18s var(--ease-out, ease), background 0.18s var(--ease-out, ease), box-shadow 0.18s ease;
+}
+header .section-tab[aria-selected="true"],
+header .section-tab.is-active {
+  background: color-mix(in srgb, var(--accent-1) 12%, var(--card));
+  color: var(--ink);
+  box-shadow: inset 0 -2px 0 0 var(--accent-1);
+  font-weight: 700;
+}
+
+/* Entry / Word cards elevated look */
+.entry-card,
+.word-card {
+  border-radius: 14px 12px 15px 11px !important;
+  border: 1px solid rgba(var(--border-rgb), 0.12);
+  transition: box-shadow 0.22s var(--ease-out, ease), border-color 0.18s ease, transform 0.18s ease;
+}
+.entry-card:hover,
+.word-card:hover {
+  border-color: rgba(var(--border-rgb), 0.2);
+  box-shadow: var(--shadow-card, 0 10px 28px -16px rgba(0,0,0,0.12));
+}
+html[data-device="mobile"] .entry-card:hover,
+html[data-device="mobile"] .word-card:hover {
+  transform: none; /* avoid hover jank on touch */
+}
+
+/* Word title hierarchy */
+.entry-card .entry-card-word,
+.word-card .word-title {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+  font-weight: 600;
+}
+
+/* Toolbar search polish */
+.toolbar-search-input {
+  border-radius: 12px !important;
+  border: 1px solid rgba(var(--border-rgb), 0.16) !important;
+}
+.toolbar-search-input:focus {
+  border-color: color-mix(in srgb, var(--accent-1) 55%, transparent) !important;
+  box-shadow: 0 0 0 3px rgba(var(--focus-rgb), 0.18) !important;
+}
+
+/* Modal cards — consistent refined surface */
+.modal-card,
+.responsive-modal,
+.header-menu-panel {
+  border-radius: 18px 16px 20px 14px !important;
+  border: 1px solid rgba(var(--border-rgb), 0.12);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.28) inset,
+    0 24px 48px -20px rgba(0,0,0,0.28) !important;
+}
+
+/* Header menu items */
+.header-menu-item {
+  border-radius: 10px;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.header-menu-item:hover {
+  background: var(--input-bg);
+}
+
+/* Letter rail polish */
+.letter-rail-btn {
+  border-radius: 10px;
+  transition: background 0.14s ease, color 0.14s ease, transform 0.12s ease;
+}
+.letter-rail-btn:active {
+  transform: scale(0.96);
+}
+
+/* FAB polish */
+.mobile-fab-add,
+.fab-stack button,
+.floating-actions button {
+  border-radius: 16px 14px 18px 12px !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.2) inset,
+    0 12px 28px -10px rgba(var(--focus-rgb), 0.5) !important;
+  transition: transform 0.15s var(--ease-out, ease), box-shadow 0.2s ease;
+}
+.mobile-fab-add:active,
+.fab-stack button:active {
+  transform: scale(0.96);
+}
+
+/* Stagger utility for lists */
+.stagger-children > * {
+  animation: fadeInUp 0.35s var(--ease-out, ease) both;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0.02s; }
+.stagger-children > *:nth-child(2) { animation-delay: 0.05s; }
+.stagger-children > *:nth-child(3) { animation-delay: 0.08s; }
+.stagger-children > *:nth-child(4) { animation-delay: 0.11s; }
+.stagger-children > *:nth-child(5) { animation-delay: 0.14s; }
+.stagger-children > *:nth-child(6) { animation-delay: 0.17s; }
+.stagger-children > *:nth-child(7) { animation-delay: 0.2s; }
+.stagger-children > *:nth-child(8) { animation-delay: 0.23s; }
+
+/* Reduced motion respect */
+@media (prefers-reduced-motion: reduce) {
+  .stagger-children > *,
+  .entry-card,
+  .uhd-splash-inner,
+  .arc-nav-light {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Dark theme card depth */
+html[data-theme="dark"] .entry-card,
+html[data-theme="night"] .entry-card,
+html[data-theme="dark"] .word-card,
+html[data-theme="night"] .word-card {
+  background: color-mix(in srgb, var(--card) 96%, #000);
+  border-color: rgba(var(--border-rgb), 0.14);
+}
+
+/* Primary buttons global soft lift */
+.btn-shine {
+  border-radius: 11px 13px 10px 12px;
+  transition: transform 0.14s ease, box-shadow 0.18s ease, filter 0.14s ease;
+}
+
+/* Site banner integration with refined header */
+.site-banner + header {
+  box-shadow: none;
 }

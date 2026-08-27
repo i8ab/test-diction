@@ -182,23 +182,24 @@ export default function HeaderMenu({
         title={T("Settings", "الإعدادات")}
         aria-label={T("Settings", "الإعدادات")}
         aria-expanded={settingsOpen}
-        className="lift-hover touch-target"
+        className="lift-hover touch-target header-settings-btn"
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          width: 36,
-          height: 36,
-          border: "1px solid rgba(var(--border-rgb),0.25)",
-          background: "none",
+          width: 38,
+          height: 38,
+          border: "1px solid rgba(var(--border-rgb),0.22)",
+          background: "color-mix(in srgb, var(--card) 70%, transparent)",
           color: "var(--icon-muted)",
-          borderRadius: 10,
+          borderRadius: 12,
           cursor: "pointer",
           position: "relative",
           flexShrink: 0,
+          transition: "background 0.15s ease, border-color 0.15s ease, color 0.15s ease",
         }}
       >
-        <SettingsIcon size={16} />
+        <SettingsIcon size={17} />
       </button>
 
       <SettingsModal

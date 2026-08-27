@@ -1,0 +1,223 @@
+/* ============================================================
+   Global Modal System — performance + polish for ALL modals
+   Aesthetic: solid manuscript panels (no glass blur)
+   ============================================================ */
+
+/* ---------- Keyframes (refined, short) ---------- */
+@keyframes modalBackdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modalPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes modalSheetIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- Backdrop — solid dim, NO blur (perf + clarity) ---------- */
+.modal-backdrop,
+.header-menu-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 8000;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: max(12px, env(safe-area-inset-top, 0px))
+           max(12px, env(safe-area-inset-right, 0px))
+           max(12px, env(safe-area-inset-bottom, 0px))
+           max(12px, env(safe-area-inset-left, 0px)) !important;
+  box-sizing: border-box !important;
+  background: color-mix(in srgb, var(--paper) 22%, rgba(0, 0, 0, 0.52)) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  animation: modalBackdropIn 0.16s ease both !important;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch;
+  /* Isolate layout/paint of the dim layer */
+  contain: layout paint style;
+}
+
+/* ---------- Panel / card — solid surface, readable on every skin ---------- */
+.modal-card,
+.responsive-modal,
+.auth-card,
+.header-menu-panel {
+  background: var(--card) !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  color: var(--ink) !important;
+  border: 1px solid rgba(var(--border-rgb), 0.12) !important;
+  border-radius: var(--modal-radius, 18px) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.35) inset,
+    0 20px 48px -18px rgba(0, 0, 0, 0.38),
+    var(--skin-card-shadow, none) !important;
+  animation: modalPanelIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both !important;
+  max-height: min(92dvh, 920px) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain !important;
+  /* GPU layer only while opening */
+  will-change: transform, opacity;
+  contain: layout style;
+}
+
+/* Drop will-change after open so scrolling stays cheap */
+.modal-card,
+.responsive-modal,
+.auth-card {
+  animation-fill-mode: both !important;
+}
+
+/* ---------- Mobile: bottom-sheet feel (thumb-friendly) ---------- */
+@media (max-width: 640px), (pointer: coarse) and (max-width: 900px) {
+  .modal-backdrop {
+    align-items: flex-end !important;
+    padding-bottom: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .modal-card,
+  .responsive-modal,
+  .auth-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 18px 18px 0 0 !important;
+    max-height: min(92dvh, 92vh) !important;
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)) !important;
+    animation: modalSheetIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) both !important;
+  }
+}
+
+/* Centered modals that opt-in (keep classic center on mobile) */
+.modal-backdrop.modal-center {
+  align-items: center !important;
+  padding: max(12px, env(safe-area-inset-top, 0px)) 12px
+           max(12px, env(safe-area-inset-bottom, 0px)) 12px !important;
+}
+.modal-backdrop.modal-center .modal-card,
+.modal-backdrop.modal-center .responsive-modal {
+  border-radius: var(--modal-radius, 18px) !important;
+  width: min(100%, 440px) !important;
+  max-width: min(100%, 440px) !important;
+  animation: modalPanelIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both !important;
+}
+
+/* ---------- Internal structure helpers ---------- */
+.modal-card .modal-header,
+.modal-card [data-modal-header],
+.responsive-modal .modal-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--card);
+  padding-top: 2px;
+  margin-bottom: 4px;
+}
+
+.modal-card .modal-footer,
+.modal-card .modal-actions,
+.responsive-modal .modal-footer,
+.responsive-modal .modal-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--card) 0%, transparent) 0%,
+    var(--card) 28%
+  );
+  padding-top: 12px;
+  padding-bottom: max(4px, env(safe-area-inset-bottom, 0px));
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--btn-gap, 8px);
+  align-items: center;
+}
+
+/* ---------- Close / icon buttons inside modals ---------- */
+.modal-card button[aria-label*="Close"],
+.modal-card button[aria-label*="إغلاق"],
+.modal-card button[aria-label*="close"],
+.modal-card .modal-close {
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- Kill janky continuous animations inside open modals ---------- */
+.modal-card .brand-mark-badge,
+.modal-card .brand-mark-ring,
+.modal-card .brand-mark-title,
+.modal-card .brand-mark-badge-shine::after,
+.header-menu-panel .brand-mark-badge,
+.header-menu-panel .brand-mark-badge-shine::after {
+  animation: none !important;
+}
+.modal-card .brand-mark-badge-shine::after,
+.header-menu-panel .brand-mark-badge-shine::after {
+  display: none !important;
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .header-menu-backdrop,
+  .modal-card,
+  .responsive-modal,
+  .auth-card,
+  .header-menu-panel {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ---------- Modal style prefs (solid wins over glass) ---------- */
+html[data-modal-style="solid"] .modal-card,
+html[data-modal-style="glass"] .modal-card,
+html:not([data-modal-style]) .modal-card,
+html[data-modal-style="clear"] .modal-card {
+  background: var(--card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html[data-modal-style="solid"] .modal-backdrop,
+html[data-modal-style="glass"] .modal-backdrop,
+html:not([data-modal-style]) .modal-backdrop,
+html[data-modal-style="clear"] .modal-backdrop {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: color-mix(in srgb, var(--paper) 22%, rgba(0, 0, 0, 0.52)) !important;
+}
+
+/* ---------- Dense lists inside modals stay scrollable ---------- */
+.modal-card .entry-card,
+.modal-card .word-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px;
+}

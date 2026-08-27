@@ -39,15 +39,18 @@ import {
   MotivationDuaModal,
 } from "../modals/lazyModals";
 
-/** Lightweight shell while a lazy modal chunk downloads. */
+/** Lightweight shell while a lazy modal chunk downloads — matches global modal system. */
 function ModalChunkFallback({ label = "Loading…" }) {
   return (
     <div
+      className="modal-backdrop"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 5000,
-        background: "rgba(0,0,0,0.45)",
+        zIndex: 8000,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -55,18 +58,18 @@ function ModalChunkFallback({ label = "Loading…" }) {
       }}
     >
       <div
+        className="modal-card"
         style={{
           background: "var(--card)",
           color: "var(--ink)",
-          borderRadius: 16,
+          borderRadius: 18,
           padding: "28px 32px",
-          minWidth: 160,
-          boxShadow: "0 24px 60px -12px rgba(0,0,0,0.4)",
+          minWidth: 180,
+          maxWidth: 320,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           gap: 12,
-          border: "1px solid rgba(var(--border-rgb),0.14)",
         }}
       >
         <div

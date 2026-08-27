@@ -10,6 +10,7 @@ import "./styles/components/entry-cards.css";
 import "./styles/components/buttons.css";
 import "./index.css";
 import "./styles/overrides.css";
+import "./styles/components/modals.css"; /* last — global modal polish wins over glass */
 
 // Keep focused inputs visible above the mobile keyboard
 (function setupKeyboardInset() {

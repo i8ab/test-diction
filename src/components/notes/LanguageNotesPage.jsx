@@ -33,7 +33,6 @@ export default function LanguageNotesPage({
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
-  const [newRole, setNewRole] = useState("");
   const [expandedGroup, setExpandedGroup] = useState(null);
   const [draftWords, setDraftWords] = useState("");
   const [editEntry, setEditEntry] = useState(null);
@@ -68,12 +67,10 @@ export default function LanguageNotesPage({
     const note = createLanguageNote(accountCode, {
       name: newName.trim(),
       description: newDesc.trim(),
-      role: newRole.trim(),
       section: sectionTab,
     });
     setNewName("");
     setNewDesc("");
-    setNewRole("");
     setCreating(false);
     refresh();
     setActiveId(note.id);
@@ -379,17 +376,6 @@ export default function LanguageNotesPage({
                     placeholder={tr(isAr, "e.g. Confusing verbs", "مثل: أفعال متشابهة")}
                     style={{ ...inputStyle, width: "100%", marginBottom: 10 }}
                   />
-                  <label style={labelStyle}>{tr(isAr, "Role", "الدور / Role")}</label>
-                  <input
-                    value={newRole}
-                    onChange={(e) => setNewRole(e.target.value)}
-                    placeholder={tr(
-                      isAr,
-                      "e.g. Unit 3 – agreement verbs",
-                      "مثل: الوحدة ٣ – أفعال الاتفاق"
-                    )}
-                    style={{ ...inputStyle, width: "100%", marginBottom: 10 }}
-                  />
                   <label style={labelStyle}>{tr(isAr, "Description", "الوصف")}</label>
                   <textarea
                     value={newDesc}
@@ -536,21 +522,6 @@ export default function LanguageNotesPage({
                         <span style={{ fontWeight: 700, fontSize: 15, color: INK }}>
                           {n.name}
                         </span>
-                        {n.role ? (
-                          <span
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              color: "var(--accent-1)",
-                              background:
-                                "color-mix(in srgb, var(--accent-1) 12%, transparent)",
-                              borderRadius: 999,
-                              padding: "2px 8px",
-                            }}
-                          >
-                            {n.role}
-                          </span>
-                        ) : null}
                       </span>
                       {n.description && (
                         <span
@@ -658,21 +629,6 @@ export default function LanguageNotesPage({
                   {tr(isAr, "Export PDF", "تصدير PDF")}
                 </button>
               </div>
-
-              <label style={labelStyle}>{tr(isAr, "Role", "الدور / Role")}</label>
-              <input
-                defaultValue={active.role || ""}
-                key={`role-${active.id}-${active.updatedAt}`}
-                onBlur={(e) => {
-                  const v = e.target.value.trim();
-                  if (v !== (active.role || "")) {
-                    updateLanguageNote(accountCode, active.id, { role: v });
-                    refresh();
-                  }
-                }}
-                placeholder={tr(isAr, "e.g. Unit 3 – agreement", "مثل: الوحدة ٣")}
-                style={{ ...inputStyle, width: "100%", marginBottom: 12 }}
-              />
 
               {active.description && (
                 <p style={{ fontSize: 13, color: "var(--muted-strong)", marginTop: 0, marginBottom: 14 }}>
@@ -800,6 +756,7 @@ export default function LanguageNotesPage({
                                     ) : null}
                                   </div>
                                   <Line label="ex" value={e.example} />
+                                  <Line label="role" value={e.role} />
                                   <Line label="note" value={e.note} />
                                   <Line label="additional" value={e.additionalNote} />
                                   <button
@@ -905,6 +862,7 @@ function EntryEditor({ entry, isAr, onSave, onCancel }) {
   const [type, setType] = useState(entry.type || "");
   const [meaning, setMeaning] = useState(entry.meaning || "");
   const [example, setExample] = useState(entry.example || "");
+  const [role, setRole] = useState(entry.role || "");
   const [note, setNote] = useState(entry.note || "");
   const [additionalNote, setAdditionalNote] = useState(entry.additionalNote || "");
 
@@ -913,12 +871,13 @@ function EntryEditor({ entry, isAr, onSave, onCancel }) {
       <Field label={tr(isAr, "Type (n / v / adj…)", "النوع (n / v / adj…)")} value={type} onChange={setType} />
       <Field label={tr(isAr, "Meaning", "المعنى")} value={meaning} onChange={setMeaning} />
       <Field label="ex:" value={example} onChange={setExample} multiline />
+      <Field label={tr(isAr, "Role", "Role / الدور")} value={role} onChange={setRole} />
       <Field label="note:" value={note} onChange={setNote} multiline />
       <Field label="additional note:" value={additionalNote} onChange={setAdditionalNote} multiline />
       <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
         <button
           type="button"
-          onClick={() => onSave({ type, meaning, example, note, additionalNote })}
+          onClick={() => onSave({ type, meaning, example, role, note, additionalNote })}
           style={{ ...primaryBtnStyle, flex: 1 }}
         >
           <CheckIcon size={14} /> {tr(isAr, "Save", "حفظ")}

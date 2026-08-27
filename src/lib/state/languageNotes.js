@@ -2,13 +2,13 @@
  * Language Notes — independent study tool (like timer).
  * Structure:
  * {
- *   id, name, description, role, section ("external"|"curriculum"),
+ *   id, name, description, section ("external"|"curriculum"),
  *   createdAt, updatedAt,
  *   groups: [
  *     {
  *       id,
  *       relatedWords: ["word1", "word2"],
- *       entries: [{ word, type, meaning, example, note, additionalNote }]
+ *       entries: [{ word, type, meaning, example, note, additionalNote, role }]
  *     }
  *   ]
  * }
@@ -34,7 +34,6 @@ function normalizeNote(n) {
   return {
     ...n,
     section,
-    role: typeof n.role === "string" ? n.role : "",
     groups: Array.isArray(n.groups) ? n.groups : [],
   };
 }
@@ -60,14 +59,13 @@ function saveAll(accountCode, list) {
 
 export function createLanguageNote(
   accountCode,
-  { name, description = "", role = "", section = "external" } = {}
+  { name, description = "", section = "external" } = {}
 ) {
   const list = loadLanguageNotes(accountCode);
   const note = {
     id: uid(),
     name: String(name || "").trim() || "Untitled note",
     description: String(description || "").trim(),
-    role: String(role || "").trim(),
     section: section === "curriculum" ? "curriculum" : "external",
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -86,7 +84,6 @@ export function updateLanguageNote(accountCode, noteId, patch) {
   if (patch.section != null) {
     next.section = patch.section === "curriculum" ? "curriculum" : "external";
   }
-  if (patch.role != null) next.role = String(patch.role || "").trim();
   list[i] = normalizeNote(next);
   saveAll(accountCode, list);
   return list[i];
@@ -113,6 +110,7 @@ export function addGroup(accountCode, noteId, relatedWords = []) {
       example: "",
       note: "",
       additionalNote: "",
+      role: "",
     })),
   };
   note.groups = [...(note.groups || []), group];
@@ -141,6 +139,7 @@ export function updateGroup(accountCode, noteId, groupId, patch) {
           example: "",
           note: "",
           additionalNote: "",
+          role: "",
         }
       );
     });

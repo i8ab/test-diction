@@ -2,17 +2,13 @@
  * Language Notes — independent study tool (like timer).
  * Structure:
  * {
- *   id, name, description, createdAt, updatedAt,
+ *   id, name, description, role, section ("external"|"curriculum"),
+ *   createdAt, updatedAt,
  *   groups: [
  *     {
  *       id,
- *       relatedWords: ["word1", "word2", "word3"],  // horizontal row
- *       entries: [
- *         {
- *           word, type, meaning,
- *           example, note, additionalNote
- *         }
- *       ]
+ *       relatedWords: ["word1", "word2"],
+ *       entries: [{ word, type, meaning, example, note, additionalNote }]
  *     }
  *   ]
  * }
@@ -20,8 +16,27 @@
 
 const KEY_PREFIX = "twoTongues.languageNotes.";
 
+export const NOTE_SECTIONS = {
+  external: { id: "external", en: "External", ar: "خارجي" },
+  curriculum: { id: "curriculum", en: "Curriculum", ar: "المنهج" },
+};
+
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+}
+
+function normalizeNote(n) {
+  if (!n || typeof n !== "object") return n;
+  const section =
+    n.section === "curriculum" || n.section === "external"
+      ? n.section
+      : "external";
+  return {
+    ...n,
+    section,
+    role: typeof n.role === "string" ? n.role : "",
+    groups: Array.isArray(n.groups) ? n.groups : [],
+  };
 }
 
 export function loadLanguageNotes(accountCode) {
@@ -30,7 +45,8 @@ export function loadLanguageNotes(accountCode) {
     const raw = localStorage.getItem(KEY_PREFIX + accountCode);
     if (!raw) return [];
     const p = JSON.parse(raw);
-    return Array.isArray(p) ? p : [];
+    if (!Array.isArray(p)) return [];
+    return p.map(normalizeNote);
   } catch (_) {
     return [];
   }
@@ -42,12 +58,17 @@ function saveAll(accountCode, list) {
   } catch (_) {}
 }
 
-export function createLanguageNote(accountCode, { name, description = "" }) {
+export function createLanguageNote(
+  accountCode,
+  { name, description = "", role = "", section = "external" } = {}
+) {
   const list = loadLanguageNotes(accountCode);
   const note = {
     id: uid(),
     name: String(name || "").trim() || "Untitled note",
     description: String(description || "").trim(),
+    role: String(role || "").trim(),
+    section: section === "curriculum" ? "curriculum" : "external",
     createdAt: Date.now(),
     updatedAt: Date.now(),
     groups: [],
@@ -61,7 +82,12 @@ export function updateLanguageNote(accountCode, noteId, patch) {
   const list = loadLanguageNotes(accountCode);
   const i = list.findIndex((n) => n.id === noteId);
   if (i < 0) return null;
-  list[i] = { ...list[i], ...patch, updatedAt: Date.now() };
+  const next = { ...list[i], ...patch, updatedAt: Date.now() };
+  if (patch.section != null) {
+    next.section = patch.section === "curriculum" ? "curriculum" : "external";
+  }
+  if (patch.role != null) next.role = String(patch.role || "").trim();
+  list[i] = normalizeNote(next);
   saveAll(accountCode, list);
   return list[i];
 }
@@ -102,20 +128,21 @@ export function updateGroup(accountCode, noteId, groupId, patch) {
   const gi = (note.groups || []).findIndex((g) => g.id === groupId);
   if (gi < 0) return null;
   note.groups[gi] = { ...note.groups[gi], ...patch };
-  // Keep entries in sync when relatedWords change
   if (Array.isArray(patch.relatedWords)) {
     const existing = {};
     for (const e of note.groups[gi].entries || []) existing[e.word] = e;
     note.groups[gi].entries = patch.relatedWords.map((w) => {
       const word = String(w || "").trim();
-      return existing[word] || {
-        word,
-        type: "",
-        meaning: "",
-        example: "",
-        note: "",
-        additionalNote: "",
-      };
+      return (
+        existing[word] || {
+          word,
+          type: "",
+          meaning: "",
+          example: "",
+          note: "",
+          additionalNote: "",
+        }
+      );
     });
   }
   note.updatedAt = Date.now();
@@ -147,7 +174,6 @@ export function removeGroup(accountCode, noteId, groupId) {
   return note;
 }
 
-/** View helpers for toolViews persistence */
 const VIEW_KEY = "twoTongues.languageNotesView";
 
 export function loadLanguageNotesView() {

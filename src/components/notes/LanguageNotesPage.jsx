@@ -1,25 +1,25 @@
 import { useState, useEffect, useMemo } from "react";
 import { tr } from "../../lib/config/i18n";
-import { INK, CARD, BRASS, labelStyle, inputStyle, primaryBtnStyle } from "../../lib/config/theme";
+import { INK, BRASS, labelStyle, inputStyle, primaryBtnStyle } from "../../lib/config/theme";
 import {
   loadLanguageNotes,
   createLanguageNote,
   updateLanguageNote,
   deleteLanguageNote,
   addGroup,
-  updateGroup,
   updateEntry,
   removeGroup,
   saveLanguageNotesView,
 } from "../../lib/state/languageNotes";
+import { exportLanguageNotesPdf } from "../../lib/utils/languageNotesPdf";
 import { XIcon, PlusIcon, BookIcon, ChevronIcon, TrashIcon, CheckIcon } from "../common/Icons";
 import HowItWorksButton from "../common/HowItWorksButton";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { Z_INDEX } from "../../lib/config/zIndex";
 
 /**
- * Language Notes — dedicated full-screen tool panel (same placement model as Timer / Todo).
- * Not a floating/draggable window over the dictionary.
+ * Language Notes — full-screen tool with External / Curriculum sections,
+ * role field on each note, and PDF export matching the handout style.
  */
 export default function LanguageNotesPage({
   accountCode,
@@ -28,13 +28,17 @@ export default function LanguageNotesPage({
   onMinimize,
 }) {
   const [notes, setNotes] = useState(() => loadLanguageNotes(accountCode));
+  const [sectionTab, setSectionTab] = useState("external"); // external | curriculum
   const [activeId, setActiveId] = useState(null);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [newRole, setNewRole] = useState("");
   const [expandedGroup, setExpandedGroup] = useState(null);
   const [draftWords, setDraftWords] = useState("");
   const [editEntry, setEditEntry] = useState(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
 
   useEffect(() => {
     setNotes(loadLanguageNotes(accountCode));
@@ -44,6 +48,11 @@ export default function LanguageNotesPage({
     saveLanguageNotesView(true, false);
     return () => saveLanguageNotesView(false, false);
   }, []);
+
+  const filteredNotes = useMemo(
+    () => notes.filter((n) => (n.section || "external") === sectionTab),
+    [notes, sectionTab]
+  );
 
   const active = useMemo(
     () => notes.find((n) => n.id === activeId) || null,
@@ -59,9 +68,12 @@ export default function LanguageNotesPage({
     const note = createLanguageNote(accountCode, {
       name: newName.trim(),
       description: newDesc.trim(),
+      role: newRole.trim(),
+      section: sectionTab,
     });
     setNewName("");
     setNewDesc("");
+    setNewRole("");
     setCreating(false);
     refresh();
     setActiveId(note.id);
@@ -84,6 +96,64 @@ export default function LanguageNotesPage({
     setEditEntry(null);
     refresh();
   }
+
+  function toggleSelect(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function exportSelected() {
+    const list = notes.filter((n) => selectedIds.has(n.id));
+    if (!list.length) return;
+    exportLanguageNotesPdf(list, { isAr });
+  }
+
+  function exportOne(note) {
+    if (!note) return;
+    exportLanguageNotesPdf([note], { isAr });
+  }
+
+  const sectionBtn = (id) => {
+    const activeSec = sectionTab === id;
+    const label =
+      id === "external"
+        ? tr(isAr, "External", "خارجي")
+        : tr(isAr, "Curriculum", "المنهج");
+    return (
+      <button
+        key={id}
+        type="button"
+        onClick={() => {
+          setSectionTab(id);
+          setActiveId(null);
+          setCreating(false);
+          setSelectMode(false);
+          setSelectedIds(new Set());
+        }}
+        style={{
+          flex: 1,
+          padding: "9px 12px",
+          borderRadius: 12,
+          border: activeSec
+            ? "1.5px solid var(--accent-1)"
+            : "1px solid rgba(var(--border-rgb),0.18)",
+          background: activeSec
+            ? "color-mix(in srgb, var(--accent-1) 16%, transparent)"
+            : "var(--card)",
+          color: activeSec ? "var(--accent-1)" : "var(--muted-strong)",
+          fontWeight: 700,
+          fontSize: 13,
+          cursor: "pointer",
+        }}
+      >
+        {label}
+      </button>
+    );
+  };
 
   return (
     <div
@@ -117,6 +187,7 @@ export default function LanguageNotesPage({
           margin: 0,
         }}
       >
+        {/* Header */}
         <div
           style={{
             display: "flex",
@@ -218,8 +289,71 @@ export default function LanguageNotesPage({
             boxSizing: "border-box",
           }}
         >
+          {/* List view */}
           {!active && (
             <>
+              {/* Section tabs */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                {sectionBtn("external")}
+                {sectionBtn("curriculum")}
+              </div>
+
+              {/* Select + PDF toolbar */}
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  marginBottom: 14,
+                  alignItems: "center",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectMode((v) => !v);
+                    setSelectedIds(new Set());
+                  }}
+                  style={{
+                    padding: "7px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(var(--border-rgb),0.2)",
+                    background: selectMode
+                      ? "color-mix(in srgb, var(--accent-1) 14%, transparent)"
+                      : "var(--card)",
+                    color: selectMode ? "var(--accent-1)" : INK,
+                    fontWeight: 700,
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  {selectMode
+                    ? tr(isAr, "Cancel select", "إلغاء التحديد")
+                    : tr(isAr, "Select notes", "تحديد ملاحظات")}
+                </button>
+                {selectMode && (
+                  <button
+                    type="button"
+                    disabled={selectedIds.size === 0}
+                    onClick={exportSelected}
+                    style={{
+                      ...primaryBtnStyle,
+                      marginTop: 0,
+                      width: "auto",
+                      padding: "8px 14px",
+                      fontSize: 12,
+                      opacity: selectedIds.size ? 1 : 0.45,
+                    }}
+                  >
+                    {tr(
+                      isAr,
+                      `PDF (${selectedIds.size})`,
+                      `PDF (${selectedIds.size})`
+                    )}
+                  </button>
+                )}
+              </div>
+
               {!creating ? (
                 <button
                   type="button"
@@ -245,6 +379,17 @@ export default function LanguageNotesPage({
                     placeholder={tr(isAr, "e.g. Confusing verbs", "مثل: أفعال متشابهة")}
                     style={{ ...inputStyle, width: "100%", marginBottom: 10 }}
                   />
+                  <label style={labelStyle}>{tr(isAr, "Role", "الدور / Role")}</label>
+                  <input
+                    value={newRole}
+                    onChange={(e) => setNewRole(e.target.value)}
+                    placeholder={tr(
+                      isAr,
+                      "e.g. Unit 3 – agreement verbs",
+                      "مثل: الوحدة ٣ – أفعال الاتفاق"
+                    )}
+                    style={{ ...inputStyle, width: "100%", marginBottom: 10 }}
+                  />
                   <label style={labelStyle}>{tr(isAr, "Description", "الوصف")}</label>
                   <textarea
                     value={newDesc}
@@ -253,19 +398,43 @@ export default function LanguageNotesPage({
                     placeholder={tr(isAr, "Optional short description…", "وصف قصير اختياري…")}
                     style={{ ...inputStyle, width: "100%", resize: "vertical" }}
                   />
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "var(--muted)",
+                      marginTop: 8,
+                      marginBottom: 4,
+                    }}
+                  >
+                    {tr(isAr, "Section", "القسم")}:{" "}
+                    <strong style={{ color: "var(--accent-1)" }}>
+                      {sectionTab === "curriculum"
+                        ? tr(isAr, "Curriculum", "المنهج")
+                        : tr(isAr, "External", "خارجي")}
+                    </strong>
+                  </div>
                   <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                     <button
                       type="button"
                       onClick={handleCreate}
                       disabled={!newName.trim()}
-                      style={{ ...primaryBtnStyle, flex: 1, opacity: newName.trim() ? 1 : 0.5 }}
+                      style={{
+                        ...primaryBtnStyle,
+                        flex: 1,
+                        opacity: newName.trim() ? 1 : 0.5,
+                      }}
                     >
                       {tr(isAr, "Create", "إنشاء")}
                     </button>
                     <button
                       type="button"
                       onClick={() => setCreating(false)}
-                      style={{ ...primaryBtnStyle, flex: 1, background: "var(--input-bg)", color: INK }}
+                      style={{
+                        ...primaryBtnStyle,
+                        flex: 1,
+                        background: "var(--input-bg)",
+                        color: INK,
+                      }}
                     >
                       {tr(isAr, "Cancel", "إلغاء")}
                     </button>
@@ -273,17 +442,17 @@ export default function LanguageNotesPage({
                 </div>
               )}
 
-              {notes.length === 0 && (
-                <p style={{ textAlign: "center", color: "var(--muted)", fontSize: 14, marginTop: 40 }}>
+              {filteredNotes.length === 0 && !creating && (
+                <p style={{ textAlign: "center", color: "var(--muted)", fontSize: 14, marginTop: 24 }}>
                   {tr(
                     isAr,
-                    "No language notes yet. Create one to group related words.",
-                    "مفيش ملاحظات لسه. اعمل واحدة لتجميع كلمات متشابهة."
+                    "No notes in this section yet.",
+                    "مفيش ملاحظات في القسم ده لسه."
                   )}
                 </p>
               )}
 
-              {notes.map((n) => {
+              {filteredNotes.map((n) => {
                 const preview = [];
                 for (const g of n.groups || []) {
                   for (const e of g.entries || []) {
@@ -294,114 +463,272 @@ export default function LanguageNotesPage({
                     }
                   }
                 }
+                const selected = selectedIds.has(n.id);
                 return (
-                  <button
+                  <div
                     key={n.id}
-                    type="button"
-                    onClick={() => setActiveId(n.id)}
                     style={{
                       width: "100%",
-                      textAlign: "start",
                       marginBottom: 10,
-                      cursor: "pointer",
-                      border: "1px solid rgba(var(--border-rgb),0.16)",
+                      border: selected
+                        ? "1.5px solid var(--accent-1)"
+                        : "1px solid rgba(var(--border-rgb),0.16)",
                       borderRadius: 12,
-                      padding: 0,
                       background: "color-mix(in srgb, var(--card) 92%, transparent)",
                       display: "flex",
                       overflow: "hidden",
+                      alignItems: "stretch",
                     }}
                   >
+                    {selectMode && (
+                      <button
+                        type="button"
+                        onClick={() => toggleSelect(n.id)}
+                        aria-label="select"
+                        style={{
+                          width: 40,
+                          flexShrink: 0,
+                          border: "none",
+                          background: selected
+                            ? "color-mix(in srgb, var(--accent-1) 22%, transparent)"
+                            : "var(--input-bg)",
+                          cursor: "pointer",
+                          color: selected ? "var(--accent-1)" : "var(--muted)",
+                          fontWeight: 800,
+                          fontSize: 16,
+                        }}
+                      >
+                        {selected ? "✓" : ""}
+                      </button>
+                    )}
                     <span
                       style={{
                         width: 5,
                         flexShrink: 0,
-                        background: "linear-gradient(180deg, var(--accent-1), var(--brass))",
+                        background:
+                          "linear-gradient(180deg, var(--accent-1), var(--brass, var(--accent-2)))",
                       }}
                     />
-                    <span style={{ flex: 1, padding: "12px 14px" }}>
-                      <span style={{ display: "block", fontWeight: 700, fontSize: 15, color: INK, marginBottom: 4 }}>
-                        {n.name}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectMode) toggleSelect(n.id);
+                        else setActiveId(n.id);
+                      }}
+                      style={{
+                        flex: 1,
+                        textAlign: "start",
+                        border: "none",
+                        background: "transparent",
+                        padding: "12px 14px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 6,
+                          alignItems: "center",
+                          marginBottom: 4,
+                        }}
+                      >
+                        <span style={{ fontWeight: 700, fontSize: 15, color: INK }}>
+                          {n.name}
+                        </span>
+                        {n.role ? (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: "var(--accent-1)",
+                              background:
+                                "color-mix(in srgb, var(--accent-1) 12%, transparent)",
+                              borderRadius: 999,
+                              padding: "2px 8px",
+                            }}
+                          >
+                            {n.role}
+                          </span>
+                        ) : null}
                       </span>
                       {n.description && (
-                        <span style={{ display: "block", fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>
+                        <span
+                          style={{
+                            display: "block",
+                            fontSize: 12,
+                            color: "var(--muted)",
+                            marginBottom: 6,
+                          }}
+                        >
                           {n.description}
                         </span>
                       )}
                       {preview.length > 0 ? (
-                        <span style={{ display: "block", fontSize: 13, color: "var(--muted-strong)", lineHeight: 1.45 }}>
+                        <span
+                          style={{
+                            display: "block",
+                            fontSize: 13,
+                            color: "var(--muted-strong)",
+                            lineHeight: 1.45,
+                          }}
+                        >
                           {preview.slice(0, 4).join(" · ")}
                           {preview.length > 4 ? "…" : ""}
                         </span>
                       ) : (
                         <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                          {tr(isAr, "Empty — tap to add word groups", "فاضية — اضغط لإضافة مجموعات")}
+                          {tr(
+                            isAr,
+                            "Empty — tap to add word groups",
+                            "فاضية — اضغط لإضافة مجموعات"
+                          )}
                         </span>
                       )}
-                    </span>
-                  </button>
+                    </button>
+                    {!selectMode && (
+                      <button
+                        type="button"
+                        title={tr(isAr, "Export PDF", "تصدير PDF")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          exportOne(n);
+                        }}
+                        style={{
+                          border: "none",
+                          background: "var(--input-bg)",
+                          color: "var(--accent-1)",
+                          fontWeight: 800,
+                          fontSize: 11,
+                          padding: "0 12px",
+                          cursor: "pointer",
+                          flexShrink: 0,
+                          letterSpacing: "0.02em",
+                        }}
+                      >
+                        PDF
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </>
           )}
 
+          {/* Detail view */}
           {active && (
             <>
-              {active.description && (
-                <p style={{ fontSize: 13, color: "var(--muted-strong)", margin: "0 0 14px" }}>{active.description}</p>
-              )}
-
+              {/* Role + section + PDF */}
               <div
                 style={{
-                  marginBottom: 16,
-                  padding: 12,
-                  borderRadius: 12,
-                  background: "var(--input-bg)",
-                  border: "1px solid rgba(var(--border-rgb),0.14)",
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  marginBottom: 12,
+                  alignItems: "center",
                 }}
               >
-                <label style={{ ...labelStyle, marginTop: 0 }}>
-                  {tr(isAr, "Related words (word1 - word2 - word3)", "كلمات متشابهة (كلمة١ - كلمة٢ - كلمة٣)")}
-                </label>
-                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                  <input
-                    value={draftWords}
-                    onChange={(e) => setDraftWords(e.target.value)}
-                    placeholder="affect - effect - impact"
-                    style={{ ...inputStyle, flex: 1 }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddGroup}
-                    disabled={!draftWords.trim()}
-                    style={{
-                      ...primaryBtnStyle,
-                      width: "auto",
-                      padding: "10px 14px",
-                      opacity: draftWords.trim() ? 1 : 0.5,
-                    }}
-                  >
-                    <PlusIcon size={15} />
-                  </button>
-                </div>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                    color: "var(--muted)",
+                    background: "var(--input-bg)",
+                    borderRadius: 999,
+                    padding: "4px 10px",
+                  }}
+                >
+                  {(active.section || "external") === "curriculum"
+                    ? tr(isAr, "Curriculum", "المنهج")
+                    : tr(isAr, "External", "خارجي")}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => exportOne(active)}
+                  style={{
+                    ...primaryBtnStyle,
+                    marginTop: 0,
+                    width: "auto",
+                    padding: "8px 14px",
+                    fontSize: 12,
+                  }}
+                >
+                  {tr(isAr, "Export PDF", "تصدير PDF")}
+                </button>
+              </div>
+
+              <label style={labelStyle}>{tr(isAr, "Role", "الدور / Role")}</label>
+              <input
+                defaultValue={active.role || ""}
+                key={`role-${active.id}-${active.updatedAt}`}
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (v !== (active.role || "")) {
+                    updateLanguageNote(accountCode, active.id, { role: v });
+                    refresh();
+                  }
+                }}
+                placeholder={tr(isAr, "e.g. Unit 3 – agreement", "مثل: الوحدة ٣")}
+                style={{ ...inputStyle, width: "100%", marginBottom: 12 }}
+              />
+
+              {active.description && (
+                <p style={{ fontSize: 13, color: "var(--muted-strong)", marginTop: 0, marginBottom: 14 }}>
+                  {active.description}
+                </p>
+              )}
+
+              <label style={labelStyle}>
+                {tr(isAr, "Add related words (split by - or ,)", "أضف كلمات مرتبطة (افصل بـ - أو ،)")}
+              </label>
+              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                <input
+                  value={draftWords}
+                  onChange={(e) => setDraftWords(e.target.value)}
+                  placeholder="able to - capable of"
+                  style={{ ...inputStyle, flex: 1 }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddGroup();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddGroup}
+                  disabled={!draftWords.trim()}
+                  style={{
+                    ...primaryBtnStyle,
+                    marginTop: 0,
+                    width: "auto",
+                    padding: "10px 14px",
+                    opacity: draftWords.trim() ? 1 : 0.45,
+                  }}
+                >
+                  <PlusIcon size={16} />
+                </button>
               </div>
 
               {(active.groups || []).map((g) => {
-                const isOpen = expandedGroup === g.id;
+                const open = expandedGroup === g.id;
+                const title = (g.relatedWords || []).join(" - ") || "—";
                 return (
                   <div
                     key={g.id}
                     style={{
-                      marginBottom: 14,
+                      marginBottom: 12,
+                      border: "1px solid rgba(var(--border-rgb),0.16)",
                       borderRadius: 14,
-                      border: "1.5px solid rgba(var(--border-rgb),0.16)",
                       overflow: "hidden",
-                      background: "color-mix(in srgb, var(--card) 96%, transparent)",
+                      background: "var(--card)",
                     }}
                   >
                     <button
                       type="button"
-                      onClick={() => setExpandedGroup(isOpen ? null : g.id)}
+                      onClick={() => setExpandedGroup(open ? null : g.id)}
                       style={{
                         width: "100%",
                         display: "flex",
@@ -409,76 +736,38 @@ export default function LanguageNotesPage({
                         gap: 8,
                         padding: "12px 14px",
                         border: "none",
-                        background: "transparent",
+                        background: "color-mix(in srgb, var(--accent-1) 8%, transparent)",
                         cursor: "pointer",
                         textAlign: "start",
                       }}
                     >
-                      <span
-                        style={{
-                          flex: 1,
-                          fontWeight: 700,
-                          fontSize: 14.5,
-                          color: INK,
-                          overflowX: "auto",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {(g.relatedWords || []).join(" — ")}
+                      <span style={{ flex: 1, fontWeight: 700, fontSize: 14, color: INK }}>
+                        {title}
                       </span>
                       <ChevronIcon
                         size={16}
                         style={{
-                          transform: isOpen ? "rotate(90deg)" : isAr ? "rotate(180deg)" : "none",
-                          transition: "transform 0.2s",
-                          flexShrink: 0,
-                          color: "var(--muted)",
+                          transform: open ? "rotate(90deg)" : isAr ? "rotate(180deg)" : "none",
+                          transition: "transform 0.15s",
+                          color: "var(--icon-muted)",
                         }}
                       />
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm(tr(isAr, "Delete this group?", "حذف المجموعة؟"))) {
-                            removeGroup(accountCode, active.id, g.id);
-                            refresh();
-                          }
-                        }}
-                        style={{ border: "none", background: "none", cursor: "pointer", color: "var(--danger)", padding: 4 }}
-                        aria-label={tr(isAr, "Delete group", "حذف المجموعة")}
-                      >
-                        <TrashIcon size={15} />
-                      </button>
                     </button>
-
-                    {!isOpen && (
-                      <div style={{ padding: "0 14px 12px" }}>
-                        {(g.entries || []).map((e) => (
-                          <div key={e.word} style={{ fontSize: 13, color: "var(--muted-strong)", marginBottom: 4, lineHeight: 1.4 }}>
-                            <strong style={{ color: INK }}>{e.word}</strong>
-                            {e.type ? ` (${e.type})` : ""}
-                            {e.meaning ? ` : ${e.meaning}` : ""}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {isOpen && (
-                      <div style={{ padding: "0 14px 14px", borderTop: "1px solid rgba(var(--border-rgb),0.1)" }}>
+                    {open && (
+                      <div style={{ padding: "10px 14px 14px" }}>
                         {(g.entries || []).map((e) => {
-                          const editing = editEntry && editEntry.groupId === g.id && editEntry.word === e.word;
+                          const editing =
+                            editEntry &&
+                            editEntry.groupId === g.id &&
+                            editEntry.word === e.word;
                           return (
                             <div
                               key={e.word}
                               style={{
-                                marginTop: 12,
-                                padding: 12,
-                                borderRadius: 12,
-                                background: "var(--input-bg)",
-                                border: "1px solid rgba(var(--border-rgb),0.12)",
+                                padding: "10px 0",
+                                borderBottom: "1px solid rgba(var(--border-rgb),0.1)",
                               }}
                             >
-                              <div style={{ fontWeight: 800, fontSize: 15, color: INK, marginBottom: 8 }}>{e.word}</div>
                               {editing ? (
                                 <EntryEditor
                                   entry={e}
@@ -488,24 +777,43 @@ export default function LanguageNotesPage({
                                 />
                               ) : (
                                 <>
-                                  <Line label="type" value={e.type} />
-                                  <Line label="meaning" value={e.meaning} />
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      gap: 10,
+                                      marginBottom: 4,
+                                    }}
+                                  >
+                                    <span style={{ fontWeight: 700, color: "var(--accent-1)", fontSize: 14 }}>
+                                      {e.word}
+                                      {e.type ? (
+                                        <span style={{ fontWeight: 600, color: "var(--muted)", marginInlineStart: 6 }}>
+                                          ({e.type})
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                    {e.meaning ? (
+                                      <span dir="rtl" style={{ fontSize: 14, color: INK, fontFamily: "var(--font-arabic)" }}>
+                                        {e.meaning}
+                                      </span>
+                                    ) : null}
+                                  </div>
                                   <Line label="ex" value={e.example} />
                                   <Line label="note" value={e.note} />
-                                  <Line label="additional note" value={e.additionalNote} />
+                                  <Line label="additional" value={e.additionalNote} />
                                   <button
                                     type="button"
                                     onClick={() => setEditEntry({ groupId: g.id, word: e.word })}
                                     style={{
-                                      marginTop: 8,
-                                      border: "1px solid rgba(var(--border-rgb),0.2)",
-                                      background: "var(--card)",
-                                      borderRadius: 8,
-                                      padding: "6px 12px",
-                                      fontSize: 12,
+                                      marginTop: 6,
+                                      border: "none",
+                                      background: "none",
+                                      color: "var(--accent-1)",
                                       fontWeight: 700,
+                                      fontSize: 12,
                                       cursor: "pointer",
-                                      color: BRASS,
+                                      padding: 0,
                                     }}
                                   >
                                     {tr(isAr, "Edit", "تعديل")}
@@ -515,6 +823,33 @@ export default function LanguageNotesPage({
                             </div>
                           );
                         })}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                tr(isAr, "Delete this group?", "تحذف المجموعة دي؟")
+                              )
+                            ) {
+                              removeGroup(accountCode, active.id, g.id);
+                              refresh();
+                            }
+                          }}
+                          style={{
+                            marginTop: 10,
+                            border: "none",
+                            background: "none",
+                            color: "var(--danger)",
+                            fontWeight: 700,
+                            fontSize: 12,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <TrashIcon size={13} /> {tr(isAr, "Delete group", "حذف المجموعة")}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -524,7 +859,11 @@ export default function LanguageNotesPage({
               <button
                 type="button"
                 onClick={() => {
-                  if (window.confirm(tr(isAr, "Delete this entire note?", "حذف الملاحظة كلها؟"))) {
+                  if (
+                    window.confirm(
+                      tr(isAr, "Delete this entire note?", "تحذف الملاحظة كلها؟")
+                    )
+                  ) {
                     deleteLanguageNote(accountCode, active.id);
                     setActiveId(null);
                     refresh();
@@ -533,11 +872,11 @@ export default function LanguageNotesPage({
                 style={{
                   marginTop: 20,
                   width: "100%",
-                  border: "1px solid var(--danger-border)",
-                  background: "var(--danger-bg)",
-                  color: "var(--danger)",
-                  borderRadius: 12,
                   padding: "12px",
+                  borderRadius: 12,
+                  border: "1px solid var(--danger)",
+                  background: "var(--danger-bg, transparent)",
+                  color: "var(--danger)",
                   fontWeight: 700,
                   cursor: "pointer",
                 }}
@@ -577,10 +916,18 @@ function EntryEditor({ entry, isAr, onSave, onCancel }) {
       <Field label="note:" value={note} onChange={setNote} multiline />
       <Field label="additional note:" value={additionalNote} onChange={setAdditionalNote} multiline />
       <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-        <button type="button" onClick={() => onSave({ type, meaning, example, note, additionalNote })} style={{ ...primaryBtnStyle, flex: 1 }}>
+        <button
+          type="button"
+          onClick={() => onSave({ type, meaning, example, note, additionalNote })}
+          style={{ ...primaryBtnStyle, flex: 1 }}
+        >
           <CheckIcon size={14} /> {tr(isAr, "Save", "حفظ")}
         </button>
-        <button type="button" onClick={onCancel} style={{ ...primaryBtnStyle, flex: 1, background: "var(--card)", color: INK }}>
+        <button
+          type="button"
+          onClick={onCancel}
+          style={{ ...primaryBtnStyle, flex: 1, background: "var(--card)", color: INK }}
+        >
           {tr(isAr, "Cancel", "إلغاء")}
         </button>
       </div>
@@ -592,7 +939,17 @@ function Field({ label, value, onChange, multiline }) {
   const Tag = multiline ? "textarea" : "input";
   return (
     <label style={{ display: "block" }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-strong)", display: "block", marginBottom: 3 }}>{label}</span>
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          color: "var(--muted-strong)",
+          display: "block",
+          marginBottom: 3,
+        }}
+      >
+        {label}
+      </span>
       <Tag
         value={value}
         onChange={(e) => onChange(e.target.value)}

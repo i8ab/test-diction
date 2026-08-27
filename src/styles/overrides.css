@@ -58,7 +58,7 @@ html[data-theme="dark"] {
               border-color 0.22s ease,
               transform 0.18s cubic-bezier(0.22,1,0.36,1) !important;
   position: relative !important;
-  overflow: hidden !important;
+  overflow: visible !important;
 }
 
 /* Left accent bar (manuscript feel) — visible on hover */
@@ -184,19 +184,74 @@ button.btn-shine {
   border: 1px solid rgba(var(--border-rgb), 0.1) !important;
 }
 
-/* ---------- Letter section headers ---------- */
-.letter-section-anchor {
-  font-family: "Fraunces", Georgia, serif !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.06em !important;
-  color: var(--muted-strong) !important;
-  border-bottom: 1.5px solid rgba(var(--border-rgb), 0.12) !important;
-  padding-bottom: 6px !important;
+/* ---------- Letter divider (sticky A · 12) — solid, full width, no blur ---------- */
+.letter-divider {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 45 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin-top: 0 !important;
+  margin-bottom: 6px !important;
+  padding: 9px 12px !important;
+  background: var(--paper) !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom: 1.5px solid rgba(var(--border-rgb), 0.16) !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
 }
 
-html[dir="rtl"] .letter-section-anchor {
+/* Sit under sticky search on mobile / tablet */
+html[data-device="mobile"] .letter-divider,
+html[data-device="tablet"] .letter-divider {
+  top: 56px !important;
+}
+
+/* Letter glyph */
+.letter-divider > span:first-child {
+  font-family: "Fraunces", "Amiri", Georgia, serif !important;
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  line-height: 1 !important;
+  min-width: 22px !important;
+  text-align: center !important;
+  flex-shrink: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+html[dir="rtl"] .letter-divider > span:first-child {
   font-family: "Amiri", serif !important;
-  letter-spacing: 0 !important;
+}
+
+/* Count number — always visible */
+.letter-divider > span:last-child {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: var(--muted-strong) !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  overflow: visible !important;
+  min-width: 1.2em !important;
+}
+
+/* Do NOT make the whole section sticky (that stuck the first word card too) */
+.letter-section-anchor {
+  position: static !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
 }
 
 /* ---------- Body / paper tone ---------- */

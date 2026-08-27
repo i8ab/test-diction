@@ -17,7 +17,7 @@
     transform var(--duration-fast) var(--ease-out),
     background var(--duration-normal) ease;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Subtle left accent bar on hover / focus (manuscript feel) */
@@ -121,28 +121,49 @@ html[data-theme="night"] .entry-card .entry-meaning-text {
   animation: fadeUp 0.35s var(--ease-out) both;
 }
 
-/* Letter section anchors */
+/* Letter section anchor — only scroll-margin, NOT sticky (sticky is on .letter-divider) */
 .letter-section-anchor {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--muted-strong);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: var(--space-3) var(--space-2) var(--space-2);
-  margin-top: var(--space-4);
-  border-bottom: 1px solid rgba(var(--border-rgb), 0.08);
-  position: sticky;
-  top: 0;
-  background: color-mix(in srgb, var(--paper) 88%, transparent);
-  backdrop-filter: blur(8px);
-  z-index: 2;
+  scroll-margin-top: 88px;
 }
 
-html[dir="rtl"] .letter-section-anchor {
-  font-family: var(--font-arabic);
-  text-transform: none;
-  letter-spacing: 0;
+/* Letter divider (A · 12) — solid sticky bar, full width of list, no blur */
+.letter-divider {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--paper) !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom: 1.5px solid rgba(var(--border-rgb), 0.14);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) inset;
+}
+
+/* When sticky search is present (mobile/tablet), sit under it */
+html[data-device="mobile"] .letter-divider {
+  top: 56px; /* under sticky search row */
+}
+html[data-device="tablet"] .letter-divider {
+  top: 56px;
+}
+@media (min-width: 900px) {
+  .letter-divider {
+    top: 0; /* desktop: under main header only via scroll parent */
+  }
+}
+
+/* Letter glyph + count must always stay visible */
+.letter-divider > span {
+  flex-shrink: 0;
+  opacity: 1 !important;
+  visibility: visible !important;
+  overflow: visible !important;
 }
 
 /* Empty state polish */

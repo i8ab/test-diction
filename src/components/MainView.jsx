@@ -1118,7 +1118,7 @@ export default function MainView({
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <div className="toolbar-actions toolbar-anim" style={{ animationDelay: "0.04s" }}>
-            <button onClick={onOpenAdd} className="btn-shine lift-hover toolbar-add-word" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: "#fff", background: cfg.accent, border: "none", borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
+            <button onClick={onOpenAdd} className="btn-shine lift-hover toolbar-add-word" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", fontSize: 14, fontWeight: 600, color: "var(--on-accent, #fff)", background: cfg.accent, border: "none", borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
               <PlusIcon size={16} /> {tr(isAr, "Add word", "إضافة كلمة")}
             </button>
             
@@ -1157,7 +1157,7 @@ export default function MainView({
               {tr(isAr, `${sectionEntries.length} words`, `${sectionEntries.length} الكلمات`)}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: cfg.accent, borderRadius: 20, padding: "5px 12px", whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--on-accent, #fff)", background: cfg.accent, borderRadius: 20, padding: "5px 12px", whiteSpace: "nowrap" }}>
                 {tr(isAr, `${notStudiedCount} to learn`, `${notStudiedCount} تعلم`)}
               </span>
               <span style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: "var(--success)", borderRadius: 20, padding: "5px 12px", whiteSpace: "nowrap" }}>

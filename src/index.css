@@ -3592,3 +3592,38 @@ html[data-theme="night"] .section-tab,
 html[data-night-study="1"] .section-tab {
   color: var(--icon-muted) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ON-ACCENT text — never white-on-white / white-on-yellow
+   --on-accent is set in JS from accent luminance (storage.js).
+   ═══════════════════════════════════════════════════════════════════════════ */
+.btn-shine,
+button.btn-shine,
+.toolbar-add-word,
+.mobile-fab-add {
+  color: var(--on-accent, #fff) !important;
+}
+
+/* Active filter chips */
+.study-filter-row button.btn-shine {
+  color: var(--on-accent, #fff) !important;
+}
+
+/* High-contrast skin: yellow accent on black → dark label text */
+html[data-skin="contrast"] {
+  --on-accent: #111111 !important;
+}
+html[data-skin="contrast"][data-theme="light"] {
+  --on-accent: #ffffff !important;
+}
+html[data-skin="contrast"] .btn-shine,
+html[data-skin="contrast"] .toolbar-add-word,
+html[data-skin="contrast"] .mobile-fab-add,
+html[data-skin="contrast"] .study-filter-row button.btn-shine {
+  color: var(--on-accent) !important;
+}
+
+/* Progress track on contrast: visible gray, not a white slab */
+html[data-skin="contrast"] .app-stats-progress {
+  background: rgba(255, 255, 255, 0.22) !important;
+}

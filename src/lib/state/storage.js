@@ -395,11 +395,17 @@ export const SKIN_PRESETS = {
       paper: "#FFFFFF", card: "#FFFFFF", ink: "#000000",
       muted: "#555555", "muted-strong": "#222222", "icon-muted": "#333333",
       "input-bg": "#F0F0F0", "border-rgb": "0,0,0", meaning: "#000000",
+      /* black accent on white paper — text on accent uses --on-accent (#fff) */
+      "accent-1": "#000000", "accent-2": "#222222",
+      "accent-1-soft": "#E8E8E8", "accent-2-soft": "#F0F0F0", "focus-rgb": "0,0,0",
     },
     dark: {
       paper: "#000000", card: "#0A0A0A", ink: "#FFFFFF",
       muted: "#AAAAAA", "muted-strong": "#DDDDDD", "icon-muted": "#CCCCCC",
       "input-bg": "#1A1A1A", "border-rgb": "255,255,255", meaning: "#FFFFFF",
+      /* bright yellow accent on black — never pure white (white-on-white killed text) */
+      "accent-1": "#FFD600", "accent-2": "#FFE44D",
+      "accent-1-soft": "#3A3200", "accent-2-soft": "#423A00", "focus-rgb": "255,214,0",
     },
     // no photo — pure solid for maximum readability
     bg: {
@@ -408,7 +414,8 @@ export const SKIN_PRESETS = {
     },
     cardShadow: "none",
     btnStyle: "flat",
-    preview: { paper: "#000000", card: "#0A0A0A", ink: "#FFFFFF", accent: "#FFFFFF" },
+    /* preview.accent drives buildCustomAccent — must NOT be #FFFFFF on dark */
+    preview: { paper: "#000000", card: "#0A0A0A", ink: "#FFFFFF", accent: "#FFD600" },
   },
 };
 
@@ -526,6 +533,16 @@ export function applyAccentTheme(id, mode, customHex) {
     root.style.setProperty("--accent-2-soft", colors.soft2, "important");
     root.style.setProperty("--focus-rgb", colors.focus, "important");
     if (colors.meaning) root.style.setProperty("--meaning", colors.meaning, "important");
+    // Readable text on accent fills (white accent / yellow → dark text)
+    const rgb = hexToRgb(colors.a1);
+    if (rgb) {
+      const lin = (c) => {
+        const s = c / 255;
+        return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+      };
+      const L = 0.2126 * lin(rgb.r) + 0.7152 * lin(rgb.g) + 0.0722 * lin(rgb.b);
+      root.style.setProperty("--on-accent", L > 0.55 ? "#111111" : "#ffffff", "important");
+    }
   } catch (_) {}
 }
 
@@ -586,8 +603,10 @@ export function applySkinTheme(id, mode) {
 
     // Each skin carries its own accent character (from preview.accent).
     // Custom accent picker can still override afterwards via applyAccentTheme.
+    // Skip rebuild when palette already defined accent-1 (e.g. contrast skin).
     const skinAccent = (skin.preview && skin.preview.accent) || null;
-    if (skinAccent && /^#[0-9A-Fa-f]{6}$/.test(skinAccent)) {
+    const paletteHasAccent = palette && palette["accent-1"];
+    if (!paletteHasAccent && skinAccent && /^#[0-9A-Fa-f]{6}$/.test(skinAccent)) {
       const built = buildCustomAccent(skinAccent);
       if (built) {
         const colors = isDark ? built.dark : built.light;
@@ -597,6 +616,24 @@ export function applySkinTheme(id, mode) {
         root.style.setProperty("--accent-2-soft", colors.soft2, "important");
         root.style.setProperty("--focus-rgb", colors.focus, "important");
       }
+    }
+
+    // Text color on accent-filled surfaces (buttons, pills). Light accents need dark text.
+    const accentHex =
+      (palette && palette["accent-1"]) ||
+      skinAccent ||
+      null;
+    const rgb = accentHex ? hexToRgb(accentHex) : null;
+    if (rgb) {
+      // relative luminance (sRGB)
+      const lin = (c) => {
+        const s = c / 255;
+        return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+      };
+      const L = 0.2126 * lin(rgb.r) + 0.7152 * lin(rgb.g) + 0.0722 * lin(rgb.b);
+      root.style.setProperty("--on-accent", L > 0.55 ? "#111111" : "#ffffff", "important");
+    } else {
+      root.style.setProperty("--on-accent", isDark ? "#111111" : "#ffffff", "important");
     }
 
     // Overlay gradients/patterns (above the photo)

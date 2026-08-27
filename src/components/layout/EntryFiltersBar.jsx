@@ -68,7 +68,7 @@ export default function EntryFiltersBar({
                 padding: "5px 14px",
                 fontSize: 12,
                 fontWeight: 600,
-                color: active ? "#fff" : "var(--icon-muted)",
+                color: active ? "var(--on-accent, #fff)" : "var(--icon-muted)",
                 background: active ? cfg.accent : "none",
                 border: `1px solid ${active ? cfg.accent : "rgba(var(--border-rgb),0.25)"}`,
                 borderRadius: 20,

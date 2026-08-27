@@ -30,6 +30,8 @@
   --danger-border: #D9B0A0;
   --focus-rgb: 168, 67, 40;
   --meaning: #15803d;           /* clear green for Arabic meanings */
+  /* Text on accent-filled buttons/pills — dark when accent is light (yellow/white) */
+  --on-accent: #ffffff;
 
   /* ---------- Typography ---------- */
   --font-latin: "Source Sans 3", system-ui, -apple-system, sans-serif;

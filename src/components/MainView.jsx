@@ -1494,7 +1494,7 @@ export default function MainView({
 
     {/* Tablet side dock removed — tablet uses header/menu like desktop; phone keeps bottom nav + FAB */}
 
-    {deviceMode === "mobile" && (
+    {(deviceMode === "mobile" || deviceMode === "tablet") && (
       <MobileBottomNav
         isAr={appIsAr}
         mobileNavTab={mobileNavTab}

@@ -306,7 +306,7 @@ export default function SentencePracticeModal({
                       background: sentence.trim()
                         ? "linear-gradient(135deg, var(--accent-1), var(--accent-2))"
                         : "rgba(var(--border-rgb),0.15)",
-                      color: sentence.trim() ? "#fff" : "var(--muted)",
+                      color: sentence.trim() ? "var(--on-accent, #fff)" : "var(--muted)",
                       fontWeight: 700, fontSize: 14, cursor: sentence.trim() ? "pointer" : "default",
                     }}
                   >
@@ -388,7 +388,7 @@ export default function SentencePracticeModal({
                         style={{
                           flex: 1, padding: "12px 10px", borderRadius: 12, border: "none",
                           background: "linear-gradient(135deg, #34c759, #30b350)",
-                          color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer",
+                          color: "var(--on-accent, #fff)", fontWeight: 700, fontSize: 14, cursor: "pointer",
                           display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                         }}
                       >

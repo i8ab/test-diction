@@ -89,7 +89,7 @@ export default function UnitScopePicker({
     padding: "5px 12px",
     fontSize: 12,
     fontWeight: 600,
-    color: active ? "#fff" : "var(--icon-muted)",
+    color: active ? "var(--on-accent, #fff)" : "var(--icon-muted)",
     background: active ? accent : "none",
     border: `1px solid ${active ? accent : "rgba(var(--border-rgb),0.25)"}`,
     borderRadius: 20,

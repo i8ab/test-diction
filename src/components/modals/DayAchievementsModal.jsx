@@ -525,7 +525,7 @@ export default function DayAchievementsModal({
                   fontWeight: 700,
                   cursor: "pointer",
                   background: filter === f.id ? BRASS : "rgba(var(--border-rgb),0.08)",
-                  color: filter === f.id ? "#fff" : "var(--muted-strong)",
+                  color: filter === f.id ? "var(--on-accent, #fff)" : "var(--muted-strong)",
                 }}
               >
                 {tr(isAr, f.en, f.ar)}

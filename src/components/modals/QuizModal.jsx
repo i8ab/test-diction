@@ -433,7 +433,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
   );
 
   const chipStyle = (active) => ({
-    padding: "7px 13px", fontSize: 12.5, fontWeight: 600, color: active ? "#fff" : "var(--icon-muted)",
+    padding: "7px 13px", fontSize: 12.5, fontWeight: 600, color: active ? "var(--on-accent, #fff)" : "var(--icon-muted)",
     background: active ? BRASS : "none", border: `1px solid ${active ? BRASS : "rgba(var(--border-rgb),0.25)"}`,
     borderRadius: 20, cursor: "pointer",
   });
@@ -933,7 +933,7 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
                                   ? "var(--accent-1-soft)"
                                   : "transparent",
                           color: isCurrent
-                            ? "#fff"
+                            ? "var(--on-accent, #fff)"
                             : isCorrect
                               ? "var(--success)"
                               : isWrong

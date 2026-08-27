@@ -274,7 +274,7 @@ export default function LevelUpModal({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "#fff",
+            color: "var(--on-accent, #fff)",
             boxShadow: "0 10px 28px -6px rgba(212,160,23,0.6)",
           }}
         >

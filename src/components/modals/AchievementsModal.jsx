@@ -277,7 +277,7 @@ export default function AchievementsModal({
                         fontWeight: 800,
                         fontSize: 13,
                         background: on ? "var(--accent-1)" : "rgba(var(--border-rgb),0.12)",
-                        color: on ? "#fff" : "var(--muted-strong)",
+                        color: on ? "var(--on-accent, #fff)" : "var(--muted-strong)",
                         flexShrink: 0,
                       }}
                     >

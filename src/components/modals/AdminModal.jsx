@@ -629,7 +629,7 @@ function AdminModal({
                         padding: "6px 12px",
                         fontSize: 12,
                         fontWeight: 700,
-                        color: active ? "#fff" : "var(--icon-muted)",
+                        color: active ? "var(--on-accent, #fff)" : "var(--icon-muted)",
                         background: active ? "linear-gradient(135deg, var(--accent-1), var(--accent-2))" : "var(--input-bg)",
                         border: "none",
                         borderRadius: 20,

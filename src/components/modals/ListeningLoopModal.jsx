@@ -276,7 +276,7 @@ export default function ListeningLoopModal({
                     padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
                     border: targetReps === n ? "none" : "1px solid rgba(var(--border-rgb),0.25)",
                     background: targetReps === n ? "var(--accent-1)" : "transparent",
-                    color: targetReps === n ? "#fff" : INK,
+                    color: targetReps === n ? "var(--on-accent, #fff)" : INK,
                   }}
                 >
                   {n}×

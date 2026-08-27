@@ -437,7 +437,7 @@ export default function ToolsMenu({
           height: 40,
           padding: "0 14px",
           borderRadius: 999,
-          color: open ? "#fff" : "var(--ink)",
+          color: open ? "var(--on-accent, #fff)" : "var(--ink)",
           background: open
             ? `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 70%, #7c3aed))`
             : "color-mix(in srgb, var(--card) 88%, transparent)",
@@ -466,7 +466,7 @@ export default function ToolsMenu({
             height: 22,
             borderRadius: 8,
             background: open ? "rgba(255,255,255,0.18)" : `color-mix(in srgb, ${accent} 16%, transparent)`,
-            color: open ? "#fff" : accent,
+            color: open ? "var(--on-accent, #fff)" : accent,
             transition: "background 0.2s ease, color 0.2s ease",
           }}
         >

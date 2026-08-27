@@ -162,7 +162,7 @@ export default function LevelsModal({ accountCode, isAr, onClose }) {
                   width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
                   background: unlocked ? "linear-gradient(135deg, #f5c542, #d4a017)" : "rgba(var(--border-rgb),0.2)",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  color: unlocked ? "#fff" : "var(--muted-strong)", fontWeight: 800, fontSize: 14,
+                  color: unlocked ? "var(--on-accent, #fff)" : "var(--muted-strong)", fontWeight: 800, fontSize: 14,
                 }}>
                   {lv.level}
                 </div>

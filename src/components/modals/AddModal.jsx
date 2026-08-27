@@ -521,7 +521,7 @@ const ADDM_CSS = `
 .addm-select option:checked,
 .addm-select option:hover {
   background: #2a3550;
-  color: #fff;
+  color: var(--on-accent, #fff);
 }
 .addm-textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
 .addm-row { display: flex; gap: 8px; align-items: flex-start; }
@@ -571,7 +571,7 @@ const ADDM_CSS = `
   cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-.addm-icon-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+.addm-icon-btn:hover { color: var(--on-accent, #fff); background: rgba(255,255,255,0.1); }
 .addm-hint { font-size: 12px; color: rgba(255,255,255,0.38); line-height: 1.45; margin-top: 6px; }
 .addm-dup {
   margin-bottom: 12px; padding: 14px;
@@ -583,7 +583,7 @@ const ADDM_CSS = `
 .addm-dup-text { font-size: 13px; font-weight: 700; color: #ff8a8a; line-height: 1.45; }
 .addm-dup-btn {
   border: none; cursor: pointer; border-radius: 12px;
-  background: var(--addm-accent, #5b8def); color: #fff;
+  background: var(--addm-accent, #5b8def); color: var(--on-accent, #fff);
   font-weight: 800; font-size: 14px; padding: 12px 14px; width: 100%;
 }
 .addm-error {
@@ -596,7 +596,7 @@ const ADDM_CSS = `
   margin-top: 16px; width: 100%;
   display: flex; align-items: center; justify-content: center; gap: 8px;
   border: none; cursor: pointer; border-radius: 16px;
-  color: #fff; font-weight: 800; font-size: 15px;
+  color: var(--on-accent, #fff); font-weight: 800; font-size: 15px;
   padding: 14px 16px;
   box-shadow: 0 12px 28px -10px color-mix(in srgb, var(--addm-accent, #5b8def) 65%, transparent);
   transition: filter 0.15s, transform 0.12s;

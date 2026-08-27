@@ -266,7 +266,7 @@ function ChatBubble({ role, text, action, isAr, onAction }) {
             background: isUser
               ? "var(--accent-1, #5b8def)"
               : "rgba(var(--border-rgb), 0.12)",
-            color: isUser ? "#fff" : "var(--ink, #e8eaed)",
+            color: isUser ? "var(--on-accent, #fff)" : "var(--ink, #e8eaed)",
             fontSize: 14,
             lineHeight: 1.6,
             whiteSpace: "pre-wrap",
@@ -717,7 +717,7 @@ export default function TutorChatModal({
               background: loading || !input.trim()
                 ? "rgba(var(--border-rgb), 0.18)"
                 : "linear-gradient(135deg, var(--accent-1, #5b8def), #4a7de0)",
-              color: loading || !input.trim() ? "var(--muted-strong, #9aa0a6)" : "#fff",
+              color: loading || !input.trim() ? "var(--muted-strong, #9aa0a6)" : "var(--on-accent, #fff)",
               boxShadow: loading || !input.trim()
                 ? "none"
                 : "0 4px 14px rgba(91, 141, 239, 0.4)",

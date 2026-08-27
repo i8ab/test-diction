@@ -513,7 +513,7 @@ export default function SiteBannerAdminModal({
                                 padding: "4px 10px", borderRadius: 8, fontSize: 11.5, fontWeight: 700, cursor: "pointer",
                                 border: "1px solid rgba(var(--border-rgb),0.2)",
                                 background: bannerDurationAmount === q.a && bannerDurationUnit === q.u ? "var(--accent-1)" : "var(--input-bg)",
-                                color: bannerDurationAmount === q.a && bannerDurationUnit === q.u ? "#fff" : "var(--ink)",
+                                color: bannerDurationAmount === q.a && bannerDurationUnit === q.u ? "var(--on-accent, #fff)" : "var(--ink)",
                               }}
                             >
                               {q.label}

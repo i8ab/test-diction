@@ -612,7 +612,7 @@ const CSS = `
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   z-index: 2; transition: background 0.2s, color 0.2s;
 }
-.wel-close:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.wel-close:hover { background: rgba(255,255,255,0.12); color: var(--on-accent, #fff); }
 
 .wel-kicker {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -811,7 +811,7 @@ const CSS = `
 .wel-chapter-link:hover { color: rgba(255,255,255,0.7); }
 .wel-chapter-link.is-done { color: rgba(126,182,255,0.65); }
 .wel-chapter-link.is-on {
-  color: #fff;
+  color: var(--on-accent, #fff);
   text-shadow: 0 0 12px rgba(90,140,255,0.6);
 }
 .wel-chapter-meta-sub { color: var(--accent-1, #7eb6ff); font-size: 11px; }
@@ -842,7 +842,7 @@ const CSS = `
   background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.75);
 }
 .wel-btn-primary {
-  flex: 1.6; border: none; color: #fff;
+  flex: 1.6; border: none; color: var(--on-accent, #fff);
   background: linear-gradient(135deg, var(--accent-1, #5b8def), var(--accent-2, #7c3aed));
   box-shadow: 0 12px 28px -10px rgba(80,140,255,0.7);
 }

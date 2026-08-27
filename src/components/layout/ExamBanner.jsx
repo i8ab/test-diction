@@ -137,7 +137,7 @@ export default function ExamBanner({
         background: `linear-gradient(135deg, ${accent}, ${accent}cc)`,
         border: `1px solid ${accent}`,
         boxShadow: `0 8px 24px -10px ${accent}99`,
-        color: "#fff",
+        color: "var(--on-accent, #fff)",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>

@@ -1449,8 +1449,25 @@ export default function MainView({
         </div>
       )}
       {toast && !dupNotice && (
-        <div role="status" aria-live="polite" style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "var(--success)", color: "#fff", padding: "10px 18px", borderRadius: 4, fontSize: 13, fontWeight: 600, boxShadow: "0 10px 24px -10px rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", gap: 7 }}>
-          <CheckIcon size={14} /> {tr(isAr, toast, toast === "Account info updated." ? "تم تحديث بيانات الحساب." : toast)}
+        <div role="status" aria-live="polite" style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "var(--success)", color: "#fff", padding: "10px 18px", borderRadius: 12, fontSize: 13, fontWeight: 600, boxShadow: "0 10px 24px -10px rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", gap: 10 }}>
+          <svg width="22" height="22" viewBox="0 0 44 44" aria-hidden="true" style={{ flexShrink: 0 }}>
+            <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" />
+            <path
+              d="M13 23 L19 29 L31 16"
+              fill="none"
+              stroke="#fff"
+              strokeWidth="2.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                strokeDasharray: 28,
+                strokeDashoffset: 0,
+                animation: "tt-toast-check 0.65s ease-out both",
+              }}
+            />
+          </svg>
+          <style>{`@keyframes tt-toast-check{from{stroke-dashoffset:28;opacity:.4}to{stroke-dashoffset:0;opacity:1}}`}</style>
+          {tr(isAr, toast, toast === "Account info updated." ? "تم تحديث بيانات الحساب." : toast)}
         </div>
       )}
       {/* Minecraft-style achievement toasts — portal + z-index 12000 (above all modals/toasts) */}

@@ -72,18 +72,64 @@ function ModalChunkFallback({ label = "Loading…" }) {
           gap: 12,
         }}
       >
-        <div
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: "50%",
-            border: "3px solid rgba(var(--border-rgb),0.25)",
-            borderTopColor: "var(--accent-1)",
-            animation: "tt-spin 0.6s linear infinite",
-          }}
-        />
+        {/* Ink bottle loader (user pick #09) */}
+        <svg
+          width="48"
+          height="64"
+          viewBox="0 0 48 64"
+          aria-hidden="true"
+          style={{ display: "block" }}
+        >
+          <defs>
+            <linearGradient id="tt-ink-glass" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#dfe8f0" />
+              <stop offset="40%" stopColor="#a8b8c8" />
+              <stop offset="100%" stopColor="#7a8c9c" />
+            </linearGradient>
+            <linearGradient id="tt-ink-liquid" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#2a1810" />
+              <stop offset="100%" stopColor="#0a0604" />
+            </linearGradient>
+            <clipPath id="tt-ink-clip">
+              <path d="M16 22 H32 V50 Q32 56 24 56 Q16 56 16 50 Z" />
+            </clipPath>
+          </defs>
+          <rect x="18" y="8" width="12" height="8" rx="1.5" fill="#3d4a5c" />
+          <rect x="16" y="14" width="16" height="5" rx="1" fill="#2a3340" />
+          <rect x="20" y="18" width="8" height="5" fill="url(#tt-ink-glass)" opacity="0.85" />
+          <path
+            d="M16 22 H32 V50 Q32 56 24 56 Q16 56 16 50 Z"
+            fill="url(#tt-ink-glass)"
+            opacity="0.55"
+            stroke="#6a7a8a"
+            strokeWidth="1"
+          />
+          <g clipPath="url(#tt-ink-clip)">
+            <rect
+              className="tt-ink-level"
+              x="16"
+              y="28"
+              width="16"
+              height="30"
+              fill="url(#tt-ink-liquid)"
+            />
+            <ellipse className="tt-ink-level" cx="24" cy="30" rx="7" ry="2" fill="#4a3020" opacity="0.5" />
+          </g>
+          <path d="M18 26 V48" stroke="#fff" strokeWidth="1.5" opacity="0.35" strokeLinecap="round" />
+        </svg>
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--muted-strong)" }}>{label}</div>
-        <style>{`@keyframes tt-spin { to { transform: rotate(360deg); } }`}</style>
+        <style>{`
+          .tt-ink-level {
+            animation: tt-ink-level 1.6s ease-in-out infinite;
+          }
+          @keyframes tt-ink-level {
+            0%, 100% { transform: translateY(6px); }
+            50% { transform: translateY(0); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .tt-ink-level { animation: none !important; }
+          }
+        `}</style>
       </div>
     </div>
   );

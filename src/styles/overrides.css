@@ -1,95 +1,205 @@
 /* ============================================================
-   Final overrides — ensure the new Manuscript Desk tokens win
-   and refine a few high-impact surfaces.
+   Final overrides — stronger visual differentiation
+   so the Manuscript Desk redesign is clearly visible.
    ============================================================ */
 
-/* Re-assert refined light tokens (override legacy :root) */
+/* ---------- Refined tokens (force win over legacy :root) ---------- */
 :root {
-  --paper: #F7F2E9;
-  --card: #FFFDF9;
-  --ink: #2A211A;
-  --accent-1: #A84328;
-  --accent-1-soft: #F2D9CC;
-  --accent-2: #B8832A;
-  --accent-2-soft: #F4E7C8;
-  --muted: #9A8B75;
-  --muted-strong: #6A5B47;
-  --icon-muted: #86765E;
-  --input-bg: #F0E8D9;
-  --border-rgb: 42, 33, 26;
-  --focus-rgb: 168, 67, 40;
-  --meaning: #15803d;
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.45) inset,
-                 0 8px 24px -14px rgba(var(--border-rgb), 0.22);
-  --shadow-elevated: 0 12px 32px -16px rgba(var(--border-rgb), 0.32);
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --modal-radius: 18px;
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --paper: #F5EFE4 !important;
+  --card: #FFFCF6 !important;
+  --ink: #261E17 !important;
+  --accent-1: #9C3A22 !important;
+  --accent-1-soft: #F0D5C6 !important;
+  --accent-2: #B07A24 !important;
+  --accent-2-soft: #F3E4C0 !important;
+  --muted: #95866F !important;
+  --muted-strong: #645640 !important;
+  --icon-muted: #7E6E56 !important;
+  --input-bg: #EDE5D4 !important;
+  --border-rgb: 38, 30, 23 !important;
+  --focus-rgb: 156, 58, 34 !important;
+  --meaning: #15803d !important;
+  --shadow-card: 0 1px 0 rgba(255,255,255,0.5) inset, 0 6px 18px -10px rgba(38,30,23,0.18) !important;
+  --shadow-elevated: 0 10px 28px -12px rgba(38,30,23,0.28) !important;
+  --radius-md: 14px !important;
+  --radius-lg: 18px !important;
+  --modal-radius: 20px !important;
 }
 
 html[data-theme="dark"] {
-  --paper: #17130F;
-  --card: #221C16;
-  --ink: #F0E8DC;
-  --accent-1: #D97B4F;
-  --accent-1-soft: #3A2A1F;
-  --accent-2: #D6A94F;
-  --accent-2-soft: #33291A;
-  --muted: #9C8D78;
-  --muted-strong: #C7B8A2;
-  --icon-muted: #ADA08B;
-  --input-bg: #2A231B;
-  --border-rgb: 199, 184, 162;
-  --focus-rgb: 217, 123, 79;
-  --meaning: #4ade80;
+  --paper: #15110D !important;
+  --card: #1F1913 !important;
+  --ink: #F2EAD9 !important;
+  --accent-1: #E08A5C !important;
+  --accent-1-soft: #3D2A1C !important;
+  --accent-2: #D9AE52 !important;
+  --accent-2-soft: #2F2718 !important;
+  --muted: #A0927C !important;
+  --muted-strong: #C9BBA5 !important;
+  --icon-muted: #B0A28C !important;
+  --input-bg: #2A221A !important;
+  --border-rgb: 200, 185, 160 !important;
+  --focus-rgb: 224, 138, 92 !important;
+  --meaning: #4ade80 !important;
 }
 
-/* Stronger display type for titles and key words */
+/* ---------- Entry / Word cards — clearly different ---------- */
+.entry-card,
+.word-card,
+.lift-hover.entry-card,
+.lift-hover.word-card {
+  background: var(--card) !important;
+  border: 1px solid rgba(var(--border-rgb), 0.11) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--shadow-card) !important;
+  padding: 12px 14px !important;
+  margin-bottom: 8px !important;
+  transition: box-shadow 0.22s cubic-bezier(0.22,1,0.36,1),
+              border-color 0.22s ease,
+              transform 0.18s cubic-bezier(0.22,1,0.36,1) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+/* Left accent bar (manuscript feel) — visible on hover */
+.entry-card::before,
+.word-card::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 12% !important;
+  bottom: 12% !important;
+  left: 0 !important;
+  width: 3.5px !important;
+  border-radius: 0 4px 4px 0 !important;
+  background: transparent !important;
+  transition: background 0.2s ease, opacity 0.2s ease !important;
+  opacity: 0 !important;
+  z-index: 2 !important;
+}
+
+html[dir="rtl"] .entry-card::before,
+html[dir="rtl"] .word-card::before {
+  left: auto !important;
+  right: 0 !important;
+  border-radius: 4px 0 0 4px !important;
+}
+
+.entry-card:hover,
+.word-card:hover,
+.lift-hover.entry-card:hover,
+.lift-hover.word-card:hover {
+  border-color: rgba(var(--border-rgb), 0.2) !important;
+  box-shadow: var(--shadow-elevated) !important;
+  transform: translateY(-2px) !important;
+}
+
+.entry-card:hover::before,
+.word-card:hover::before {
+  background: var(--accent-1) !important;
+  opacity: 1 !important;
+}
+
+/* Word title — stronger display font */
 .entry-card .entry-word,
+.entry-card .entry-card-word,
 .word-card .entry-word,
-.brand-title,
-.app-title,
-.section-title {
-  font-family: var(--font-display) !important;
-  letter-spacing: -0.015em;
+.entry-card--mobile .entry-card-word {
+  font-family: "Fraunces", "Amiri", Georgia, serif !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--ink) !important;
 }
 
 html[dir="rtl"] .entry-card .entry-word,
+html[dir="rtl"] .entry-card .entry-card-word,
 html[dir="rtl"] .word-card .entry-word,
-html[dir="rtl"] .brand-title,
-html[dir="rtl"] .app-title {
-  font-family: var(--font-arabic) !important;
-  letter-spacing: 0;
+html[dir="rtl"] .entry-card--mobile .entry-card-word {
+  font-family: "Amiri", "Times New Roman", serif !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
 }
 
-/* Toolbar polish */
-.toolbar-row,
+/* Arabic meaning stays vivid green */
+.entry-card .entry-meaning-text,
+.entry-card span.entry-meaning-text,
+[class*="entry-card"] .entry-meaning-text {
+  color: #16a34a !important;
+  -webkit-text-fill-color: #16a34a !important;
+  font-weight: 700 !important;
+  font-family: "Amiri", serif !important;
+}
+
+html[data-theme="dark"] .entry-card .entry-meaning-text,
+html[data-theme="night"] .entry-card .entry-meaning-text {
+  color: #4ade80 !important;
+  -webkit-text-fill-color: #4ade80 !important;
+}
+
+/* Mobile cards */
+.entry-card--mobile {
+  padding: 10px 12px !important;
+  border-radius: 14px !important;
+  margin-bottom: 6px !important;
+}
+
+/* ---------- Buttons — more decisive ---------- */
+.btn-shine,
+button.btn-shine {
+  border-radius: 12px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.01em !important;
+  box-shadow: 0 4px 14px -6px rgba(var(--focus-rgb), 0.45) !important;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s cubic-bezier(0.22,1,0.36,1) !important;
+}
+
+.btn-shine:hover:not(:disabled) {
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 8px 20px -6px rgba(var(--focus-rgb), 0.55) !important;
+}
+
+.btn-shine:active:not(:disabled) {
+  transform: translateY(0) !important;
+}
+
+/* ---------- Search input — clearer focus ---------- */
 .toolbar-search-input {
-  transition: box-shadow 0.22s var(--ease-out), border-color 0.22s ease, background 0.22s ease;
+  border-radius: 12px !important;
+  border: 1.5px solid rgba(var(--border-rgb), 0.14) !important;
+  transition: box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease !important;
 }
 
 .toolbar-search-input:focus {
-  background: color-mix(in srgb, var(--card) 92%, var(--input-bg)) !important;
-  box-shadow: 0 0 0 3px rgba(var(--focus-rgb), 0.18) !important;
+  background: color-mix(in srgb, var(--card) 90%, var(--input-bg)) !important;
   border-color: var(--accent-1) !important;
+  box-shadow: 0 0 0 3.5px rgba(var(--focus-rgb), 0.2) !important;
+  outline: none !important;
 }
 
-/* Modal cards */
+/* ---------- Modals ---------- */
 .modal-card,
-.responsive-modal {
-  border-radius: var(--modal-radius) !important;
-  box-shadow: var(--shadow-elevated) !important;
-  border: 1px solid rgba(var(--border-rgb), 0.1);
+.responsive-modal,
+.auth-card {
+  border-radius: 20px !important;
+  box-shadow: 0 16px 40px -16px rgba(var(--border-rgb), 0.35) !important;
+  border: 1px solid rgba(var(--border-rgb), 0.1) !important;
 }
 
-/* Smooth list entrance (when JS adds .reveal) */
-.entry-card.reveal {
-  animation: fadeUp 0.4s var(--ease-out) both;
+/* ---------- Letter section headers ---------- */
+.letter-section-anchor {
+  font-family: "Fraunces", Georgia, serif !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  color: var(--muted-strong) !important;
+  border-bottom: 1.5px solid rgba(var(--border-rgb), 0.12) !important;
+  padding-bottom: 6px !important;
 }
 
-/* Better focus ring for accessibility */
-:focus-visible {
-  outline: 2px solid rgba(var(--focus-rgb), 0.55);
-  outline-offset: 2px;
+html[dir="rtl"] .letter-section-anchor {
+  font-family: "Amiri", serif !important;
+  letter-spacing: 0 !important;
+}
+
+/* ---------- Body / paper tone ---------- */
+body::before {
+  background-color: var(--paper) !important;
 }

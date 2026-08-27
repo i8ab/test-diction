@@ -403,9 +403,9 @@ export const SKIN_PRESETS = {
       paper: "#000000", card: "#0A0A0A", ink: "#FFFFFF",
       muted: "#AAAAAA", "muted-strong": "#DDDDDD", "icon-muted": "#CCCCCC",
       "input-bg": "#1A1A1A", "border-rgb": "255,255,255", meaning: "#FFFFFF",
-      /* bright yellow accent on black — never pure white (white-on-white killed text) */
-      "accent-1": "#FFD600", "accent-2": "#FFE44D",
-      "accent-1-soft": "#3A3200", "accent-2-soft": "#423A00", "focus-rgb": "255,214,0",
+      /* white accent (original look) — text stays dark via --on-accent */
+      "accent-1": "#FFFFFF", "accent-2": "#E8E8E8",
+      "accent-1-soft": "#2A2A2A", "accent-2-soft": "#222222", "focus-rgb": "255,255,255",
     },
     // no photo — pure solid for maximum readability
     bg: {
@@ -414,8 +414,7 @@ export const SKIN_PRESETS = {
     },
     cardShadow: "none",
     btnStyle: "flat",
-    /* preview.accent drives buildCustomAccent — must NOT be #FFFFFF on dark */
-    preview: { paper: "#000000", card: "#0A0A0A", ink: "#FFFFFF", accent: "#FFD600" },
+    preview: { paper: "#000000", card: "#0A0A0A", ink: "#FFFFFF", accent: "#FFFFFF" },
   },
 };
 

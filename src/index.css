@@ -3160,11 +3160,12 @@ select {
   pointer-events: none;
   z-index: 0;
   opacity: 0;
-  border: 2px solid rgba(217, 123, 79, 0.9);
+  /* Ring follows theme accent for harmony with the rest of the UI */
+  border: 2px solid color-mix(in srgb, var(--accent-1) 92%, transparent);
   box-shadow:
-    0 0 14px 2px rgba(217, 123, 79, 0.42),
-    0 0 30px 6px rgba(214, 169, 79, 0.18),
-    inset 0 0 12px rgba(217, 123, 79, 0.12);
+    0 0 14px 2px color-mix(in srgb, var(--accent-1) 45%, transparent),
+    0 0 30px 6px color-mix(in srgb, var(--accent-2, var(--accent-1)) 22%, transparent),
+    inset 0 0 12px color-mix(in srgb, var(--accent-1) 14%, transparent);
   transition:
     transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
     border-color 0.3s ease,
@@ -3209,13 +3210,13 @@ select {
   max-width: 100%;
 }
 .arc-nav-item.is-active {
-  color: #F5EDE0 !important;
+  color: var(--accent-1) !important;
   background: transparent !important;
 }
 .arc-nav-item:active,
 .arc-nav-item:focus,
 .arc-nav-item:focus-visible {
-  color: #F5EDE0 !important;
+  color: var(--accent-1) !important;
   background: transparent !important;
   outline: none !important;
   box-shadow: none !important;
@@ -3609,12 +3610,12 @@ button.btn-shine,
   color: var(--on-accent, #fff) !important;
 }
 
-/* High-contrast skin: yellow accent on black → dark label text */
+/* High-contrast skin: white accent on black → dark label text on accent fills */
 html[data-skin="contrast"] {
   --on-accent: #111111 !important;
 }
 html[data-skin="contrast"][data-theme="light"] {
-  --on-accent: #ffffff !important;
+  --on-accent: #ffffff !important; /* black accent → white text */
 }
 html[data-skin="contrast"] .btn-shine,
 html[data-skin="contrast"] .toolbar-add-word,
@@ -3623,7 +3624,9 @@ html[data-skin="contrast"] .study-filter-row button.btn-shine {
   color: var(--on-accent) !important;
 }
 
-/* Progress track on contrast: visible gray, not a white slab */
+/* Progress track on contrast: muted, not a solid white slab */
 html[data-skin="contrast"] .app-stats-progress {
   background: rgba(255, 255, 255, 0.22) !important;
 }
+
+/* Active nav ring + label already use --accent-1 (see .arc-nav-light / .is-active) */

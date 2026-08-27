@@ -3,14 +3,15 @@ import { createRoot } from "react-dom/client";
 import DictionaryApp from "./App.jsx";
 import ErrorBoundary from "./components/layout/ErrorBoundary.jsx";
 
-/* Design system — tokens → base → components → legacy → final overrides */
+/* Design system — tokens → base → components → overrides → modals → index.css LAST
+   index.css is the final authority (legacy + contrast/visibility fixes). */
 import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/components/entry-cards.css";
 import "./styles/components/buttons.css";
-import "./index.css";
 import "./styles/overrides.css";
-import "./styles/components/modals.css"; /* last — global modal polish wins over glass */
+import "./styles/components/modals.css";
+import "./index.css"; /* LAST — wins over overrides for text/icon/number visibility */
 
 // Keep focused inputs visible above the mobile keyboard
 (function setupKeyboardInset() {

@@ -3441,3 +3441,154 @@ html[data-theme="night"] .word-card {
 .site-banner + header {
   box-shadow: none;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FORCE VISIBILITY — dark / night / pure-black backgrounds
+   Loaded LAST (see main.jsx). Fixes invisible text, numbers, icons, symbols
+   caused by near-white tracks, washed tokens, or earlier overrides.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 1) Strong readable ink on dark surfaces */
+html[data-theme="dark"],
+html[data-theme="night"],
+html[data-night-study="1"] {
+  --ink: #f0f2f5 !important;
+  --ink-soft: #d8dde6 !important;
+  --muted: #a8b0bc !important;
+  --muted-strong: #c5ccd6 !important;
+  --icon-muted: #b0b8c4 !important;
+}
+
+html[data-night-study="1"] {
+  --paper: #050608 !important;
+  --card: #0e1116 !important;
+  --input-bg: #141820 !important;
+  --border-rgb: 90, 100, 118 !important;
+}
+
+/* 2) Body + main chrome text always use ink */
+html[data-theme="dark"] body,
+html[data-theme="night"] body,
+html[data-night-study="1"] body,
+html[data-theme="dark"] #app-main,
+html[data-theme="night"] #app-main,
+html[data-night-study="1"] #app-main {
+  color: var(--ink) !important;
+}
+
+/* 3) Stats bar */
+html[data-theme="dark"] .app-stats-bar,
+html[data-theme="night"] .app-stats-bar,
+html[data-night-study="1"] .app-stats-bar {
+  color: var(--ink) !important;
+  background: var(--card) !important;
+}
+
+/* Progress track — never pure white on black */
+.app-stats-progress {
+  background: color-mix(in srgb, var(--ink) 18%, transparent) !important;
+}
+html[data-theme="dark"] .app-stats-progress,
+html[data-theme="night"] .app-stats-progress,
+html[data-night-study="1"] .app-stats-progress {
+  background: color-mix(in srgb, var(--ink) 22%, transparent) !important;
+}
+
+/* 4) Filter chips + selects */
+html[data-theme="dark"] .study-filter-row button,
+html[data-theme="night"] .study-filter-row button,
+html[data-night-study="1"] .study-filter-row button {
+  color: var(--icon-muted) !important;
+}
+html[data-theme="dark"] .study-filter-row button.btn-shine,
+html[data-theme="night"] .study-filter-row button.btn-shine,
+html[data-night-study="1"] .study-filter-row button.btn-shine {
+  color: #ffffff !important;
+}
+html[data-theme="dark"] .filter-chip-row select,
+html[data-theme="night"] .filter-chip-row select,
+html[data-night-study="1"] .filter-chip-row select {
+  color: var(--ink) !important;
+  background: var(--card) !important;
+}
+
+/* 5) Letter rail + section counts */
+html[data-theme="dark"] .letter-rail-btn,
+html[data-theme="night"] .letter-rail-btn,
+html[data-night-study="1"] .letter-rail-btn {
+  color: var(--ink) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+html[data-theme="dark"] .letter-rail-btn.has-words,
+html[data-theme="night"] .letter-rail-btn.has-words,
+html[data-night-study="1"] .letter-rail-btn.has-words {
+  color: var(--letter-accent, var(--accent-1)) !important;
+}
+html[data-theme="dark"] .letter-divider > span,
+html[data-theme="night"] .letter-divider > span,
+html[data-night-study="1"] .letter-divider > span {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+html[data-theme="dark"] .letter-divider > span:last-child,
+html[data-theme="night"] .letter-divider > span:last-child,
+html[data-night-study="1"] .letter-divider > span:last-child {
+  color: var(--muted-strong) !important;
+  font-weight: 700 !important;
+}
+
+/* 6) Entry cards — titles + body */
+html[data-theme="dark"] .entry-card,
+html[data-theme="night"] .entry-card,
+html[data-night-study="1"] .entry-card,
+html[data-theme="dark"] .word-card,
+html[data-theme="night"] .word-card,
+html[data-night-study="1"] .word-card {
+  color: var(--ink) !important;
+  background: var(--card) !important;
+}
+html[data-theme="dark"] .entry-card .entry-word,
+html[data-theme="night"] .entry-card .entry-word,
+html[data-night-study="1"] .entry-card .entry-word,
+html[data-theme="dark"] .entry-card .entry-card-word,
+html[data-theme="night"] .entry-card .entry-card-word,
+html[data-night-study="1"] .entry-card .entry-card-word {
+  color: var(--ink) !important;
+  -webkit-text-fill-color: var(--ink) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* 7) Icons inside cards / toolbar */
+html[data-theme="dark"] .entry-card button,
+html[data-theme="night"] .entry-card button,
+html[data-night-study="1"] .entry-card button {
+  color: var(--icon-muted) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* 8) Search field */
+html[data-theme="dark"] .toolbar-search-input,
+html[data-theme="night"] .toolbar-search-input,
+html[data-night-study="1"] .toolbar-search-input,
+html[data-theme="dark"] .app-chrome-search,
+html[data-theme="night"] .app-chrome-search,
+html[data-night-study="1"] .app-chrome-search {
+  color: var(--ink) !important;
+  background: var(--input-bg) !important;
+}
+html[data-theme="dark"] .toolbar-search-input::placeholder,
+html[data-theme="night"] .toolbar-search-input::placeholder,
+html[data-night-study="1"] .toolbar-search-input::placeholder {
+  color: var(--muted) !important;
+  opacity: 1 !important;
+}
+
+/* 9) Section tabs */
+html[data-theme="dark"] .section-tab,
+html[data-theme="night"] .section-tab,
+html[data-night-study="1"] .section-tab {
+  color: var(--icon-muted) !important;
+}

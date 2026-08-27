@@ -1,5 +1,5 @@
 // Shared layout for every unauthenticated screen: a centered card (Shell)
-// with drifting background "orbs", plus the language picker shown on the
+// with soft background washes, plus the language picker shown on the
 // intro page and the login card.
 import { tr, UI_LANGS } from "../../lib/config/i18n";
 import { PAPER } from "../../lib/config/theme";
@@ -88,9 +88,9 @@ function LanguageToggle({ lang = "en", onChangeLang, isAr, onToggle, floating = 
           width: menuPos.width,
           minWidth: 160,
           background: "var(--card)",
-          border: "1px solid rgba(var(--border-rgb),0.16)",
-          borderRadius: 12,
-          boxShadow: "0 12px 28px -10px rgba(0,0,0,0.35)",
+          border: "1px solid rgba(var(--border-rgb),0.18)",
+          borderRadius: 14,
+          boxShadow: "0 14px 32px -12px rgba(0,0,0,0.38)",
           padding: 6,
           zIndex: 99999,
         }}
@@ -113,14 +113,15 @@ function LanguageToggle({ lang = "en", onChangeLang, isAr, onToggle, floating = 
                 display: "block",
                 width: "100%",
                 textAlign: "start",
-                padding: "9px 12px",
-                borderRadius: 8,
+                padding: "10px 12px",
+                borderRadius: 9,
                 border: "none",
                 cursor: "pointer",
-                fontSize: 13,
+                fontSize: 13.5,
                 fontWeight: active ? 700 : 600,
                 background: active ? "var(--input-bg)" : "transparent",
                 color: "var(--ink)",
+                transition: "background 0.12s ease",
               }}
             >
               {l.native}
@@ -154,15 +155,15 @@ function LanguageToggle({ lang = "en", onChangeLang, isAr, onToggle, floating = 
             display: "flex",
             alignItems: "center",
             gap: 6,
-            padding: "6px 10px",
-            fontSize: 12,
+            padding: "7px 12px",
+            fontSize: 12.5,
             fontWeight: 600,
             color: "var(--icon-muted)",
             background: "var(--input-bg)",
-            border: "1px solid rgba(var(--border-rgb),0.2)",
-            borderRadius: 20,
+            border: "1px solid rgba(var(--border-rgb),0.22)",
+            borderRadius: 22,
             cursor: "pointer",
-            fontFamily: "'Source Sans 3', sans-serif",
+            fontFamily: "var(--font-latin)",
           }}
         >
           <GlobeIcon size={13} />
@@ -185,15 +186,15 @@ function LanguageToggle({ lang = "en", onChangeLang, isAr, onToggle, floating = 
         display: "flex",
         alignItems: "center",
         gap: 6,
-        padding: "6px 10px",
-        fontSize: 12,
+        padding: "7px 12px",
+        fontSize: 12.5,
         fontWeight: 600,
         color: "var(--icon-muted)",
         background: "var(--input-bg)",
-        border: "1px solid rgba(var(--border-rgb),0.2)",
-        borderRadius: 20,
+        border: "1px solid rgba(var(--border-rgb),0.22)",
+        borderRadius: 22,
         cursor: "pointer",
-        fontFamily: "'Source Sans 3', sans-serif",
+        fontFamily: "var(--font-latin)",
       }}
     >
       <GlobeIcon size={13} />
@@ -204,11 +205,61 @@ function LanguageToggle({ lang = "en", onChangeLang, isAr, onToggle, floating = 
 
 function Shell({ children }) {
   return (
-    <div style={{ position: "relative", minHeight: "100dvh", background: PAPER, backgroundImage: "radial-gradient(circle at 1px 1px, rgba(var(--border-rgb),0.05) 1px, transparent 0)", backgroundSize: "20px 20px", display: "flex", alignItems: "center", justifyContent: "center", padding: "clamp(12px, 3vw, 28px)", overflowX: "clip", overflowY: "auto" }}>
-      {/* Static soft washes — no continuous animation (avoids jank on login) */}
-      <div className="auth-orb" style={{ width: 300, height: 300, top: "-8%", insetInlineStart: "-6%", background: "radial-gradient(circle, color-mix(in srgb, var(--accent-1) 50%, transparent) 0%, transparent 70%)", animation: "none", opacity: 0.4, willChange: "auto" }} />
-      <div className="auth-orb" style={{ width: 240, height: 240, bottom: "-8%", insetInlineEnd: "-4%", background: "radial-gradient(circle, color-mix(in srgb, var(--accent-2) 40%, transparent) 0%, transparent 70%)", animation: "none", opacity: 0.35, willChange: "auto" }} />
-      <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div
+      style={{
+        position: "relative",
+        minHeight: "100dvh",
+        background: PAPER,
+        backgroundImage:
+          "radial-gradient(circle at 1px 1px, rgba(var(--border-rgb),0.045) 1px, transparent 0)",
+        backgroundSize: "22px 22px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "clamp(12px, 3vw, 28px)",
+        overflowX: "clip",
+        overflowY: "auto",
+      }}
+    >
+      {/* Soft static washes — no continuous animation (avoids jank on login) */}
+      <div
+        className="auth-orb"
+        style={{
+          width: 320,
+          height: 320,
+          top: "-10%",
+          insetInlineStart: "-8%",
+          background:
+            "radial-gradient(circle, color-mix(in srgb, var(--accent-1) 48%, transparent) 0%, transparent 72%)",
+          animation: "none",
+          opacity: 0.42,
+          willChange: "auto",
+        }}
+      />
+      <div
+        className="auth-orb"
+        style={{
+          width: 260,
+          height: 260,
+          bottom: "-10%",
+          insetInlineEnd: "-6%",
+          background:
+            "radial-gradient(circle, color-mix(in srgb, var(--accent-2) 38%, transparent) 0%, transparent 72%)",
+          animation: "none",
+          opacity: 0.36,
+          willChange: "auto",
+        }}
+      />
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         {children}
       </div>
     </div>

@@ -1,6 +1,7 @@
 /**
  * Bacaloria Community — professional splash / loading screen.
  * Site name + logo + water-style progress until the main UI is ready.
+ * Aligned with the warm brass / paper design system.
  */
 import { useEffect, useState, useRef } from "react";
 import BrandMark from "../common/BrandMark";
@@ -75,7 +76,6 @@ export default function SplashScreen({
       completedRef.current = true;
       setProgress(100);
       setDone(true);
-      // Unmount parent (Suspense) should remove us; if not, onComplete may open app.
       setTimeout(() => onComplete?.(), 200);
     }, minMs + 150);
     return () => clearTimeout(timer);
@@ -127,11 +127,11 @@ export default function SplashScreen({
           display: grid;
           place-items: center;
           background:
-            radial-gradient(ellipse 80% 60% at 50% 20%, rgba(99, 102, 241, 0.16), transparent),
-            radial-gradient(ellipse 60% 50% at 80% 80%, rgba(14, 165, 233, 0.1), transparent),
-            #0b0f1a;
-          color: #f1f5f9;
-          font-family: system-ui, "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif;
+            radial-gradient(ellipse 85% 55% at 50% 12%, color-mix(in srgb, #D97B4F 22%, transparent), transparent),
+            radial-gradient(ellipse 55% 45% at 88% 88%, color-mix(in srgb, #D6A94F 14%, transparent), transparent),
+            #1B1712;
+          color: #EDE4D6;
+          font-family: "Source Sans 3", system-ui, "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif;
           padding: 1.5rem;
           box-sizing: border-box;
         }
@@ -139,29 +139,38 @@ export default function SplashScreen({
           max-width: 28rem;
           width: 100%;
           text-align: center;
+          animation: splashFadeIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
         .uhd-splash-logo {
           display: flex;
           justify-content: center;
-          margin-bottom: 1.25rem;
+          margin-bottom: 1.35rem;
         }
         .uhd-splash-logo .brand-mark-title {
-          color: #f8fafc !important;
-          -webkit-text-fill-color: #f8fafc !important;
+          color: #F5EDE0 !important;
+          -webkit-text-fill-color: #F5EDE0 !important;
         }
         .uhd-splash-slogan {
-          margin: 0 0 0.5rem;
-          font-size: clamp(1.05rem, 3.8vw, 1.35rem);
-          font-weight: 700;
+          margin: 0 0 0.45rem;
+          font-family: "Fraunces", "Amiri", Georgia, serif;
+          font-size: clamp(1.08rem, 3.8vw, 1.38rem);
+          font-weight: 600;
           line-height: 1.55;
+          letter-spacing: -0.015em;
+          color: #F5EDE0;
         }
         .uhd-splash-sub {
-          margin: 0 0 1.5rem;
-          font-size: 0.82rem;
-          opacity: 0.65;
+          margin: 0 0 1.65rem;
+          font-size: 0.84rem;
+          opacity: 0.62;
+          letter-spacing: 0.02em;
         }
         .uhd-splash-bar {
           text-align: start;
+        }
+        @keyframes splashFadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>

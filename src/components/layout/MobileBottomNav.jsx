@@ -5,6 +5,7 @@ import { tr } from "../../lib/config/i18n";
  * ARC-style floating bottom nav (mobile + tablet):
  * pill bar + sliding ring light that follows the active tab.
  * Tabs map to existing app destinations — no extra features.
+ * Ring color aligned with app accent (warm brass) for cohesion.
  */
 export default function MobileBottomNav({
   isAr,
@@ -141,8 +142,13 @@ export default function MobileBottomNav({
       setLight({ x, w: size, ready: true });
     }
     measure();
+    // slight delay so layout settles after font / RTL changes
+    const t = setTimeout(measure, 40);
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("resize", measure);
+    };
   }, [activeIndex, isAr]);
 
   return (

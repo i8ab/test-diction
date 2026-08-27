@@ -473,7 +473,7 @@ function AdminModal({
                           justifyContent: "center",
                           fontWeight: 800,
                           fontSize: 13,
-                          color: "#fff",
+                          color: "var(--on-accent, #fff)",
                           overflow: "hidden",
                           background:
                             normalizeAccountRole(a.role) === "admin"

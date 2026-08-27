@@ -676,7 +676,7 @@ export default function TodoPage({
               style={{
                 ...headerBtn,
                 background: draft.trim() ? "linear-gradient(135deg, var(--accent-1), var(--accent-2))" : "var(--card)",
-                color: draft.trim() ? "#fff" : "var(--muted)",
+                color: draft.trim() ? "var(--on-accent, #fff)" : "var(--muted)",
                 border: "none",
                 opacity: draft.trim() ? 1 : 0.55,
                 minWidth: 40,
@@ -852,7 +852,7 @@ export default function TodoPage({
                       style={{
                         padding: "6px 12px", borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12,
                         background: catDraftName.trim() ? "var(--accent-1)" : "rgba(var(--border-rgb),0.12)",
-                        color: catDraftName.trim() ? "#fff" : "var(--muted)",
+                        color: catDraftName.trim() ? "var(--on-accent, #fff)" : "var(--muted)",
                         cursor: catDraftName.trim() ? "pointer" : "default",
                       }}
                     >
@@ -909,7 +909,7 @@ export default function TodoPage({
                 fontWeight: 700,
                 cursor: "pointer",
                 background: filter === f.id ? BRASS : "rgba(var(--border-rgb),0.08)",
-                color: filter === f.id ? "#fff" : "var(--muted-strong)",
+                color: filter === f.id ? "var(--on-accent, #fff)" : "var(--muted-strong)",
               }}
             >
               {f.label}

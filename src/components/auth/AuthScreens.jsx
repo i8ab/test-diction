@@ -148,6 +148,8 @@ function AuthScreens({
   const isSocialSignup = !!(socialDraft && socialDraft.provider && socialDraft.providerId);
   const [showLoginPw, setShowLoginPw] = useState(false);
   const [lampOn, setLampOn] = useState(false);
+  const [cordPull, setCordPull] = useState(0); // px dragged down
+  const cordDragRef = useRef({ active: false, startY: 0, pulled: false });
   const [showSignupPw, setShowSignupPw] = useState(false);
   const [showSignupPw2, setShowSignupPw2] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
@@ -508,7 +510,7 @@ function AuthScreens({
               <input
                 id="cp-username"
                 value={signupUsername}
-                onChange={(e) => setSignupUsername(e.target.value.replace(/\s/g, "").toLowerCase())}
+                onChange={(e) => { const v = e.target.value.replace(/\s/g, "").toLowerCase(); setSignupUsername(v); if (typeof setName === "function") setName(v); }}
                 style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace" }}
                 dir="ltr"
                 autoCapitalize="off"
@@ -638,8 +640,8 @@ function AuthScreens({
                   "أنشئ حساب معلّم. لازم الأدمن يوافق على طلبك قبل ما تقدر تسجّل دخول."
                 )
               : atr(
-                  "Pick a display name, a unique username, and a password. An admin must approve your request before you can sign in.",
-                  "اختَر اسمًا ظاهرًا ويوزرنيم فريدًا وكلمة مرور. لازم الأدمن يوافق على طلبك قبل ما تقدر تسجّل دخول."
+                  "Choose account type, a username, and a password. An admin must approve your request. Extra profile details come after your first login.",
+                  "اختَر نوع الحساب واسم المستخدم وكلمة المرور. الأدمن يوافق على الطلب. باقي البيانات بعد أول دخول."
                 )}
           </p>
           <form onSubmit={(e) => {
@@ -692,12 +694,11 @@ function AuthScreens({
                 </button>
               </div>
             </div>
-            <div className="auth-field-1">
-              <label style={labelStyle} htmlFor="signup-name">{atr("Display name", "الاسم الظاهر")}</label>
-              <input id="signup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={atr("e.g. Omar", "مثال: عمر")} style={authInputStyle} autoCapitalize="words" autoCorrect="off" />
-            </div>
+            {/* Streamlined: display name auto-filled from username at submit */}
+            {/* Extra profile fields hidden for standard signup */}
 
-            {/* صورة الحساب (اختياري) */}
+{isSocialSignup && (
+            <>
             <div className="auth-field-1" style={{ marginTop: 14, marginBottom: 4 }}>
               <label style={labelStyle}>{atr("Profile photo (optional)", "صورة الحساب (اختياري)")}</label>
               <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 8 }}>
@@ -893,9 +894,12 @@ function AuthScreens({
               </div>
             )}
 
+            </>
+            )}
+
             <div className="auth-field-2">
               <label style={labelStyle} htmlFor="signup-username"><UserIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Username", "اسم المستخدم")}</label>
-              <input id="signup-username" value={signupUsername} onChange={(e) => setSignupUsername(e.target.value.replace(/\s/g, "").toLowerCase())} placeholder={atr("e.g. omar_23", "مثال: omar_23")} style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace", letterSpacing: "0.02em" }} autoCapitalize="off" autoCorrect="off" autoComplete="username" spellCheck={false} dir="ltr" />
+              <input id="signup-username" value={signupUsername} onChange={(e) => { const v = e.target.value.replace(/\s/g, "").toLowerCase(); setSignupUsername(v); if (typeof setName === "function") setName(v); }} placeholder={atr("e.g. omar_23", "مثال: omar_23")} style={{ ...authInputStyle, fontFamily: "ui-monospace, monospace", letterSpacing: "0.02em" }} autoCapitalize="off" autoCorrect="off" autoComplete="username" spellCheck={false} dir="ltr" />
             </div>
             {!isSocialSignup && (
               <>
@@ -903,10 +907,12 @@ function AuthScreens({
                   <label style={labelStyle} htmlFor="signup-password"><KeyIcon size={13} style={{ marginInlineEnd: 5, verticalAlign: -2 }} />{atr("Password", "كلمة المرور")}</label>
                   <input id="signup-password" type="password" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} placeholder={atr("At least 6 characters", "٦ أحرف على الأقل")} style={authInputStyle} autoComplete="new-password" />
                 </div>
+                {isSocialSignup && (
                 <div>
                   <label style={labelStyle} htmlFor="signup-password2">{atr("Confirm password", "تأكيد كلمة المرور")}</label>
                   <input id="signup-password2" type="password" value={signupPassword2} onChange={(e) => setSignupPassword2(e.target.value)} placeholder={atr("Repeat password", "أعد كتابة كلمة المرور")} style={authInputStyle} autoComplete="new-password" />
                 </div>
+                )}
               </>
             )}
             {isSocialSignup && (
@@ -1182,20 +1188,58 @@ function AuthScreens({
           {/* Lamp toggle — lights up the login form (responsive) */}
           <div className="lamp-login-root" aria-hidden="false">
             <span className="lamp-login-hint">{atr("Pull the string to toggle login", "اسحب الخيط لإظهار/إخفاء الدخول")}</span>
-            <button
-              type="button"
+            <div
               className={"lamp-btn" + (lampOn ? " is-on" : "")}
-              onClick={() => setLampOn((v) => !v)}
-              aria-label={atr("Toggle login form", "إظهار/إخفاء نموذج الدخول")}
-              title={atr("Pull the string to toggle login", "اسحب الخيط للتبديل")}
+              role="button"
+              tabIndex={0}
+              aria-label={atr("Pull the cord to show login", "اسحب الخيط لإظهار الدخول")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setLampOn((v) => !v);
+                }
+              }}
             >
               <span className="lamp-shade" />
               <span className="lamp-glow-disc" />
               <span className="lamp-beam" />
               <span className="lamp-pole" />
               <span className="lamp-base" />
-              <span className="lamp-pull"><span className="lamp-pull-knob" /></span>
-            </button>
+              <span
+                className="lamp-pull"
+                style={{ height: 36 + cordPull, transition: cordDragRef.current.active ? "none" : "height 0.35s cubic-bezier(0.22,1,0.36,1)" }}
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.setPointerCapture?.(e.pointerId);
+                  cordDragRef.current = { active: true, startY: e.clientY, pulled: false };
+                }}
+                onPointerMove={(e) => {
+                  if (!cordDragRef.current.active) return;
+                  const dy = Math.max(0, Math.min(56, e.clientY - cordDragRef.current.startY));
+                  setCordPull(dy);
+                  if (dy > 28) cordDragRef.current.pulled = true;
+                }}
+                onPointerUp={(e) => {
+                  if (!cordDragRef.current.active) return;
+                  const didPull = cordDragRef.current.pulled || cordPull > 28;
+                  cordDragRef.current = { active: false, startY: 0, pulled: false };
+                  setCordPull(0);
+                  if (didPull) setLampOn((v) => !v);
+                }}
+                onPointerCancel={() => {
+                  cordDragRef.current = { active: false, startY: 0, pulled: false };
+                  setCordPull(0);
+                }}
+                onClick={(e) => {
+                  // Tap on knob also toggles (mobile-friendly)
+                  e.stopPropagation();
+                  if (cordPull < 4) setLampOn((v) => !v);
+                }}
+              >
+                <span className="lamp-pull-knob" />
+              </span>
+            </div>
             <div className={"lamp-form-wrap " + (lampOn ? "is-visible" : "is-hidden")}>
             <div className="lamp-form-card">
             <h3>{atr("Welcome Back", "مرحبًا بعودتك")}</h3>

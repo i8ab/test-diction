@@ -102,9 +102,11 @@ export async function performSignup(p) {
 
   e.preventDefault();
   setSignupError("");
-  const trimmedName = name.trim();
+  // Streamlined signup: only role + username + password required.
+  // Name defaults from username; profile details requested after approval.
+  const trimmedName = (name && name.trim()) || (signupUsername && String(signupUsername).trim()) || "";
   if (!trimmedName) {
-    setSignupError("Enter a name.");
+    setSignupError(appIsAr ? "اكتب اسم المستخدم." : "Enter a username.");
     return;
   }
 
@@ -120,43 +122,18 @@ export async function performSignup(p) {
       setSignupError(pCheck.error);
       return;
     }
-    if (signupPassword !== signupPassword2) {
-      setSignupError("Passwords do not match.");
+    // Confirm password optional: if empty, treat as match
+    if (signupPassword2 && signupPassword !== signupPassword2) {
+      setSignupError(appIsAr ? "كلمتا المرور غير متطابقتين." : "Passwords do not match.");
       return;
     }
   }
-  if (signupGender !== "male" && signupGender !== "female") {
-    setSignupError("Please select Male or Female.");
-    return;
-  }
-
-  const bCheck = validateBirthDate(signupBirthDate);
-  if (!bCheck.ok) {
-    setSignupError(bCheck.error);
-    return;
-  }
+  // Gender / birth date / bac path: deferred to first login after approval
+  // (no hard requirement at request time)
 
   const isTeacherSignup = signupRole === "teacher";
-  let bacSpecialty = "";
-  if (!isTeacherSignup) {
-    const track = getBacTrack(signupBacTrack);
-    if (!track) {
-      setSignupError(appIsAr ? "اختَر مسار البكالوريا." : "Please select your baccalaureate track.");
-      return;
-    }
-    if (signupBacGrade !== "2" && signupBacGrade !== "3") {
-      setSignupError(appIsAr ? "اختَر الصف (ثاني أو ثالث ثانوي)." : "Please select your grade (2nd or 3rd secondary).");
-      return;
-    }
-    if (signupBacGrade === "2") {
-      const opts = getSpecialtyOptions(signupBacTrack);
-      if (!opts.some((o) => o.id === signupBacSpecialty)) {
-        setSignupError(appIsAr ? "اختَر المادة التخصصية." : "Please select your specialized subject.");
-        return;
-      }
-      bacSpecialty = signupBacSpecialty;
-    }
-  }
+  // Bac track / grade / specialty deferred to post-approval profile completion
+  let bacSpecialty = signupBacSpecialty || "";
 
   setSignupSaving(true);
   const code = generatePersonalCode();
@@ -182,7 +159,7 @@ export async function performSignup(p) {
     createdAt: Date.now(),
     ...(signupAvatar ? { avatar: signupAvatar } : {}),
     gender: signupGender,
-    ...(bCheck.birthDate ? { birthDate: bCheck.birthDate } : {}),
+    ...(signupBirthDate ? { birthDate: signupBirthDate } : {}),
     ...(isTeacherSignup
       ? {}
       : {

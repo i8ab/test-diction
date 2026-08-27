@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, inputStyle, primaryBtnStyle } from "../../lib/config/theme";
 import {
@@ -85,41 +85,101 @@ export default function LanguageNotesPage({
     refresh();
   }
 
+  const panelRef = useRef(null);
+  const dragRef = useRef({ active: false, ox: 0, oy: 0, x: 0, y: 0 });
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [size, setSize] = useState({ w: 420, h: 560 });
+  const resizeRef = useRef({ active: false, startX: 0, startY: 0, startW: 0, startH: 0 });
+
+  function onDragStart(e) {
+    if (e.button != null && e.button !== 0) return;
+    // only from header drag handle
+    dragRef.current = {
+      active: true,
+      ox: e.clientX - pos.x,
+      oy: e.clientY - pos.y,
+      x: pos.x,
+      y: pos.y,
+    };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  }
+  function onDragMove(e) {
+    if (!dragRef.current.active) return;
+    setPos({
+      x: e.clientX - dragRef.current.ox,
+      y: e.clientY - dragRef.current.oy,
+    });
+  }
+  function onDragEnd() {
+    dragRef.current.active = false;
+  }
+
+  function onResizeStart(e) {
+    e.stopPropagation();
+    e.preventDefault();
+    resizeRef.current = {
+      active: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      startW: size.w,
+      startH: size.h,
+    };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  }
+  function onResizeMove(e) {
+    if (!resizeRef.current.active) return;
+    const dw = e.clientX - resizeRef.current.startX;
+    const dh = e.clientY - resizeRef.current.startY;
+    setSize({
+      w: Math.max(300, Math.min(720, resizeRef.current.startW + dw)),
+      h: Math.max(320, Math.min(window.innerHeight - 24, resizeRef.current.startH + dh)),
+    });
+  }
+  function onResizeEnd() {
+    resizeRef.current.active = false;
+  }
+
   return (
     <div
-      className="modal-backdrop"
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 5500,
-        background: "rgba(0,0,0,0.55)",
-        display: "flex",
-        alignItems: "stretch",
-        justifyContent: "center",
-        padding: 0,
+        zIndex: 6100,
+        pointerEvents: "none",
       }}
+      aria-hidden={false}
     >
-      <BodyScrollLock />
       <div
+        ref={panelRef}
         className="modal-card"
         dir={isAr ? "rtl" : "ltr"}
         role="dialog"
-        aria-modal="true"
+        aria-modal="false"
         aria-labelledby="lang-notes-title"
         style={{
-          width: "100%",
-          maxWidth: 640,
-          height: "100%",
-          maxHeight: "100dvh",
-          borderRadius: 0,
+          pointerEvents: "auto",
+          position: "fixed",
+          left: `calc(50% + ${pos.x}px)`,
+          top: `calc(8% + ${pos.y}px)`,
+          transform: "translateX(-50%)",
+          width: `min(92vw, ${size.w}px)`,
+          height: `min(88dvh, ${size.h}px)`,
+          borderRadius: 16,
           display: "flex",
           flexDirection: "column",
           background: CARD,
           overflow: "hidden",
+          boxShadow: "0 24px 64px -12px rgba(0,0,0,0.45)",
+          border: "1.5px solid color-mix(in srgb, var(--accent-1) 35%, rgba(var(--border-rgb),0.25))",
+          position: "fixed",
         }}
       >
         {/* Header */}
         <div
+          onPointerDown={onDragStart}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+          onPointerCancel={onDragEnd}
           style={{
             display: "flex",
             alignItems: "center",
@@ -127,6 +187,9 @@ export default function LanguageNotesPage({
             padding: "14px 16px",
             borderBottom: "1px solid rgba(var(--border-rgb),0.14)",
             flexShrink: 0,
+            cursor: "grab",
+            touchAction: "none",
+            userSelect: "none",
           }}
         >
           {active && (
@@ -498,6 +561,27 @@ export default function LanguageNotesPage({
             </>
           )}
         </div>
+        {/* Resize handle — bottom-end corner */}
+        <div
+          className="lang-notes-resize"
+          onPointerDown={onResizeStart}
+          onPointerMove={onResizeMove}
+          onPointerUp={onResizeEnd}
+          onPointerCancel={onResizeEnd}
+          style={{
+            position: "absolute",
+            insetInlineEnd: 4,
+            bottom: 4,
+            width: 18,
+            height: 18,
+            cursor: "nwse-resize",
+            touchAction: "none",
+            opacity: 0.45,
+            background: "linear-gradient(135deg, transparent 50%, var(--muted) 50%)",
+            borderRadius: 2,
+          }}
+          aria-hidden
+        />
       </div>
     </div>
   );

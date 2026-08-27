@@ -1166,7 +1166,7 @@ export default function MainView({
             </div>
           </div>
           {sectionEntries.length > 0 && (
-            <div dir={isAr ? "rtl" : "ltr"} style={{ marginTop: 10, height: 8, borderRadius: 20, overflow: "hidden", display: "flex", background: "rgba(var(--border-rgb),0.15)" }}>
+            <div dir={isAr ? "rtl" : "ltr"} className="app-stats-progress" style={{ marginTop: 10, height: 8, borderRadius: 20, overflow: "hidden", display: "flex", background: "color-mix(in srgb, var(--ink) 14%, transparent)" }}>
               <div style={{ width: `${notStudiedPct}%`, background: cfg.accent, transition: "width 0.3s" }} />
               <div style={{ width: `${studiedPct}%`, background: "var(--success)", transition: "width 0.3s" }} />
             </div>

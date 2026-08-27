@@ -1,7 +1,7 @@
 // Unified vertical word card (mobile / tablet / desktop).
 // Actions sit in a bottom bar so they never crowd the word row.
 // Each action button has an isolated hit target (no oversized tap areas).
-import { useState, memo } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { cambridgeUrl } from "../../lib/utils/wordCard";
@@ -10,7 +10,7 @@ import { entryPosList, posLabel, getEntrySenses } from "../../lib/utils/wordType
 import { detectDir, detectFont } from "../../lib/utils/searchUtils";
 import {
   ChevronIcon, CheckIcon, StarIcon, EditIcon, TrashIcon, ZoomIcon, FlameIcon,
-  EyeIcon, EyeOffIcon, SpeakButton,
+  EyeIcon, EyeOffIcon, SpeakButton, MoreIcon,
 } from "./Icons";
 
 /** Compact Cambridge Dictionary crest (shield only — no banner text). */
@@ -88,7 +88,18 @@ function EntryCard({
   mobileLayout = false, tabletLayout = false,
 }) {
   const [confirmDel, setConfirmDel] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreMenuRef = useRef(null);
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDoc = (e) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) setMoreOpen(false);
+    };
+    document.addEventListener("pointerdown", onDoc);
+    return () => document.removeEventListener("pointerdown", onDoc);
+  }, [moreOpen]);
   const hasDefinition = !!entry.definition;
   const hasExample = !!entry.example || !!(entry.examples && entry.examples.length);
   const hasSynAnt = !!((entry.synonyms && entry.synonyms.length) || (entry.antonyms && entry.antonyms.length));
@@ -109,6 +120,23 @@ function EntryCard({
   const actionPad = touchy ? "8px 4px" : "6px 2px";
   const actionRadius = touchy ? 12 : 10;
   const iconSize = touchy ? 18 : 16;
+
+  const moreItemStyle = (color) => ({
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    width: "100%",
+    padding: "10px 12px",
+    border: "none",
+    borderRadius: 10,
+    background: "transparent",
+    color,
+    fontSize: 13,
+    fontWeight: 600,
+    fontFamily: "var(--font-latin)",
+    cursor: "pointer",
+    textAlign: "start",
+  });
 
   // Cambridge + speak + chevron: same control *type* as mobile on every device
   // (rounded chip with background, clustered at the far end of the word row).
@@ -436,66 +464,58 @@ function EntryCard({
         )}
       </div>
 
-      {/* Action bar — buttons share full width evenly (all device layouts) */}
+      {/* Action bar — hierarchy: Study + Zoom primary; rest under More */}
       <div
         className="entry-action-bar"
+        ref={moreMenuRef}
         style={{
           display: "flex",
           flexWrap: "nowrap",
-          justifyContent: "space-between",
+          justifyContent: "stretch",
           alignItems: "stretch",
-          gap: touchy ? 6 : 4,
+          gap: touchy ? 8 : 6,
           marginTop: 12,
           paddingTop: 10,
           borderTop: "1px solid rgba(var(--border-rgb),0.12)",
           width: "100%",
+          position: "relative",
         }}
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
       >
         <button
           type="button"
-          className="entry-action-btn"
-          style={{ ...actionBtnBase, color: isFavorite ? BRASS : "var(--icon-muted)" }}
-          onClick={(e) => { e.stopPropagation(); onToggleFavorite(entry.id); }}
-          aria-pressed={isFavorite}
-          aria-label={tr(isAr, "Favorite", "مفضلة")}
-          title={tr(isAr, "Favorite", "مفضلة")}
+          className="entry-action-btn entry-action-primary"
+          style={{
+            ...actionBtnBase,
+            flex: 1.2,
+            color: isStudied ? "var(--success)" : "var(--ink)",
+            background: isStudied
+              ? "color-mix(in srgb, var(--success) 14%, var(--input-bg))"
+              : "var(--input-bg)",
+            border: isStudied
+              ? "1px solid color-mix(in srgb, var(--success) 35%, transparent)"
+              : "1px solid rgba(var(--border-rgb),0.12)",
+            fontWeight: 700,
+          }}
+          onClick={(e) => { e.stopPropagation(); setMoreOpen(false); onToggleStudied(entry.id); }}
+          aria-pressed={isStudied}
+          aria-label={tr(isAr, "Studied", "دراسة")}
+          title={tr(isAr, "Studied", "دراسة")}
         >
-          <StarIcon size={iconSize} fill={isFavorite ? BRASS : "none"} />
-          <span>{tr(isAr, "Fav", "مفضلة")}</span>
+          {isStudied ? <EyeIcon size={iconSize} /> : <EyeOffIcon size={iconSize} />}
+          <span>{tr(isAr, "Study", "دراسة")}</span>
         </button>
-        {typeof onCyclePriority === "function" && (
-          <button
-            type="button"
-            className="entry-action-btn"
-            style={{
-              ...actionBtnBase,
-              color: priority === 3 ? "#ff3b30" : priority === 2 ? "#ff9f0a" : priority === 1 ? "#34c759" : "var(--icon-muted)",
-            }}
-            onClick={(e) => { e.stopPropagation(); onCyclePriority(entry.id); }}
-            aria-label={tr(isAr, "Priority", "أولوية")}
-            title={
-              priority === 3 ? tr(isAr, "High priority", "أولوية عالية")
-              : priority === 2 ? tr(isAr, "Medium priority", "أولوية متوسطة")
-              : priority === 1 ? tr(isAr, "Low priority", "أولوية منخفضة")
-              : tr(isAr, "Set priority", "تعيين أولوية")
-            }
-          >
-            <FlameIcon size={iconSize} />
-            <span>{
-              priority === 3 ? tr(isAr, "High", "عالية")
-              : priority === 2 ? tr(isAr, "Med", "متوسطة")
-              : priority === 1 ? tr(isAr, "Low", "منخفضة")
-              : tr(isAr, "Prio", "أولوية")
-            }</span>
-          </button>
-        )}
         <button
           type="button"
-          className="entry-action-btn"
-          style={actionBtnBase}
-          onClick={(e) => { e.stopPropagation(); onOpenZoom(entry.id); }}
+          className="entry-action-btn entry-action-primary"
+          style={{
+            ...actionBtnBase,
+            flex: 1.2,
+            color: "var(--ink)",
+            fontWeight: 700,
+          }}
+          onClick={(e) => { e.stopPropagation(); setMoreOpen(false); onOpenZoom(entry.id); }}
           aria-label={tr(isAr, "Zoom", "تكبير")}
           title={tr(isAr, "Zoom", "تكبير")}
         >
@@ -504,50 +524,106 @@ function EntryCard({
         </button>
         <button
           type="button"
-          className="entry-action-btn"
-          style={{ ...actionBtnBase, color: isStudied ? "var(--success)" : "var(--icon-muted)" }}
-          onClick={(e) => { e.stopPropagation(); onToggleStudied(entry.id); }}
-          aria-pressed={isStudied}
-          aria-label={tr(isAr, "Studied", "دراسة")}
-          title={tr(isAr, "Studied", "دراسة")}
+          className="entry-action-btn entry-action-more"
+          style={{
+            ...actionBtnBase,
+            flex: "0 0 auto",
+            minWidth: touchy ? 52 : 48,
+            color: moreOpen ? "var(--accent-1)" : "var(--icon-muted)",
+            background: moreOpen
+              ? "color-mix(in srgb, var(--accent-1) 12%, var(--input-bg))"
+              : "var(--input-bg)",
+          }}
+          onClick={(e) => { e.stopPropagation(); setMoreOpen((v) => !v); setConfirmDel(false); }}
+          aria-expanded={moreOpen}
+          aria-haspopup="menu"
+          aria-label={tr(isAr, "More actions", "المزيد")}
+          title={tr(isAr, "More", "المزيد")}
         >
-          {isStudied ? <EyeIcon size={iconSize} /> : <EyeOffIcon size={iconSize} />}
-          <span>{tr(isAr, "Study", "دراسة")}</span>
+          <MoreIcon size={iconSize} />
+          <span>{tr(isAr, "More", "المزيد")}</span>
         </button>
-        {canEdit && (
-          <button
-            type="button"
-            className="entry-action-btn"
-            style={actionBtnBase}
-            onClick={(e) => { e.stopPropagation(); onEdit(entry.id); }}
-            aria-label={tr(isAr, "Edit", "تعديل")}
-            title={tr(isAr, "Edit", "تعديل")}
-          >
-            <EditIcon size={Math.max(14, iconSize - 2)} />
-            <span>{tr(isAr, "Edit", "تعديل")}</span>
-          </button>
-        )}
-        {canEdit && (
-          <button
-            type="button"
-            className="entry-action-btn"
+
+        {moreOpen && (
+          <div
+            role="menu"
+            className="entry-more-menu"
             style={{
-              ...actionBtnBase,
-              color: confirmDel ? "var(--danger)" : "var(--icon-muted)",
-              background: confirmDel ? "var(--danger-border)" : "var(--input-bg)",
+              position: "absolute",
+              bottom: "calc(100% + 6px)",
+              insetInlineEnd: 0,
+              zIndex: 20,
+              minWidth: 180,
+              padding: 6,
+              borderRadius: 14,
+              background: "var(--card)",
+              border: "1px solid rgba(var(--border-rgb),0.14)",
+              boxShadow: "0 12px 32px -12px rgba(0,0,0,0.35)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
             }}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (confirmDel) onDelete(entry.id);
-              else setConfirmDel(true);
-            }}
-            onBlur={() => setConfirmDel(false)}
-            aria-label={tr(isAr, "Delete", "حذف")}
-            title={tr(isAr, "Delete", "حذف")}
+            onClick={(e) => e.stopPropagation()}
           >
-            <TrashIcon size={Math.max(14, iconSize - 2)} />
-            <span>{confirmDel ? tr(isAr, "Sure?", "تأكيد؟") : tr(isAr, "Del", "حذف")}</span>
-          </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="entry-more-item"
+              style={moreItemStyle(isFavorite ? BRASS : "var(--ink)")}
+              onClick={(e) => { e.stopPropagation(); onToggleFavorite(entry.id); setMoreOpen(false); }}
+            >
+              <StarIcon size={16} fill={isFavorite ? BRASS : "none"} />
+              <span>{tr(isAr, "Favorite", "مفضلة")}</span>
+            </button>
+            {typeof onCyclePriority === "function" && (
+              <button
+                type="button"
+                role="menuitem"
+                className="entry-more-item"
+                style={moreItemStyle(
+                  priority === 3 ? "#ff3b30" : priority === 2 ? "#ff9f0a" : priority === 1 ? "#34c759" : "var(--ink)"
+                )}
+                onClick={(e) => { e.stopPropagation(); onCyclePriority(entry.id); }}
+              >
+                <FlameIcon size={16} />
+                <span>{
+                  priority === 3 ? tr(isAr, "Priority: High", "أولوية: عالية")
+                  : priority === 2 ? tr(isAr, "Priority: Med", "أولوية: متوسطة")
+                  : priority === 1 ? tr(isAr, "Priority: Low", "أولوية: منخفضة")
+                  : tr(isAr, "Set priority", "تعيين أولوية")
+                }</span>
+              </button>
+            )}
+            {canEdit && (
+              <button
+                type="button"
+                role="menuitem"
+                className="entry-more-item"
+                style={moreItemStyle("var(--ink)")}
+                onClick={(e) => { e.stopPropagation(); setMoreOpen(false); onEdit(entry.id); }}
+              >
+                <EditIcon size={15} />
+                <span>{tr(isAr, "Edit", "تعديل")}</span>
+              </button>
+            )}
+            {canEdit && (
+              <button
+                type="button"
+                role="menuitem"
+                className="entry-more-item"
+                style={moreItemStyle(confirmDel ? "var(--danger)" : "var(--ink)")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (confirmDel) { onDelete(entry.id); setMoreOpen(false); setConfirmDel(false); }
+                  else setConfirmDel(true);
+                }}
+                onBlur={() => setConfirmDel(false)}
+              >
+                <TrashIcon size={15} />
+                <span>{confirmDel ? tr(isAr, "Tap again to delete", "اضغط مرة أخرى للحذف") : tr(isAr, "Delete", "حذف")}</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>

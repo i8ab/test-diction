@@ -175,3 +175,29 @@ html[data-device="tablet"] .letter-divider {
   font-family: var(--font-display);
   font-size: 1.1rem;
 }
+
+/* ---------- Action hierarchy: primary Study/Zoom + More ---------- */
+.entry-action-bar {
+  position: relative;
+}
+.entry-action-btn.entry-action-primary {
+  font-weight: 700;
+}
+.entry-action-btn.entry-action-more span {
+  font-size: 11px;
+}
+.entry-more-menu {
+  animation: fadeUp 0.18s var(--ease-out, ease) both;
+}
+.entry-more-item:hover,
+.entry-more-item:focus-visible {
+  background: color-mix(in srgb, var(--accent-1) 10%, transparent) !important;
+  outline: none;
+}
+
+/* Word title stronger hierarchy */
+.entry-card .entry-card-word,
+.entry-card .entry-word {
+  font-size: 1.12em;
+  line-height: 1.25;
+}

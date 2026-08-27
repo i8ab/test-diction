@@ -24,11 +24,15 @@ export default function MobileBottomNav({
   const itemRefs = useRef([]);
   const [light, setLight] = useState({ x: 0, w: 48, ready: false });
 
+  // Highlight only while the destination is actually open.
+  // Closing a tool must clear the ring — do not keep sticky "selected".
   const activeKey = useMemo(() => {
-    if (showQuiz || mobileNavTab === "quiz") return "quiz";
-    if (showGoals || mobileNavTab === "goals") return "goals";
-    if (showTodo || mobileNavTab === "todo") return "todo";
+    if (showQuiz) return "quiz";
+    if (showGoals) return "goals";
+    if (showTodo) return "todo";
     if (mobileNavTab === "account") return "account";
+    if (mobileNavTab === "words") return "words";
+    // Tab was set to quiz/goals/todo but panel already closed → treat as words
     return "words";
   }, [mobileNavTab, showQuiz, showGoals, showTodo]);
 
@@ -131,7 +135,8 @@ export default function MobileBottomNav({
       if (!list || !el) return;
       const lr = list.getBoundingClientRect();
       const er = el.getBoundingClientRect();
-      const size = 44;
+      // Ring must be larger than the icon + label cluster
+      const size = Math.max(52, Math.min(er.width + 8, er.height + 10));
       const x = er.left - lr.left + er.width / 2 - size / 2;
       setLight({ x, w: size, ready: true });
     }

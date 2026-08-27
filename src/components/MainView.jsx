@@ -220,6 +220,17 @@ export default function MainView({
   const [nightStudy, setNightStudy] = useState(() => {
     try { return localStorage.getItem("twoTongues.nightStudy") === "1"; } catch (_) { return false; }
   });
+  /* nav-tab sync: clear sticky highlight when tool closes */
+  useEffect(() => {
+    if (!showQuiz && mobileNavTab === "quiz") setMobileNavTab("words");
+  }, [showQuiz]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!showGoals && mobileNavTab === "goals") setMobileNavTab("words");
+  }, [showGoals]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!showTodo && mobileNavTab === "todo") setMobileNavTab("words");
+  }, [showTodo]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [showSmartCards, setShowSmartCards] = useState(() => restored.tool === "smartCards");
   const [showConversation, setShowConversation] = useState(() => restored.tool === "conversation");
   const [showTutorChat, setShowTutorChat] = useState(() => restored.tool === "tutorChat");
@@ -255,7 +266,7 @@ export default function MainView({
   // NOTE: showAdd is managed by App.jsx history (openAddModal/closeAddModal) — do NOT
   // also hook it here. A second pushState caused: close → history.back → popstate
   // restored showAdd:true → Add modal reopened in a loop with the word zoom card.
-  useHistoryBackClose(showQuiz, () => { setShowQuiz(false); setQuizDueOnly(false); });
+  useHistoryBackClose(showQuiz, () => { setShowQuiz(false); setQuizDueOnly(false); setMobileNavTab("words"); });
   useHistoryBackClose(showExamMode, () => setShowExamMode(false));
   useHistoryBackClose(!!zoomEntry, () => { setZoomEntry(null); setZoomAlreadyExists(false); });
   useHistoryBackClose(showGoals, closeGoals);

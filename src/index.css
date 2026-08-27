@@ -3091,8 +3091,9 @@ select {
   justify-content: space-between;
   gap: 2px;
   width: min(420px, calc(100vw - 24px));
-  padding: 8px 10px;
+  padding: 10px 8px;
   border-radius: 999px;
+  overflow: visible;
   background: rgba(22, 22, 28, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow:
@@ -3131,9 +3132,9 @@ select {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
-  padding: 8px 4px !important;
+  padding: 6px 2px !important;
   margin: 0 !important;
   border: none !important;
   background: transparent !important;
@@ -3146,8 +3147,8 @@ select {
   transition: color 0.25s ease;
 }
 .arc-nav-item svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 }
 .arc-nav-item span {
   font-size: 10px !important;

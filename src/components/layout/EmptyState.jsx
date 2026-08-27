@@ -69,7 +69,7 @@ export default function EmptyState({ hasQuery, onAdd, accent, isAr }) {
             padding: "11px 18px",
             fontSize: 14,
             fontWeight: 700,
-            color: "#fff",
+            color: "var(--on-accent, #fff)",
             background: accent || "var(--accent-1)",
             border: "1px solid color-mix(in srgb, var(--accent-1) 65%, black)",
             borderRadius: "11px 13px 10px 12px",

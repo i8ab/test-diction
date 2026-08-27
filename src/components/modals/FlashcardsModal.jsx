@@ -300,7 +300,7 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
               </button>
               <button type="button" onClick={() => { if (onToggleStudied && !studiedIds.has(current.id)) onToggleStudied(current.id); advance(true); }}
                 className={pulse === "knew" ? "flashcard-choice-pop" : undefined}
-                style={{ flex: 1, padding: "11px 0", fontSize: 14, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "none", background: cfg.accent, color: "#fff" }}>
+                style={{ flex: 1, padding: "11px 0", fontSize: 14, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "none", background: cfg.accent, color: "var(--on-accent, #fff)" }}>
                 {tr(isAr, "Knew it", "كنت عارفها")}
               </button>
             </div>

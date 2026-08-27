@@ -269,7 +269,7 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
               </select>
             )}
             <button type="button" onClick={handlePracticePronunciation} disabled={micState !== "idle"}
-              style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", fontSize: 13, fontWeight: 700, color: "#fff", background: micState !== "idle" ? "var(--muted)" : cfg.accent, border: "none", borderRadius: 999, cursor: micState !== "idle" ? "default" : "pointer" }}>
+              style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", fontSize: 13, fontWeight: 700, color: "var(--on-accent, #fff)", background: micState !== "idle" ? "var(--muted)" : cfg.accent, border: "none", borderRadius: 999, cursor: micState !== "idle" ? "default" : "pointer" }}>
               <MicIcon size={14} />
               {micState === "listening"
                 ? tr(isAr, "Listening — speak now…", "بسمع — اتكلم دلوقتي…")
@@ -343,7 +343,7 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
                 display: "inline-flex", alignItems: "center", gap: 6,
                 padding: "8px 14px", borderRadius: 20, border: "none", cursor: "pointer",
                 fontWeight: 700, fontSize: 13,
-                color: "#fff",
+                color: "var(--on-accent, #fff)",
                 background: recState === "recording" ? "var(--danger, #c0392b)" : "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
               }}
             >

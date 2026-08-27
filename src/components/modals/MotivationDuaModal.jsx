@@ -581,7 +581,7 @@ export default function MotivationDuaModal({ isAr, onClose, initialTab = "motiva
                     : phaseColors
                       ? `linear-gradient(135deg, ${phaseColors.fg}, ${phaseColors.fg})`
                       : "linear-gradient(135deg, #7e22ce, #7e22ce)",
-                color: "#fff",
+                color: "var(--on-accent, #fff)",
                 fontWeight: 700,
                 fontSize: 14,
                 cursor: "pointer",

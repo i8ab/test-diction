@@ -190,7 +190,7 @@ export default function SmartCardsModal({
             onClick={() => speak(entry.word, cfg.wordDir)}
             style={{
               width: 72, height: 72, borderRadius: "50%", border: "none", cursor: "pointer",
-              background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))", color: "#fff",
+              background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))", color: "var(--on-accent, #fff)",
               display: "inline-flex", alignItems: "center", justifyContent: "center",
               boxShadow: "0 10px 24px -12px rgba(var(--focus-rgb),0.6)",
             }}
@@ -357,7 +357,7 @@ export default function SmartCardsModal({
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-              display: "flex", alignItems: "center", justifyContent: "center", color: "#fff",
+              display: "flex", alignItems: "center", justifyContent: "center", color: "var(--on-accent, #fff)",
             }}>
               <LayersIcon size={18} />
             </div>

@@ -428,7 +428,7 @@ function AdminModal({
                     minHeight: 44,
                     fontSize: 13,
                     fontWeight: 700,
-                    color: "#fff",
+                    color: "var(--on-accent, #fff)",
                     background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
                     border: "none",
                     borderRadius: 12,
@@ -776,7 +776,7 @@ function AdminModal({
                       cursor: "pointer",
                       fontWeight: 700,
                       fontSize: 13,
-                      color: "#fff",
+                      color: "var(--on-accent, #fff)",
                       background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
                     }}
                   >

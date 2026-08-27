@@ -238,7 +238,7 @@ export default function ConversationModal({
                     dir={cfg.wordDir}
                     style={{
                       padding: "6px 12px", borderRadius: 20, fontSize: 14, fontWeight: 700,
-                      background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))", color: "#fff",
+                      background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))", color: "var(--on-accent, #fff)",
                     }}
                   >
                     {e.word}

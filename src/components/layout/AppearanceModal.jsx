@@ -381,7 +381,7 @@ export default function AppearanceModal({
                     style={{
                       minHeight: 42, padding: "0 14px", borderRadius: 10, border: "none",
                       background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-                      color: "#fff", fontWeight: 700, cursor: "pointer",
+                      color: "var(--on-accent, #fff)", fontWeight: 700, cursor: "pointer",
                       display: "flex", alignItems: "center", gap: 6,
                     }}
                   >

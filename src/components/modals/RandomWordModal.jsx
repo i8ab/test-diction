@@ -342,7 +342,7 @@ export default function RandomWordModal({
                     borderRadius: 10,
                     border: "none",
                     background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-                    color: "#fff",
+                    color: "var(--on-accent, #fff)",
                     fontWeight: 700,
                     fontSize: 15,
                     cursor: "pointer",

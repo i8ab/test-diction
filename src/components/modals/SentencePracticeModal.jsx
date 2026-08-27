@@ -144,7 +144,7 @@ export default function SentencePracticeModal({
           <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>
             {tr(isAr, "No words available", "ما فيش كلمات متاحة")}
           </div>
-          <button type="button" onClick={onClose} style={{ marginTop: 12, padding: "10px 18px", borderRadius: 12, border: "none", background: "var(--accent-1)", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+          <button type="button" onClick={onClose} style={{ marginTop: 12, padding: "10px 18px", borderRadius: 12, border: "none", background: "var(--accent-1)", color: "var(--on-accent, #fff)", fontWeight: 700, cursor: "pointer" }}>
             {tr(isAr, "Close", "إغلاق")}
           </button>
         </div>
@@ -233,7 +233,7 @@ export default function SentencePracticeModal({
               style={{
                 padding: "10px 20px", borderRadius: 12, border: "none",
                 background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-                color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer",
+                color: "var(--on-accent, #fff)", fontWeight: 700, fontSize: 14, cursor: "pointer",
               }}
             >
               {tr(isAr, "Done", "تم")}
@@ -417,7 +417,7 @@ export default function SentencePracticeModal({
                     style={{
                       width: "100%", padding: "13px 16px", borderRadius: 12, border: "none",
                       background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-                      color: "#fff", fontWeight: 700, fontSize: 15, cursor: "pointer",
+                      color: "var(--on-accent, #fff)", fontWeight: 700, fontSize: 15, cursor: "pointer",
                     }}
                   >
                     {idx < total - 1 ? tr(isAr, "Next word", "الكلمة التالية") : tr(isAr, "Finish", "إنهاء")}

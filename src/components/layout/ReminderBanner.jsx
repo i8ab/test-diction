@@ -104,7 +104,7 @@ export default function ReminderBanner({
           padding: "10px 16px",
           fontSize: 13.5,
           fontWeight: 800,
-          color: "#fff",
+          color: "var(--on-accent, #fff)",
           background: `linear-gradient(135deg, ${cfg.accent}, ${cfg.accent})`,
           border: "none",
           borderRadius: 10,

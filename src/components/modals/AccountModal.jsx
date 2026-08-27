@@ -296,7 +296,7 @@ function AccountModal({
                 border: currentFrame?.border || "3px solid color-mix(in srgb, var(--accent-1) 40%, transparent)",
                 boxShadow: currentFrame?.glow,
                 background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-                color: "#fff",
+                color: "var(--on-accent, #fff)",
                 fontWeight: 800,
                 fontSize: 28,
                 display: "flex",

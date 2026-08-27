@@ -365,7 +365,7 @@ export default function WeeklyReportModal({
               style={{
                 flex: 1, padding: "11px 10px", borderRadius: 12, border: "none",
                 background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-                color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer",
+                color: "var(--on-accent, #fff)", fontWeight: 700, fontSize: 13, cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
               }}
             >

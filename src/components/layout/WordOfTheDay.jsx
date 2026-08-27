@@ -43,7 +43,7 @@ export default function WordOfTheDay({ entries, section, cfg, isAr, onOpenZoom }
         border: `1px solid ${cfg.accent}`, borderRadius: 10, padding: "12px 14px",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: cfg.accent, color: "#fff", flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: cfg.accent, color: "var(--on-accent, #fff)", flexShrink: 0 }}>
         <CalendarIcon size={16} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>

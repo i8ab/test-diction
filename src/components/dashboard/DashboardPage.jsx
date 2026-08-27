@@ -335,7 +335,7 @@ export default function DashboardPage({
                 borderRadius: 12,
                 border: "1px solid rgba(var(--border-rgb),0.18)",
                 background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-                color: "#fff",
+                color: "var(--on-accent, #fff)",
                 fontWeight: 700,
                 fontSize: 14,
                 cursor: "pointer",

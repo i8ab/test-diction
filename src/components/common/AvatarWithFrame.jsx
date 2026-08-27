@@ -52,7 +52,7 @@ export default function AvatarWithFrame({
         overflow: "visible",
         cursor: onClick ? "pointer" : "default",
         background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-        color: "#fff",
+        color: "var(--on-accent, #fff)",
         fontWeight: 800,
         fontSize: Math.max(11, Math.round(size * 0.32)),
         display: "flex",

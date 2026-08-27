@@ -460,7 +460,7 @@ export default function InfoGuideModal({ isAr, onClose, initialId = null }) {
                   <span style={{
                     width: 24, height: 24, borderRadius: 7, flexShrink: 0,
                     display: "inline-flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 11, fontWeight: 800, color: "#fff",
+                    fontSize: 11, fontWeight: 800, color: "var(--on-accent, #fff)",
                     background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
                   }}>
                     {i + 1}

@@ -52,7 +52,7 @@ const primaryBtnStyle = {
   fontSize: 15,
   fontWeight: 700,
   letterSpacing: "0.01em",
-  color: "#fff",
+  color: "var(--on-accent, #fff)",
   background: "var(--accent-1)",
   border: "1px solid color-mix(in srgb, var(--accent-1) 70%, black)",
   borderRadius: "12px 14px 11px 13px",

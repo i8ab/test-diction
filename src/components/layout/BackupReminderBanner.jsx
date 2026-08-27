@@ -44,7 +44,7 @@ export default function BackupReminderBanner({ isAr, cfg, onOpenBackup }) {
     <div dir={isAr ? "rtl" : "ltr"} style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: cfg.accentSoft, border: `1px solid ${cfg.accent}`, borderRadius: 8, padding: "10px 14px" }}>
       <DownloadIcon size={17} color={cfg.accent} style={{ flexShrink: 0 }} />
       <span style={{ flex: 1, minWidth: 200, fontSize: 13.5, color: "var(--muted-strong)" }}>{message}</span>
-      <button type="button" onClick={onOpenBackup} style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700, color: "#fff", background: cfg.accent, border: "none", borderRadius: 6, cursor: "pointer" }}>
+      <button type="button" onClick={onOpenBackup} style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700, color: "var(--on-accent, #fff)", background: cfg.accent, border: "none", borderRadius: 6, cursor: "pointer" }}>
         {tr(isAr, "Back up now", "خد نسخة دلوقتي")}
       </button>
       <button type="button" onClick={dismiss} aria-label={tr(isAr, "Dismiss", "إخفاء")} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--icon-muted)", padding: 4 }}>

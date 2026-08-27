@@ -336,7 +336,7 @@ export default function StudyDuaModal({ isAr, onClose }) {
                 background: colors
                   ? `linear-gradient(135deg, ${colors.fg}, ${colors.fg})`
                   : "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-                color: "#fff",
+                color: "var(--on-accent, #fff)",
                 fontWeight: 700,
                 fontSize: 14,
                 cursor: "pointer",

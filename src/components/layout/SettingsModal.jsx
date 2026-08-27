@@ -444,7 +444,7 @@ export default function SettingsModal({
                               overflow: "hidden",
                               flexShrink: 0,
                               background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-                              color: "#fff",
+                              color: "var(--on-accent, #fff)",
                               fontWeight: 800,
                               fontSize: 12,
                               display: "flex",

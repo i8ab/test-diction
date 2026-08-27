@@ -1415,7 +1415,7 @@ export default function MainView({
               border: "none",
               cursor: "pointer",
               background: "var(--accent-1, #19A7CE)",
-              color: "#fff",
+              color: "var(--on-accent, #fff)",
               fontWeight: 700,
               fontSize: 12,
               padding: "8px 12px",

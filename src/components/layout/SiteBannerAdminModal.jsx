@@ -601,7 +601,7 @@ export default function SiteBannerAdminModal({
                           style={{
                             flex: 1, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                             padding: "10px 12px", borderRadius: 10, border: "none", cursor: bannerSaving ? "default" : "pointer",
-                            fontSize: 13, fontWeight: 700, color: "#fff",
+                            fontSize: 13, fontWeight: 700, color: "var(--on-accent, #fff)",
                             background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
                             opacity: bannerSaving ? 0.7 : 1,
                           }}

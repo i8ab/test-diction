@@ -916,7 +916,7 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
     fontSize: 15,
     cursor: "pointer",
     background: "linear-gradient(135deg, var(--accent-1, #19A7CE), var(--accent-2, #146C94))",
-    color: "#fff",
+    color: "var(--on-accent, #fff)",
     boxShadow: "0 10px 24px -12px rgba(0,0,0,0.45)",
   };
   const btnGhost = {

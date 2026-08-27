@@ -413,7 +413,7 @@ export default function NotificationsModal({
                           style={{
                             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                             width: "100%", padding: "10px 12px", minHeight: 44, borderRadius: 10, cursor: "pointer",
-                            border: "none", fontSize: 13, fontWeight: 700, color: "#fff",
+                            border: "none", fontSize: 13, fontWeight: 700, color: "var(--on-accent, #fff)",
                             background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
                           }}
                         >

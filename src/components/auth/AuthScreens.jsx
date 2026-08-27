@@ -383,7 +383,7 @@ function AuthScreens({
                         padding: "14px 20px",
                         fontSize: 15,
                         fontWeight: 700,
-                        color: "#fff",
+                        color: "var(--on-accent, #fff)",
                         background: "var(--accent-1)",
                         border: "none",
                         borderRadius: 12,

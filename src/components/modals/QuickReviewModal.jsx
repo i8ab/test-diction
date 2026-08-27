@@ -278,7 +278,7 @@ const iconBtn = {
 const primaryBtn = {
   display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
   padding: "12px 16px", borderRadius: 12, border: "none",
-  background: BRASS, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer",
+  background: BRASS, color: "var(--on-accent, #fff)", fontWeight: 700, fontSize: 14, cursor: "pointer",
 };
 const secondaryBtn = {
   display: "inline-flex", alignItems: "center", gap: 6,

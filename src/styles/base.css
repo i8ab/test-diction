@@ -1,0 +1,190 @@
+/* ============================================================
+   Base layer — reset, body, background, global motion
+   ============================================================ */
+
+html {
+  margin: 0;
+  padding: 0;
+  background-color: var(--paper);
+  overscroll-behavior-y: auto;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+  background-image: none;
+  font-family: var(--font-latin);
+  color: var(--ink);
+  position: relative;
+  z-index: 0;
+  min-height: 100dvh;
+  overscroll-behavior-y: auto;
+  transition: background 0.35s ease, background-color 0.35s ease, color 0.25s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Browser tab: allow native pull-to-refresh */
+@media (display-mode: browser) {
+  html, body {
+    overscroll-behavior-y: auto !important;
+  }
+}
+
+/* Installed PWA: lock rubber-band so wallpaper stays fixed */
+@media (display-mode: standalone) {
+  html, body {
+    overscroll-behavior-y: none;
+  }
+}
+html[data-pwa-standalone="1"],
+html[data-pwa-standalone="1"] body {
+  overscroll-behavior-y: none;
+}
+
+/* Fixed atmospheric background layer */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100lvh;
+  min-height: 100%;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--paper);
+  background-image: var(--app-bg, none), var(--app-bg-image, none);
+  background-size: cover, cover;
+  background-position: center top, center top;
+  background-repeat: no-repeat, no-repeat;
+  transform: translateZ(0);
+  will-change: auto;
+  overscroll-behavior: none;
+}
+
+/* Mobile: lighter overlay so photo stays clear */
+html[data-device="mobile"][data-has-bg-image="1"] body::before {
+  background-image:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--paper) 26%, transparent) 0%,
+      color-mix(in srgb, var(--paper) 40%, transparent) 100%
+    ),
+    var(--app-bg-image, none);
+  background-size: cover, cover;
+  background-position: center top, center top;
+  background-repeat: no-repeat, no-repeat;
+  height: 100lvh;
+  min-height: 100%;
+}
+
+/* Optional subtle paper grain (can be toggled later) */
+html[data-texture="grain"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.35;
+  background-image: var(--paper-grain);
+  background-repeat: repeat;
+  mix-blend-mode: multiply;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Kill blue mobile tap highlight */
+html, body, *,
+*::before, *::after {
+  -webkit-tap-highlight-color: transparent !important;
+}
+a, button, [role="button"], [tabindex],
+label, summary, input, select, textarea {
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+/* Focus styles — visible but refined */
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid rgba(var(--focus-rgb), 0.5);
+  outline-offset: 2px;
+}
+a:focus:not(:focus-visible),
+button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Global motion system */
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modalPopIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes softPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.72; }
+}
+
+.modal-backdrop {
+  animation: modalFadeIn 0.1s ease both !important;
+}
+.modal-card,
+.responsive-modal,
+.auth-card {
+  animation: modalPopIn 0.18s var(--ease-out) both !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .modal-card,
+  .responsive-modal,
+  .auth-card {
+    animation: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Soft transitions for interactive elements */
+a, button, [role="button"] {
+  transition: color var(--duration-fast) ease,
+              background-color var(--duration-fast) ease,
+              border-color var(--duration-fast) ease,
+              box-shadow var(--duration-fast) ease,
+              opacity var(--duration-fast) ease,
+              transform var(--duration-fast) var(--ease-out);
+}
+input, textarea, select {
+  transition: border-color var(--duration-normal) ease,
+              box-shadow var(--duration-normal) ease,
+              background var(--duration-normal) ease;
+}
+
+/* Render containment for long lists */
+.entry-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+.letter-section-anchor + .entry-card,
+.letter-section-anchor ~ .entry-card:first-of-type {
+  content-visibility: visible;
+}

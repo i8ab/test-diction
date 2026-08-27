@@ -2,7 +2,14 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import DictionaryApp from "./App.jsx";
 import ErrorBoundary from "./components/layout/ErrorBoundary.jsx";
+
+/* Design system — tokens → base → components → legacy → final overrides */
+import "./styles/tokens.css";
+import "./styles/base.css";
+import "./styles/components/entry-cards.css";
+import "./styles/components/buttons.css";
 import "./index.css";
+import "./styles/overrides.css";
 
 // Keep focused inputs visible above the mobile keyboard
 (function setupKeyboardInset() {

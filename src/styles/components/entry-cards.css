@@ -1,0 +1,156 @@
+/* ============================================================
+   Entry / Word Cards — high-visibility surface polish
+   Contemporary Manuscript Desk aesthetic
+   ============================================================ */
+
+.entry-card,
+.word-card {
+  background: var(--card);
+  border: 1px solid rgba(var(--border-rgb), 0.08);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: var(--entry-pad-y) var(--entry-pad-x);
+  margin-bottom: var(--entry-gap);
+  transition:
+    box-shadow var(--duration-normal) var(--ease-out),
+    border-color var(--duration-normal) ease,
+    transform var(--duration-fast) var(--ease-out),
+    background var(--duration-normal) ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle left accent bar on hover / focus (manuscript feel) */
+.entry-card::before {
+  content: "";
+  position: absolute;
+  top: 10%;
+  bottom: 10%;
+  left: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: transparent;
+  transition: background var(--duration-normal) ease, opacity var(--duration-normal) ease;
+  opacity: 0;
+}
+
+.entry-card:hover,
+.word-card:hover,
+.lift-hover.entry-card:hover {
+  border-color: rgba(var(--border-rgb), 0.14);
+  box-shadow: var(--shadow-elevated);
+  transform: translateY(-1px);
+}
+
+.entry-card:hover::before {
+  background: var(--accent-1);
+  opacity: 0.85;
+}
+
+/* Skin-driven elevation */
+.entry-card,
+.word-card,
+.lift-hover.entry-card {
+  box-shadow: var(--skin-card-shadow, var(--shadow-card));
+}
+
+/* Typography hierarchy inside cards */
+.entry-card .entry-word,
+.word-card .entry-word,
+.entry-card .word-text {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+html[dir="rtl"] .entry-card .entry-word,
+html[dir="rtl"] .word-card .entry-word {
+  font-family: var(--font-arabic);
+  font-weight: 700;
+}
+
+.entry-meaning-text,
+.entry-card .entry-meaning-text,
+.entry-card span.entry-meaning-text,
+[class*="entry-card"] .entry-meaning-text {
+  color: var(--meaning) !important;
+  -webkit-text-fill-color: var(--meaning) !important;
+  font-weight: 600 !important;
+  font-family: var(--font-arabic);
+  line-height: 1.45;
+}
+
+html[data-theme="dark"] .entry-meaning-text,
+html[data-theme="night"] .entry-meaning-text,
+html[data-theme="dark"] .entry-card .entry-meaning-text,
+html[data-theme="night"] .entry-card .entry-meaning-text {
+  color: var(--meaning) !important;
+  -webkit-text-fill-color: var(--meaning) !important;
+}
+
+/* Phonetic / secondary info */
+.entry-card .phonetic,
+.entry-card .entry-phonetic,
+.entry-card .meta-line {
+  color: var(--muted-strong);
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+}
+
+/* Action buttons inside cards */
+.entry-card .entry-actions,
+.word-card .entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline-start: auto;
+}
+
+.entry-card button,
+.word-card button {
+  min-width: var(--entry-action);
+  min-height: var(--entry-action);
+  border-radius: var(--radius-sm);
+}
+
+/* Staggered reveal for list items (used when adding class via JS) */
+.entry-card.reveal {
+  animation: fadeUp 0.35s var(--ease-out) both;
+}
+
+/* Letter section anchors */
+.letter-section-anchor {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--muted-strong);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: var(--space-3) var(--space-2) var(--space-2);
+  margin-top: var(--space-4);
+  border-bottom: 1px solid rgba(var(--border-rgb), 0.08);
+  position: sticky;
+  top: 0;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(8px);
+  z-index: 2;
+}
+
+html[dir="rtl"] .letter-section-anchor {
+  font-family: var(--font-arabic);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Empty state polish */
+.empty-state,
+.no-results {
+  text-align: center;
+  padding: var(--space-8) var(--space-5);
+  color: var(--muted-strong);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+}

@@ -1,0 +1,95 @@
+/* ============================================================
+   Final overrides — ensure the new Manuscript Desk tokens win
+   and refine a few high-impact surfaces.
+   ============================================================ */
+
+/* Re-assert refined light tokens (override legacy :root) */
+:root {
+  --paper: #F7F2E9;
+  --card: #FFFDF9;
+  --ink: #2A211A;
+  --accent-1: #A84328;
+  --accent-1-soft: #F2D9CC;
+  --accent-2: #B8832A;
+  --accent-2-soft: #F4E7C8;
+  --muted: #9A8B75;
+  --muted-strong: #6A5B47;
+  --icon-muted: #86765E;
+  --input-bg: #F0E8D9;
+  --border-rgb: 42, 33, 26;
+  --focus-rgb: 168, 67, 40;
+  --meaning: #15803d;
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.45) inset,
+                 0 8px 24px -14px rgba(var(--border-rgb), 0.22);
+  --shadow-elevated: 0 12px 32px -16px rgba(var(--border-rgb), 0.32);
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --modal-radius: 18px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html[data-theme="dark"] {
+  --paper: #17130F;
+  --card: #221C16;
+  --ink: #F0E8DC;
+  --accent-1: #D97B4F;
+  --accent-1-soft: #3A2A1F;
+  --accent-2: #D6A94F;
+  --accent-2-soft: #33291A;
+  --muted: #9C8D78;
+  --muted-strong: #C7B8A2;
+  --icon-muted: #ADA08B;
+  --input-bg: #2A231B;
+  --border-rgb: 199, 184, 162;
+  --focus-rgb: 217, 123, 79;
+  --meaning: #4ade80;
+}
+
+/* Stronger display type for titles and key words */
+.entry-card .entry-word,
+.word-card .entry-word,
+.brand-title,
+.app-title,
+.section-title {
+  font-family: var(--font-display) !important;
+  letter-spacing: -0.015em;
+}
+
+html[dir="rtl"] .entry-card .entry-word,
+html[dir="rtl"] .word-card .entry-word,
+html[dir="rtl"] .brand-title,
+html[dir="rtl"] .app-title {
+  font-family: var(--font-arabic) !important;
+  letter-spacing: 0;
+}
+
+/* Toolbar polish */
+.toolbar-row,
+.toolbar-search-input {
+  transition: box-shadow 0.22s var(--ease-out), border-color 0.22s ease, background 0.22s ease;
+}
+
+.toolbar-search-input:focus {
+  background: color-mix(in srgb, var(--card) 92%, var(--input-bg)) !important;
+  box-shadow: 0 0 0 3px rgba(var(--focus-rgb), 0.18) !important;
+  border-color: var(--accent-1) !important;
+}
+
+/* Modal cards */
+.modal-card,
+.responsive-modal {
+  border-radius: var(--modal-radius) !important;
+  box-shadow: var(--shadow-elevated) !important;
+  border: 1px solid rgba(var(--border-rgb), 0.1);
+}
+
+/* Smooth list entrance (when JS adds .reveal) */
+.entry-card.reveal {
+  animation: fadeUp 0.4s var(--ease-out) both;
+}
+
+/* Better focus ring for accessibility */
+:focus-visible {
+  outline: 2px solid rgba(var(--focus-rgb), 0.55);
+  outline-offset: 2px;
+}

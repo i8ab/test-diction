@@ -1,0 +1,136 @@
+/* ============================================================
+   Bacaloria Design Tokens
+   Aesthetic: Contemporary Arabic Manuscript Desk
+   Warm, scholarly, tactile — printed study journal elevated.
+   ============================================================ */
+
+:root {
+  /* ---------- Color — Light (default) ---------- */
+  --paper: #F7F2E9;
+  --paper-deep: #EFE8DB;
+  --card: #FFFDF9;
+  --card-elevated: #FFFFFF;
+  --ink: #2A211A;
+  --ink-soft: #4A3F35;
+  --accent-1: #A84328;          /* deep clay / burnt sienna */
+  --accent-1-soft: #F2D9CC;
+  --accent-1-hover: #8F3720;
+  --accent-2: #B8832A;          /* warm gold / ochre */
+  --accent-2-soft: #F4E7C8;
+  --muted: #9A8B75;
+  --muted-strong: #6A5B47;
+  --icon-muted: #86765E;
+  --input-bg: #F0E8D9;
+  --border-rgb: 42, 33, 26;
+  --success: #457A43;
+  --success-bg: #E6EEDF;
+  --success-border-rgb: 69, 122, 67;
+  --danger: #943A2A;
+  --danger-bg: #F6E4DB;
+  --danger-border: #D9B0A0;
+  --focus-rgb: 168, 67, 40;
+  --meaning: #15803d;           /* clear green for Arabic meanings */
+
+  /* ---------- Typography ---------- */
+  --font-latin: "Source Sans 3", system-ui, -apple-system, sans-serif;
+  --font-arabic: "Amiri", "Times New Roman", serif;
+  --font-display: "Fraunces", "Amiri", Georgia, serif;
+
+  /* ---------- Spacing scale ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+  --space-8: 48px;
+
+  /* ---------- Radius ---------- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+  --modal-radius: 18px;
+
+  /* ---------- Shadows (soft paper-like) ---------- */
+  --shadow-soft: 0 6px 20px -12px rgba(var(--border-rgb), 0.28);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.45) inset,
+                 0 8px 24px -14px rgba(var(--border-rgb), 0.22);
+  --shadow-elevated: 0 12px 32px -16px rgba(var(--border-rgb), 0.32);
+  --shadow-float: 0 16px 40px -18px rgba(var(--border-rgb), 0.38);
+
+  /* ---------- Motion ---------- */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --duration-fast: 0.12s;
+  --duration-normal: 0.2s;
+  --duration-slow: 0.35s;
+
+  /* ---------- Entry card density (defaults) ---------- */
+  --entry-pad-y: 12px;
+  --entry-pad-x: 16px;
+  --entry-action: 48px;
+  --entry-gap: 10px;
+
+  /* ---------- Button system ---------- */
+  --btn-gap: 8px;
+  --btn-gap-tight: 6px;
+  --btn-gap-loose: 12px;
+  --btn-pad-y: 10px;
+  --btn-pad-x: 16px;
+
+  /* ---------- Texture / atmosphere ---------- */
+  --paper-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+}
+
+/* ---------- Dark theme ---------- */
+html[data-theme="dark"] {
+  --paper: #17130F;
+  --paper-deep: #1F1A14;
+  --card: #221C16;
+  --card-elevated: #2A231C;
+  --ink: #F0E8DC;
+  --ink-soft: #D4C8B6;
+  --accent-1: #D97B4F;
+  --accent-1-soft: #3A2A1F;
+  --accent-1-hover: #E08A5E;
+  --accent-2: #D6A94F;
+  --accent-2-soft: #33291A;
+  --muted: #9C8D78;
+  --muted-strong: #C7B8A2;
+  --icon-muted: #ADA08B;
+  --input-bg: #2A231B;
+  --border-rgb: 199, 184, 162;
+  --success: #86C18A;
+  --success-bg: #1A2A19;
+  --success-border-rgb: 134, 193, 138;
+  --danger: #E29A85;
+  --danger-bg: #33211C;
+  --danger-border: #5C3A30;
+  --focus-rgb: 217, 123, 79;
+  --meaning: #4ade80;
+  --shadow-soft: 0 8px 24px -12px rgba(0, 0, 0, 0.45);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset,
+                 0 10px 28px -14px rgba(0, 0, 0, 0.4);
+  --shadow-elevated: 0 14px 36px -16px rgba(0, 0, 0, 0.5);
+}
+
+/* Density overrides */
+html[data-card-height="compact"] {
+  --entry-pad-y: 7px;
+  --entry-pad-x: 12px;
+  --entry-action: 40px;
+  --entry-gap: 6px;
+}
+html[data-card-height="comfortable"] {
+  --entry-pad-y: 15px;
+  --entry-pad-x: 18px;
+  --entry-action: 52px;
+  --entry-gap: 12px;
+}
+html[data-density="compact"] {
+  --space-4: 12px;
+  --space-5: 18px;
+}

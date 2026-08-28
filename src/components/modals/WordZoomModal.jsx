@@ -18,10 +18,19 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
   const [sharing, setSharing] = useState(false);
   const isAr = cfg.dir === "rtl";
   const [noteDraft, setNoteDraft] = useState(wordNote || "");
+  const senses = useMemo(() => getEntrySenses(entry), [entry]);
+  const [selectedSenseIdx, setSelectedSenseIdx] = useState(0);
 
   useEffect(() => {
     setNoteDraft(wordNote || "");
   }, [wordNote, entry?.id]);
+
+  // Reset selected sense when the opened entry changes
+  useEffect(() => {
+    setSelectedSenseIdx(0);
+  }, [entry?.id]);
+
+  const activeSense = senses[Math.min(selectedSenseIdx, Math.max(0, senses.length - 1))] || null;
 
   // Pronunciation practice via in-browser Whisper (see scorePronunciation).
   // Hidden when the device has no mic / AudioContext support.
@@ -183,82 +192,98 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
           <SpeakButton text={entry.word} dir={cfg.wordDir} isAr={cfg.dir === "rtl"} size={22} style={{ color: cfg.accent, flexShrink: 0 }} showBoth={false} />
         </div>
         <div style={{ width: 40, height: 3, background: `linear-gradient(90deg, ${cfg.accent}, transparent)`, borderRadius: 2, margin: "16px auto 18px" }} />
-        {(() => {
-          const senses = getEntrySenses(entry);
-          if (senses.length > 1) {
-            return (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", maxWidth: 420, margin: "0 auto" }}>
-                {senses.map((s, i) => (
-                  <div
-                    key={s.id || i}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 10,
-                      flexWrap: "wrap",
-                      padding: "10px 14px",
-                      borderRadius: 12,
-                      background: "var(--input-bg)",
-                      border: "1px solid rgba(var(--border-rgb),0.1)",
-                    }}
-                  >
-                    {s.pos && (
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          padding: "2px 7px",
-                          borderRadius: 999,
-                          background: "color-mix(in srgb, var(--accent-1) 14%, transparent)",
-                          color: "var(--accent-1)",
-                          letterSpacing: "0.02em",
-                        }}
-                      >
-                        {posLabel(s.pos, isAr)}
-                      </span>
-                    )}
-                    <div
-                      className="entry-meaning-text"
-                      dir="rtl"
-                      lang="ar"
-                      style={{
-                        fontFamily: cfg.meaningFont,
-                        fontSize: "clamp(17px, 3.8vw, 24px)",
-                        color: "#22c55e",
-                        fontWeight: 700,
-                        lineHeight: 1.4,
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      {s.meaning}
-                    </div>
-                    <SpeakButton
-                      text={s.meaning}
-                      dir={cfg.meaningDir}
-                      isAr={cfg.dir === "rtl"}
-                      size={17}
-                      style={{ color: "#22c55e", flexShrink: 0 }}
-                      showBoth={false}
-                    />
-                  </div>
-                ))}
-              </div>
-            );
-          }
-          // Single meaning (legacy or one sense)
-          const one = senses[0]?.meaning || entry.meaning || "";
-          return (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
-              <div dir={cfg.meaningDir} style={{ fontFamily: cfg.meaningFont, fontSize: "clamp(18px, 4vw, 26px)", color: "var(--meaning)", lineHeight: 1.4, wordBreak: "break-word" }}>
-                {one}
-              </div>
-              {!!one && (
-                <SpeakButton text={one} dir={cfg.meaningDir} isAr={cfg.dir === "rtl"} size={18} style={{ color: "var(--meaning)", flexShrink: 0 }} showBoth={false} />
-              )}
+        {/* Multi-sense POS tabs — pick Noun / Verb / … then show that sense only */}
+        {senses.length > 1 && (
+          <div
+            role="tablist"
+            aria-label={tr(isAr, "Word senses", "معاني الكلمة")}
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              justifyContent: "center",
+              margin: "0 auto 16px",
+              maxWidth: 420,
+            }}
+          >
+            {senses.map((s, i) => {
+              const active = i === selectedSenseIdx;
+              const label = s.pos ? posLabel(s.pos, isAr) : tr(isAr, `Sense ${i + 1}`, `معنى ${i + 1}`);
+              return (
+                <button
+                  key={s.id || i}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setSelectedSenseIdx(i)}
+                  style={{
+                    border: active
+                      ? "1px solid color-mix(in srgb, var(--accent-1) 55%, transparent)"
+                      : "1px solid rgba(var(--border-rgb),0.18)",
+                    background: active
+                      ? "color-mix(in srgb, var(--accent-1) 16%, transparent)"
+                      : "var(--input-bg)",
+                    color: active ? "var(--accent-1)" : "var(--muted-strong)",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    padding: "8px 14px",
+                    borderRadius: 999,
+                    cursor: "pointer",
+                    letterSpacing: "0.02em",
+                    transition: "background 0.15s ease, border-color 0.15s ease, color 0.15s ease",
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Active sense meaning */}
+        {activeSense && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
+            {senses.length === 1 && activeSense.pos && (
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  background: "color-mix(in srgb, var(--accent-1) 14%, transparent)",
+                  color: "var(--accent-1)",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {posLabel(activeSense.pos, isAr)}
+              </span>
+            )}
+            <div
+              className="entry-meaning-text"
+              dir={cfg.meaningDir}
+              style={{
+                fontFamily: cfg.meaningFont,
+                fontSize: "clamp(18px, 4vw, 26px)",
+                color: "var(--meaning)",
+                fontWeight: 700,
+                lineHeight: 1.4,
+                wordBreak: "break-word",
+              }}
+            >
+              {activeSense.meaning}
             </div>
-          );
-        })()}
+            {!!activeSense.meaning && (
+              <SpeakButton
+                text={activeSense.meaning}
+                dir={cfg.meaningDir}
+                isAr={cfg.dir === "rtl"}
+                size={18}
+                style={{ color: "var(--meaning)", flexShrink: 0 }}
+                showBoth={false}
+              />
+            )}
+          </div>
+        )}
         {speechSupported && (
           <div style={{ marginTop: 20, padding: "14px 14px 12px", borderRadius: 14, background: "var(--input-bg)", border: "1px solid rgba(var(--border-rgb),0.12)" }}>
             {cfg.wordDir === "rtl" && (
@@ -410,31 +435,68 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
             </span>
           </a>
         )}
-        {entry.definition && (
-          <p dir={detectDir(entry.definition)} style={{ fontFamily: detectFont(entry.definition), fontSize: 15, color: "var(--muted-strong)", marginTop: 22, lineHeight: 1.7, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
-            {entry.definition}
+        {/* Sense-specific definition / examples / synonyms / antonyms */}
+        {activeSense?.definition && (
+          <p
+            dir={detectDir(activeSense.definition)}
+            style={{
+              fontFamily: detectFont(activeSense.definition),
+              fontSize: 15,
+              color: "var(--muted-strong)",
+              marginTop: 22,
+              lineHeight: 1.7,
+              textAlign: cfg.dir === "rtl" ? "right" : "left",
+            }}
+          >
+            {activeSense.definition}
           </p>
         )}
-        {entry.example && (
-          <p dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 15, fontStyle: "italic", color: "var(--muted)", marginTop: 14, lineHeight: 1.7, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
-            “{entry.example}”
-          </p>
-        )}
-        {!!(entry.examples && entry.examples.length) && entry.examples.map((ex, i) => (
-          <p key={i} dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 15, fontStyle: "italic", color: "var(--muted)", marginTop: 8, lineHeight: 1.7, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
-            “{ex}”
-          </p>
-        ))}
-        {!!(entry.synonyms && entry.synonyms.length) && (
-          <div style={{ fontSize: 14, color: "var(--muted-strong)", marginTop: 16, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
-            <strong style={{ color: "var(--success)" }}>{tr(cfg.dir === "rtl", "Synonyms", "مرادفات")}</strong>
-            <PairListDisplay cfg={cfg} pairs={entry.synonyms} />
+        {!!(activeSense?.examples && activeSense.examples.length) &&
+          activeSense.examples.map((ex, i) => (
+            <p
+              key={i}
+              dir={cfg.wordDir}
+              style={{
+                fontFamily: cfg.wordFont,
+                fontSize: 15,
+                fontStyle: "italic",
+                color: "var(--muted)",
+                marginTop: i === 0 ? 14 : 8,
+                lineHeight: 1.7,
+                textAlign: cfg.dir === "rtl" ? "right" : "left",
+              }}
+            >
+              “{ex}”
+            </p>
+          ))}
+        {!!(activeSense?.synonyms && activeSense.synonyms.length) && (
+          <div
+            style={{
+              fontSize: 14,
+              color: "var(--muted-strong)",
+              marginTop: 16,
+              textAlign: cfg.dir === "rtl" ? "right" : "left",
+            }}
+          >
+            <strong style={{ color: "var(--success)" }}>
+              {tr(cfg.dir === "rtl", "Synonyms", "مرادفات")}
+            </strong>
+            <PairListDisplay cfg={cfg} pairs={activeSense.synonyms} />
           </div>
         )}
-        {!!(entry.antonyms && entry.antonyms.length) && (
-          <div style={{ fontSize: 14, color: "var(--muted-strong)", marginTop: 10, textAlign: cfg.dir === "rtl" ? "right" : "left" }}>
-            <strong style={{ color: "var(--danger)" }}>{tr(cfg.dir === "rtl", "Antonyms", "مضادات")}</strong>
-            <PairListDisplay cfg={cfg} pairs={entry.antonyms} />
+        {!!(activeSense?.antonyms && activeSense.antonyms.length) && (
+          <div
+            style={{
+              fontSize: 14,
+              color: "var(--muted-strong)",
+              marginTop: 10,
+              textAlign: cfg.dir === "rtl" ? "right" : "left",
+            }}
+          >
+            <strong style={{ color: "var(--danger)" }}>
+              {tr(cfg.dir === "rtl", "Antonyms", "مضادات")}
+            </strong>
+            <PairListDisplay cfg={cfg} pairs={activeSense.antonyms} />
           </div>
         )}
 

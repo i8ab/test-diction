@@ -21,24 +21,90 @@ export function posLabel(pos, isAr) {
   return isAr ? row.ar : row.en;
 }
 
+function normalizePairs(items) {
+  if (!Array.isArray(items) || !items.length) return [];
+  return items
+    .map((item) => {
+      if (typeof item === "string" && item.trim()) return { word: item.trim() };
+      if (item && typeof item === "object" && item.word) return { word: String(item.word).trim() };
+      return null;
+    })
+    .filter(Boolean);
+}
+
 /**
- * Normalize an entry into a list of senses: [{ id, pos, meaning }].
- * Legacy entries with only top-level meaning become one sense.
+ * Normalize an entry into a list of rich senses:
+ * [{ id, pos, meaning, definition, example, examples, synonyms, antonyms }]
+ *
+ * Legacy entries (only top-level meaning) become one sense and inherit
+ * top-level definition / examples / synonyms / antonyms.
+ * Multi-sense entries prefer per-sense fields; top-level is used as fallback
+ * only when there is a single sense.
  */
 export function getEntrySenses(entry) {
   if (!entry) return [];
+
   if (Array.isArray(entry.senses) && entry.senses.length) {
+    const multi = entry.senses.length > 1;
     return entry.senses
-      .map((s, i) => ({
-        id: s.id || `s${i}`,
-        pos: s.pos || entry.pos || "",
-        meaning: String(s.meaning || "").trim(),
-      }))
-      .filter((s) => s.meaning);
+      .map((s, i) => {
+        const meaning = String(s.meaning || "").trim();
+        if (!meaning) return null;
+
+        let examples = [];
+        if (Array.isArray(s.examples) && s.examples.length) {
+          examples = s.examples.map(String).filter(Boolean);
+        } else if (s.example) {
+          examples = [String(s.example)];
+        } else if (!multi) {
+          if (Array.isArray(entry.examples) && entry.examples.length) {
+            examples = entry.examples.map(String).filter(Boolean);
+          } else if (entry.example) {
+            examples = [String(entry.example)];
+          }
+        }
+
+        return {
+          id: s.id || `s${i}`,
+          pos: s.pos || entry.pos || "",
+          meaning,
+          definition:
+            String(s.definition || (!multi ? entry.definition : "") || "").trim() || null,
+          example: examples[0] || null,
+          examples,
+          synonyms: normalizePairs(
+            s.synonyms || (!multi ? entry.synonyms : [])
+          ),
+          antonyms: normalizePairs(
+            s.antonyms || (!multi ? entry.antonyms : [])
+          ),
+        };
+      })
+      .filter(Boolean);
   }
+
   const meaning = String(entry.meaning || "").trim();
   if (!meaning) return [];
-  return [{ id: "main", pos: entry.pos || "", meaning }];
+
+  const examples =
+    Array.isArray(entry.examples) && entry.examples.length
+      ? entry.examples.map(String).filter(Boolean)
+      : entry.example
+        ? [String(entry.example)]
+        : [];
+
+  return [
+    {
+      id: "main",
+      pos: entry.pos || "",
+      meaning,
+      definition: String(entry.definition || "").trim() || null,
+      example: examples[0] || null,
+      examples,
+      synonyms: normalizePairs(entry.synonyms),
+      antonyms: normalizePairs(entry.antonyms),
+    },
+  ];
 }
 
 /** Unique POS tags present on an entry (for badges). */

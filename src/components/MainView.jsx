@@ -680,6 +680,8 @@ export default function MainView({
         /* لا نضع overflow هنا — overflow-x:hidden على عنصر وسيط يكسر position:sticky لقائمة الحروف */
         maxWidth: "100%",
         display: toolFullscreen ? "none" : undefined,
+        /* Prevent empty rubber-band on the main shell (scroll content still works) */
+        overscrollBehavior: "none",
       }}
       aria-hidden={toolFullscreen ? true : undefined}
     >

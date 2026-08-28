@@ -967,42 +967,25 @@ useEffect(() => {
   }
 
   function openAddModal() {
+    // Modals stay out of the History stack — avoids "page under page" on swipe-back.
     setShowAdd(true);
-    pushHistory({ showAdd: true });
   }
 
   const closeAddModal = useCallback(() => {
-    // Always clear local state first so the modal cannot stick open if history
-    // is out of sync (e.g. extra pushState from another overlay).
     setShowAdd(false);
-    try {
-      // Use replaceState (not history.back) so closing Add never races with
-      // another overlay that is about to pushState (e.g. opening word zoom
-      // after "word already exists"). history.back is async and was re-opening
-      // Add via popstate when a second history helper had also pushed.
-      if (window.history.state && window.history.state.showAdd) {
-        window.history.replaceState({ ...window.history.state, showAdd: false }, "");
-      }
-    } catch (_) {}
   }, []);
 
   function openAccountModal() {
     setShowAccount(true);
-    pushHistory({ showAccount: true });
   }
 
   const closeAccountModal = useCallback(() => {
-    if (window.history.state && window.history.state.showAccount) {
-      window.history.back();
-    } else {
-      setShowAccount(false);
-    }
+    setShowAccount(false);
   }, []);
 
   function openAdminModal() {
     try { import("./components/modals/AdminModal"); } catch (_) {}
     setShowAdmin(true);
-    pushHistory({ showAdmin: true });
     // للأدمن: تأكد إن كل الأقسام متحمّلة (نسخ احتياطي / إحصائيات)
     const missing = ["en-ar", "ar-ar", "academic"].filter(
       (s) => !loadedSectionsRef.current.has(s)
@@ -1023,18 +1006,20 @@ useEffect(() => {
   }
 
   const closeAdminModal = useCallback(() => {
-    if (window.history.state && window.history.state.showAdmin) {
-      window.history.back();
-    } else {
-      setShowAdmin(false);
-    }
+    setShowAdmin(false);
   }, []);
 
   function changeSection(nextSection) {
     setSection(nextSection);
     try { localStorage.setItem("twoTongues.section", nextSection); } catch (_) {}
     setQuery("");
-    pushHistory({ section: nextSection });
+    // replace (not push) so section switches do not stack swipe-back layers
+    try {
+      window.history.replaceState(
+        { authStage: "in", showAdd: false, showAccount: false, showAdmin: false, section: nextSection },
+        ""
+      );
+    } catch (_) {}
     // جلب القسم عند الحاجة فقط (ما يتجلبش مرتين في نفس الجلسة)
     if (
       (nextSection === "en-ar" || nextSection === "ar-ar" || nextSection === "academic") &&
@@ -1873,12 +1858,17 @@ useEffect(() => {
       setShowAdd,
       setShowAccount,
       setShowAdmin,
-      // replaceState login — do not push another layer on top of the app
       goToStage: (stage) => goToStage(stage, { replace: true }),
     });
-    // Flatten the current history entry again after state clears (belt & suspenders)
     try {
       syncBaseHistory("login");
+    } catch (_) {}
+    // Hard-reset the History stack. replaceState alone cannot delete older
+    // entries created before logout (modals/sections), so swipe-back could
+    // still reveal a previous screen underneath. location.replace clears that.
+    try {
+      const url = window.location.pathname + window.location.search;
+      window.location.replace(url);
     } catch (_) {}
   }
 

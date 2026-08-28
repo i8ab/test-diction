@@ -2,7 +2,7 @@
     margin: 0;
     padding: 0;
     background-color: var(--paper);
-    /* Browser tab: always allow native pull-to-refresh on every screen */
+    /* Browser tab: keep native pull-to-refresh available */
     overscroll-behavior-y: auto;
   }
   body {
@@ -11,32 +11,70 @@
     background-color: transparent;
     background-image: none;
     font-family: var(--font-latin);
-    /* stacking context so body::before (z-index:-1) stays visible behind content */
     position: relative;
     z-index: 0;
     min-height: 100dvh;
     overscroll-behavior-y: auto;
   }
-  /* Force-enable while running as a normal browser tab (any page / any device mode) */
-  @media (display-mode: browser) {
-    html, body {
-      overscroll-behavior-y: auto !important;
-    }
-  }
-  /* Installed PWA only: lock rubber-band so the fixed wallpaper doesn't drag */
+
+  /*
+    App-shell scroll (installed PWA / standalone):
+    ---------------------------------------------
+    Document-level rubber-band on iOS/Android WebView moves the fixed
+    wallpaper (body::before) relative to the UI → "background shows from under".
+    Fix: lock the document, scroll inside #root only (standard mobile app shell).
+    Native browser-tab pull-to-refresh is unchanged (rules above stay auto).
+  */
   @media (display-mode: standalone) {
     html, body {
-      overscroll-behavior-y: none;
+      height: 100%;
+      max-height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+      /* fixed body stops iOS document bounce revealing layers underneath */
+      position: fixed;
+      width: 100%;
+      inset: 0;
     }
   }
   html[data-pwa-standalone="1"],
   html[data-pwa-standalone="1"] body {
-    overscroll-behavior-y: none;
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    position: fixed;
+    width: 100%;
+    inset: 0;
   }
-  /* Fixed background layer — locked size so mobile URL bar show/hide
-     does NOT rescale the photo (cover recalculating on dvh change).
-     100lvh = large viewport (URL bar hidden); stays constant either way.
-     In browser tabs pull-to-refresh stays enabled; only standalone PWA locks overscroll. */
+
+  #root {
+    min-height: 100dvh;
+    position: relative;
+    z-index: 1;
+  }
+  @media (display-mode: standalone) {
+    #root {
+      height: 100%;
+      max-height: 100%;
+      min-height: 100%;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: contain;
+    }
+  }
+  html[data-pwa-standalone="1"] #root {
+    height: 100%;
+    max-height: 100%;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
+  /* Fixed wallpaper — stays put; content scrolls in #root above it */
   body::before {
     content: "";
     position: fixed;
@@ -52,11 +90,8 @@
     background-size: cover, cover;
     background-position: center top, center top;
     background-repeat: no-repeat, no-repeat;
-    /* prevent any visual shift when browser chrome toggles */
     transform: translateZ(0);
     will-change: auto;
-    /* keep the layer from participating in any scroll chaining */
-    overscroll-behavior: none;
   }
   /* Mobile: lighter overlay so the photo stays clear (heavy skin washes look muddy) */
   html[data-device="mobile"][data-has-bg-image="1"] body::before {

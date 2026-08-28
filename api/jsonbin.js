@@ -17,7 +17,6 @@
 
 import { redisConfigured, acquireLock, releaseLock } from "../lib/redis.js";
 import { rateLimit, clientIp } from "../lib/rateLimit.js";
-import { verifySession, bearerFromReq } from "../lib/sessionToken.js";
 
 const LOCK_KEY = "twoTongues:dictWriteLock";
 
@@ -1044,51 +1043,7 @@ export default async function handler(req, res) {
           }
 
           if (scoped === "accounts") {
-            // Session rules (the right balance):
-            // - If Bearer is sent, it must be valid (else 401).
-            // - Approve/remove account (privilege ops): when SESSION_SECRET is
-            //   configured, a valid admin|teacher token is REQUIRED.
-            // - Ordinary account list saves without privilege flags: still
-            //   allowed without token so study clients keep working after 12h.
-            const bearer = bearerFromReq(req);
-            let sessionClaims = null;
-            if (bearer) {
-              const verified = verifySession(bearer);
-              if (!verified.ok) {
-                return res.status(401).json({
-                  error: "unauthorized",
-                  message: verified.error || "Invalid or expired session token",
-                });
-              }
-              sessionClaims = verified.claims;
-            }
-            const isPrivOp =
-              (Array.isArray(body.removeAccountCodes) &&
-                body.removeAccountCodes.length > 0) ||
-              (Array.isArray(body.approveAccountCodes) &&
-                body.approveAccountCodes.length > 0);
-            const sessionsEnabled =
-              typeof process.env.SESSION_SECRET === "string" &&
-              process.env.SESSION_SECRET.length >= 16;
-            if (isPrivOp && sessionsEnabled) {
-              if (!sessionClaims) {
-                return res.status(401).json({
-                  error: "unauthorized",
-                  message:
-                    "Secure session required for this admin action. Sign in again.",
-                });
-              }
-              if (
-                sessionClaims.role !== "admin" &&
-                sessionClaims.role !== "teacher"
-              ) {
-                return res.status(403).json({
-                  error: "forbidden",
-                  message: "Admin or teacher session required for this action",
-                });
-              }
-            }
-
+            // Session logic removed — approve/remove allowed without token.
             // Load accounts table only (not entries/logs)
             const currentAccounts = await loadAccountsDataOnly();
             const statusRank = (s) => {

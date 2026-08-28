@@ -3,12 +3,10 @@
  */
 import {
   SaveConflictError,
-  SessionExpiredError,
   saveAccountsOnly,
   fetchAccountsOnly,
   fetchVersionOnly,
 } from "./cloudApi";
-import { sessionExpiredMessage } from "./sessionAuth";
 import {
   saveOfflineCache,
   addPendingApproveCode,
@@ -168,9 +166,6 @@ export async function approveAccountRequest(targetCode, ctx) {
     showToast(appIsAr ? "تمت الموافقة على الطلب." : "Request approved.");
     return { ok: true };
   } catch (err) {
-    if (err instanceof SessionExpiredError) {
-      return { error: sessionExpiredMessage(appIsAr), sessionExpired: true };
-    }
     return { error: appIsAr ? "تعذّر قبول الطلب — حاول مرة أخرى." : "Couldn't approve the request — try again." };
   }
 }
@@ -267,9 +262,7 @@ export async function rejectAccountRequest(targetCode, ctx) {
     accountsRef.current = previousAccounts;
     setLogs(previousLogs);
     logsRef.current = previousLogs;
-    if (err instanceof SessionExpiredError) {
-      return { error: sessionExpiredMessage(appIsAr), sessionExpired: true };
-    }
+    
     return { error: appIsAr ? "تعذّر رفض الطلب — حاول مرة أخرى." : "Couldn't reject the request — try again." };
   }
   showToast(appIsAr ? "تم رفض الطلب." : "Request rejected.");
@@ -375,11 +368,9 @@ export async function deleteAccount(targetCode, ctx) {
       setLogs(previousLogs);
       logsRef.current = previousLogs;
       showToast(
-        err instanceof SessionExpiredError
-          ? sessionExpiredMessage(appIsAr)
-          : appIsAr
-            ? "تعذّر حذف الحساب — حاول مرة أخرى."
-            : "Couldn't delete the account — try again."
+        appIsAr
+          ? "تعذّر حذف الحساب — حاول مرة أخرى."
+          : "Couldn't delete the account — try again."
       );
       return false;
     }

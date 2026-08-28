@@ -11,7 +11,7 @@
 // Auth is username + password only. Writes go through /api/jsonbin; the
 // Supabase key never ships to the browser.
 
-import { authHeaders, clearSessionToken } from "./sessionAuth";
+import { authHeaders } from "./sessionAuth";
 
 function writeHeaders() {
   return { "Content-Type": "application/json", ...authHeaders() };
@@ -26,11 +26,10 @@ export class SessionExpiredError extends Error {
 }
 
 function throwIfUnauthorized(res) {
+  // Session system removed — 401/403 are treated as generic failures.
+  // Do not throw SessionExpiredError anymore.
   if (res.status === 401 || res.status === 403) {
-    clearSessionToken({ markExpired: true });
-    throw new SessionExpiredError(
-      res.status === 403 ? "forbidden" : "session_expired"
-    );
+    // no-op (session logic disabled)
   }
 }
 

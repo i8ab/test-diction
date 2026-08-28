@@ -458,6 +458,14 @@ export async function runAppBoot(ctx, cancelledRef) {
           }
         }
       } catch (e) {
+        // Distinguish real network failure from other bootstrap errors.
+        // navigator.onLine is unreliable alone; treat TypeError / Failed to fetch / 503 as offline.
+        const msg = String((e && e.message) || e || "");
+        const looksOffline =
+          (typeof navigator !== "undefined" && navigator.onLine === false) ||
+          (e && e.name === "TypeError") ||
+          /failed to fetch|networkerror|load failed|503|net::|internet/i.test(msg);
+
         const cached = loadOfflineCache();
         if (cached && ((cached.entries && cached.entries.length) || (cached.accounts && cached.accounts.length))) {
           const { accounts: migrated } = migrateAccounts(cached.accounts || []);
@@ -468,8 +476,22 @@ export async function runAppBoot(ctx, cancelledRef) {
           setExamConfig(normalizeExamConfig(cached.examConfig));
           setAcademicUnits(normalizeAcademicUnits(cached.academicUnits));
           academicUnitsRef.current = normalizeAcademicUnits(cached.academicUnits);
-          setIsOffline(true);
-          setOfflineCachedAt(cached.cachedAt);
+          // Only show the offline banner when it actually looks like a connectivity problem.
+          // Other errors (5xx, parse, logic) should NOT lock the UI into "You're offline".
+          if (looksOffline) {
+            setIsOffline(true);
+            setOfflineCachedAt(cached.cachedAt);
+          } else {
+            setIsOffline(false);
+            // Surface a soft error instead of a false offline state.
+            try {
+              setLoadError(
+                msg && msg.length < 180
+                  ? msg
+                  : "Couldn't fully sync with the server. Some data may be from the last cache."
+              );
+            } catch (_) {}
+          }
           if (savedPersonalCode) {
             const account = migrated.find((a) => a.code === savedPersonalCode);
             if (account && account.status !== "pending" && account.status !== "rejected" && account.status !== "blocked") {

@@ -31,6 +31,7 @@ import { useStudyReminders } from "./lib/hooks/useStudyReminders";
 import { migrateAccounts } from "./lib/utils/authUtils";
 import { ensureMigratedAccounts as ensureMigratedAccountsCore } from "./lib/state/authFlow";
 import { runAppBoot } from "./lib/state/cloudBootstrap";
+import { watchForReconnect } from "./lib/state/connectivity";
 import SplashScreen from "./components/layout/SplashScreen";
 import { createSaveQueue, applyOps as applyOpsPure, MAX_SAVE_RETRIES as MAX_SAVE_RETRIES_CONST } from "./lib/state/cloudQueue";
 import { flushPendingAccounts as flushAccountsCloud, flushPendingEntries as flushEntriesCloud } from "./lib/state/cloudFlush";
@@ -847,6 +848,31 @@ useEffect(() => {
       cancelledRef.current = true;
     };
   }, []);
+
+  // Recover from false "You're offline" when the network path is actually fine.
+  // navigator.onLine alone is unreliable; we probe /api/jsonbin and clear the banner.
+  useEffect(() => {
+    if (!isOffline) return undefined;
+    const stop = watchForReconnect({
+      intervalMs: 6000,
+      onBackOnline: () => {
+        setIsOffline(false);
+        setLoadError("");
+        // Soft reload of cloud data without full page refresh
+        try {
+          if (!window.__bacaloriaReboot) {
+            window.__bacaloriaReboot = true;
+            window.location.reload();
+          }
+        } catch (_) {
+          setIsOffline(false);
+        }
+      },
+    });
+    return () => {
+      try { stop(); } catch (_) {}
+    };
+  }, [isOffline]);
 
   // Keep display name tied to the active account  // Keep display name tied to the active account (fixes wrong name after refresh / vault switch)
   useEffect(() => {

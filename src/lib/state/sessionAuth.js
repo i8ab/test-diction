@@ -1,7 +1,7 @@
 /**
  * Session auth — DISABLED.
- * All session token logic has been removed per project requirements.
- * Writes no longer require (or send) a Bearer token.
+ * All session token logic has been removed. Exports kept as no-ops
+ * so existing imports (authFlow, vaultSession, cloudApi, …) still build.
  */
 
 export function loadSessionToken() {
@@ -20,21 +20,22 @@ export function clearSessionToken(_opts = {}) {
   /* no-op */
 }
 
+/**
+ * Previously issued a short-lived admin/teacher token after login.
+ * Now a no-op that resolves to null.
+ */
+export async function requestSessionToken(_creds) {
+  return null;
+}
+
 /** Always empty — no Authorization header is sent. */
 export function authHeaders() {
   return {};
 }
 
-/**
- * Kept for call-site compatibility; should never surface after session removal.
- */
+/** Kept for call-site compatibility only. */
 export function sessionExpiredMessage(isAr) {
   return isAr
     ? "انتهت صلاحية الجلسة. سجّل دخولك مرة أخرى."
     : "Session expired. Sign in again.";
-}
-
-/** No longer issues tokens. */
-export async function ensureSessionToken(_opts = {}) {
-  return null;
 }

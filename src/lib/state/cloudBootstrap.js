@@ -19,11 +19,16 @@ import {
   loadPersonalCode,
   clearPersonalCode,
   clearPendingCloudSync,
+  markPendingCloudSync,
   mergeOfflineProgress,
   saveOfflineCache,
   loadSessionId,
   saveSessionId,
   generateSessionId,
+  removePendingRemoveCode,
+  removePendingApproveCode,
+  addPendingRemoveCode,
+  addPendingApproveCode,
 } from "./storage";
 import { migrateAccounts } from "../utils/authUtils";
 import { normalizeExamConfig } from "./exam";

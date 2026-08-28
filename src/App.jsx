@@ -896,21 +896,39 @@ useEffect(() => {
   useEffect(() => {
     window.history.replaceState({ authStage, showAdd: false, showAccount: false, showAdmin: false, section: "en-ar" }, "");
     function onPopState(e) {
-      const state = e.state || { authStage: savedPersonalCode ? "restoring" : "intro", showAdd: false, showAccount: false, showAdmin: false, section: "en-ar" };
+      const signedIn = !!loadPersonalCode();
+      const state = e.state || {
+        authStage: signedIn ? "restoring" : "intro",
+        showAdd: false,
+        showAccount: false,
+        showAdmin: false,
+        section: "en-ar",
+      };
       isPoppingRef.current = true;
       let nextStage = state.authStage || "intro";
-      // History entries created before Sign Out still carry authStage: "in"
-      // (pushState snapshots aren't retroactively updated on logout). Never
-      // trust a snapshot claiming an authenticated view unless there's still
-      // an actual signed-in session — otherwise Back after Sign Out silently
-      // re-enters the app.
-      if (nextStage === "in" && !loadPersonalCode()) {
+      // Ghost history entries from before Sign Out still carry authStage:"in".
+      // Never re-enter the app without a real session — and flatten the entry
+      // so swipe-back does not keep revealing stacked "pages under pages".
+      if ((nextStage === "in" || nextStage === "restoring") && !signedIn) {
         nextStage = "login";
+        try {
+          window.history.replaceState(
+            { authStage: "login", showAdd: false, showAccount: false, showAdmin: false, section: "en-ar" },
+            ""
+          );
+        } catch (_) {}
       }
       setAuthStage(nextStage);
-      setShowAdd(!!state.showAdd);
-      setShowAccount(!!state.showAccount);
-      setShowAdmin(!!state.showAdmin);
+      // Modals only make sense while signed in
+      if (nextStage !== "in") {
+        setShowAdd(false);
+        setShowAccount(false);
+        setShowAdmin(false);
+      } else {
+        setShowAdd(!!state.showAdd);
+        setShowAccount(!!state.showAccount);
+        setShowAdmin(!!state.showAdmin);
+      }
       setSection(state.section || "en-ar");
     }
     window.addEventListener("popstate", onPopState);
@@ -923,9 +941,29 @@ useEffect(() => {
     window.history.pushState({ authStage, showAdd, showAccount, showAdmin, section, ...overrides }, "");
   }
 
-  function goToStage(stage) {
+  /**
+   * Auth-stage navigation. Default = replaceState (no extra history layer).
+   * This prevents: logout → swipe back → old app screen under login.
+   * Pass { replace: false } only when back-navigation inside auth is desired
+   * (e.g. signup → intro).
+   */
+  function goToStage(stage, opts = {}) {
+    const replace = opts.replace !== false;
     setAuthStage(stage);
-    pushHistory({ authStage: stage, showAdd: false, showAccount: false, showAdmin: false });
+    setShowAdd(false);
+    setShowAccount(false);
+    setShowAdmin(false);
+    const state = {
+      authStage: stage,
+      showAdd: false,
+      showAccount: false,
+      showAdmin: false,
+      section: stage === "in" ? section : "en-ar",
+    };
+    try {
+      if (replace) window.history.replaceState(state, "");
+      else window.history.pushState(state, "");
+    } catch (_) {}
   }
 
   function openAddModal() {
@@ -1835,8 +1873,13 @@ useEffect(() => {
       setShowAdd,
       setShowAccount,
       setShowAdmin,
-      goToStage,
+      // replaceState login — do not push another layer on top of the app
+      goToStage: (stage) => goToStage(stage, { replace: true }),
     });
+    // Flatten the current history entry again after state clears (belt & suspenders)
+    try {
+      syncBaseHistory("login");
+    } catch (_) {}
   }
 
   // Soft background sync while signed in. NEVER log the user out because of

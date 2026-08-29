@@ -22,8 +22,8 @@
      unique CACHE_VERSION without hand-editing this file.
    ============================================================================= */
 
-// Bumped for v1.1.3 (todos API + documentation/cleanup pass).
-const CACHE_VERSION = "bacaloria-v1.1.6-all-optimizations";
+// Bumped for font weight consolidation + GET inflight dedupe.
+const CACHE_VERSION = "bacaloria-v1.1.7-fonts-dedupe";
 const NAVIGATION_TIMEOUT_MS = 8000;
 const APP_SHELL = [
   "/",

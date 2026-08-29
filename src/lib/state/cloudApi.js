@@ -139,6 +139,19 @@ function scopedSet(key, data) {
   _scopedCache.set(key, { at: Date.now(), data });
 }
 
+/** In-flight GET dedupe — concurrent identical reads share one network call. */
+const _inflight = new Map();
+function inflight(key, fn) {
+  if (_inflight.has(key)) return _inflight.get(key);
+  const p = Promise.resolve()
+    .then(fn)
+    .finally(() => {
+      _inflight.delete(key);
+    });
+  _inflight.set(key, p);
+  return p;
+}
+
 /** إبطال كاش النطاقات بعد أي كتابة ناجحة */
 export function invalidateScopedCaches() {
   _scopedCache.clear();
@@ -151,11 +164,13 @@ export async function fetchBootstrap({ fresh = false } = {}) {
     const cached = scopedGet("bootstrap");
     if (cached) return cached;
   }
-  const res = await fetch(`/api/jsonbin?scope=bootstrap&_t=${Date.now()}`, NO_STORE);
-  if (!res.ok) throw new Error("fetchBootstrap failed");
-  const data = await res.json();
-  scopedSet("bootstrap", data);
-  return data;
+  return inflight(`bootstrap:${fresh ? 1 : 0}`, async () => {
+    const res = await fetch(`/api/jsonbin?scope=bootstrap&_t=${Date.now()}`, NO_STORE);
+    if (!res.ok) throw new Error("fetchBootstrap failed");
+    const data = await res.json();
+    scopedSet("bootstrap", data);
+    return data;
+  });
 }
 
 /** حساب واحد فقط حسب الكود */
@@ -183,12 +198,14 @@ export async function fetchAccountsOnly({ fresh = false } = {}) {
     const cached = scopedGet("accounts");
     if (cached) return cached;
   }
-  const res = await fetch(`/api/jsonbin?scope=accounts&_t=${Date.now()}`, NO_STORE);
-  if (!res.ok) throw new Error("fetchAccountsOnly failed");
-  const data = await res.json();
-  const accounts = Array.isArray(data.accounts) ? data.accounts : [];
-  scopedSet("accounts", accounts);
-  return accounts;
+  return inflight(`accounts:${fresh ? 1 : 0}`, async () => {
+    const res = await fetch(`/api/jsonbin?scope=accounts&_t=${Date.now()}`, NO_STORE);
+    if (!res.ok) throw new Error("fetchAccountsOnly failed");
+    const data = await res.json();
+    const accounts = Array.isArray(data.accounts) ? data.accounts : [];
+    scopedSet("accounts", accounts);
+    return accounts;
+  });
 }
 
 /**
@@ -224,30 +241,33 @@ export async function fetchEntriesOnly({
     const cached = scopedGet(cacheKey);
     if (cached) return cached;
   }
-  const params = new URLSearchParams({
-    scope: "entries",
-    _t: String(Date.now()),
+  const inflightKey = `entries:${sec || "all"}:${light ? "L" : "F"}:${limit}:${after || ""}:${fresh ? 1 : 0}`;
+  return inflight(inflightKey, async () => {
+    const params = new URLSearchParams({
+      scope: "entries",
+      _t: String(Date.now()),
+    });
+    if (sec) params.set("section", sec);
+    if (light) params.set("fields", "light");
+    if (usePage) {
+      params.set("limit", String(Math.min(Number(limit) || 40, 200)));
+      if (after) params.set("after", String(after));
+    }
+    const res = await fetch(`/api/jsonbin?${params}`, NO_STORE);
+    if (!res.ok) throw new Error("fetchEntriesOnly failed");
+    const data = await res.json();
+    const entries = Array.isArray(data.entries) ? data.entries : [];
+    if (usePage) {
+      return {
+        entries,
+        nextCursor: data.nextCursor || null,
+        hasMore: !!data.hasMore,
+        fields: data.fields || (light ? "light" : "full"),
+      };
+    }
+    if (cacheKey) scopedSet(cacheKey, entries);
+    return entries;
   });
-  if (sec) params.set("section", sec);
-  if (light) params.set("fields", "light");
-  if (usePage) {
-    params.set("limit", String(Math.min(Number(limit) || 40, 200)));
-    if (after) params.set("after", String(after));
-  }
-  const res = await fetch(`/api/jsonbin?${params}`, NO_STORE);
-  if (!res.ok) throw new Error("fetchEntriesOnly failed");
-  const data = await res.json();
-  const entries = Array.isArray(data.entries) ? data.entries : [];
-  if (usePage) {
-    return {
-      entries,
-      nextCursor: data.nextCursor || null,
-      hasMore: !!data.hasMore,
-      fields: data.fields || (light ? "light" : "full"),
-    };
-  }
-  if (cacheKey) scopedSet(cacheKey, entries);
-  return entries;
 }
 
 /** كلمة واحدة كاملة (تفاصيل / تعديل) — بدل تحميل القائمة كلها */
@@ -275,12 +295,14 @@ export async function fetchLogsOnly({ fresh = false } = {}) {
     const cached = scopedGet("logs");
     if (cached) return cached;
   }
-  const res = await fetch(`/api/jsonbin?scope=logs&_t=${Date.now()}`, NO_STORE);
-  if (!res.ok) throw new Error("fetchLogsOnly failed");
-  const data = await res.json();
-  const logs = Array.isArray(data.logs) ? data.logs : [];
-  scopedSet("logs", logs);
-  return logs;
+  return inflight(`logs:${fresh ? 1 : 0}`, async () => {
+    const res = await fetch(`/api/jsonbin?scope=logs&_t=${Date.now()}`, NO_STORE);
+    if (!res.ok) throw new Error("fetchLogsOnly failed");
+    const data = await res.json();
+    const logs = Array.isArray(data.logs) ? data.logs : [];
+    scopedSet("logs", logs);
+    return logs;
+  });
 }
 
 /**

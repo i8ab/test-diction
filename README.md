@@ -109,7 +109,7 @@ Push the repo as-is. Vercel detects Vite and turns `api/*.js` into serverless fu
 ### Explicitly deferred (honest)
 
 1. **Full modularization** of `App.jsx`, `MainView.jsx`, `index.css`, `api/jsonbin.js` — follow the phased plan.
-2. **Production-grade auth** (JWT/sessions, rate limiting, Argon2, fully server-side authorization) — see `SECURITY.md`.
+2. **Further auth hardening** (server-side ownership checks on all write paths, optional Argon2) — see `SECURITY.md`. **JWT/session tokens are not planned** and have been removed from the codebase.
 3. **Complete German/French UI** — would require translating hundreds of strings; not started.
 4. **Automated SW version injection** at build time.
 5. **Browser-compat polyfills / graceful degradation matrix** for PiP and Screen Wake Lock (feature detection already exists in the timer code; broader QA is manual).
@@ -129,8 +129,8 @@ Push the repo as-is. Vercel detects Vite and turns `api/*.js` into serverless fu
 ## Contributing / next steps
 
 1. Run `npm test` and fix any failures after dependency install.
-3. Execute Phase A of `docs/REFACTOR_PLAN.md` (extract more logic from `App.jsx`).
-4. Implement the first two items of the security roadmap if the community grows beyond a trusted group.
+2. Execute Phase A of `docs/REFACTOR_PLAN.md` (extract more logic from `App.jsx`).
+3. If the community grows beyond a trusted group: add ownership checks on write scopes in `api/jsonbin.js` (see `SECURITY.md`). Do not reintroduce JWT.
 
 If `npm run build` fails, send the full error output.
 

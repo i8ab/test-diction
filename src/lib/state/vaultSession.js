@@ -13,7 +13,6 @@ import {
   clearPersonalCode,
   savePersonalCode,
 } from "./storage";
-import { clearSessionToken } from "./sessionAuth";
 
 export function switchToVaultAccount({
   code,
@@ -70,7 +69,6 @@ export function beginLinkAccount({
   } catch (_) {}
   setLinkMode(true);
   clearPersonalCode();
-  clearSessionToken();
   try {
     localStorage.removeItem("twoTongues.sessionId");
   } catch (_) {}
@@ -165,7 +163,6 @@ export function performLogout({
     logEvent("sign_out", `${name} signed out`, name, accountCode);
   }
   clearPersonalCode();
-  clearSessionToken();
   try {
     localStorage.removeItem("twoTongues.sessionId");
   } catch (_) {}

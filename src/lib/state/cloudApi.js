@@ -8,29 +8,11 @@
    project settings, then deploy; everyone reads/writes the same data
    through this proxy.
    ========================================================================= */
-// Auth is username + password only. Writes go through /api/jsonbin; the
-// Supabase key never ships to the browser.
-
-import { authHeaders } from "./sessionAuth";
+// Auth is username + password only. No JWT / server session tokens.
+// Writes go through /api/jsonbin; the Supabase key never ships to the browser.
 
 function writeHeaders() {
-  return { "Content-Type": "application/json", ...authHeaders() };
-}
-
-/** Thrown when the server rejects a write because the session token is missing/invalid/expired. */
-export class SessionExpiredError extends Error {
-  constructor(message = "session_expired") {
-    super(message);
-    this.name = "SessionExpiredError";
-  }
-}
-
-function throwIfUnauthorized(res) {
-  // Session system removed — 401/403 are treated as generic failures.
-  // Do not throw SessionExpiredError anymore.
-  if (res.status === 401 || res.status === 403) {
-    // no-op (session logic disabled)
-  }
+  return { "Content-Type": "application/json" };
 }
 
 // In-memory short TTL for non-fresh reads in the same tab session.
@@ -390,7 +372,6 @@ export async function saveRecord(record, expectedVersion) {
     headers: writeHeaders(),
     body: JSON.stringify({ ...record, expectedVersion }),
   });
-  throwIfUnauthorized(res);
   if (res.status === 409) {
     invalidateRecordCache();
     const data = await res.json().catch(() => null);
@@ -425,7 +406,6 @@ export async function saveAccountsOnly(
       expectedVersion,
     }),
   });
-  throwIfUnauthorized(res);
   if (res.status === 409) {
     invalidateRecordCache();
     const data = await res.json().catch(() => null);
@@ -481,7 +461,6 @@ async function putScoped(body, expectedVersion) {
     headers: writeHeaders(),
     body: JSON.stringify({ ...body, expectedVersion }),
   });
-  throwIfUnauthorized(res);
   if (res.status === 409) {
     invalidateRecordCache();
     const data = await res.json().catch(() => null);

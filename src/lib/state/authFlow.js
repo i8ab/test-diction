@@ -22,7 +22,6 @@ import {
   migrateAccounts,
 } from "../utils/authUtils";
 import { generatePersonalCode, savePersonalCode, saveSessionId, generateSessionId } from "./storage";
-import { requestSessionToken } from "./sessionAuth";
 import { capLogs, makeLogEntry } from "./logs";
 import {
   upsertVaultAccount,
@@ -328,7 +327,6 @@ function grantSession(account, ctx) {
     recordVersionRef,
     commitRecordVersion,
     setAccounts,
-    passwordHashForToken,
   } = ctx;
 
   setName(account.name);
@@ -337,13 +335,7 @@ function grantSession(account, ctx) {
   setAccountCode(account.code);
   savePersonalCode(account.code);
 
-  // Phase A: best-effort session token (does not block login if it fails).
-  const hash =
-    passwordHashForToken ||
-    (account && account.passwordHash ? account.passwordHash : "");
-  if (hash && account?.code) {
-    requestSessionToken({ code: account.code, passwordHash: hash }).catch(() => {});
-  }
+  // No server-side session/JWT — identity is account code + role stored in the cloud record.
   let linking = false;
   try {
     linking = sessionStorage.getItem("twoTongues.linkMode") === "1";
@@ -652,7 +644,6 @@ export async function performLogin(p) {
     recordVersionRef,
     commitRecordVersion,
     setAccounts,
-    passwordHashForToken: sessionAccount?.passwordHash || "",
   });
 }
 

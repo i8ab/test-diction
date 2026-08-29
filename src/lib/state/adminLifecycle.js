@@ -5,6 +5,8 @@
 import {
   SaveConflictError,
   saveAccountsOnly,
+  setAccountStatus,
+  deleteAccount as deleteAccountRemote,
   fetchAccountsOnly,
   fetchVersionOnly,
 } from "./cloudApi";
@@ -129,13 +131,21 @@ export async function approveAccountRequest(targetCode, ctx) {
         ];
 
         try {
-          const newVersion = await saveAccountsOnly(
-            {
-              accounts: nextAccounts,
-              approveAccountCodes: approveList,
-            },
-            curVersion
-          );
+          // Prefer the ultra-fast single-account status path.
+          // Falls back to full accounts save only if needed for sticky multi-approve.
+          let newVersion;
+          if (approveList.length <= 1) {
+            const result = await setAccountStatus(codeKey, "active", curVersion);
+            newVersion = result.version;
+          } else {
+            newVersion = await saveAccountsOnly(
+              {
+                accounts: nextAccounts,
+                approveAccountCodes: approveList,
+              },
+              curVersion
+            );
+          }
           commitRecordVersion(newVersion);
           setAccounts(nextAccounts);
           accountsRef.current = nextAccounts;
@@ -253,13 +263,19 @@ export async function rejectAccountRequest(targetCode, ctx) {
         ];
 
         try {
-          const newVersion = await saveAccountsOnly(
-            {
-              accounts: nextAccounts,
-              removeAccountCodes: removeList,
-            },
-            curVersion
-          );
+          // Prefer ultra-fast single-account delete when only one code is removed.
+          let newVersion;
+          if (removeList.length <= 1) {
+            newVersion = await deleteAccountRemote(codeKey, curVersion);
+          } else {
+            newVersion = await saveAccountsOnly(
+              {
+                accounts: nextAccounts,
+                removeAccountCodes: removeList,
+              },
+              curVersion
+            );
+          }
           commitRecordVersion(newVersion);
           setAccounts(nextAccounts);
           accountsRef.current = nextAccounts;
@@ -382,13 +398,18 @@ export async function deleteAccount(targetCode, ctx) {
           ];
 
           try {
-            const newVersion = await saveAccountsOnly(
-              {
-                accounts: nextAccounts,
-                removeAccountCodes: removeList,
-              },
-              curVersion
-            );
+            let newVersion;
+            if (removeList.length <= 1) {
+              newVersion = await deleteAccountRemote(codeKey, curVersion);
+            } else {
+              newVersion = await saveAccountsOnly(
+                {
+                  accounts: nextAccounts,
+                  removeAccountCodes: removeList,
+                },
+                curVersion
+              );
+            }
             commitRecordVersion(newVersion);
             if (!isSelf) {
               setAccounts(nextAccounts);

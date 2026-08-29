@@ -47,6 +47,9 @@ function invalidateRecordCache() {
   try {
     if (typeof _scopedCache !== "undefined" && _scopedCache) _scopedCache.clear();
   } catch (_) {}
+  try {
+    if (typeof _versionEtag !== "undefined") _versionEtag = null;
+  } catch (_) {}
 }
 
 function normalizeRecord(data) {
@@ -187,24 +190,51 @@ export async function fetchAccountsOnly({ fresh = false } = {}) {
  * @param {{ fresh?: boolean, section?: string|null }} opts
  *   section: "en-ar" | "ar-ar" | "academic" — لو اتحدد يرجع ذلك القسم فقط (أخف)
  */
-export async function fetchEntriesOnly({ fresh = false, section = null } = {}) {
+/**
+ * كلمات القاموس فقط.
+ * @param {{ fresh?: boolean, section?: string|null, limit?: number, after?: string|null }} opts
+ *   - section: "en-ar" | "ar-ar" | "academic"
+ *   - limit + after: cursor pagination (لما limit > 0 يرجع { entries, nextCursor, hasMore })
+ *   - بدون limit: يرجع Array زي السلوك القديم (توافق عكسي)
+ */
+export async function fetchEntriesOnly({
+  fresh = false,
+  section = null,
+  limit = 0,
+  after = null,
+} = {}) {
   const sec =
     section === "en-ar" || section === "ar-ar" || section === "academic"
       ? section
       : null;
-  const cacheKey = sec ? `entries:${sec}` : "entries";
-  if (!fresh) {
+  const usePage = Number(limit) > 0;
+  const cacheKey = usePage
+    ? null
+    : sec
+      ? `entries:${sec}`
+      : "entries";
+  if (!fresh && cacheKey) {
     const cached = scopedGet(cacheKey);
     if (cached) return cached;
   }
-  const q = sec
-    ? `/api/jsonbin?scope=entries&section=${encodeURIComponent(sec)}&_t=${Date.now()}`
-    : `/api/jsonbin?scope=entries&_t=${Date.now()}`;
-  const res = await fetch(q, NO_STORE);
+  const params = new URLSearchParams({ scope: "entries", _t: String(Date.now()) });
+  if (sec) params.set("section", sec);
+  if (usePage) {
+    params.set("limit", String(Math.min(Number(limit) || 40, 200)));
+    if (after) params.set("after", String(after));
+  }
+  const res = await fetch(`/api/jsonbin?${params}`, NO_STORE);
   if (!res.ok) throw new Error("fetchEntriesOnly failed");
   const data = await res.json();
   const entries = Array.isArray(data.entries) ? data.entries : [];
-  scopedSet(cacheKey, entries);
+  if (usePage) {
+    return {
+      entries,
+      nextCursor: data.nextCursor || null,
+      hasMore: !!data.hasMore,
+    };
+  }
+  if (cacheKey) scopedSet(cacheKey, entries);
   return entries;
 }
 
@@ -245,14 +275,33 @@ export async function fetchSettings(
   return data;
 }
 
-/** رقم الإصدار فقط (خفيف جداً) */
+/** Last ETag from version endpoint — enables 304 Not Modified on soft polls. */
+let _versionEtag = null;
+
+/** رقم الإصدار فقط (خفيف جداً) + دعم ETag */
 export async function fetchVersionOnly({ fresh = false } = {}) {
   if (!fresh) {
     const cached = scopedGet("version");
     if (cached !== null && cached !== undefined) return cached;
   }
-  const res = await fetch(`/api/jsonbin?scope=version&_t=${Date.now()}`, NO_STORE);
+  const headers = {
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
+  };
+  if (!fresh && _versionEtag) {
+    headers["If-None-Match"] = _versionEtag;
+  }
+  const res = await fetch(`/api/jsonbin?scope=version&_t=${Date.now()}`, {
+    cache: "no-store",
+    headers,
+  });
+  if (res.status === 304) {
+    const cached = scopedGet("version");
+    return typeof cached === "number" ? cached : 0;
+  }
   if (!res.ok) throw new Error("fetchVersionOnly failed");
+  const et = res.headers.get("ETag");
+  if (et) _versionEtag = et;
   const data = await res.json();
   const version = typeof data.version === "number" ? data.version : 0;
   scopedSet("version", version);
@@ -330,6 +379,34 @@ export async function saveAccountsOnly(
   if (!res.ok) throw new Error("save failed");
   invalidateRecordCache();
   const data = await res.json().catch(() => ({}));
+  return typeof data.version === "number" ? data.version : expectedVersion + 1;
+}
+
+/**
+ * Fastest path: change status of a single account (approve / reject / block).
+ * Does not rewrite the whole accounts list.
+ */
+export async function setAccountStatus(code, status, expectedVersion) {
+  const data = await putScoped(
+    { scope: "accountStatus", code, status },
+    expectedVersion
+  );
+  return {
+    version:
+      typeof data.version === "number" ? data.version : expectedVersion + 1,
+    account: data.account || null,
+  };
+}
+
+/**
+ * Fastest path: delete a single account (reject / remove).
+ * Does not rewrite the whole accounts list.
+ */
+export async function deleteAccount(code, expectedVersion) {
+  const data = await putScoped(
+    { scope: "accountDelete", code },
+    expectedVersion
+  );
   return typeof data.version === "number" ? data.version : expectedVersion + 1;
 }
 

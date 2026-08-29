@@ -15,10 +15,69 @@
 //
 // Optimistic locking uses the integer `version` in settings.
 
-import { redisConfigured, acquireLock, releaseLock } from "../lib/redis.js";
+import {
+  redisConfigured,
+  acquireLock,
+  releaseLock,
+  cacheGet,
+  cacheSet,
+  invalidateHotCaches,
+} from "../lib/redis.js";
 import { rateLimit, clientIp } from "../lib/rateLimit.js";
 
 const LOCK_KEY = "twoTongues:dictWriteLock";
+
+/**
+ * Build a minimal 409 conflict payload.
+ * NEVER load the full dictionary (entries + logs) for partial-scope conflicts.
+ * This is the single biggest latency win for accept/reject and small writes.
+ */
+async function buildConflictPayload(scope = "full", extra = {}) {
+  const version = await loadVersionOnly();
+  const base = {
+    error: "conflict",
+    message: "The dictionary changed since you last loaded it.",
+    version,
+    ...extra,
+  };
+
+  const s = String(scope || "full").toLowerCase();
+
+  // Account-related scopes only need the accounts list (or nothing).
+  if (
+    s === "accounts" ||
+    s === "accountstatus" ||
+    s === "accountdelete" ||
+    s === "accountpatch" ||
+    s === "account"
+  ) {
+    try {
+      const accounts = await loadAccountsDataOnly();
+      return { ...base, accounts };
+    } catch (_) {
+      return base;
+    }
+  }
+
+  // Entry / settings / logs patches: client already has local data; just give version.
+  if (
+    s === "entrypatch" ||
+    s === "entrydelete" ||
+    s === "settingspatch" ||
+    s === "logsreplace" ||
+    s === "entries"
+  ) {
+    return base;
+  }
+
+  // Legacy full path still gets the complete record for safety.
+  try {
+    const full = await loadRecord();
+    return { ...base, ...full, version: full.version ?? version };
+  } catch (_) {
+    return base;
+  }
+}
 
 function sbHeaders() {
   const url = process.env.SUPABASE_URL;
@@ -298,12 +357,30 @@ async function bumpVersion(nextVersion) {
     [{ key: "version", value: nextVersion }],
     { Prefer: "resolution=merge-duplicates,return=minimal" }
   );
+  // Drop hot caches so the next read sees the new version immediately.
+  await invalidateHotCaches();
 }
 
-/** Upsert one account row (delete-by-code then insert). */
+/**
+ * Upsert one account row.
+ * Prefers a single PostgREST upsert (on_conflict=code) — 1 round-trip.
+ * Falls back to DELETE+INSERT if the unique constraint is missing or upsert fails.
+ * Requires UNIQUE(code) on public.accounts (see docs/SUPABASE_INDEXES.sql).
+ */
 async function upsertAccountRow(account) {
   const code = String((account && account.code) || "");
   if (!code) return;
+  try {
+    await sbFetch(
+      "POST",
+      "accounts?on_conflict=code",
+      [{ code, data: account }],
+      { Prefer: "resolution=merge-duplicates,return=minimal" }
+    );
+    return;
+  } catch (_) {
+    // Fallback for DBs without UNIQUE(code) yet
+  }
   try {
     await sbFetch(
       "DELETE",
@@ -318,6 +395,29 @@ async function upsertAccountRow(account) {
     [{ code, data: account }],
     { Prefer: "return=minimal" }
   );
+}
+
+/** Batch upsert accounts (chunks of 50) — one round-trip per chunk when UNIQUE(code) exists. */
+async function upsertAccountsBatch(accounts) {
+  const list = (accounts || []).filter((a) => a && a.code);
+  if (!list.length) return;
+  const rows = list.map((a) => ({ code: String(a.code), data: a }));
+  try {
+    for (let i = 0; i < rows.length; i += 50) {
+      await sbFetch(
+        "POST",
+        "accounts?on_conflict=code",
+        rows.slice(i, i + 50),
+        { Prefer: "resolution=merge-duplicates,return=minimal" }
+      );
+    }
+    return;
+  } catch (_) {
+    // Fallback: per-row delete+insert
+    for (const a of list) {
+      await upsertAccountRow(a);
+    }
+  }
 }
 
 async function loadRecord() {
@@ -591,6 +691,7 @@ async function saveFullRecord(record, nextVersion) {
     ],
     { Prefer: "resolution=merge-duplicates,return=minimal" }
   );
+  await invalidateHotCaches();
 
   // 2) entries — differential sync (no full-table wipe)
   await saveEntriesSync(record.entries);
@@ -618,28 +719,8 @@ async function saveFullRecord(record, nextVersion) {
     // Fallback: if we cannot list codes, clear then reinsert (old path).
     await clearTable("accounts");
   }
-  // Replace each kept account by code (delete-then-insert avoids unique
-  // conflicts and duplicate rows with the same code).
-  for (const a of record.accounts || []) {
-    const code = String(a && a.code || "");
-    if (!code) continue;
-    try {
-      await sbFetch("DELETE", `accounts?code=eq.${encodeURIComponent(code)}`, undefined, {
-        Prefer: "return=minimal",
-      });
-    } catch (_) {}
-  }
-  if (record.accounts?.length) {
-    const rows = record.accounts.map((a) => ({
-      code: a.code || "",
-      data: a,
-    }));
-    for (let i = 0; i < rows.length; i += 50) {
-      await sbFetch("POST", "accounts", rows.slice(i, i + 50), {
-        Prefer: "return=minimal",
-      });
-    }
-  }
+  // Upsert kept accounts (1 round-trip per 50 rows when UNIQUE(code) exists).
+  await upsertAccountsBatch(record.accounts || []);
 
   // 4) logs — only keep last 24 hours
   await clearTable("logs");
@@ -699,6 +780,22 @@ export default async function handler(req, res) {
       const code = url.searchParams.get("code") || "";
       const keysParam = url.searchParams.get("keys") || "";
 
+      // Soft rate-limit only the expensive full record (scoped reads stay free).
+      if (scope === "full") {
+        const ip = clientIp(req);
+        const rl = await rateLimit(`read-full:${ip}`, {
+          limit: 30,
+          windowMs: 60_000,
+        });
+        if (!rl.allowed) {
+          res.setHeader("Retry-After", "30");
+          return res.status(429).json({
+            error: "rate_limited",
+            message: "Too many full-record reads. Use scoped endpoints.",
+          });
+        }
+      }
+
       // Mutable dictionary data must not be cached by intermediaries.
       // The "version" scope is cheap to revalidate briefly (helps soft-sync
       // polling without hammering Supabase on every tab focus).
@@ -716,7 +813,21 @@ export default async function handler(req, res) {
 
       // ——— نطاقات مجزأة ———
       if (scope === "version") {
-        const version = await loadVersionOnly();
+        let version = await cacheGet("tt:version");
+        if (version == null) {
+          version = await loadVersionOnly();
+          await cacheSet("tt:version", version, 8);
+        }
+        const etag = `W/"v${version}"`;
+        res.setHeader("ETag", etag);
+        res.setHeader(
+          "Cache-Control",
+          "private, max-age=5, stale-while-revalidate=15"
+        );
+        const inm = req.headers["if-none-match"];
+        if (inm && String(inm).trim() === etag) {
+          return res.status(304).end();
+        }
         return res.status(200).json({ version });
       }
 
@@ -726,15 +837,77 @@ export default async function handler(req, res) {
       }
 
       if (scope === "accounts") {
-        const accounts = await loadAccountsDataOnly();
+        let accounts = await cacheGet("tt:accounts");
+        if (!accounts) {
+          accounts = await loadAccountsDataOnly();
+          await cacheSet("tt:accounts", accounts, 12);
+        }
         return res.status(200).json({ accounts });
       }
 
       if (scope === "entries") {
         // section اختياري: en-ar | ar-ar | academic — يقلل حجم الرد
+        // limit + after (cursor by data->>id) للتصفح بدون تحميل كل القاموس
         const sectionFilter = (url.searchParams.get("section") || "").trim();
         const allowed = new Set(["en-ar", "ar-ar", "academic"]);
+        const limitRaw = Number(url.searchParams.get("limit") || 0);
+        const limit =
+          Number.isFinite(limitRaw) && limitRaw > 0
+            ? Math.min(Math.floor(limitRaw), 200)
+            : 0;
+        const after = (url.searchParams.get("after") || "").trim();
+
         let entriesRows;
+        if (limit > 0) {
+          // Cursor pagination — أسرع وأقل باندويث لما القاموس كبير
+          try {
+            let path = `entries?select=data&order=data->>id.asc&limit=${limit}`;
+            if (sectionFilter && allowed.has(sectionFilter)) {
+              path += `&data->>section=eq.${encodeURIComponent(sectionFilter)}`;
+            }
+            if (after) {
+              path += `&data->>id=gt.${encodeURIComponent(after)}`;
+            }
+            entriesRows = await sbFetch("GET", path);
+          } catch (_) {
+            entriesRows = null;
+          }
+          if (!entriesRows) {
+            // fallback: load + filter locally then slice
+            const all = await sbFetch("GET", "entries?select=data");
+            let list = (all || []).map((r) => r.data).filter(Boolean);
+            if (sectionFilter && allowed.has(sectionFilter)) {
+              list = list.filter((e) => e && e.section === sectionFilter);
+            }
+            list.sort((a, b) =>
+              String(a.id || "").localeCompare(String(b.id || ""))
+            );
+            if (after) {
+              list = list.filter((e) => String(e.id || "") > after);
+            }
+            const page = list.slice(0, limit);
+            const nextCursor =
+              page.length === limit ? String(page[page.length - 1].id || "") : null;
+            return res.status(200).json({
+              entries: page,
+              section: sectionFilter || null,
+              nextCursor,
+              hasMore: !!nextCursor,
+            });
+          }
+          const entries = (entriesRows || []).map((r) => r.data).filter(Boolean);
+          const nextCursor =
+            entries.length === limit
+              ? String(entries[entries.length - 1].id || "")
+              : null;
+          return res.status(200).json({
+            entries,
+            section: sectionFilter || null,
+            nextCursor,
+            hasMore: !!nextCursor,
+          });
+        }
+
         if (sectionFilter && allowed.has(sectionFilter)) {
           // تصفية على مستوى Supabase (jsonb) لتقليل النقل
           try {
@@ -805,6 +978,24 @@ export default async function handler(req, res) {
       if (scope === "bootstrap") {
         // الحد الأدنى اللازم لبدء الجلسة: settings عامة + version فقط
         // (بدون entries ولا accounts ولا logs)
+        const sendBootstrap = (payload) => {
+          const etag = `W/"b${payload.version || 0}"`;
+          res.setHeader("ETag", etag);
+          res.setHeader(
+            "Cache-Control",
+            "private, max-age=10, stale-while-revalidate=20"
+          );
+          const inm = req.headers["if-none-match"];
+          if (inm && String(inm).trim() === etag) {
+            return res.status(304).end();
+          }
+          return res.status(200).json(payload);
+        };
+
+        let cached = await cacheGet("tt:bootstrap");
+        if (cached && typeof cached === "object") {
+          return sendBootstrap(cached);
+        }
         const settingsRows = await sbFetch("GET", "settings?select=key,value");
         let version = 0;
         let siteBanner = null;
@@ -826,12 +1017,14 @@ export default async function handler(req, res) {
             if (bannerRows && bannerRows[0]) siteBanner = pickBanner(bannerRows[0]);
           } catch (_) {}
         }
-        return res.status(200).json({
+        const payload = {
           version,
           siteBanner,
           examConfig,
           academicUnits,
-        });
+        };
+        await cacheSet("tt:bootstrap", payload, 25);
+        return sendBootstrap(payload);
       }
 
       // افتراضي: السجل الكامل (للتوافق العكسي)
@@ -874,12 +1067,11 @@ export default async function handler(req, res) {
       if (useLock) {
         lockToken = await acquireLock(LOCK_KEY);
         if (!lockToken) {
-          const busy = await loadRecord();
-          return res.status(409).json({
-            error: "conflict",
+          // Busy lock: return minimal payload instead of the whole dictionary.
+          const busyPayload = await buildConflictPayload(body.scope || "full", {
             message: "The dictionary is busy — please try again.",
-            ...busy,
           });
+          return res.status(409).json(busyPayload);
         }
       }
 
@@ -888,6 +1080,8 @@ export default async function handler(req, res) {
         const scoped = body.scope;
         if (
           scoped === "accountPatch" ||
+          scoped === "accountStatus" ||
+          scoped === "accountDelete" ||
           scoped === "entryPatch" ||
           scoped === "entryDelete" ||
           scoped === "settingsPatch" ||
@@ -896,14 +1090,69 @@ export default async function handler(req, res) {
         ) {
           const curVersion = await loadVersionOnly();
           if (curVersion !== body.expectedVersion) {
-            const full = await loadRecord();
-            return res.status(409).json({
-              error: "conflict",
-              message: "The dictionary changed since you last loaded it.",
-              ...full,
-            });
+            const payload = await buildConflictPayload(scoped);
+            return res.status(409).json(payload);
           }
           const nextVersion = curVersion + 1;
+
+          // ——— Fast path: change only one account's status (accept / reject / block) ———
+          if (scoped === "accountStatus") {
+            const code = String(body.code || "").trim();
+            const newStatus = String(body.status || "").trim();
+            const allowed = new Set(["active", "blocked", "pending"]);
+            if (!code || !allowed.has(newStatus)) {
+              return res.status(400).json({
+                error:
+                  "accountStatus requires code and status (active|blocked|pending)",
+              });
+            }
+            const prev = await loadOneAccount(code);
+            if (!prev) {
+              return res.status(404).json({ error: "Account not found" });
+            }
+            if (prev.status === newStatus) {
+              return res.status(200).json({
+                ok: true,
+                version: curVersion,
+                scope: "accountStatus",
+                account: prev,
+              });
+            }
+            const merged = { ...prev, status: newStatus };
+            await bumpVersion(nextVersion);
+            await upsertAccountRow(merged);
+            return res.status(200).json({
+              ok: true,
+              version: nextVersion,
+              scope: "accountStatus",
+              account: merged,
+            });
+          }
+
+          // ——— Fast path: delete one account (reject / remove) ———
+          if (scoped === "accountDelete") {
+            const code = String(body.code || "").trim();
+            if (!code) {
+              return res.status(400).json({
+                error: "accountDelete requires code",
+              });
+            }
+            await bumpVersion(nextVersion);
+            try {
+              await sbFetch(
+                "DELETE",
+                `accounts?code=eq.${encodeURIComponent(code)}`,
+                undefined,
+                { Prefer: "return=minimal" }
+              );
+            } catch (_) {}
+            return res.status(200).json({
+              ok: true,
+              version: nextVersion,
+              scope: "accountDelete",
+              code,
+            });
+          }
 
           if (scoped === "accountPatch") {
             const code = String(body.code || "").trim();
@@ -1034,6 +1283,7 @@ export default async function handler(req, res) {
               ],
               { Prefer: "resolution=merge-duplicates,return=minimal" }
             );
+            await invalidateHotCaches();
             return res.status(200).json({
               ok: true,
               version: nextVersion,
@@ -1122,10 +1372,11 @@ export default async function handler(req, res) {
                 );
               }
             } catch (_) {}
-            // Only rewrite accounts that changed vs current
+            // Only rewrite accounts that changed vs current (batched upsert)
             const prevMap = new Map(
               currentAccounts.map((a) => [String(a.code), a])
             );
+            const changedAccounts = [];
             for (const a of nextAccounts) {
               const code = String((a && a.code) || "");
               if (!code) continue;
@@ -1138,8 +1389,9 @@ export default async function handler(req, res) {
                   changed = true;
                 }
               }
-              if (changed) await upsertAccountRow(a);
+              if (changed) changedAccounts.push(a);
             }
+            await upsertAccountsBatch(changedAccounts);
             return res.status(200).json({
               ok: true,
               version: nextVersion,

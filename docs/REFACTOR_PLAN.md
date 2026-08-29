@@ -1,41 +1,29 @@
 # Refactor Plan — Large Files & Architectural Debt
 
-Status as of post–Phase A extraction + JWT removal.
+## API Phase D — Done (this pass)
 
-## Current sizes (approx.)
+`api/jsonbin.js` split without changing the public `/api/jsonbin` contract:
 
-| File | Lines | Notes |
-|------|------:|-------|
-| `src/App.jsx` | ~2141 | Was ~2549; boot extracted to `cloudBootstrap.js` |
-| `src/lib/state/cloudBootstrap.js` | ~502 | **New** — `runAppBoot` |
-| `src/components/MainView.jsx` | ~1461 | Phase B |
-| `src/index.css` | ~2904 | Phase C |
-| `api/jsonbin.js` | ~1700 | Phase D |
+| Module | Role |
+|--------|------|
+| `api/jsonbin.js` | HTTP handler only (~950 lines) — GET/PUT router |
+| `lib/jsonbinMappers.js` | Pure mappers (banner, exam, light entry/account, logs) |
+| `lib/jsonbinDb.js` | Supabase I/O, version, upsert, save full/entries |
+| `lib/jsonbinAuthz.js` | Ownership rules (`actorCode`, staff vs public) |
 
-## Done
-
-- Phase A (partial): `runAppBoot` + `ensureMigratedAccounts` out of App.
-- Partial-save enforcement: no app-level `fetchRecord`; `saveLogsOnly`; auth scoped fetches.
-- Rate limit + accountPatch privilege lock.
-- **JWT / session tokens fully removed** (no `/api/session`, no client sessionAuth, no SESSION_SECRET).
-
-## Remaining
+## Still remaining (client)
 
 ### Phase A (finish)
 1. Extract remaining auth-stage transitions still inline in App.
 2. Target App.jsx < 800 lines over multiple PRs.
 
 ### Phase B — MainView.jsx
-Finish moving render branches into existing panel/overlay components.
+Finish moving render branches into panel/overlay components.
 
 ### Phase C — index.css
 Split tokens / layout / components.
 
-### Phase D — api/jsonbin.js
-Split banner helpers and CRUD handlers; add server-side ownership checks on write scopes.
-
 ## Rules
-
 - No new feature may increase App.jsx or MainView.jsx by more than ~50 net lines without extraction.
 - Mobile ≤768px before merge.
 - Do not reintroduce JWT/session scaffolding.

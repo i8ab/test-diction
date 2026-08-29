@@ -1,22 +1,23 @@
-Fix: bac path + Google link disappear after refresh
-==================================================
+Bacaloria API — Phase D + ownership + profile persist
+=====================================================
 
-السبب:
-- قائمة الحسابات light كانت بترجع من غير bacTrack / bacGrade / bacSpecialty / avatar / authProvider
-- بعد الريفريش (خصوصًا أدمن/معلم) الواجهة كانت بتقرأ النسخة الناقصة
-- دمج الحسابات كان ممكن يمسح حقول موجودة لو الـ incoming فيها undefined
+ملفات جديدة (لازم تتنسخ):
+  lib/jsonbinAuthz.js
+  lib/jsonbinMappers.js
+  lib/jsonbinDb.js
 
-الملفات:
-  api/jsonbin.js              (toLightAccount + mergeAccountRow)
-  lib/jsonbinAuthz.js         (sanitize يحافظ على bac + social)
-  src/lib/state/cloudBootstrap.js  (دمج myAccount الكامل فوق الـ light list)
-  src/lib/state/cloudApi.js   (تحديث كاش الحساب بعد accountPatch)
+ملفات معدّلة:
+  api/jsonbin.js              (handler رفيع بعد التفكيك)
+  src/lib/state/cloudApi.js   (actorCode + كاش بعد patch)
+  src/lib/state/cloudBootstrap.js  (دمج بروفايل كامل بعد refresh)
   SECURITY.md
+  docs/REFACTOR_PLAN.md
   docs/SUPABASE_INDEXES.sql
 
-انسخ فوق المشروع + lib/jsonbinAuthz.js لو لسه مش موجود من باتش الـ ownership.
+خطوات:
+1) انسخ كل الملفات فوق جذر المشروع
+2) نفّذ docs/SUPABASE_INDEXES.sql في Supabase مرة واحدة
+3) npm run build أو deploy على Vercel
+4) اختبر: لوجين، تعديل مسار bac، ربط Google، approve أدمن، signup
 
-اختبر:
-1) حدّد المسار (bac) → احفظ → ريفريش → لازم يفضل
-2) اربط Google → ريفريش → لازم يفضل
-3) عدّل الاسم → ريفريش → يفضل
+مفيش JWT. مفيش routes جديدة — لسه /api/jsonbin فقط.

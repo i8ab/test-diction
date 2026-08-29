@@ -1,23 +1,34 @@
 // /api/tts — Vercel serverless proxy for text-to-speech audio.
-//
-// Why this exists: the browser can't call Google Translate's TTS endpoint
-// directly (it rejects third-party/browser CORS requests). A server-to-server
-// request has no such restriction, so we fetch the audio here and stream it
-// back to the client ourselves.
-//
-// Usage from the browser: GET /api/tts?text=مرحبا&lang=ar
+import { beginApi, handleOptions } from "../lib/apiBootstrap.js";
+import { rateLimit, clientIp } from "../lib/rateLimit.js";
+import { applyRateLimitHeaders } from "../lib/apiBootstrap.js";
+
 export default async function handler(req, res) {
+  const { rid } = beginApi(req, res);
+  if (handleOptions(req, res)) return;
+
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET, OPTIONS");
+    return res.status(405).json({ ok: false, error: "method_not_allowed", requestId: rid });
+  }
+
+  const ip = clientIp(req);
+  const rl = await rateLimit(`tts:${ip}`, { limit: 60, windowMs: 60_000 });
+  applyRateLimitHeaders(res, rl);
+  if (!rl.allowed) {
+    res.setHeader("Retry-After", "30");
+    return res.status(429).json({ ok: false, error: "rate_limited", requestId: rid });
+  }
+
   const { text, lang } = req.query;
 
   if (!text || typeof text !== "string") {
-    res.status(400).json({ error: "Missing 'text' query param" });
-    return;
+    return res.status(400).json({ ok: false, error: "Missing 'text' query param", requestId: rid });
   }
 
   const trimmed = text.trim().slice(0, 200);
   if (!trimmed) {
-    res.status(400).json({ error: "Empty 'text' query param" });
-    return;
+    return res.status(400).json({ ok: false, error: "Empty 'text' query param", requestId: rid });
   }
 
   const voiceLang = lang === "en" ? "en" : "ar";
@@ -30,8 +41,6 @@ export default async function handler(req, res) {
   try {
     const upstream = await fetch(url, {
       headers: {
-        // Google's endpoint checks for a browser-like User-Agent and will
-        // reject requests without one.
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         Referer: "https://translate.google.com/",
@@ -39,18 +48,26 @@ export default async function handler(req, res) {
     });
 
     if (!upstream.ok) {
-      res.status(502).json({ error: "Upstream TTS request failed", status: upstream.status });
-      return;
+      return res.status(502).json({
+        ok: false,
+        error: "Upstream TTS request failed",
+        status: upstream.status,
+        requestId: rid,
+      });
     }
 
     const audioBuffer = Buffer.from(await upstream.arrayBuffer());
 
     res.setHeader("Content-Type", "audio/mpeg");
-    // Same text+lang always yields the same audio — long cache + SWR.
     res.setHeader("Cache-Control", "public, max-age=604800, stale-while-revalidate=86400");
     res.setHeader("Vary", "Accept-Encoding");
-    res.status(200).send(audioBuffer);
+    return res.status(200).send(audioBuffer);
   } catch (e) {
-    res.status(500).json({ error: "TTS proxy error", message: String(e && e.message || e) });
+    return res.status(500).json({
+      ok: false,
+      error: "TTS proxy error",
+      message: String(e && e.message || e),
+      requestId: rid,
+    });
   }
 }

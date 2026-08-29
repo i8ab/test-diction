@@ -16,6 +16,7 @@
  */
 
 import { rateLimit, clientIp } from "../lib/rateLimit.js";
+import { beginApi, handleOptions, applyRateLimitHeaders } from "../lib/apiBootstrap.js";
 
 function getProvider(req) {
   const q = req.query?.provider;
@@ -209,19 +210,24 @@ function handleLegacy(_req, res) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Allow", "POST");
+  const { rid } = beginApi(req, res);
+  if (handleOptions(req, res)) return;
+
+  res.setHeader("Allow", "POST, OPTIONS");
   if (req.method !== "POST") {
-    return res.status(405).json({ ok: false, error: "Method not allowed" });
+    return res.status(405).json({ ok: false, error: "Method not allowed", requestId: rid });
   }
 
   // Auth attempts: 20 / minute / IP (fail-open if Redis missing).
   const ip = clientIp(req);
   const rl = await rateLimit(`auth:${ip}`, { limit: 20, windowMs: 60_000 });
+  applyRateLimitHeaders(res, rl);
   if (!rl.allowed) {
     res.setHeader("Retry-After", "60");
     return res.status(429).json({
       ok: false,
       error: "Too many sign-in attempts. Please wait a minute and try again.",
+      requestId: rid,
     });
   }
 

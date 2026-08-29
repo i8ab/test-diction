@@ -14,6 +14,7 @@
 
 import { redisConfigured, redisCommand } from "../lib/redis.js";
 import { sendPush, vapidConfigured } from "../lib/webpush.js";
+import { beginApi, handleOptions } from "../lib/apiBootstrap.js";
 import {
   PREFS_PREFIX,
   CODES_SET_KEY,
@@ -692,6 +693,10 @@ async function handleDayAchNotifyDue(req, res) {
 // ─── Main router ─────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
+  const { rid } = beginApi(req, res);
+  if (handleOptions(req, res)) return;
+  res.setHeader("X-Request-Id", rid);
+
   const action = getAction(req);
 
   switch (action) {

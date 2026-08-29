@@ -1,18 +1,11 @@
-Bacaloria API — Professional hardening pack
-==========================================
+Backend continuation pack
+========================
+- Shared API bootstrap (CORS/security/requestId) on auth, tts, cambridge, push, jsonbin
+- GET /api/jsonbin?scope=health
+- Audit JSON logs for admin accountStatus / accountDelete
+- Rate limits on tts + cambridge
+- docs/ROADMAP.md for what to do next (client)
 
-جديد في الجولة دي:
-  lib/jsonbinHttp.js     ← CORS / security headers / body guard / request id
-  lib/rateLimit.js       ← X-RateLimit-* metadata
-  docs/API.md            ← عقد الـ API كامل
-  vercel.json            ← headers لـ /api/*
-
-مع كل التحسينات السابقة (ownership, Phase D, profile persist, no JWT).
-
-1) انسخ كل الملفات فوق المشروع
-2) ملفات lib الجديدة الأربعة: jsonbinAuthz, jsonbinDb, jsonbinMappers, jsonbinHttp
-3) احذف ملفات JWT (DELETE_THESE_FILES.txt)
-4) اختياري إنتاج: ALLOWED_ORIGINS=https://your-domain.com في Vercel
-5) Deploy
-
-Indexes: خلاص اتعملت عندك ✓
+Copy over project root, deploy, then open:
+  https://YOUR_DOMAIN/api/jsonbin?scope=health
+Expect: { ok:true, supabase:true, redis:true/false, ... }

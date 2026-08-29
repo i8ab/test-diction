@@ -27,6 +27,7 @@ import {
   guardBodySize,
   normalizeActorCode,
 } from "../lib/jsonbinHttp.js";
+import { auditPrivileged } from "../lib/apiAudit.js";
 import {
   pickBanner,
   pickExamConfig,
@@ -120,6 +121,24 @@ export default async function handler(req, res) {
       }
 
       // ——— نطاقات مجزأة ———
+      if (scope === "health") {
+        const supabaseOk = !!sbHeaders();
+        let redisOk = false;
+        try {
+          redisOk = redisConfigured();
+        } catch (_) {
+          redisOk = false;
+        }
+        return res.status(200).json({
+          ok: true,
+          service: "jsonbin",
+          supabase: supabaseOk,
+          redis: redisOk,
+          time: new Date().toISOString(),
+          requestId: rid,
+        });
+      }
+
       if (scope === "version") {
         let version = await cacheGet("tt:version");
         if (version == null) {
@@ -515,6 +534,13 @@ export default async function handler(req, res) {
             const merged = { ...prev, status: newStatus };
             await bumpVersion(nextVersion);
             await upsertAccountRow(merged);
+            auditPrivileged({
+              action: "accountStatus",
+              actorCode: (body.__authz && body.__authz.actorCode) || body.actorCode,
+              targetCode: code,
+              requestId: rid,
+              meta: { status: newStatus },
+            });
             return res.status(200).json({
               ok: true,
               version: nextVersion,
@@ -540,6 +566,12 @@ export default async function handler(req, res) {
                 { Prefer: "return=minimal" }
               );
             } catch (_) {}
+            auditPrivileged({
+              action: "accountDelete",
+              actorCode: (body.__authz && body.__authz.actorCode) || body.actorCode,
+              targetCode: code,
+              requestId: rid,
+            });
             return res.status(200).json({
               ok: true,
               version: nextVersion,

@@ -1,18 +1,14 @@
 // /api/cambridge-audio — proxy Cambridge Dictionary US / UK pronunciation MP3s.
 //
-// Browser cannot hit dictionary.cambridge.org for audio (CORS + hotlink rules),
-// so we resolve the word's audio URL server-side and stream the MP3 back.
-//
-// GET /api/cambridge-audio?word=hello&accent=us
-// GET /api/cambridge-audio?word=hello&accent=uk
-//
-// accent: "us" | "uk" (default "us")
+// GET /api/cambridge-audio?word=hello&accent=us|uk
+
+import { beginApi, handleOptions, applyRateLimitHeaders } from "../lib/apiBootstrap.js";
+import { rateLimit, clientIp } from "../lib/rateLimit.js";
 
 function normalizeWord(raw) {
   return String(raw || "")
     .trim()
     .toLowerCase()
-    // Keep letters, spaces, hyphens, apostrophes — Cambridge slug uses hyphens.
     .replace(/[^a-z0-9\s'\-]/gi, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -28,7 +24,6 @@ function toSlug(word) {
 function extractAudioUrl(html, accent) {
   if (!html) return null;
   const needle = accent === "uk" ? "uk_pron" : "us_pron";
-  // Most common: data-src-mp3="https://dictionary.cambridge.org/media/english/us_pron/..."
   const reData = new RegExp(
     `data-src-mp3="(https://dictionary\\.cambridge\\.org/media/english/${needle}[^"]+\\.mp3)"`,
     "i"
@@ -36,7 +31,6 @@ function extractAudioUrl(html, accent) {
   let m = html.match(reData);
   if (m) return m[1];
 
-  // Fallback: plain src on <source> / <audio>
   const reSrc = new RegExp(
     `src="(https://dictionary\\.cambridge\\.org/media/english/${needle}[^"]+\\.mp3)"`,
     "i"
@@ -44,7 +38,6 @@ function extractAudioUrl(html, accent) {
   m = html.match(reSrc);
   if (m) return m[1];
 
-  // Relative paths
   const reRel = new RegExp(
     `(?:data-src-mp3|src)="(/media/english/${needle}[^"]+\\.mp3)"`,
     "i"
@@ -56,9 +49,20 @@ function extractAudioUrl(html, accent) {
 }
 
 export default async function handler(req, res) {
+  const { rid } = beginApi(req, res);
+  if (handleOptions(req, res)) return;
+
   if (req.method !== "GET") {
-    res.setHeader("Allow", "GET");
-    return res.status(405).json({ error: "Method not allowed" });
+    res.setHeader("Allow", "GET, OPTIONS");
+    return res.status(405).json({ ok: false, error: "method_not_allowed", requestId: rid });
+  }
+
+  const ip = clientIp(req);
+  const rl = await rateLimit(`cambridge:${ip}`, { limit: 90, windowMs: 60_000 });
+  applyRateLimitHeaders(res, rl);
+  if (!rl.allowed) {
+    res.setHeader("Retry-After", "30");
+    return res.status(429).json({ ok: false, error: "rate_limited", requestId: rid });
   }
 
   const word = normalizeWord(req.query.word);
@@ -66,12 +70,11 @@ export default async function handler(req, res) {
   const accent = accentRaw === "uk" || accentRaw === "gb" || accentRaw === "br" ? "uk" : "us";
 
   if (!word) {
-    return res.status(400).json({ error: "Missing word" });
+    return res.status(400).json({ ok: false, error: "Missing word", requestId: rid });
   }
-  // Single-token English words work best; multi-word phrases often have no entry.
   const slug = toSlug(word.split(" ")[0]).slice(0, 64);
   if (!slug) {
-    return res.status(400).json({ error: "Invalid word" });
+    return res.status(400).json({ ok: false, error: "Invalid word", requestId: rid });
   }
 
   const pageUrl = `https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(slug)}`;
@@ -90,17 +93,25 @@ export default async function handler(req, res) {
     });
 
     if (!pageRes.ok) {
-      return res.status(404).json({ error: "Word not found on Cambridge", status: pageRes.status });
+      return res.status(404).json({
+        ok: false,
+        error: "Word not found on Cambridge",
+        status: pageRes.status,
+        requestId: rid,
+      });
     }
 
     const html = await pageRes.text();
     let audioUrl = extractAudioUrl(html, accent);
-    // If preferred accent missing, try the other one so the speaker still works.
     if (!audioUrl) {
       audioUrl = extractAudioUrl(html, accent === "us" ? "uk" : "us");
     }
     if (!audioUrl) {
-      return res.status(404).json({ error: "No pronunciation audio for this word" });
+      return res.status(404).json({
+        ok: false,
+        error: "No pronunciation audio for this word",
+        requestId: rid,
+      });
     }
 
     const audioRes = await fetch(audioUrl, {
@@ -112,7 +123,12 @@ export default async function handler(req, res) {
     });
 
     if (!audioRes.ok) {
-      return res.status(502).json({ error: "Failed to fetch Cambridge audio", status: audioRes.status });
+      return res.status(502).json({
+        ok: false,
+        error: "Failed to fetch Cambridge audio",
+        status: audioRes.status,
+        requestId: rid,
+      });
     }
 
     const buf = Buffer.from(await audioRes.arrayBuffer());
@@ -122,8 +138,10 @@ export default async function handler(req, res) {
     return res.status(200).send(buf);
   } catch (e) {
     return res.status(500).json({
+      ok: false,
       error: "Cambridge audio proxy error",
       message: String((e && e.message) || e),
+      requestId: rid,
     });
   }
 }

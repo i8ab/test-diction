@@ -19,7 +19,7 @@ export function useCloudEntries({ autoFetch = false, initial = [] } = {}) {
     setLoading(true);
     setError(null);
     try {
-      const list = await fetchEntriesOnly();
+      const list = await fetchEntriesOnly({ fields: "light" });
       const safe = Array.isArray(list) ? list : [];
       setEntries(safe);
       return safe;

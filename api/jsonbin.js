@@ -291,6 +291,40 @@ function pruneLogsLast24h(logs) {
   return (logs || []).filter((l) => (l.at || 0) >= cutoff);
 }
 
+/**
+ * Strip heavy fields for dictionary list payloads (bandwidth).
+ * Full object still available via scope=entry&id=… or fields=full (default).
+ */
+function toLightEntry(e) {
+  if (!e || typeof e !== "object") return e;
+  const example =
+    typeof e.example === "string"
+      ? e.example.length > 120
+        ? e.example.slice(0, 120)
+        : e.example
+      : e.example || "";
+  const definition =
+    typeof e.definition === "string"
+      ? e.definition.length > 200
+        ? e.definition.slice(0, 200)
+        : e.definition
+      : e.definition || "";
+  return {
+    id: e.id,
+    word: e.word,
+    meaning: e.meaning,
+    definition,
+    example,
+    section: e.section,
+    pos: e.pos,
+    type: e.type,
+    addedAt: e.addedAt,
+  };
+}
+
+function mapEntriesLight(entries) {
+  return (entries || []).map(toLightEntry);
+}
 
 async function sbFetch(method, path, body, extraHeaders = {}) {
   const cfg = sbHeaders();
@@ -842,14 +876,50 @@ export default async function handler(req, res) {
           accounts = await loadAccountsDataOnly();
           await cacheSet("tt:accounts", accounts, 12);
         }
+        const ver = await cacheGet("tt:version");
+        const etag = `W/"a${ver != null ? ver : accounts.length}"`;
+        res.setHeader("ETag", etag);
+        const inm = req.headers["if-none-match"];
+        if (inm && String(inm).trim() === etag) {
+          return res.status(304).end();
+        }
         return res.status(200).json({ accounts });
       }
 
+      // Single full entry (detail / edit) — small payload, full fields
+      if (scope === "entry") {
+        const entryId = (url.searchParams.get("id") || "").trim();
+        if (!entryId) {
+          return res.status(400).json({ error: "entry scope requires id" });
+        }
+        let row = null;
+        try {
+          const rows = await sbFetch(
+            "GET",
+            `entries?select=data&data->>id=eq.${encodeURIComponent(entryId)}&limit=1`
+          );
+          row = rows && rows[0] ? rows[0].data : null;
+        } catch (_) {
+          row = null;
+        }
+        if (!row) {
+          const all = await sbFetch("GET", "entries?select=data");
+          row =
+            (all || [])
+              .map((r) => r.data)
+              .find((e) => e && String(e.id) === entryId) || null;
+        }
+        return res.status(200).json({ entry: row });
+      }
+
       if (scope === "entries") {
-        // section اختياري: en-ar | ar-ar | academic — يقلل حجم الرد
-        // limit + after (cursor by data->>id) للتصفح بدون تحميل كل القاموس
+        // section: en-ar | ar-ar | academic
+        // fields=light → list-sized objects (bandwidth)
+        // limit + after → cursor pagination
         const sectionFilter = (url.searchParams.get("section") || "").trim();
         const allowed = new Set(["en-ar", "ar-ar", "academic"]);
+        const fields = (url.searchParams.get("fields") || "full").toLowerCase();
+        const light = fields === "light" || fields === "list";
         const limitRaw = Number(url.searchParams.get("limit") || 0);
         const limit =
           Number.isFinite(limitRaw) && limitRaw > 0
@@ -857,9 +927,18 @@ export default async function handler(req, res) {
             : 0;
         const after = (url.searchParams.get("after") || "").trim();
 
+        const finish = (list, extra = {}) => {
+          const entries = light ? mapEntriesLight(list) : list;
+          return res.status(200).json({
+            entries,
+            section: sectionFilter || null,
+            fields: light ? "light" : "full",
+            ...extra,
+          });
+        };
+
         let entriesRows;
         if (limit > 0) {
-          // Cursor pagination — أسرع وأقل باندويث لما القاموس كبير
           try {
             let path = `entries?select=data&order=data->>id.asc&limit=${limit}`;
             if (sectionFilter && allowed.has(sectionFilter)) {
@@ -873,7 +952,6 @@ export default async function handler(req, res) {
             entriesRows = null;
           }
           if (!entriesRows) {
-            // fallback: load + filter locally then slice
             const all = await sbFetch("GET", "entries?select=data");
             let list = (all || []).map((r) => r.data).filter(Boolean);
             if (sectionFilter && allowed.has(sectionFilter)) {
@@ -887,29 +965,20 @@ export default async function handler(req, res) {
             }
             const page = list.slice(0, limit);
             const nextCursor =
-              page.length === limit ? String(page[page.length - 1].id || "") : null;
-            return res.status(200).json({
-              entries: page,
-              section: sectionFilter || null,
-              nextCursor,
-              hasMore: !!nextCursor,
-            });
+              page.length === limit
+                ? String(page[page.length - 1].id || "")
+                : null;
+            return finish(page, { nextCursor, hasMore: !!nextCursor });
           }
           const entries = (entriesRows || []).map((r) => r.data).filter(Boolean);
           const nextCursor =
             entries.length === limit
               ? String(entries[entries.length - 1].id || "")
               : null;
-          return res.status(200).json({
-            entries,
-            section: sectionFilter || null,
-            nextCursor,
-            hasMore: !!nextCursor,
-          });
+          return finish(entries, { nextCursor, hasMore: !!nextCursor });
         }
 
         if (sectionFilter && allowed.has(sectionFilter)) {
-          // تصفية على مستوى Supabase (jsonb) لتقليل النقل
           try {
             entriesRows = await sbFetch(
               "GET",
@@ -918,7 +987,6 @@ export default async function handler(req, res) {
           } catch (_) {
             entriesRows = null;
           }
-          // fallback: جلب الكل ثم تصفية محلياً لو الفلتر فشل
           if (!entriesRows) {
             const all = await sbFetch("GET", "entries?select=data");
             entriesRows = (all || []).filter(
@@ -929,10 +997,7 @@ export default async function handler(req, res) {
           entriesRows = await sbFetch("GET", "entries?select=data");
         }
         const entries = (entriesRows || []).map((r) => r.data).filter(Boolean);
-        return res.status(200).json({
-          entries,
-          section: sectionFilter || null,
-        });
+        return finish(entries);
       }
 
       if (scope === "logs") {
@@ -1027,7 +1092,12 @@ export default async function handler(req, res) {
         return sendBootstrap(payload);
       }
 
-      // افتراضي: السجل الكامل (للتوافق العكسي)
+      // افتراضي: السجل الكامل (للتوافق العكسي فقط — تجنّبه في المسار العادي)
+      res.setHeader("X-Deprecated-Scope", "full");
+      res.setHeader(
+        "Warning",
+        '299 - "scope=full is expensive; use scoped endpoints (entries, accounts, bootstrap, version)"'
+      );
       const record = await loadRecord();
       return res.status(200).json(record);
     }

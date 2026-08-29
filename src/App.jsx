@@ -388,7 +388,18 @@ export default function DictionaryApp() {
   function mergeSectionEntries(current, sectionEntries, sec) {
     const others = (current || []).filter((e) => e && e.section !== sec);
     const incoming = Array.isArray(sectionEntries) ? sectionEntries : [];
-    return [...others, ...incoming];
+    // Preserve heavy fields from local/offline when server list is light.
+    const prevById = new Map(
+      (current || [])
+        .filter((e) => e && e.section === sec && e.id != null)
+        .map((e) => [String(e.id), e])
+    );
+    const mergedIncoming = incoming.map((e) => {
+      if (!e || e.id == null) return e;
+      const old = prevById.get(String(e.id));
+      return old ? { ...old, ...e } : e;
+    });
+    return [...others, ...mergedIncoming];
   }
   const [showAdd, setShowAdd] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
@@ -993,13 +1004,23 @@ useEffect(() => {
     if (missing.length) {
       (async () => {
         try {
-          // جلب كامل مرة واحدة أخف من 3 طلبات لو ناقص أكتر من قسم
-          const all = await fetchEntriesOnly({ fresh: true });
+          // قائمة خفيفة لكل الأقسام (باندويث أقل) — التفاصيل عند فتح الكلمة
+          const all = await fetchEntriesOnly({ fresh: true, fields: "light" });
           ["en-ar", "ar-ar", "academic"].forEach((s) =>
             loadedSectionsRef.current.add(s)
           );
-          setEntries(all);
-          entriesRef.current = all;
+          setEntries((prev) => {
+            const prevById = new Map(
+              (prev || []).filter((e) => e && e.id != null).map((e) => [String(e.id), e])
+            );
+            const merged = (all || []).map((e) => {
+              if (!e || e.id == null) return e;
+              const old = prevById.get(String(e.id));
+              return old ? { ...old, ...e } : e;
+            });
+            entriesRef.current = merged;
+            return merged;
+          });
         } catch (_) {}
       })();
     }

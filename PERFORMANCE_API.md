@@ -58,3 +58,24 @@
 - SQL indexes: `docs/SUPABASE_INDEXES.sql` (run in Supabase)
 
 Still one main function: `/api/jsonbin` (plus existing push/auth/tts). No new serverless routes.
+
+## Round 3 — Bandwidth + list/detail split
+
+### Server
+- `fields=light` on `scope=entries` → strips heavy text (notes/long examples)
+- `scope=entry&id=` → one full entry for detail/edit
+- `X-Deprecated-Scope: full` + Warning header on full GET
+- ETag on `scope=accounts`
+
+### Client
+- `fetchEntriesOnly({ fields: "light" })`
+- `fetchEntryById(id)`
+- `fetchRecord` warns in console (discourage accidental full pulls)
+
+### Logs
+- Account approve/reject/delete fast paths already do **not** write logs on the server; use `saveLogsOnly` / `scope=logs` only when the activity UI needs it.
+
+### Expected impact
+- List of 500 words: often **50–70% smaller** JSON with `fields=light`
+- Opening one word: one tiny request instead of re-downloading the list
+- Accidental full fetches: visible Warning header + client console warn

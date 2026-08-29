@@ -71,10 +71,16 @@ function normalizeRecord(data) {
 // like "nothing happened". We bust the CDN with a unique query string and
 // ask the API to emit private no-store headers.
 /**
- * جلب السجل الكامل — يُستخدم فقط عند الحاجة الفعلية (أدمن / ترحيل / تعارض).
- * تجنب استدعاءه في المسار العادي للمستخدم.
+ * جلب السجل الكامل — مكلف جداً (باندويث + latency).
+ * استخدمه فقط عند الحاجة الفعلية (ترحيل نادر / استرداد).
+ * المسار العادي: fetchBootstrap, fetchEntriesOnly, fetchMyAccount, fetchVersionOnly…
  */
 export async function fetchRecord({ fresh = false } = {}) {
+  if (typeof console !== "undefined" && console.warn) {
+    console.warn(
+      "[cloudApi] fetchRecord() loads the full dictionary — prefer scoped fetches."
+    );
+  }
   if (!fresh && _memRecord && Date.now() - _memAt < MEM_TTL_MS) {
     return _memRecord;
   }
@@ -202,23 +208,28 @@ export async function fetchEntriesOnly({
   section = null,
   limit = 0,
   after = null,
+  /** Default "light" = smaller list payloads. Pass "full" for export/admin bulk. */
+  fields = "light",
 } = {}) {
   const sec =
     section === "en-ar" || section === "ar-ar" || section === "academic"
       ? section
       : null;
+  const light = fields === "light" || fields === "list";
   const usePage = Number(limit) > 0;
   const cacheKey = usePage
     ? null
-    : sec
-      ? `entries:${sec}`
-      : "entries";
+    : `${light ? "entries-light" : "entries"}${sec ? `:${sec}` : ""}`;
   if (!fresh && cacheKey) {
     const cached = scopedGet(cacheKey);
     if (cached) return cached;
   }
-  const params = new URLSearchParams({ scope: "entries", _t: String(Date.now()) });
+  const params = new URLSearchParams({
+    scope: "entries",
+    _t: String(Date.now()),
+  });
   if (sec) params.set("section", sec);
+  if (light) params.set("fields", "light");
   if (usePage) {
     params.set("limit", String(Math.min(Number(limit) || 40, 200)));
     if (after) params.set("after", String(after));
@@ -232,10 +243,30 @@ export async function fetchEntriesOnly({
       entries,
       nextCursor: data.nextCursor || null,
       hasMore: !!data.hasMore,
+      fields: data.fields || (light ? "light" : "full"),
     };
   }
   if (cacheKey) scopedSet(cacheKey, entries);
   return entries;
+}
+
+/** كلمة واحدة كاملة (تفاصيل / تعديل) — بدل تحميل القائمة كلها */
+export async function fetchEntryById(id, { fresh = false } = {}) {
+  if (!id) return null;
+  const cacheKey = `entry:${id}`;
+  if (!fresh) {
+    const cached = scopedGet(cacheKey);
+    if (cached) return cached;
+  }
+  const res = await fetch(
+    `/api/jsonbin?scope=entry&id=${encodeURIComponent(id)}&_t=${Date.now()}`,
+    NO_STORE
+  );
+  if (!res.ok) throw new Error("fetchEntryById failed");
+  const data = await res.json();
+  const entry = data.entry || null;
+  if (entry) scopedSet(cacheKey, entry);
+  return entry;
 }
 
 /** سجل النشاط فقط (للأدمن) */

@@ -192,18 +192,30 @@ export async function fetchMyAccount(code, { fresh = false } = {}) {
   return account;
 }
 
-/** قائمة الحسابات كاملة — للأدمن/المعلم فقط */
-export async function fetchAccountsOnly({ fresh = false } = {}) {
+/**
+ * قائمة الحسابات — للأدمن/المعلم.
+ * @param {{ fresh?: boolean, fields?: 'light'|'full' }} opts
+ *   default light = بدون passwordHash/progress (أسرع + آمن أكثر للقائمة)
+ *   fields: "full" مطلوب لتسجيل الدخول / الترحيل
+ */
+export async function fetchAccountsOnly({ fresh = false, fields = "light" } = {}) {
+  const light = fields !== "full";
+  const cacheKey = light ? "accounts-light" : "accounts";
   if (!fresh) {
-    const cached = scopedGet("accounts");
+    const cached = scopedGet(cacheKey);
     if (cached) return cached;
   }
-  return inflight(`accounts:${fresh ? 1 : 0}`, async () => {
-    const res = await fetch(`/api/jsonbin?scope=accounts&_t=${Date.now()}`, NO_STORE);
+  return inflight(`accounts:${light ? "L" : "F"}:${fresh ? 1 : 0}`, async () => {
+    const params = new URLSearchParams({
+      scope: "accounts",
+      _t: String(Date.now()),
+    });
+    if (light) params.set("fields", "light");
+    const res = await fetch(`/api/jsonbin?${params}`, NO_STORE);
     if (!res.ok) throw new Error("fetchAccountsOnly failed");
     const data = await res.json();
     const accounts = Array.isArray(data.accounts) ? data.accounts : [];
-    scopedSet("accounts", accounts);
+    scopedSet(cacheKey, accounts);
     return accounts;
   });
 }
@@ -540,8 +552,9 @@ export async function saveLogsOnly(logs, expectedVersion) {
  * that do not need the dictionary.
  */
 export async function fetchAccountsBundle({ fresh = false } = {}) {
+  // full required: login needs passwordHash; migration may touch all fields
   const [accounts, version] = await Promise.all([
-    fetchAccountsOnly({ fresh }),
+    fetchAccountsOnly({ fresh, fields: "full" }),
     fetchVersionOnly({ fresh }),
   ]);
   return {

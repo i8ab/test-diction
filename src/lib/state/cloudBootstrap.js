@@ -122,16 +122,14 @@ export async function runAppBoot(ctx, cancelledRef) {
             myAccount &&
             (myAccount.role === "admin" || myAccount.role === "teacher");
 
-          // الحسابات الكاملة واللوجات فقط للأدمن/المعلم
+          // قائمة حسابات خفيفة للأدمن/المعلم — اللوجات عند فتح لوحة النشاط فقط
           let accounts = myAccount ? [myAccount] : [];
           let logs = [];
           if (isPrivileged) {
-            const [allAccounts, allLogs] = await Promise.all([
-              fetchAccountsOnly().catch(() => []),
-              fetchLogsOnly().catch(() => []),
-            ]);
+            const allAccounts = await fetchAccountsOnly({ fields: "light" }).catch(
+              () => []
+            );
             accounts = allAccounts.length ? allAccounts : accounts;
-            logs = allLogs;
           }
 
           // ادمج مع كاش الأقسام الأخرى عشان ما تختفيش لحد ما تتجلب
@@ -353,12 +351,12 @@ export async function runAppBoot(ctx, cancelledRef) {
               let accountsList = freshAccount ? [freshAccount] : [];
               let logsList = [];
               if (isPriv) {
-                const [allAcc, allLogs] = await Promise.all([
-                  fetchAccountsOnly({ fresh: true }).catch(() => []),
-                  fetchLogsOnly({ fresh: true }).catch(() => []),
-                ]);
+                const allAcc = await fetchAccountsOnly({
+                  fresh: true,
+                  fields: "light",
+                }).catch(() => []);
                 if (allAcc.length) accountsList = allAcc;
-                logsList = allLogs;
+                // logs stay [] until admin activity panel loads them
               }
               const freshRec = await ensureMigratedAccounts({
                 entries: entries || [],

@@ -326,6 +326,33 @@ function mapEntriesLight(entries) {
   return (entries || []).map(toLightEntry);
 }
 
+/**
+ * Admin list payload — drop secrets and bulky progress maps.
+ * Full object: fields=full or scope=account&code=.
+ */
+function toLightAccount(a) {
+  if (!a || typeof a !== "object") return a;
+  return {
+    code: a.code,
+    username: a.username,
+    name: a.name,
+    status: a.status,
+    role: a.role,
+    gender: a.gender,
+    birthDate: a.birthDate,
+    path: a.path,
+    createdAt: a.createdAt,
+    updatedAt: a.updatedAt,
+    sessionId: a.sessionId,
+    banned: a.banned,
+    blockedAt: a.blockedAt,
+  };
+}
+
+function mapAccountsLight(accounts) {
+  return (accounts || []).map(toLightAccount);
+}
+
 async function sbFetch(method, path, body, extraHeaders = {}) {
   const cfg = sbHeaders();
   if (!cfg) throw new Error("missing SUPABASE_URL or key");
@@ -871,19 +898,25 @@ export default async function handler(req, res) {
       }
 
       if (scope === "accounts") {
+        const fields = (url.searchParams.get("fields") || "full").toLowerCase();
+        const light = fields === "light" || fields === "list";
         let accounts = await cacheGet("tt:accounts");
         if (!accounts) {
           accounts = await loadAccountsDataOnly();
           await cacheSet("tt:accounts", accounts, 12);
         }
+        const out = light ? mapAccountsLight(accounts) : accounts;
         const ver = await cacheGet("tt:version");
-        const etag = `W/"a${ver != null ? ver : accounts.length}"`;
+        const etag = `W/"a${light ? "L" : "F"}${ver != null ? ver : accounts.length}"`;
         res.setHeader("ETag", etag);
         const inm = req.headers["if-none-match"];
         if (inm && String(inm).trim() === etag) {
           return res.status(304).end();
         }
-        return res.status(200).json({ accounts });
+        return res.status(200).json({
+          accounts: out,
+          fields: light ? "light" : "full",
+        });
       }
 
       // Single full entry (detail / edit) — small payload, full fields

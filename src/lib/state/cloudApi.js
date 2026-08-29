@@ -501,6 +501,12 @@ export async function patchAccountFields(code, patch, expectedVersion) {
     { scope: "accountPatch", code, patch: patch || {} },
     expectedVersion
   );
+  // Keep single-account cache aligned so refresh/boot does not flash old profile
+  if (data && data.account && code) {
+    try {
+      scopedSet(`account:${code}`, data.account);
+    } catch (_) {}
+  }
   return {
     version: typeof data.version === "number" ? data.version : expectedVersion + 1,
     account: data.account || null,

@@ -1,28 +1,22 @@
-Bacaloria API — ownership + authz patch
-======================================
+Fix: bac path + Google link disappear after refresh
+==================================================
 
-1) انسخ الملفات فوق مشروعك (نفس المسارات):
-   - api/jsonbin.js
-   - lib/jsonbinAuthz.js          ← ملف جديد
-   - src/lib/state/cloudApi.js
-   - SECURITY.md
-   - docs/SUPABASE_INDEXES.sql    (للمرجع)
+السبب:
+- قائمة الحسابات light كانت بترجع من غير bacTrack / bacGrade / bacSpecialty / avatar / authProvider
+- بعد الريفريش (خصوصًا أدمن/معلم) الواجهة كانت بتقرأ النسخة الناقصة
+- دمج الحسابات كان ممكن يمسح حقول موجودة لو الـ incoming فيها undefined
 
-2) في Supabase SQL Editor نفّذ مرة واحدة:
-   docs/SUPABASE_INDEXES.sql
-   (IF NOT EXISTS — آمن للإعادة)
+الملفات:
+  api/jsonbin.js              (toLightAccount + mergeAccountRow)
+  lib/jsonbinAuthz.js         (sanitize يحافظ على bac + social)
+  src/lib/state/cloudBootstrap.js  (دمج myAccount الكامل فوق الـ light list)
+  src/lib/state/cloudApi.js   (تحديث كاش الحساب بعد accountPatch)
+  SECURITY.md
+  docs/SUPABASE_INDEXES.sql
 
-3) مفيش ملفات تمسحها في الباتش ده.
-   (تأكد إن ملفات JWT اتشالت من الباتش السابق)
+انسخ فوق المشروع + lib/jsonbinAuthz.js لو لسه مش موجود من باتش الـ ownership.
 
-4) بعد الرفع اختبر:
-   - لوجين عادي + تعديل بروفايلك (accountPatch)
-   - يوزر عادي يحاول approve حساب → 403
-   - أدمن approve / delete → 200
-   - إضافة كلمة (entryPatch) وأنت مسجّل → 200
-   - تسجيل حساب جديد (signup) → لسه شغال بدون actor staff
-
-ملاحظات:
-- كل PUT بيبعت actorCode من loadPersonalCode()
-- السيرفر بيحمّل الحساب من DB وبيستخدم role/status المخزّنين فقط
-- تفكيك Phase D بدأ بـ lib/jsonbinAuthz.js؛ باقي jsonbin.js يتفكك لاحقًا
+اختبر:
+1) حدّد المسار (bac) → احفظ → ريفريش → لازم يفضل
+2) اربط Google → ريفريش → لازم يفضل
+3) عدّل الاسم → ريفريش → يفضل

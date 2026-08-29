@@ -340,21 +340,42 @@ function mapEntriesLight(entries) {
  */
 function toLightAccount(a) {
   if (!a || typeof a !== "object") return a;
-  return {
+  // Profile + bac + social link fields must survive refresh.
+  // Omit undefined so later {...prev, ...light} merges do not wipe DB values.
+  // Still omit secrets: passwordHash, bulky progress maps, etc.
+  const out = {
     code: a.code,
     username: a.username,
     name: a.name,
     status: a.status,
     role: a.role,
-    gender: a.gender,
-    birthDate: a.birthDate,
-    path: a.path,
-    createdAt: a.createdAt,
-    updatedAt: a.updatedAt,
-    sessionId: a.sessionId,
-    banned: a.banned,
-    blockedAt: a.blockedAt,
   };
+  const optional = [
+    "isAdmin",
+    "gender",
+    "birthDate",
+    "path",
+    "bacTrack",
+    "bacGrade",
+    "bacSpecialty",
+    "avatar",
+    "authProvider",
+    "socialId",
+    "email",
+    "createdAt",
+    "updatedAt",
+    "sessionId",
+    "banned",
+    "blockedAt",
+  ];
+  for (const k of optional) {
+    if (a[k] !== undefined && a[k] !== null && a[k] !== "") {
+      out[k] = a[k];
+    }
+  }
+  // Allow explicit empty gender if set
+  if (a.gender === "") out.gender = "";
+  return out;
 }
 
 function mapAccountsLight(accounts) {
@@ -1433,7 +1454,12 @@ export default async function handler(req, res) {
             const mergeAccountRow = (prev, incoming) => {
               if (!prev) return incoming;
               if (!incoming) return prev;
-              const merged = { ...prev, ...incoming };
+              // Do not let undefined/light-omitted keys wipe profile fields
+              // (bacTrack, avatar, Google link, …) already stored on prev.
+              const merged = { ...prev };
+              for (const k of Object.keys(incoming)) {
+                if (incoming[k] !== undefined) merged[k] = incoming[k];
+              }
               if (statusRank(prev.status) > statusRank(incoming.status)) {
                 merged.status = prev.status;
               }

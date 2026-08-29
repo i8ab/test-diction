@@ -129,7 +129,24 @@ export async function runAppBoot(ctx, cancelledRef) {
             const allAccounts = await fetchAccountsOnly({ fields: "light" }).catch(
               () => []
             );
-            accounts = allAccounts.length ? allAccounts : accounts;
+            if (allAccounts.length) {
+              // Light list must not wipe the signed-in user's full profile
+              // (bacTrack, avatar, Google link, …) that fetchMyAccount returned.
+              accounts = allAccounts.map((a) =>
+                a && myAccount && a.code === myAccount.code
+                  ? { ...a, ...myAccount }
+                  : a
+              );
+              // If light list somehow omitted self, keep full self row
+              if (
+                myAccount &&
+                !accounts.some((a) => a && a.code === myAccount.code)
+              ) {
+                accounts = [myAccount, ...accounts];
+              }
+            } else {
+              accounts = myAccount ? [myAccount] : accounts;
+            }
           }
 
           // ادمج مع كاش الأقسام الأخرى عشان ما تختفيش لحد ما تتجلب
@@ -355,7 +372,21 @@ export async function runAppBoot(ctx, cancelledRef) {
                   fresh: true,
                   fields: "light",
                 }).catch(() => []);
-                if (allAcc.length) accountsList = allAcc;
+                if (allAcc.length) {
+                  accountsList = allAcc.map((a) =>
+                    a && freshAccount && a.code === freshAccount.code
+                      ? { ...a, ...freshAccount }
+                      : a
+                  );
+                  if (
+                    freshAccount &&
+                    !accountsList.some((a) => a && a.code === freshAccount.code)
+                  ) {
+                    accountsList = [freshAccount, ...accountsList];
+                  }
+                } else if (freshAccount) {
+                  accountsList = [freshAccount];
+                }
                 // logs stay [] until admin activity panel loads them
               }
               const freshRec = await ensureMigratedAccounts({

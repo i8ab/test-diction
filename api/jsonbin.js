@@ -20,6 +20,14 @@ import {
   notFoundPayload,
 } from "../lib/jsonbinAuthz.js";
 import {
+  requestId,
+  applySecurityHeaders,
+  applyCors,
+  applyRateLimitHeaders,
+  guardBodySize,
+  normalizeActorCode,
+} from "../lib/jsonbinHttp.js";
+import {
   pickBanner,
   pickExamConfig,
   pickAcademicUnits,
@@ -49,12 +57,22 @@ import {
 const LOCK_KEY = "twoTongues:dictWriteLock";
 
 export default async function handler(req, res) {
+  const rid = requestId(req);
+  applyCors(req, res);
+  applySecurityHeaders(res, rid);
+
+  // CORS preflight
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
+  }
+
   if (!sbHeaders()) {
     return res.status(500).json({
       ok: false,
       error: "not_configured",
       message:
         "Server not configured: missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY",
+      requestId: rid,
     });
   }
 
@@ -74,12 +92,14 @@ export default async function handler(req, res) {
           limit: 30,
           windowMs: 60_000,
         });
+        applyRateLimitHeaders(res, rl);
         if (!rl.allowed) {
           res.setHeader("Retry-After", "30");
           return res.status(429).json({
             ok: false,
             error: "rate_limited",
             message: "Too many full-record reads. Use scoped endpoints.",
+            requestId: rid,
           });
         }
       }
@@ -366,12 +386,14 @@ export default async function handler(req, res) {
       // Write rate limit: 60 requests / minute / IP (fail-open if Redis missing).
       const ip = clientIp(req);
       const rl = await rateLimit(`write:${ip}`, { limit: 60, windowMs: 60_000 });
+      applyRateLimitHeaders(res, rl);
       if (!rl.allowed) {
         res.setHeader("Retry-After", "60");
         return res.status(429).json({
           ok: false,
           error: "rate_limited",
           message: "Too many write requests. Please wait a moment and try again.",
+          requestId: rid,
         });
       }
 
@@ -384,22 +406,51 @@ export default async function handler(req, res) {
         }
       }
       if (!body || typeof body !== "object") {
-        return res.status(400).json(badRequestPayload("Invalid body", "invalid_body"));
+        return res.status(400).json({
+          ...badRequestPayload("Invalid body", "invalid_body"),
+          requestId: rid,
+        });
       }
-      if (typeof body.expectedVersion !== "number") {
-        return res.status(400).json(
-          badRequestPayload(
+
+      const sizeGuard = guardBodySize(body);
+      if (!sizeGuard.ok) {
+        return res.status(sizeGuard.status).json({
+          ...sizeGuard.payload,
+          requestId: rid,
+        });
+      }
+
+      if (typeof body.expectedVersion !== "number" || !Number.isFinite(body.expectedVersion)) {
+        return res.status(400).json({
+          ...badRequestPayload(
             "Missing expectedVersion — client must send the version it last read.",
             "missing_expected_version"
-          )
-        );
+          ),
+          requestId: rid,
+        });
+      }
+
+      // Normalize actorCode (reject weird shapes; empty stays empty for signup)
+      if (body.actorCode != null || body.actor_code != null) {
+        const normalized = normalizeActorCode(body.actorCode || body.actor_code);
+        if ((body.actorCode || body.actor_code) && !normalized) {
+          return res.status(400).json({
+            ...badRequestPayload("Invalid actorCode format.", "invalid_actor"),
+            requestId: rid,
+          });
+        }
+        body.actorCode = normalized;
+        delete body.actor_code;
       }
 
       // Ownership / role checks (actor loaded from DB — never trust body.role)
       const writeScope = body.scope || "full";
       const authz = await authorizeWrite(writeScope, body, loadOneAccount);
       if (!authz.ok) {
-        return res.status(authz.status).json(authz.payload);
+        return res.status(authz.status).json({
+          ...authz.payload,
+          requestId: rid,
+        });
       }
       // Stash for handlers that need actor context
       body.__authz = authz;
@@ -944,8 +995,13 @@ export default async function handler(req, res) {
       }
     }
 
-    res.setHeader("Allow", "GET, PUT");
-    return res.status(405).json({ ok: false, error: "method_not_allowed", message: "Method not allowed" });
+    res.setHeader("Allow", "GET, PUT, OPTIONS");
+    return res.status(405).json({
+      ok: false,
+      error: "method_not_allowed",
+      message: "Method not allowed",
+      requestId: rid,
+    });
   } catch (e) {
     console.error("Supabase proxy error:", e);
     return res.status(500).json({
@@ -953,6 +1009,7 @@ export default async function handler(req, res) {
       error: "proxy_error",
       message: "Proxy error",
       detail: String(e.message || e),
+      requestId: rid,
     });
   }
 }

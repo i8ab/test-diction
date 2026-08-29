@@ -1,12 +1,5 @@
-احذف الملفات دي من مشروعك بعد ما ترفع التعديلات (JWT اتشال نهائيًا):
-
-1) api/session.js
-2) lib/sessionToken.js
-3) src/lib/state/sessionAuth.js
-
-اختياري من Vercel Environment Variables:
-- SESSION_SECRET  (امسحه لو موجود)
-
-ملحوظة:
-- src/lib/state/sessionUi.js   ← متتمسحهوش (UI overlays بعد الـ refresh)
-- src/lib/state/vaultSession.js ← متتمسحهوش (تبديل حسابات الـ vault) — الملف ده اتعدّل بس
+احذف إن وُجدت:
+  api/session.js
+  lib/sessionToken.js
+  src/lib/state/sessionAuth.js
+Vercel: امسح SESSION_SECRET

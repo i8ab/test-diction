@@ -28,6 +28,27 @@ function actorFields() {
   }
 }
 
+/** Throw a clear Error for non-OK write responses (403/429/4xx/5xx). */
+async function assertWriteOk(res, fallback = "save failed") {
+  if (res.ok) return;
+  if (res.status === 409) return; // caller handles conflict
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (_) {}
+  const msg =
+    (data && (data.message || data.error)) ||
+    (res.status === 403
+      ? "forbidden"
+      : res.status === 429
+        ? "rate_limited"
+        : fallback);
+  const err = new Error(msg);
+  err.status = res.status;
+  err.payload = data;
+  throw err;
+}
+
 // In-memory short TTL for non-fresh reads in the same tab session.
 // Does NOT replace fresh:true (signup/login/conflict paths still hit network).
 // Safe: 20s is short; any successful write invalidates immediately.
@@ -390,7 +411,7 @@ export async function saveRecord(record, expectedVersion) {
     const data = await res.json().catch(() => null);
     throw new SaveConflictError(data || { entries: [], accounts: [], logs: [], siteBanner: null, examConfig: null, academicUnits: null, version: expectedVersion });
   }
-  if (!res.ok) throw new Error("save failed");
+  await assertWriteOk(res);
   invalidateRecordCache();
   const data = await res.json().catch(() => ({}));
   return typeof data.version === "number" ? data.version : expectedVersion + 1;
@@ -435,7 +456,7 @@ export async function saveAccountsOnly(
       }
     );
   }
-  if (!res.ok) throw new Error("save failed");
+  await assertWriteOk(res);
   invalidateRecordCache();
   const data = await res.json().catch(() => ({}));
   return typeof data.version === "number" ? data.version : expectedVersion + 1;
@@ -490,7 +511,7 @@ async function putScoped(body, expectedVersion) {
       }
     );
   }
-  if (!res.ok) throw new Error("save failed");
+  await assertWriteOk(res);
   invalidateRecordCache();
   return res.json().catch(() => ({}));
 }

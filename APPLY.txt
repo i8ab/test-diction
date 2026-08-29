@@ -1,23 +1,18 @@
-Bacaloria API — Phase D + ownership + profile persist
-=====================================================
+Bacaloria API — Professional hardening pack
+==========================================
 
-ملفات جديدة (لازم تتنسخ):
-  lib/jsonbinAuthz.js
-  lib/jsonbinMappers.js
-  lib/jsonbinDb.js
+جديد في الجولة دي:
+  lib/jsonbinHttp.js     ← CORS / security headers / body guard / request id
+  lib/rateLimit.js       ← X-RateLimit-* metadata
+  docs/API.md            ← عقد الـ API كامل
+  vercel.json            ← headers لـ /api/*
 
-ملفات معدّلة:
-  api/jsonbin.js              (handler رفيع بعد التفكيك)
-  src/lib/state/cloudApi.js   (actorCode + كاش بعد patch)
-  src/lib/state/cloudBootstrap.js  (دمج بروفايل كامل بعد refresh)
-  SECURITY.md
-  docs/REFACTOR_PLAN.md
-  docs/SUPABASE_INDEXES.sql
+مع كل التحسينات السابقة (ownership, Phase D, profile persist, no JWT).
 
-خطوات:
-1) انسخ كل الملفات فوق جذر المشروع
-2) نفّذ docs/SUPABASE_INDEXES.sql في Supabase مرة واحدة
-3) npm run build أو deploy على Vercel
-4) اختبر: لوجين، تعديل مسار bac، ربط Google، approve أدمن، signup
+1) انسخ كل الملفات فوق المشروع
+2) ملفات lib الجديدة الأربعة: jsonbinAuthz, jsonbinDb, jsonbinMappers, jsonbinHttp
+3) احذف ملفات JWT (DELETE_THESE_FILES.txt)
+4) اختياري إنتاج: ALLOWED_ORIGINS=https://your-domain.com في Vercel
+5) Deploy
 
-مفيش JWT. مفيش routes جديدة — لسه /api/jsonbin فقط.
+Indexes: خلاص اتعملت عندك ✓

@@ -40,3 +40,11 @@ Denied writes return `403 { ok:false, error:"forbidden", message }`.
 ## Env
 
 Do **not** set `SESSION_SECRET`. Keep `SUPABASE_*`, `UPSTASH_*`, `VAPID_*`, `CRON_SECRET`, `GOOGLE_CLIENT_ID`.
+
+## HTTP hardening (`lib/jsonbinHttp.js`)
+
+- Security headers: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `X-Request-Id`
+- Optional CORS via `ALLOWED_ORIGINS`
+- PUT body size guard (~1.5MB)
+- `actorCode` shape validation
+- Rate-limit response headers on limited routes

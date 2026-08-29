@@ -3644,3 +3644,38 @@ html[data-skin="contrast"] .app-stats-progress {
 }
 
 /* Active nav ring + label already use --accent-1 (see .arc-nav-light / .is-active) */
+
+/* === bacaloria-mobile-768-pass (Phase B UX) === */
+@media (max-width: 768px) {
+  .toolbar-row.mobile-sticky-search {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    padding: 8px 0 6px;
+    margin-bottom: 6px;
+    background: color-mix(in srgb, var(--paper, #f7f3ea) 92%, transparent);
+    backdrop-filter: blur(8px);
+  }
+
+  .mobile-fab-add {
+    width: 52px;
+    height: 52px;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    right: max(14px, env(safe-area-inset-right));
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  }
+
+  .mobile-banners-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  /* Prefer larger tap targets for primary actions on phones */
+  .header-menu-btn,
+  .tools-menu-trigger {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

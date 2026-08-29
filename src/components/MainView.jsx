@@ -46,6 +46,7 @@ import { useStudyShortcuts } from "../lib/hooks/useStudyShortcuts";
 import { useListPagination } from "../lib/hooks/useListPagination";
 import WelcomeOnboardingModal, { hasSeenWelcome, markWelcomeSeen } from "./modals/WelcomeOnboardingModal";
 import { consumeSessionOpenTool, setSessionOpenTool } from "../lib/state/sessionUi";
+import { useSectionEntries } from "../lib/hooks/useSectionEntries";
 
 export default function MainView({
   name, isAdmin, isTeacher = false, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
@@ -89,37 +90,19 @@ export default function MainView({
   facebookLinkBusy = false,
 }) {
   const cfg = SECTIONS[section] || SECTIONS["en-ar"];
-  const isAr = section === "ar-ar";
-  const isAcademic = section === "academic";
-  // Always resolve a concrete unit for Academic (never add/filter with null)
-  const resolvedUnitId = useMemo(() => {
-    if (!isAcademic) return null;
-    const list = academicUnits || [];
-    if (activeUnitId && list.some((u) => u.id === activeUnitId)) return activeUnitId;
-    return list[0]?.id || null;
-  }, [isAcademic, activeUnitId, academicUnits]);
-  const sectionEntries = useMemo(() => {
-    const base = (entries || []).filter((e) => e.section === section);
-    if (!isAcademic) return base;
-    if (!resolvedUnitId) return base;
-    // Show words tagged for this unit OR legacy words with no unitId yet
-    return base.filter((e) => {
-      const uid = e.unitId || null;
-      return !uid || uid === resolvedUnitId;
-    });
-  }, [entries, section, isAcademic, resolvedUnitId]);
-  const allAcademicEntries = useMemo(
-    () => (isAcademic ? (entries || []).filter((e) => e.section === "academic") : []),
-    [entries, isAcademic]
-  );
-  // Keep activeUnitId in sync when Academic is open
-  useEffect(() => {
-    if (!isAcademic) return;
-    if (!resolvedUnitId) return;
-    if (activeUnitId !== resolvedUnitId && onChangeActiveUnitId) {
-      onChangeActiveUnitId(resolvedUnitId);
-    }
-  }, [isAcademic, resolvedUnitId, activeUnitId, onChangeActiveUnitId]);
+  const {
+    isAr,
+    isAcademic,
+    resolvedUnitId,
+    sectionEntries,
+    allAcademicEntries,
+  } = useSectionEntries({
+    entries,
+    section,
+    academicUnits,
+    activeUnitId,
+    onChangeActiveUnitId,
+  });
   const studiedCount = useMemo(
     () => (sectionEntries || []).filter((e) => studiedIds && typeof studiedIds.has === "function" && studiedIds.has(e.id)).length,
     [sectionEntries, studiedIds]

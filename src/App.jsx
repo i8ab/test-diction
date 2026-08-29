@@ -28,6 +28,9 @@ import {
 } from "./lib/state/storage";
 import { useAppPreferences } from "./lib/hooks/useAppPreferences";
 import { useStudyReminders } from "./lib/hooks/useStudyReminders";
+import { useAppShellLifecycle } from "./lib/hooks/useAppShellLifecycle";
+import { readInitialOfflineSnapshot } from "./lib/app/offlineSnapshot";
+import { apiErrorMessage } from "./lib/utils/apiErrorMessage";
 import { migrateAccounts } from "./lib/utils/authUtils";
 import { ensureMigratedAccounts as ensureMigratedAccountsCore } from "./lib/state/authFlow";
 import { runAppBoot } from "./lib/state/cloudBootstrap";
@@ -81,96 +84,17 @@ function AppLoadingFallback() {
   return <SplashScreen minMs={1600} />;
 }
 
-/** Single-flight refresh lock (survives navigation via sessionStorage). */
-const REFRESH_LOCK_KEY = "twoTongues.refreshInFlight";
-const REFRESH_LOCK_TTL_MS = 20000;
-
-function isRefreshInFlight() {
-  try {
-    const raw = sessionStorage.getItem(REFRESH_LOCK_KEY);
-    if (!raw) return false;
-    const ts = Number(raw);
-    if (!Number.isFinite(ts)) {
-      sessionStorage.removeItem(REFRESH_LOCK_KEY);
-      return false;
-    }
-    if (Date.now() - ts > REFRESH_LOCK_TTL_MS) {
-      sessionStorage.removeItem(REFRESH_LOCK_KEY);
-      return false;
-    }
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
-function beginRefreshLock() {
-  try {
-    sessionStorage.setItem(REFRESH_LOCK_KEY, String(Date.now()));
-  } catch (_) {}
-}
-
-function endRefreshLock() {
-  try {
-    sessionStorage.removeItem(REFRESH_LOCK_KEY);
-  } catch (_) {}
-}
-
-
-
 const deviceIsAr = detectDeviceIsAr();
 const savedPersonalCode = loadPersonalCode();
 /** Module-level: survives React StrictMode remount (refs reset on remount). */
 let APP_BOOT_STARTED = false;
 
-/**
- * Fast startup snapshot — reads only lightweight metadata (accounts, config).
- * Dictionary entries are loaded lazily in a useEffect after first paint so
- * JSON-parsing megabytes of word data never blocks React's initial render.
- */
-function readInitialOfflineSnapshot() {
-  // Try fast meta first (split key written by saveOfflineCache)
-  let cached = loadOfflineMeta();
-  // Backward compat: fall back to full cache if meta key doesn't exist yet
-  if (!cached) {
-    cached = loadOfflineCache();
-    if (!cached) return null;
-  }
-  const hasData =
-    (Array.isArray(cached.accounts) && cached.accounts.length > 0);
-  if (!hasData) return null;
-  let accounts = cached.accounts || [];
-  try {
-    const migrated = migrateAccounts(accounts);
-    accounts = migrated.accounts || accounts;
-  } catch (_) {}
-  const account =
-    savedPersonalCode && accounts.length
-      ? accounts.find((a) => a && a.code === savedPersonalCode)
-      : null;
-  const usableAccount =
-    account &&
-    account.status !== "pending" &&
-    account.status !== "rejected" &&
-    account.status !== "blocked"
-      ? account
-      : null;
-  return {
-    entries: [], // ← populated lazily after first paint
-    accounts,
-    logs: Array.isArray(cached.logs) ? cached.logs : [],
-    siteBanner: cached.siteBanner || null,
-    examConfig: cached.examConfig || null,
-    academicUnits: cached.academicUnits || null,
-    version: typeof cached.version === "number" ? cached.version : 0,
-    cachedAt: cached.cachedAt || null,
-    usableAccount,
-  };
-}
-
 const initialOffline = readInitialOfflineSnapshot();
 
 export default function DictionaryApp() {
+  // Shell: PWA attr, force-refresh, service worker (extracted)
+  useAppShellLifecycle();
+
   // Fixed the moment this tab loaded — powers the quiz's "This session"
   // time-range option ("studied since I opened the site this time").
   const sessionStartRef = useRef(Date.now());
@@ -504,132 +428,6 @@ export default function DictionaryApp() {
       window.removeEventListener("pagehide", snap);
       window.removeEventListener("beforeunload", snap);
       document.removeEventListener("visibilitychange", onVis);
-    };
-  }, []);
-
-  // Hard force-refresh: unregister every SW, wipe Cache Storage, then reload.
-  // Call from console:  window.__forceAppRefresh()
-  // or from any button. Survives "I cleared data and still can't refresh".
-    // Mark installed-PWA on <html> so CSS can disable pull-to-refresh only there
-  // (covers iOS navigator.standalone as well as display-mode media).
-  useEffect(() => {
-    const apply = () => {
-      try {
-        // Only true installed-app modes — never treat a normal browser tab as PWA
-        // so pull-to-refresh stays available on every screen in the browser.
-        const pwa = !!(window.navigator.standalone ||
-          window.matchMedia("(display-mode: standalone)").matches);
-        document.documentElement.setAttribute("data-pwa-standalone", pwa ? "1" : "0");
-      } catch (_) {}
-    };
-    apply();
-    let mq;
-    try {
-      mq = window.matchMedia("(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)");
-      mq.addEventListener?.("change", apply);
-      return () => mq.removeEventListener?.("change", apply);
-    } catch (_) {}
-  }, []);
-
-useEffect(() => {
-    // IMPORTANT: do NOT call endRefreshLock() on mount.
-    // The lock must survive the reload that controllerchange triggers;
-    // clearing it here was the main cause of the double open/close cycle
-    // (reload #1 → mount clears lock → second controllerchange → reload #2).
-    // The TTL (REFRESH_LOCK_TTL_MS) expires the lock safely after 20s.
-
-    window.__forceAppRefresh = async () => {
-      // Only one programmatic refresh may run at a time.
-      if (isRefreshInFlight()) return;
-      beginRefreshLock();
-      // Block the entire UI until reload completes (SplashScreen / water bar).
-      try {
-        window.dispatchEvent(new CustomEvent("tt-force-refresh-start"));
-      } catch (_) {}
-      // Brief pause so the blocking overlay can paint before we tear down SW/caches.
-      await new Promise((r) => setTimeout(r, 80));
-      try {
-        if ("serviceWorker" in navigator) {
-          const regs = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(regs.map((r) => r.unregister()));
-        }
-      } catch (_) {}
-      try {
-        if (window.caches) {
-          const keys = await caches.keys();
-          await Promise.all(keys.map((k) => caches.delete(k)));
-        }
-      } catch (_) {}
-      try {
-        // Bust any sticky query so the next navigation is not served from disk cache
-        const u = new URL(window.location.href);
-        u.searchParams.set("_r", String(Date.now()));
-        window.location.replace(u.toString());
-      } catch (_) {
-        try {
-          window.location.reload();
-        } catch (__) {
-          endRefreshLock();
-          try {
-            window.dispatchEvent(new CustomEvent("tt-force-refresh-end"));
-          } catch (___) {}
-        }
-      }
-    };
-    return () => {
-      try { delete window.__forceAppRefresh; } catch (_) {}
-    };
-  }, []);
-
-  // Registers the offline service worker (see /sw.js).
-  // updateViaCache: "none" + explicit reg.update() so a normal browser
-  // refresh (or pull-to-refresh) actually picks up a newly deployed SW/shell
-  // instead of silently keeping a week-old worker. Also force-activates any
-  // waiting worker so the user does not need a second reload.
-  useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
-    let cancelled = false;
-    navigator.serviceWorker
-      .register("/sw.js", { updateViaCache: "none" })
-      .then((reg) => {
-        if (cancelled) return;
-        try { reg.update(); } catch (_) {}
-        const kick = () => {
-          if (reg.waiting) {
-            reg.waiting.postMessage({ type: "SKIP_WAITING" });
-          }
-        };
-        if (reg.waiting) kick();
-        reg.addEventListener("updatefound", () => {
-          const nw = reg.installing;
-          if (!nw) return;
-          nw.addEventListener("statechange", () => {
-            if (nw.state === "installed" && navigator.serviceWorker.controller) {
-              kick();
-            }
-          });
-        });
-      })
-      .catch(() => {
-        // Registration failure just means no offline app-shell caching;
-        // the localStorage data cache above still works independently.
-      });
-    // When a new worker takes control, do one clean reload so the user
-    // sees the new assets without having to manually refresh twice.
-    // Guarded by the same single-flight lock used by __forceAppRefresh.
-    const onControllerChange = () => {
-      if (isRefreshInFlight()) return;
-      beginRefreshLock();
-      try {
-        window.location.reload();
-      } catch (_) {
-        endRefreshLock();
-      }
-    };
-    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
-    return () => {
-      cancelled = true;
-      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
     };
   }, []);
 
@@ -1732,91 +1530,11 @@ useEffect(() => {
   }
 
   async function handleLinkFacebook() {
-    // Facebook removed from product
-    return;
-    if (facebookLinkBusy || !accountCode || accountCode === "guest") return;
-    setFacebookLinkBusy(true);
-    try {
-      const [{ signInWithFacebookForLink, signInWithFacebook }, { linkFacebookToCurrentAccount }] =
-        await Promise.all([
-          import("./lib/state/socialAuth"),
-          import("./lib/state/authFlow"),
-        ]);
-      const signIn =
-        typeof signInWithFacebookForLink === "function"
-          ? signInWithFacebookForLink
-          : signInWithFacebook;
-      const profile = await signIn();
-      const result = await linkFacebookToCurrentAccount({
-        profile,
-        accountCode,
-        accounts: accountsRef.current.length ? accountsRef.current : accounts,
-        setAccounts,
-        persistAccounts,
-        appIsAr,
-      });
-      if (!result.ok) {
-        if (typeof showToast === "function") showToast(result.error || "Link failed");
-        else window.alert(result.error || "Link failed");
-        return;
-      }
-      if (typeof showToast === "function") {
-        showToast(
-          result.alreadyLinked
-            ? (appIsAr ? "Facebook مربوط مسبقاً" : "Facebook already linked")
-            : (appIsAr ? "تم ربط حساب Facebook بنجاح" : "Facebook account linked successfully")
-        );
-      }
-    } catch (e) {
-      const msg = (e && e.message) || (appIsAr ? "تعذّر الربط" : "Could not link Facebook");
-      if (typeof showToast === "function") showToast(msg);
-      else window.alert(msg);
-    } finally {
-      setFacebookLinkBusy(false);
-    }
+    return; // Facebook removed from product
   }
 
   async function handleUnlinkFacebook() {
-    return;
-    if (facebookLinkBusy || !accountCode || accountCode === "guest") return;
-    const confirmMsg = appIsAr
-      ? "إلغاء ربط Facebook؟ ستحتاج اسم المستخدم وكلمة المرور لتسجيل الدخول. حساب Facebook هيبقى حر تاني."
-      : "Unlink Facebook? You'll need username and password to sign in. This Facebook account will be free again.";
-    if (!window.confirm(confirmMsg)) return;
-    setFacebookLinkBusy(true);
-    try {
-      const { unlinkFacebookFromCurrentAccount } = await import("./lib/state/authFlow");
-      const result = await unlinkFacebookFromCurrentAccount({
-        accountCode,
-        accounts: accountsRef.current.length ? accountsRef.current : accounts,
-        persistAccounts,
-        appIsAr,
-      });
-      if (!result.ok) {
-        if (typeof showToast === "function") showToast(result.error || "Unlink failed");
-        else window.alert(result.error || "Unlink failed");
-        return;
-      }
-      setAccounts((prev) =>
-        (prev || []).map((a) => {
-          if (!a || a.code !== accountCode) return a;
-          const next = { ...a };
-          if (next.authProvider == null) delete next.authProvider;
-          if (next.socialId == null) delete next.socialId;
-          if (next.email == null) delete next.email;
-          return next;
-        })
-      );
-      if (typeof showToast === "function") {
-        showToast(appIsAr ? "تم إلغاء ربط Facebook — الحساب حر" : "Facebook unlinked — identity free");
-      }
-    } catch (e) {
-      const msg = (e && e.message) || (appIsAr ? "تعذّر إلغاء الربط" : "Could not unlink");
-      if (typeof showToast === "function") showToast(msg);
-      else window.alert(msg);
-    } finally {
-      setFacebookLinkBusy(false);
-    }
+    return; // Facebook removed from product
   }
 
   function beginLinkAccount() {
@@ -2044,27 +1762,37 @@ useEffect(() => {
     bacSpecialty: nextBacSpecialty,
   }) {
     const { updateOwnAccount } = await import("./lib/state/adminActions");
-    return updateOwnAccount({
-      newName,
-      newPassword,
-      nextAvatar,
-      nextGender,
-      nextBirthDate,
-      nextBacTrack,
-      nextBacGrade,
-      nextBacSpecialty,
-      accountCode,
-      name,
-      accounts,
-      appIsAr,
-      persistAccounts,
-      setName,
-      showToast,
-      setAccounts,
-      recordVersionRef,
-      commitRecordVersion,
-      patchAccountFields,
-    });
+    try {
+      const result = await updateOwnAccount({
+        newName,
+        newPassword,
+        nextAvatar,
+        nextGender,
+        nextBirthDate,
+        nextBacTrack,
+        nextBacGrade,
+        nextBacSpecialty,
+        accountCode,
+        name,
+        accounts,
+        appIsAr,
+        persistAccounts,
+        setName,
+        showToast,
+        setAccounts,
+        recordVersionRef,
+        commitRecordVersion,
+        patchAccountFields,
+      });
+      if (result && result.error) {
+        return { error: apiErrorMessage({ message: result.error }, appIsAr) };
+      }
+      return result;
+    } catch (err) {
+      const msg = apiErrorMessage(err, appIsAr);
+      if (typeof showToast === "function") showToast(msg);
+      return { error: msg };
+    }
   }
 
   function getAdminLifecycleCtx() {

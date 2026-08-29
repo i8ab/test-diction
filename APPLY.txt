@@ -1,0 +1,28 @@
+Bacaloria API — ownership + authz patch
+======================================
+
+1) انسخ الملفات فوق مشروعك (نفس المسارات):
+   - api/jsonbin.js
+   - lib/jsonbinAuthz.js          ← ملف جديد
+   - src/lib/state/cloudApi.js
+   - SECURITY.md
+   - docs/SUPABASE_INDEXES.sql    (للمرجع)
+
+2) في Supabase SQL Editor نفّذ مرة واحدة:
+   docs/SUPABASE_INDEXES.sql
+   (IF NOT EXISTS — آمن للإعادة)
+
+3) مفيش ملفات تمسحها في الباتش ده.
+   (تأكد إن ملفات JWT اتشالت من الباتش السابق)
+
+4) بعد الرفع اختبر:
+   - لوجين عادي + تعديل بروفايلك (accountPatch)
+   - يوزر عادي يحاول approve حساب → 403
+   - أدمن approve / delete → 200
+   - إضافة كلمة (entryPatch) وأنت مسجّل → 200
+   - تسجيل حساب جديد (signup) → لسه شغال بدون actor staff
+
+ملاحظات:
+- كل PUT بيبعت actorCode من loadPersonalCode()
+- السيرفر بيحمّل الحساب من DB وبيستخدم role/status المخزّنين فقط
+- تفكيك Phase D بدأ بـ lib/jsonbinAuthz.js؛ باقي jsonbin.js يتفكك لاحقًا

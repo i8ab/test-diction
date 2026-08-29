@@ -10,9 +10,22 @@
    ========================================================================= */
 // Auth is username + password only. No JWT / server session tokens.
 // Writes go through /api/jsonbin; the Supabase key never ships to the browser.
+// actorCode is sent on writes so the server can enforce ownership from DB roles.
+
+import { loadPersonalCode } from "./storage";
 
 function writeHeaders() {
   return { "Content-Type": "application/json" };
+}
+
+/** Current signed-in account code (empty when logged out / during signup). */
+function actorFields() {
+  try {
+    const code = loadPersonalCode();
+    return code ? { actorCode: code } : {};
+  } catch (_) {
+    return {};
+  }
 }
 
 // In-memory short TTL for non-fresh reads in the same tab session.
@@ -370,7 +383,7 @@ export async function saveRecord(record, expectedVersion) {
   const res = await fetch("/api/jsonbin", {
     method: "PUT",
     headers: writeHeaders(),
-    body: JSON.stringify({ ...record, expectedVersion }),
+    body: JSON.stringify({ ...record, ...actorFields(), expectedVersion }),
   });
   if (res.status === 409) {
     invalidateRecordCache();
@@ -403,6 +416,7 @@ export async function saveAccountsOnly(
       accounts: accounts || [],
       ...(removeAccountCodes?.length ? { removeAccountCodes } : {}),
       ...(approveAccountCodes?.length ? { approveAccountCodes } : {}),
+      ...actorFields(),
       expectedVersion,
     }),
   });
@@ -459,7 +473,7 @@ async function putScoped(body, expectedVersion) {
   const res = await fetch("/api/jsonbin", {
     method: "PUT",
     headers: writeHeaders(),
-    body: JSON.stringify({ ...body, expectedVersion }),
+    body: JSON.stringify({ ...body, ...actorFields(), expectedVersion }),
   });
   if (res.status === 409) {
     invalidateRecordCache();

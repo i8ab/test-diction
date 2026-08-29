@@ -24,6 +24,14 @@ import {
   invalidateHotCaches,
 } from "../lib/redis.js";
 import { rateLimit, clientIp } from "../lib/rateLimit.js";
+import {
+  authorizeWrite,
+  sanitizePublicAccountsMerge,
+  isStaff,
+  forbiddenPayload,
+  badRequestPayload,
+  notFoundPayload,
+} from "../lib/jsonbinAuthz.js";
 
 const LOCK_KEY = "twoTongues:dictWriteLock";
 
@@ -1142,6 +1150,7 @@ export default async function handler(req, res) {
       if (!rl.allowed) {
         res.setHeader("Retry-After", "60");
         return res.status(429).json({
+          ok: false,
           error: "rate_limited",
           message: "Too many write requests. Please wait a moment and try again.",
         });
@@ -1156,14 +1165,25 @@ export default async function handler(req, res) {
         }
       }
       if (!body || typeof body !== "object") {
-        return res.status(400).json({ error: "Invalid body" });
+        return res.status(400).json(badRequestPayload("Invalid body", "invalid_body"));
       }
       if (typeof body.expectedVersion !== "number") {
-        return res.status(400).json({
-          error:
+        return res.status(400).json(
+          badRequestPayload(
             "Missing expectedVersion — client must send the version it last read.",
-        });
+            "missing_expected_version"
+          )
+        );
       }
+
+      // Ownership / role checks (actor loaded from DB — never trust body.role)
+      const writeScope = body.scope || "full";
+      const authz = await authorizeWrite(writeScope, body, loadOneAccount);
+      if (!authz.ok) {
+        return res.status(authz.status).json(authz.payload);
+      }
+      // Stash for handlers that need actor context
+      body.__authz = authz;
 
       const useLock = redisConfigured();
       let lockToken = null;
@@ -1204,14 +1224,15 @@ export default async function handler(req, res) {
             const newStatus = String(body.status || "").trim();
             const allowed = new Set(["active", "blocked", "pending"]);
             if (!code || !allowed.has(newStatus)) {
-              return res.status(400).json({
-                error:
-                  "accountStatus requires code and status (active|blocked|pending)",
-              });
+              return res.status(400).json(
+                badRequestPayload(
+                  "accountStatus requires code and status (active|blocked|pending)"
+                )
+              );
             }
             const prev = await loadOneAccount(code);
             if (!prev) {
-              return res.status(404).json({ error: "Account not found" });
+              return res.status(404).json(notFoundPayload("Account not found"));
             }
             if (prev.status === newStatus) {
               return res.status(200).json({
@@ -1236,9 +1257,9 @@ export default async function handler(req, res) {
           if (scoped === "accountDelete") {
             const code = String(body.code || "").trim();
             if (!code) {
-              return res.status(400).json({
-                error: "accountDelete requires code",
-              });
+              return res.status(400).json(
+                badRequestPayload("accountDelete requires code")
+              );
             }
             await bumpVersion(nextVersion);
             try {
@@ -1262,13 +1283,15 @@ export default async function handler(req, res) {
             const patch =
               body.patch && typeof body.patch === "object" ? body.patch : null;
             if (!code || !patch || !Object.keys(patch).length) {
-              return res.status(400).json({
-                error: "accountPatch requires code and a non-empty patch object",
-              });
+              return res.status(400).json(
+                badRequestPayload(
+                  "accountPatch requires code and a non-empty patch object"
+                )
+              );
             }
             const prev = await loadOneAccount(code);
             if (!prev) {
-              return res.status(404).json({ error: "Account not found" });
+              return res.status(404).json(notFoundPayload("Account not found"));
             }
             // Privilege fields must never be elevated via accountPatch from the client.
             // role / isAdmin / status changes go through the admin accounts scope only.
@@ -1312,9 +1335,9 @@ export default async function handler(req, res) {
             const entryId =
               entry && entry.id != null ? String(entry.id) : String(body.id || "");
             if (!entryId || !entry) {
-              return res.status(400).json({
-                error: "entryPatch requires entry object with id",
-              });
+              return res.status(400).json(
+                badRequestPayload("entryPatch requires entry object with id")
+              );
             }
             const payload = { ...entry, id: entryId };
             await bumpVersion(nextVersion);
@@ -1345,7 +1368,9 @@ export default async function handler(req, res) {
           if (scoped === "entryDelete") {
             const entryId = String(body.id || "").trim();
             if (!entryId) {
-              return res.status(400).json({ error: "entryDelete requires id" });
+              return res.status(400).json(
+                badRequestPayload("entryDelete requires id")
+              );
             }
             await bumpVersion(nextVersion);
             try {
@@ -1367,9 +1392,9 @@ export default async function handler(req, res) {
           if (scoped === "settingsPatch") {
             const key = typeof body.key === "string" ? body.key.trim() : "";
             if (!key || key === "version") {
-              return res.status(400).json({
-                error: "settingsPatch requires a key (not version)",
-              });
+              return res.status(400).json(
+                badRequestPayload("settingsPatch requires a key (not version)")
+              );
             }
             let value = body.value;
             if (key === "site_banner" && value != null) value = pickBanner(value);
@@ -1396,9 +1421,10 @@ export default async function handler(req, res) {
           }
 
           if (scoped === "accounts") {
-            // Session logic removed — approve/remove allowed without token.
-            // Load accounts table only (not entries/logs)
+            // Load accounts table only (not entries/logs).
+            // Non-staff (signup) path is sanitized — cannot elevate role/status.
             const currentAccounts = await loadAccountsDataOnly();
+            const authzInfo = body.__authz || {};
             const statusRank = (s) => {
               if (s === "active" || s === "blocked") return 2;
               if (s === "pending") return 1;
@@ -1424,6 +1450,12 @@ export default async function handler(req, res) {
               return merged;
             };
             let nextAccounts = Array.isArray(body.accounts) ? body.accounts : [];
+            if (authzInfo.publicAccounts) {
+              nextAccounts = sanitizePublicAccountsMerge(
+                nextAccounts,
+                currentAccounts
+              );
+            }
             if (currentAccounts.length) {
               const byCode = new Map();
               for (const a of currentAccounts) {

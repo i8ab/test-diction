@@ -155,6 +155,20 @@ function AuthScreens({
   const lampIdleTimerRef = useRef(null);
   const cordDragRef = useRef({ active: false, startY: 0, pulled: false });
 
+  // Align fixed body under-layer with auth paper so overscroll matches the screen
+  useEffect(() => {
+    try {
+      document.documentElement.setAttribute("data-surface", "auth");
+      return () => {
+        try {
+          document.documentElement.removeAttribute("data-surface");
+        } catch (_) {}
+      };
+    } catch (_) {
+      return undefined;
+    }
+  }, []);
+
   // After 80s idle with lamp still off, show a simple tap fallback
   useEffect(() => {
     if (lampOn) {

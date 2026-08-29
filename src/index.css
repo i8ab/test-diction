@@ -2,13 +2,8 @@
     margin: 0;
     padding: 0;
     background-color: var(--paper);
-    /*
-      No empty document overscroll / rubber-band.
-      Real list scrolling still works; only the "pull past the end into nothing"
-      effect is disabled — that was revealing the fixed wallpaper from under the UI.
-    */
-    overscroll-behavior-y: none;
-    overscroll-behavior-x: none;
+    /* Browser tab: always allow native pull-to-refresh on every screen */
+    overscroll-behavior-y: auto;
   }
   body {
     margin: 0;
@@ -16,27 +11,27 @@
     background-color: transparent;
     background-image: none;
     font-family: var(--font-latin);
+    /* stacking context so body::before (z-index:-1) stays visible behind content */
     position: relative;
     z-index: 0;
     min-height: 100dvh;
-    overscroll-behavior-y: none;
-    overscroll-behavior-x: none;
+    overscroll-behavior-y: auto;
   }
+  /* Force-enable while running as a normal browser tab (any page / any device mode) */
+  @media (display-mode: browser) {
+    html, body {
+      overscroll-behavior-y: auto !important;
+    }
+  }
+  /* Installed PWA only: lock rubber-band so the fixed wallpaper doesn't drag */
   @media (display-mode: standalone) {
     html, body {
       overscroll-behavior-y: none;
-      overscroll-behavior-x: none;
     }
   }
   html[data-pwa-standalone="1"],
   html[data-pwa-standalone="1"] body {
     overscroll-behavior-y: none;
-    overscroll-behavior-x: none;
-  }
-  #root {
-    min-height: 100dvh;
-    overscroll-behavior-y: none;
-    overscroll-behavior-x: none;
   }
   /* Fixed background layer — locked size so mobile URL bar show/hide
      does NOT rescale the photo (cover recalculating on dvh change).
@@ -77,6 +72,20 @@
     background-repeat: no-repeat, no-repeat;
     height: 100lvh;
     min-height: 100%;
+  }
+
+  /*
+    Short surfaces (login / logout / splash): match the fixed under-layer to the
+    screen color so rubber-band / pull-to-refresh does not flash a different
+    wallpaper "from under". Does NOT disable pull-to-refresh.
+  */
+  html[data-surface="auth"] body::before {
+    background-image: none !important;
+    background-color: var(--paper) !important;
+  }
+  html[data-surface="splash"] body::before {
+    background-image: none !important;
+    background-color: #12100c !important;
   }
   * { box-sizing: border-box; }
 

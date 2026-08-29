@@ -34,6 +34,23 @@ export default function SplashScreen({
   const startRef = useRef(Date.now());
   const completedRef = useRef(false);
 
+  // Align document under-layer with this screen (no foreign wallpaper flash on overscroll)
+  useEffect(() => {
+    try {
+      const el = document.documentElement;
+      const prev = el.getAttribute("data-surface");
+      el.setAttribute("data-surface", "splash");
+      return () => {
+        try {
+          if (prev) el.setAttribute("data-surface", prev);
+          else el.removeAttribute("data-surface");
+        } catch (_) {}
+      };
+    } catch (_) {
+      return undefined;
+    }
+  }, []);
+
   useEffect(() => {
     if (blocking) {
       setProgress(null);

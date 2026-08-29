@@ -23,7 +23,7 @@
    ============================================================================= */
 
 // Bumped for font weight consolidation + GET inflight dedupe.
-const CACHE_VERSION = "bacaloria-v1.1.7-fonts-dedupe";
+const CACHE_VERSION = "bacaloria-v1.1.8-ultra-compress";
 const NAVIGATION_TIMEOUT_MS = 8000;
 const APP_SHELL = [
   "/",

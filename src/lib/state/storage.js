@@ -1230,10 +1230,9 @@ export function mergeOfflineProgress(serverAccounts, offlineRec) {
   }
   const pendingAt = getPendingCloudSyncAt();
   const offlineAt = Number(offlineRec.cachedAt) || 0;
-  // Only trust offline progress if we know a sync was pending, or offline
-  // is very recent (last 2 minutes) — avoids stomping real multi-device edits
-  // with ancient cache.
-  const trustOffline = pendingAt > 0 || (Date.now() - offlineAt < 2 * 60 * 1000);
+  // Trust offline when a sync was pending, or cache is recent (5 min) —
+  // covers "studied on device A, reloaded device B before softSync".
+  const trustOffline = pendingAt > 0 || (Date.now() - offlineAt < 5 * 60 * 1000);
   if (!trustOffline || !offlineAt) {
     return { accounts: serverAccounts, merged: false };
   }
@@ -1246,11 +1245,44 @@ export function mergeOfflineProgress(serverAccounts, offlineRec) {
   const next = serverAccounts.map((srv) => {
     const off = byCode[srv.code];
     if (!off) return srv;
-    // Prefer offline progress when offline cache is at least as fresh as
-    // the pending marker (or always when pending flag is set).
+    // Union progress fields so multi-device studied/favorites are not lost
+    // to a stale full replace of the array.
     const patch = { ...srv };
     for (const k of PROGRESS_KEYS) {
-      if (off[k] !== undefined) {
+      if (off[k] === undefined) continue;
+      if (k === "studied" || k === "favorites" || k === "achievements") {
+        const a = Array.isArray(off[k]) ? off[k] : [];
+        const b = Array.isArray(srv[k]) ? srv[k] : [];
+        const union = [...new Set([...a, ...b].map(String))];
+        if (JSON.stringify(union) !== JSON.stringify(b)) {
+          patch[k] = union;
+          merged = true;
+        }
+      } else if (k === "studiedAt" || k === "srsStats" || k === "srsDueAt" || k === "srsCards" || k === "srsBox") {
+        const a = off[k] && typeof off[k] === "object" ? off[k] : {};
+        const b = srv[k] && typeof srv[k] === "object" ? srv[k] : {};
+        const combined = { ...b, ...a };
+        if (k === "srsStats") {
+          for (const id of Object.keys(b)) {
+            if (a[id] && b[id]) {
+              const at = Number(a[id].total) || 0;
+              const bt = Number(b[id].total) || 0;
+              combined[id] = at >= bt ? a[id] : b[id];
+            }
+          }
+        }
+        if (JSON.stringify(combined) !== JSON.stringify(b)) {
+          patch[k] = combined;
+          merged = true;
+        }
+      } else if (k === "xp") {
+        const ot = Number(off.xp && off.xp.total) || 0;
+        const st = Number(srv.xp && srv.xp.total) || 0;
+        if (ot > st) {
+          patch.xp = off.xp;
+          merged = true;
+        }
+      } else {
         const same = JSON.stringify(off[k]) === JSON.stringify(srv[k]);
         if (!same) {
           patch[k] = off[k];

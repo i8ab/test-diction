@@ -35,6 +35,7 @@ import { runAppBoot } from "./lib/state/cloudBootstrap";
 import { watchForReconnect } from "./lib/state/connectivity";
 import SplashScreen from "./components/layout/SplashScreen";
 import { createSaveQueue } from "./lib/state/cloudQueue";
+import { mergeAccountProgress } from "./lib/state/cloudFlush";
 import {
   switchToVaultAccount as switchVault,
   beginLinkAccount as beginLink,
@@ -1383,8 +1384,13 @@ export default function DictionaryApp() {
   useEffect(() => {
     if (authStage !== "in" || !accountCode) return;
     let cancelled = false;
+    let inFlight = false;
 
     async function softSync() {
+      if (cancelled || inFlight) return;
+      // Don't clobber local studied/favorites while a save is still queued.
+      if (pendingAccountOpsRef.current.length > 0) return;
+      inFlight = true;
       try {
         // 1) فحص الإصدار أولاً — لو مفيش تغيير نوفر الباندويث بالكامل
         const remoteVersion = await fetchVersionOnly({ fresh: true }).catch(() => null);
@@ -1408,11 +1414,22 @@ export default function DictionaryApp() {
             : Promise.resolve(null),
         ]);
         if (cancelled) return;
+        // Ops may have started while we were fetching — protect local progress
+        if (pendingAccountOpsRef.current.length > 0) return;
 
         // بناء قائمة حسابات مناسبة للصلاحية
         let list = [];
         if (isPrivileged && Array.isArray(accountsList) && accountsList.length) {
           list = accountsList;
+          // Ensure signed-in user row is the full profile from fetchMyAccount
+          if (myAccount) {
+            list = list.map((a) =>
+              a && a.code === myAccount.code ? { ...a, ...myAccount } : a
+            );
+            if (!list.some((a) => a && a.code === myAccount.code)) {
+              list = [myAccount, ...list];
+            }
+          }
         } else if (myAccount) {
           list = [myAccount];
         }
@@ -1428,7 +1445,6 @@ export default function DictionaryApp() {
         };
 
         if (rec.accounts) {
-          // list already prepared above
           // Hide accounts we intentionally deleted even if a brief race still
           // returns them; prune localStorage once the server dropped them.
           if (pendingRemoveCodesRef.current.size) {
@@ -1477,7 +1493,6 @@ export default function DictionaryApp() {
                     ? { ...a, status: "active" }
                     : a
                 );
-                // كتابة جزئية: موافقات الحسابات فقط
                 const newVersion = await saveAccountsOnly(
                   { accounts: forced, approveAccountCodes: stillPending },
                   typeof rec.version === "number" ? rec.version : recordVersionRef.current
@@ -1487,12 +1502,41 @@ export default function DictionaryApp() {
               } catch (_) {}
             }
           }
+
+          // Merge progress with current local snapshot so a concurrent studied
+          // toggle on this device is never wiped by softSync (and we still
+          // pick up studied/favorites from other devices).
+          const localAccounts = accountsRef.current || [];
+          const localByCode = new Map(
+            localAccounts.filter((a) => a && a.code).map((a) => [String(a.code), a])
+          );
+          list = list.map((remote) => {
+            if (!remote || !remote.code) return remote;
+            const local = localByCode.get(String(remote.code));
+            if (!local) return remote;
+            // Only merge the signed-in account deeply; others take server
+            if (String(remote.code) === String(accountCode)) {
+              return mergeAccountProgress(local, remote);
+            }
+            return remote;
+          });
+          // Preserve local-only rows for privileged users if server list was partial
+          if (isPrivileged) {
+            for (const [code, local] of localByCode) {
+              if (!list.some((a) => a && String(a.code) === code)) {
+                // do not re-add deleted codes
+                if (pendingRemoveCodesRef.current.has(code)) continue;
+                list = [...list, local];
+              }
+            }
+          }
+
           setAccounts(list);
           accountsRef.current = list;
         }
         if (rec.siteBanner !== undefined) setSiteBanner(rec.siteBanner || null);
         if (typeof rec.version === "number") commitRecordVersion(rec.version);
-        const account = (rec.accounts || []).find((a) => a.code === accountCode);
+        const account = (list || []).find((a) => a && a.code === accountCode);
         if (account && account.xp) {
           try { hydrateXpFromCloud(accountCode, account.xp); } catch (_) {}
         }
@@ -1503,17 +1547,27 @@ export default function DictionaryApp() {
         if (account.sessionId) saveSessionId(account.sessionId);
       } catch (_) {
         // Offline — stay signed in.
+      } finally {
+        inFlight = false;
       }
     }
 
-    // No focus/visibility listeners (screenshot & app-switch were logging people out).
-    // كل 3 دقائق + فحص version أولاً → توفير باندويث مع بقاء البيانات حديثة
-    const interval = setInterval(softSync, 180000);
+    // كل ~45 ثانية + عند الرجوع للتاب (فحص version أولاً → توفير باندويث)
+    // أسرع من 3 دقائق عشان studied من جهاز تاني يظهر بسرعة
+    const interval = setInterval(softSync, 45000);
+    function onVis() {
+      if (document.visibilityState === "visible") softSync();
+    }
+    document.addEventListener("visibilitychange", onVis);
+    // أول مزامنة بعد ثوانٍ قليلة من الدخول
+    const first = setTimeout(softSync, 8000);
     return () => {
       cancelled = true;
       clearInterval(interval);
+      clearTimeout(first);
+      document.removeEventListener("visibilitychange", onVis);
     };
-  }, [authStage, accountCode]);
+  }, [authStage, accountCode, isAdmin, isTeacher]);
 
   async function handleUpdateOwnAccount({
     name: newName,

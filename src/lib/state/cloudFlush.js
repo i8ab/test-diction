@@ -140,14 +140,26 @@ export function flushPendingAccounts(ctx) {
               curVersion
             );
             newVersion = result.version;
-            // Merge server-confirmed account back so subsequent toggles
-            // start from the truth the DB just wrote.
+            // Merge server-confirmed account back, but NEVER let a shorter
+            // studied/favorites list from the response wipe local marks.
             if (result.account) {
-              nextAccounts = nextAccounts.map((a) =>
-                a && String(a.code) === String(accountCode)
-                  ? { ...a, ...result.account }
-                  : a
-              );
+              nextAccounts = nextAccounts.map((a) => {
+                if (!a || String(a.code) !== String(accountCode)) return a;
+                const remote = result.account;
+                const locStudied = Array.isArray(a.studied) ? a.studied : [];
+                const remStudied = Array.isArray(remote.studied) ? remote.studied : [];
+                const studied = [...new Set([...locStudied, ...remStudied].map(String))];
+                const locFav = Array.isArray(a.favorites) ? a.favorites : [];
+                const remFav = Array.isArray(remote.favorites) ? remote.favorites : [];
+                const favorites = [...new Set([...locFav, ...remFav].map(String))];
+                return {
+                  ...a,
+                  ...remote,
+                  studied,
+                  favorites,
+                  studiedAt: { ...(remote.studiedAt || {}), ...(a.studiedAt || {}) },
+                };
+              });
               accountsRef.current = nextAccounts;
               setAccounts(nextAccounts);
             }

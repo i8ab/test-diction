@@ -216,8 +216,15 @@ export default function DictionaryApp() {
   const recordVersionRef = useRef(initialOffline?.version || 0);
   function commitRecordVersion(v) {
     const n = typeof v === "number" ? v : 0;
+    const prev = recordVersionRef.current;
     recordVersionRef.current = n;
     setRecordVersion(n);
+    // بعد حفظ ناجح (version ارتفع) → نبّه التبويبات الأخرى للمزامنة الفورية
+    if (n > prev) {
+      try {
+        window.dispatchEvent(new CustomEvent("tt-local-save", { detail: { version: n } }));
+      } catch (_) {}
+    }
   }
   // Serialize all cloud writes from this tab. Parallel persist* calls were the
   // main source of fake "updated elsewhere" errors when marking studied /
@@ -1381,15 +1388,27 @@ export default function DictionaryApp() {
   // people on refresh and when the OS briefly hid the tab. We only sync
   // data + adopt the cloud sessionId. Logout happens solely via Sign out,
   // or if the account itself is gone / pending / rejected.
+  //
+  // Near-realtime strategy (no WebSocket):
+  //  - While the tab is visible: poll cheap `version` every ~3s
+  //  - Full account/entries pull ONLY when version actually changes
+  //  - On visibility/focus: immediate check
+  //  - Same-origin tabs: BroadcastChannel instant nudge after local save
   useEffect(() => {
     if (authStage !== "in" || !accountCode) return;
     let cancelled = false;
     let inFlight = false;
+    let bc = null;
+    try {
+      bc = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("tt-cloud-sync") : null;
+    } catch (_) {
+      bc = null;
+    }
 
-    async function softSync() {
+    async function softSync({ forceEntries = false } = {}) {
       if (cancelled || inFlight) return;
       // Don't clobber local studied/favorites while a save is still queued.
-      if (pendingAccountOpsRef.current.length > 0) return;
+      if (pendingAccountOpsRef.current.length > 0 || pendingEntryOpsRef.current.length > 0) return;
       inFlight = true;
       try {
         // 1) فحص الإصدار أولاً — لو مفيش تغيير نوفر الباندويث بالكامل
@@ -1398,30 +1417,51 @@ export default function DictionaryApp() {
         if (
           typeof remoteVersion === "number" &&
           remoteVersion === recordVersionRef.current &&
-          remoteVersion > 0
+          remoteVersion > 0 &&
+          !forceEntries
         ) {
           // لا تغيير على السيرفر — لا نجلب شيء آخر
           return;
         }
 
-        // 2) في حالة التغيير: جلب مجزأ خفيف (بدون entries — تبقى من الكاش/الفتح)
+        // 2) في حالة التغيير: حسابات + أقسام محمّلة (عشان تعديل كلمة يظهر على الجهاز التاني)
         const isPrivileged = isAdmin || isTeacher;
-        const [myAccount, bootstrap, accountsList] = await Promise.all([
+        const sections = [...(loadedSectionsRef.current || [])];
+        const entryFetches = sections.map((sec) =>
+          fetchEntriesOnly({ section: sec, fresh: true }).catch(() => null)
+        );
+        const [myAccount, bootstrap, accountsList, ...sectionResults] = await Promise.all([
           fetchMyAccount(accountCode, { fresh: true }).catch(() => null),
           fetchBootstrap({ fresh: true }).catch(() => ({})),
           isPrivileged
             ? fetchAccountsOnly({ fresh: true }).catch(() => [])
             : Promise.resolve(null),
+          ...entryFetches,
         ]);
         if (cancelled) return;
         // Ops may have started while we were fetching — protect local progress
-        if (pendingAccountOpsRef.current.length > 0) return;
+        if (pendingAccountOpsRef.current.length > 0 || pendingEntryOpsRef.current.length > 0) return;
+
+        // دمج كلمات الأقسام المحمّلة بدون مسح أقسام لم تُجلب
+        if (sections.length && sectionResults.some((r) => Array.isArray(r))) {
+          setEntries((prev) => {
+            let next = prev || [];
+            sections.forEach((sec, i) => {
+              const remoteList = sectionResults[i];
+              if (Array.isArray(remoteList)) {
+                next = mergeSectionEntries(next, remoteList, sec);
+              }
+            });
+            entriesRef.current = next;
+            if (lastSyncedEntriesRef) lastSyncedEntriesRef.current = next;
+            return next;
+          });
+        }
 
         // بناء قائمة حسابات مناسبة للصلاحية
         let list = [];
         if (isPrivileged && Array.isArray(accountsList) && accountsList.length) {
           list = accountsList;
-          // Ensure signed-in user row is the full profile from fetchMyAccount
           if (myAccount) {
             list = list.map((a) =>
               a && a.code === myAccount.code ? { ...a, ...myAccount } : a
@@ -1445,8 +1485,6 @@ export default function DictionaryApp() {
         };
 
         if (rec.accounts) {
-          // Hide accounts we intentionally deleted even if a brief race still
-          // returns them; prune localStorage once the server dropped them.
           if (pendingRemoveCodesRef.current.size) {
             const drop = pendingRemoveCodesRef.current;
             const stillOnServer = [];
@@ -1465,7 +1503,6 @@ export default function DictionaryApp() {
               }
             }
           }
-          // Sticky until *server* confirms non-pending (not after local patch).
           if (pendingApprovedCodesRef.current.size) {
             const approved = pendingApprovedCodesRef.current;
             const serverConfirmed = [];
@@ -1503,9 +1540,6 @@ export default function DictionaryApp() {
             }
           }
 
-          // Merge progress with current local snapshot so a concurrent studied
-          // toggle on this device is never wiped by softSync (and we still
-          // pick up studied/favorites from other devices).
           const localAccounts = accountsRef.current || [];
           const localByCode = new Map(
             localAccounts.filter((a) => a && a.code).map((a) => [String(a.code), a])
@@ -1514,17 +1548,14 @@ export default function DictionaryApp() {
             if (!remote || !remote.code) return remote;
             const local = localByCode.get(String(remote.code));
             if (!local) return remote;
-            // Only merge the signed-in account deeply; others take server
             if (String(remote.code) === String(accountCode)) {
               return mergeAccountProgress(local, remote);
             }
             return remote;
           });
-          // Preserve local-only rows for privileged users if server list was partial
           if (isPrivileged) {
             for (const [code, local] of localByCode) {
               if (!list.some((a) => a && String(a.code) === code)) {
-                // do not re-add deleted codes
                 if (pendingRemoveCodesRef.current.has(code)) continue;
                 list = [...list, local];
               }
@@ -1552,20 +1583,55 @@ export default function DictionaryApp() {
       }
     }
 
-    // كل ~45 ثانية + عند الرجوع للتاب (فحص version أولاً → توفير باندويث)
-    // أسرع من 3 دقائق عشان studied من جهاز تاني يظهر بسرعة
-    const interval = setInterval(softSync, 45000);
+    // فحص version خفيف كل ~3 ثوانٍ والتب ظاهر → إحساس شبه لحظي بين الأجهزة
+    // (الـ endpoint رخيص جداً؛ الجلب الكامل يحدث فقط عند تغيّر الرقم)
+    const VISIBLE_MS = 3000;
+    const HIDDEN_MS = 60000;
+    let interval = setInterval(softSync, VISIBLE_MS);
+
+    function retuneInterval() {
+      clearInterval(interval);
+      const ms = document.visibilityState === "visible" ? VISIBLE_MS : HIDDEN_MS;
+      interval = setInterval(softSync, ms);
+    }
+
     function onVis() {
+      retuneInterval();
       if (document.visibilityState === "visible") softSync();
     }
+    function onFocus() {
+      softSync();
+    }
+    function onLocalSave() {
+      // تبويب آخر في نفس المتصفح: مزامنة فورية
+      try {
+        bc?.postMessage({ type: "local-save", at: Date.now() });
+      } catch (_) {}
+    }
+    function onBcMessage(ev) {
+      if (ev && ev.data && ev.data.type === "local-save") softSync();
+    }
+
     document.addEventListener("visibilitychange", onVis);
-    // أول مزامنة بعد ثوانٍ قليلة من الدخول
-    const first = setTimeout(softSync, 8000);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("tt-local-save", onLocalSave);
+    if (bc) bc.onmessage = onBcMessage;
+
+    // أول فحص سريع بعد الدخول
+    const first = setTimeout(softSync, 1500);
     return () => {
       cancelled = true;
       clearInterval(interval);
       clearTimeout(first);
       document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("tt-local-save", onLocalSave);
+      try {
+        if (bc) {
+          bc.onmessage = null;
+          bc.close();
+        }
+      } catch (_) {}
     };
   }, [authStage, accountCode, isAdmin, isTeacher]);
 

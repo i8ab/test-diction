@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { tr } from "../../lib/config/i18n";
-import { INK, CARD } from "../../lib/config/theme";
+import { INK, CARD, BRASS } from "../../lib/config/theme";
 import { cambridgeUrl, shareWordCard } from "../../lib/utils/wordCard";
 import { detectDir, detectFont } from "../../lib/utils/searchUtils";
 import { getEntrySenses, posLabel } from "../../lib/utils/wordTypes";
 import { getSpeechRecognitionCtor, scorePronunciation, AR_DIALECTS, loadArDialect, saveArDialect, loadEnAccent, enAccentLang, startVoiceRecording } from "../../lib/utils/speech";
-import { LoaderIcon, ShareIcon, SpeakButton, XIcon, MicIcon } from "../common/Icons";
+import { LoaderIcon, ShareIcon, SpeakButton, XIcon, MicIcon, EyeIcon, EyeOffIcon, StarIcon, FlameIcon, EditIcon, TrashIcon, MoreIcon } from "../common/Icons";
 import { PairListDisplay } from "../common/PairList";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { useSwipeDownClose } from "../../lib/utils/useModalDismiss";
@@ -13,11 +13,31 @@ import { useSwipeDownClose } from "../../lib/utils/useModalDismiss";
 // Big, centered "zoom" view of a single word — just the word and its meaning
 // (plus definition, if any) in a large, readable font. Opened via the zoom
 // icon on each entry card.
-export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSaveNote, alreadyExists = false }) {
+// Bottom action bar mirrors EntryCard exactly: Study + More → Favorite / Priority / Edit / Delete.
+export default function WordZoomModal({
+  entry,
+  cfg,
+  onClose,
+  wordNote = "",
+  onSaveNote,
+  alreadyExists = false,
+  canEdit = false,
+  isStudied = false,
+  onToggleStudied,
+  isFavorite = false,
+  onToggleFavorite,
+  priority = 0,
+  onCyclePriority,
+  onEdit,
+  onDelete,
+}) {
   const swipe = useSwipeDownClose(onClose, { enabled: true });
   const [sharing, setSharing] = useState(false);
   const isAr = cfg.dir === "rtl";
   const [noteDraft, setNoteDraft] = useState(wordNote || "");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const moreMenuRef = useRef(null);
   const senses = useMemo(() => getEntrySenses(entry), [entry]);
   const [selectedSenseIdx, setSelectedSenseIdx] = useState(0);
 
@@ -28,7 +48,18 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
   // Reset selected sense when the opened entry changes
   useEffect(() => {
     setSelectedSenseIdx(0);
+    setMoreOpen(false);
+    setConfirmDel(false);
   }, [entry?.id]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDoc = (e) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) setMoreOpen(false);
+    };
+    document.addEventListener("pointerdown", onDoc);
+    return () => document.removeEventListener("pointerdown", onDoc);
+  }, [moreOpen]);
 
   const activeSense = senses[Math.min(selectedSenseIdx, Math.max(0, senses.length - 1))] || null;
 
@@ -527,6 +558,278 @@ export default function WordZoomModal({ entry, cfg, onClose, wordNote = "", onSa
                 lineHeight: 1.5,
               }}
             />
+          </div>
+        )}
+
+        {/* Same action bar as EntryCard: Study + More → Favorite / Priority / Edit / Delete */}
+        {(typeof onToggleStudied === "function" || canEdit) && (
+          <div
+            className="entry-action-bar zoom-entry-action-bar"
+            ref={moreMenuRef}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 0,
+              marginTop: 20,
+              paddingTop: 12,
+              borderTop: "1px solid rgba(var(--border-rgb),0.12)",
+              width: "100%",
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <div
+              className="entry-action-primary-row"
+              style={{
+                display: "flex",
+                flexWrap: "nowrap",
+                gap: 8,
+                width: "100%",
+                alignItems: "stretch",
+              }}
+            >
+              {typeof onToggleStudied === "function" && (
+                <button
+                  type="button"
+                  className="entry-action-btn entry-action-primary"
+                  style={{
+                    border: isStudied
+                      ? "1px solid color-mix(in srgb, var(--success) 35%, transparent)"
+                      : "1px solid rgba(var(--border-rgb),0.12)",
+                    background: isStudied
+                      ? "color-mix(in srgb, var(--success) 14%, var(--input-bg))"
+                      : "var(--input-bg)",
+                    color: isStudied ? "var(--success)" : "var(--ink)",
+                    padding: "8px 4px",
+                    margin: 0,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 3,
+                    flex: 1,
+                    minWidth: 0,
+                    minHeight: 48,
+                    borderRadius: 12,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    fontFamily: "inherit",
+                    lineHeight: 1.1,
+                    WebkitTapHighlightColor: "transparent",
+                    touchAction: "manipulation",
+                  }}
+                  onClick={() => { setMoreOpen(false); onToggleStudied(entry.id); }}
+                  aria-pressed={isStudied}
+                  aria-label={tr(isAr, "Studied", "دراسة")}
+                  title={tr(isAr, "Studied", "دراسة")}
+                >
+                  {isStudied ? <EyeIcon size={18} /> : <EyeOffIcon size={18} />}
+                  <span>{tr(isAr, "Study", "دراسة")}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                className="entry-action-btn entry-action-more"
+                style={{
+                  border: moreOpen
+                    ? "1px solid color-mix(in srgb, var(--accent-1) 40%, transparent)"
+                    : "1px solid rgba(var(--border-rgb),0.12)",
+                  background: moreOpen
+                    ? "color-mix(in srgb, var(--accent-1) 14%, var(--input-bg))"
+                    : "var(--input-bg)",
+                  color: moreOpen ? "var(--accent-1)" : "var(--icon-muted)",
+                  padding: "8px 4px",
+                  margin: 0,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 3,
+                  flex: typeof onToggleStudied === "function" ? "0 0 auto" : 1,
+                  minWidth: 56,
+                  minHeight: 48,
+                  borderRadius: 12,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  fontFamily: "inherit",
+                  lineHeight: 1.1,
+                  WebkitTapHighlightColor: "transparent",
+                  touchAction: "manipulation",
+                }}
+                onClick={() => { setMoreOpen((v) => !v); setConfirmDel(false); }}
+                aria-expanded={moreOpen}
+                aria-controls={`zoom-more-panel-${entry.id}`}
+                aria-label={tr(isAr, "More actions", "المزيد")}
+                title={tr(isAr, "More", "المزيد")}
+              >
+                <MoreIcon size={18} />
+                <span>{tr(isAr, "More", "المزيد")}</span>
+              </button>
+            </div>
+
+            {moreOpen && (
+              <div
+                id={`zoom-more-panel-${entry.id}`}
+                role="menu"
+                className="entry-more-panel"
+                style={{
+                  marginTop: 8,
+                  padding: 8,
+                  borderRadius: 14,
+                  background: "color-mix(in srgb, var(--input-bg) 88%, var(--card))",
+                  border: "1px solid rgba(var(--border-rgb),0.12)",
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 6,
+                  width: "100%",
+                  boxSizing: "border-box",
+                  animation: "entryMoreIn 0.2s cubic-bezier(0.22,1,0.36,1) both",
+                }}
+              >
+                {typeof onToggleFavorite === "function" && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="entry-more-tile"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 5,
+                      minHeight: 56,
+                      padding: "10px 8px",
+                      border: "1px solid rgba(var(--border-rgb),0.1)",
+                      borderRadius: 12,
+                      background: isFavorite
+                        ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))"
+                        : "var(--card)",
+                      color: isFavorite ? "var(--accent-1)" : "var(--ink)",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      fontFamily: "var(--font-latin)",
+                      cursor: "pointer",
+                      boxShadow: "0 1px 0 rgba(255,255,255,0.2) inset",
+                    }}
+                    onClick={() => onToggleFavorite(entry.id)}
+                  >
+                    <StarIcon size={17} fill={isFavorite ? BRASS : "none"} />
+                    <span>{tr(isAr, "Favorite", "مفضلة")}</span>
+                    {isFavorite && <span className="entry-more-dot" aria-hidden="true" />}
+                  </button>
+                )}
+                {typeof onCyclePriority === "function" && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="entry-more-tile"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 5,
+                      minHeight: 56,
+                      padding: "10px 8px",
+                      border: "1px solid rgba(var(--border-rgb),0.1)",
+                      borderRadius: 12,
+                      background: priority > 0
+                        ? "color-mix(in srgb, var(--accent-1) 12%, var(--card))"
+                        : "var(--card)",
+                      color: priority > 0 ? "var(--accent-1)" : "var(--ink)",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      fontFamily: "var(--font-latin)",
+                      cursor: "pointer",
+                      boxShadow: "0 1px 0 rgba(255,255,255,0.2) inset",
+                    }}
+                    onClick={() => onCyclePriority(entry.id)}
+                  >
+                    <FlameIcon size={17} />
+                    <span>{
+                      priority === 3 ? tr(isAr, "High", "عالية")
+                      : priority === 2 ? tr(isAr, "Med", "متوسطة")
+                      : priority === 1 ? tr(isAr, "Low", "منخفضة")
+                      : tr(isAr, "Priority", "أولوية")
+                    }</span>
+                  </button>
+                )}
+                {canEdit && typeof onEdit === "function" && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="entry-more-tile"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 5,
+                      minHeight: 56,
+                      padding: "10px 8px",
+                      border: "1px solid rgba(var(--border-rgb),0.1)",
+                      borderRadius: 12,
+                      background: "var(--card)",
+                      color: "var(--ink)",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      fontFamily: "var(--font-latin)",
+                      cursor: "pointer",
+                      boxShadow: "0 1px 0 rgba(255,255,255,0.2) inset",
+                    }}
+                    onClick={() => { setMoreOpen(false); onEdit(entry.id); onClose(); }}
+                  >
+                    <EditIcon size={16} />
+                    <span>{tr(isAr, "Edit", "تعديل")}</span>
+                  </button>
+                )}
+                {canEdit && typeof onDelete === "function" && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="entry-more-tile"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 5,
+                      minHeight: 56,
+                      padding: "10px 8px",
+                      border: confirmDel
+                        ? "1px solid color-mix(in srgb, var(--danger) 40%, transparent)"
+                        : "1px solid rgba(var(--border-rgb),0.1)",
+                      borderRadius: 12,
+                      background: confirmDel
+                        ? "color-mix(in srgb, var(--danger) 12%, var(--card))"
+                        : "var(--card)",
+                      color: confirmDel ? "var(--danger)" : "var(--ink)",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      fontFamily: "var(--font-latin)",
+                      cursor: "pointer",
+                      boxShadow: "0 1px 0 rgba(255,255,255,0.2) inset",
+                    }}
+                    onClick={() => {
+                      if (confirmDel) {
+                        onDelete(entry.id);
+                        setMoreOpen(false);
+                        setConfirmDel(false);
+                        onClose();
+                      } else {
+                        setConfirmDel(true);
+                      }
+                    }}
+                    onBlur={() => setConfirmDel(false)}
+                  >
+                    <TrashIcon size={16} />
+                    <span>{confirmDel ? tr(isAr, "Confirm?", "تأكيد؟") : tr(isAr, "Delete", "حذف")}</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
         </div>

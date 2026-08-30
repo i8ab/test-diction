@@ -226,6 +226,20 @@ export default function MainViewOverlays(p) {
             wordNote={wordNotes[zoomEntry.id] || ""}
             onSaveNote={(note) => setWordNotes(setWordNote(accountCode, zoomEntry.id, note))}
             alreadyExists={zoomAlreadyExists}
+            canEdit={true}
+            isStudied={!!(studiedIds && typeof studiedIds.has === "function" && studiedIds.has(zoomEntry.id))}
+            onToggleStudied={onToggleStudied}
+            isFavorite={!!(favoriteIds && typeof favoriteIds.has === "function" && favoriteIds.has(zoomEntry.id))}
+            onToggleFavorite={p.onToggleFavorite}
+            priority={(p.wordPriorities && p.wordPriorities[zoomEntry.id]) || 0}
+            onCyclePriority={p.onCyclePriority}
+            onEdit={(id) => {
+              const e = (entries || []).find((x) => x.id === id) || zoomEntry;
+              setEditingEntry(e);
+              setZoomEntry(null);
+              setZoomAlreadyExists(false);
+            }}
+            onDelete={p.handleDelete}
           />
         )}
         {showQuiz && (

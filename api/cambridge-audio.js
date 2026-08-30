@@ -72,16 +72,21 @@ export default async function handler(req, res) {
   if (!word) {
     return res.status(400).json({ ok: false, error: "Missing word", requestId: rid });
   }
-  const slug = toSlug(word.split(" ")[0]).slice(0, 64);
-  if (!slug) {
+
+  // Full phrase first (spaces → hyphens). Fall back to first token if needed.
+  // Fixes multi-word ("ice cream") and hyphenated ("ice-cream", "look-up") terms
+  // that previously only requested the first word.
+  const fullSlug = toSlug(word).slice(0, 80);
+  const firstSlug = toSlug(word.split(/\s+/)[0] || "").slice(0, 64);
+  if (!fullSlug) {
     return res.status(400).json({ ok: false, error: "Invalid word", requestId: rid });
   }
 
-  const pageUrl = `https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(slug)}`;
   const ua =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-  try {
+  async function fetchCambridgePage(slug) {
+    const pageUrl = `https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(slug)}`;
     const pageRes = await fetch(pageUrl, {
       headers: {
         "User-Agent": ua,
@@ -91,20 +96,40 @@ export default async function handler(req, res) {
       },
       redirect: "follow",
     });
+    if (!pageRes.ok) return { ok: false, status: pageRes.status, html: null, pageUrl };
+    const html = await pageRes.text();
+    return { ok: true, status: pageRes.status, html, pageUrl };
+  }
 
-    if (!pageRes.ok) {
+  try {
+    let page = await fetchCambridgePage(fullSlug);
+    if ((!page.ok || !page.html) && firstSlug && firstSlug !== fullSlug) {
+      page = await fetchCambridgePage(firstSlug);
+    }
+
+    if (!page.ok || !page.html) {
       return res.status(404).json({
         ok: false,
         error: "Word not found on Cambridge",
-        status: pageRes.status,
+        status: page.status || 404,
         requestId: rid,
       });
     }
 
-    const html = await pageRes.text();
+    const html = page.html;
+    const pageUrl = page.pageUrl;
     let audioUrl = extractAudioUrl(html, accent);
     if (!audioUrl) {
       audioUrl = extractAudioUrl(html, accent === "us" ? "uk" : "us");
+    }
+    // Last resort: headword-only audio for compounds
+    if (!audioUrl && firstSlug && firstSlug !== fullSlug) {
+      const fallback = await fetchCambridgePage(firstSlug);
+      if (fallback.ok && fallback.html) {
+        audioUrl =
+          extractAudioUrl(fallback.html, accent) ||
+          extractAudioUrl(fallback.html, accent === "us" ? "uk" : "us");
+      }
     }
     if (!audioUrl) {
       return res.status(404).json({

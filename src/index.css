@@ -2604,28 +2604,37 @@ html[data-has-bg-image="1"] .word-card {
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
-/* Mobile: respect card-clarity (match tablet/desktop transparency) */
+/* Mobile + Tablet: respect card-clarity so bg-image cards are transparent
+   on both form factors (tablet previously stayed solid/opaque). */
 html[data-device="mobile"][data-has-bg-image="1"] .entry-card,
-html[data-device="mobile"][data-has-bg-image="1"] .word-card {
-  /* default glass-like when clarity not set — see-through like other devices */
+html[data-device="mobile"][data-has-bg-image="1"] .word-card,
+html[data-device="tablet"][data-has-bg-image="1"] .entry-card,
+html[data-device="tablet"][data-has-bg-image="1"] .word-card {
+  /* default glass-like when clarity not set — see-through like phone */
   background-color: color-mix(in srgb, var(--card) 55%, transparent) !important;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
 html[data-device="mobile"][data-card-clarity="opaque"] .entry-card,
-html[data-device="mobile"][data-card-clarity="opaque"] .word-card {
+html[data-device="mobile"][data-card-clarity="opaque"] .word-card,
+html[data-device="tablet"][data-card-clarity="opaque"] .entry-card,
+html[data-device="tablet"][data-card-clarity="opaque"] .word-card {
   background-color: var(--card) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 html[data-device="mobile"][data-card-clarity="glass"] .entry-card,
-html[data-device="mobile"][data-card-clarity="glass"] .word-card {
+html[data-device="mobile"][data-card-clarity="glass"] .word-card,
+html[data-device="tablet"][data-card-clarity="glass"] .entry-card,
+html[data-device="tablet"][data-card-clarity="glass"] .word-card {
   background-color: color-mix(in srgb, var(--card) 72%, transparent) !important;
   backdrop-filter: blur(8px) !important;
   -webkit-backdrop-filter: blur(8px) !important;
 }
 html[data-device="mobile"][data-card-clarity="clear"] .entry-card,
-html[data-device="mobile"][data-card-clarity="clear"] .word-card {
+html[data-device="mobile"][data-card-clarity="clear"] .word-card,
+html[data-device="tablet"][data-card-clarity="clear"] .entry-card,
+html[data-device="tablet"][data-card-clarity="clear"] .word-card {
   background-color: color-mix(in srgb, var(--card) 48%, transparent) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;

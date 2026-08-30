@@ -1354,6 +1354,9 @@ export default function MainView({
         setShowInfoGuide={setShowInfoGuide}
         infoGuideInitialId={infoGuideInitialId}
         setInfoGuideInitialId={setInfoGuideInitialId}
+        handleDelete={handleDelete}
+        onToggleFavorite={handleToggleFavoriteById}
+        onCyclePriority={handleCyclePriority}
       />
 
       {dupNotice && dupNotice.entry && (
@@ -1524,6 +1527,16 @@ export default function MainView({
         onOpenGoals={() => { setGoalsBubble(false); setShowGoals(true); }}
         onOpenTodo={() => { setTodoBubble(false); setShowTodo(true); }}
         onOpenAccount={() => onOpenAccount && onOpenAccount()}
+        onOpenAdd={() => onOpenAdd && onOpenAdd()}
+        onOpenMore={() => {
+          try {
+            const btn = document.querySelector("[data-tools-menu-trigger], .tools-menu-trigger, .header-tools-btn");
+            if (btn) btn.click();
+            else if (typeof onOpenAccount === "function") onOpenAccount();
+          } catch (_) {
+            if (typeof onOpenAccount === "function") onOpenAccount();
+          }
+        }}
       />
     )}
 

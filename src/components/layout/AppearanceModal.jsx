@@ -1,6 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
+import { NavCustomizePanel, loadNavTabKeys, saveNavTabKeys } from "./MobileBottomNav";
 import { XIcon, SunIcon, MoonIcon, PlusIcon, GlobeIcon, CheckIcon, ChevronIcon } from "../common/Icons";
 import {
   BRAND_PRESETS,
@@ -170,6 +171,34 @@ export default function AppearanceModal({
   const [openSection, setOpenSection] = useState("mode");
   const scrollRef = useRef(null);
   const sectionRefs = useRef({});
+  const [navKeys, setNavKeys] = useState(() => loadNavTabKeys());
+  const [showNavCustomize, setShowNavCustomize] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const d = document.documentElement.getAttribute("data-device");
+      if (d === "mobile" || d === "tablet") return true;
+    } catch (_) {}
+    return window.matchMedia("(max-width: 1023px)").matches;
+  });
+  useEffect(() => {
+    function sync() {
+      try {
+        const d = document.documentElement.getAttribute("data-device");
+        if (d === "mobile" || d === "tablet") {
+          setShowNavCustomize(true);
+          return;
+        }
+        if (d === "desktop") {
+          setShowNavCustomize(false);
+          return;
+        }
+      } catch (_) {}
+      setShowNavCustomize(window.matchMedia("(max-width: 1023px)").matches);
+    }
+    sync();
+    window.addEventListener("resize", sync);
+    return () => window.removeEventListener("resize", sync);
+  }, []);
 
   // Preserve scroll when expanding/collapsing (height change must not jump to top).
   const toggle = (id) => {
@@ -840,6 +869,23 @@ export default function AppearanceModal({
 
           {/* ── Exam visual ── */}
           {typeof onChangeExamVisual === "function" && (
+            {showNavCustomize && (
+            <AppearanceSection
+              {...sp("bottomnav")}
+              title={T("Bottom navigation", "شريط التنقل")}
+              summary={T(`${navKeys.length} icons`, `${navKeys.length} أيقونات`)}
+            >
+              <NavCustomizePanel
+                isAr={isAr}
+                tabKeys={navKeys}
+                onChangeTabKeys={(keys) => {
+                  setNavKeys(keys);
+                  saveNavTabKeys(keys);
+                }}
+              />
+            </AppearanceSection>
+            )}
+
             <AppearanceSection {...sp("examvisual")}
               title={T("Exam visual mode", "وضع الامتحان البصري")}
               summary={examVisual ? T("On", "تشغيل") : T("Off", "إيقاف")}

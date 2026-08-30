@@ -336,6 +336,15 @@ export default function MainView({
     window.addEventListener("twoTongues:toolsMenuClosed", onToolsClosed);
     return () => window.removeEventListener("twoTongues:toolsMenuClosed", onToolsClosed);
   }, []);
+  useEffect(() => {
+    function onNavTabsChanged(e) {
+      const keys = e && e.detail;
+      if (Array.isArray(keys) && keys.length) setNavTabKeysForFab(keys);
+      else setNavTabKeysForFab(loadNavTabKeys());
+    }
+    window.addEventListener("twoTongues:navTabsChanged", onNavTabsChanged);
+    return () => window.removeEventListener("twoTongues:navTabsChanged", onNavTabsChanged);
+  }, []);
 
   const [showAchievements, setShowAchievements] = useState(() => restored.tool === "achievements");
   const [showRandomWord, setShowRandomWord] = useState(() => restored.tool === "randomWord");

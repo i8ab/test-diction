@@ -168,6 +168,168 @@ export function saveNavTabKeys(keys) {
  * `actions` — map of key → () => void open handlers from MainView.
  * `activeOverrides` — optional map of key → boolean (tool open) for highlight.
  */
+
+
+/** Settings-only UI to pick up to MAX_NAV_TABS bottom-nav destinations. */
+export function NavCustomizePanel({ isAr = false, tabKeys, onChangeTabKeys }) {
+  const keys = Array.isArray(tabKeys) ? tabKeys : loadNavTabKeys();
+
+  function setKeys(next) {
+    const cleaned = (typeof next === "function" ? next(keys) : next)
+      .filter((k) => ALL_NAV_ITEMS.some((i) => i.key === k))
+      .slice(0, MAX_NAV_TABS);
+    if (onChangeTabKeys) onChangeTabKeys(cleaned);
+    else saveNavTabKeys(cleaned);
+    try {
+      window.dispatchEvent(new CustomEvent("twoTongues:navTabsChanged", { detail: cleaned }));
+    } catch (_) {}
+  }
+
+  function moveTab(index, dir) {
+    const next = [...keys];
+    const j = index + dir;
+    if (j < 0 || j >= next.length) return;
+    [next[index], next[j]] = [next[j], next[index]];
+    setKeys(next);
+  }
+
+  function removeTab(key) {
+    if (keys.length <= 1) return;
+    setKeys(keys.filter((k) => k !== key));
+  }
+
+  function addTab(key) {
+    if (keys.includes(key)) return;
+    if (keys.length >= MAX_NAV_TABS) return;
+    setKeys([...keys, key]);
+  }
+
+  const grouped = GROUP_ORDER.map((g) => ({
+    id: g,
+    title: tr(isAr, GROUP_LABELS[g].en, GROUP_LABELS[g].ar),
+    items: ALL_NAV_ITEMS.filter((i) => i.group === g),
+  })).filter((g) => g.items.length);
+
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: "var(--muted-strong)", marginBottom: 10, lineHeight: 1.45 }}>
+        {tr(
+          isAr,
+          `Pick up to ${MAX_NAV_TABS} icons for the bottom bar (phone & tablet). Order with arrows.`,
+          `اختر حتى ${MAX_NAV_TABS} أيقونات لشريط التنقل (موبايل وتابلت). رتّب بالأسهم.`
+        )}
+        {" · "}
+        <strong style={{ color: "var(--ink)" }}>{keys.length}/{MAX_NAV_TABS}</strong>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {grouped.map((group) => (
+          <div key={group.id}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                color: "var(--muted-strong)",
+                marginBottom: 6,
+              }}
+            >
+              {group.title}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {group.items.map((item) => {
+                const active = keys.includes(item.key);
+                const orderIdx = keys.indexOf(item.key);
+                const atMax = !active && keys.length >= MAX_NAV_TABS;
+                return (
+                  <div
+                    key={item.key}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      background: active
+                        ? "color-mix(in srgb, var(--accent-1) 12%, var(--input-bg))"
+                        : "var(--input-bg)",
+                      border: active
+                        ? "1px solid color-mix(in srgb, var(--accent-1) 35%, transparent)"
+                        : "1px solid rgba(var(--border-rgb),0.1)",
+                      opacity: atMax ? 0.55 : 1,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => (active ? removeTab(item.key) : addTab(item.key))}
+                      disabled={atMax}
+                      aria-pressed={active}
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 8,
+                        border: active ? "none" : "1.5px solid rgba(var(--border-rgb),0.35)",
+                        background: active ? "var(--accent-1)" : "transparent",
+                        color: active ? "var(--on-accent, #fff)" : "var(--muted-strong)",
+                        fontWeight: 900,
+                        fontSize: 14,
+                        cursor: atMax ? "default" : "pointer",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {active ? "✓" : "+"}
+                    </button>
+                    <span style={{ color: "var(--icon-muted)", display: "flex" }}>{item.icon}</span>
+                    <span style={{ flex: 1, fontWeight: 700, fontSize: 13 }}>
+                      {tr(isAr, item.labelEn, item.labelAr)}
+                    </span>
+                    {active && (
+                      <span style={{ display: "inline-flex", gap: 2 }}>
+                        <button
+                          type="button"
+                          onClick={() => moveTab(orderIdx, -1)}
+                          disabled={orderIdx <= 0}
+                          style={{
+                            border: "none",
+                            background: "transparent",
+                            cursor: orderIdx <= 0 ? "default" : "pointer",
+                            opacity: orderIdx <= 0 ? 0.3 : 1,
+                            fontSize: 16,
+                            padding: 4,
+                            color: "var(--ink)",
+                          }}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveTab(orderIdx, 1)}
+                          disabled={orderIdx >= keys.length - 1}
+                          style={{
+                            border: "none",
+                            background: "transparent",
+                            cursor: orderIdx >= keys.length - 1 ? "default" : "pointer",
+                            opacity: orderIdx >= keys.length - 1 ? 0.3 : 1,
+                            fontSize: 16,
+                            padding: 4,
+                            color: "var(--ink)",
+                          }}
+                        >
+                          ↓
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function MobileBottomNav({
   isAr,
   mobileNavTab,
@@ -183,7 +345,6 @@ export default function MobileBottomNav({
   const itemRefs = useRef([]);
   const [light, setLight] = useState({ x: 0, w: 48, ready: false });
   const [localKeys, setLocalKeys] = useState(loadNavTabKeys);
-  const [editMode, setEditMode] = useState(false);
 
   const tabKeys = controlledTabKeys || localKeys;
 
@@ -275,34 +436,7 @@ export default function MobileBottomNav({
       clearTimeout(t);
       window.removeEventListener("resize", measure);
     };
-  }, [activeIndex, isAr, tabs.length, editMode]);
-
-  function moveTab(index, dir) {
-    const next = [...tabKeys];
-    const j = index + dir;
-    if (j < 0 || j >= next.length) return;
-    [next[index], next[j]] = [next[j], next[index]];
-    setTabKeys(next);
-  }
-
-  function removeTab(key) {
-    if (tabKeys.length <= 1) return;
-    setTabKeys(tabKeys.filter((k) => k !== key));
-  }
-
-  function addTab(key) {
-    if (tabKeys.includes(key)) return;
-    if (tabKeys.length >= MAX_NAV_TABS) return;
-    setTabKeys([...tabKeys, key]);
-  }
-
-  const groupedCatalog = useMemo(() => {
-    return GROUP_ORDER.map((g) => ({
-      id: g,
-      title: tr(isAr, GROUP_LABELS[g].en, GROUP_LABELS[g].ar),
-      items: ALL_NAV_ITEMS.filter((i) => i.group === g),
-    })).filter((g) => g.items.length);
-  }, [isAr]);
+  }, [activeIndex, isAr, tabs.length]);
 
   if (typeof document === "undefined") return null;
 
@@ -311,168 +445,6 @@ export default function MobileBottomNav({
       className="mobile-bottom-nav arc-nav"
       aria-label={tr(isAr, "Main navigation", "التنقل الرئيسي")}
     >
-      {editMode && (
-        <div
-          className="nav-customize-panel"
-          style={{
-            position: "absolute",
-            bottom: "100%",
-            left: 8,
-            right: 8,
-            marginBottom: 8,
-            padding: 14,
-            borderRadius: 16,
-            background: "var(--card)",
-            border: "1px solid rgba(var(--border-rgb),0.14)",
-            boxShadow: "0 12px 32px -12px rgba(0,0,0,0.35)",
-            zIndex: 30,
-            maxHeight: "60vh",
-            overflowY: "auto",
-          }}
-        >
-          <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, color: "var(--ink)" }}>
-            {tr(isAr, "Customize navigation bar", "تخصيص شريط التنقل")}
-          </div>
-          <div style={{ fontSize: 11, color: "var(--muted-strong)", marginBottom: 12 }}>
-            {tr(
-              isAr,
-              `Choose up to ${MAX_NAV_TABS} items. Toggle on/off, reorder with arrows, then Done.`,
-              `اختر حتى ${MAX_NAV_TABS} عناصر. فعّل/أوقف، رتّب بالأسهم، ثم تم.`
-            )}
-            {" · "}
-            <strong>
-              {tabKeys.length}/{MAX_NAV_TABS}
-            </strong>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {groupedCatalog.map((group) => (
-              <div key={group.id}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 800,
-                    letterSpacing: "0.04em",
-                    textTransform: "uppercase",
-                    color: "var(--muted-strong)",
-                    marginBottom: 6,
-                    paddingInline: 4,
-                  }}
-                >
-                  {group.title}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {group.items.map((item) => {
-                    const active = tabKeys.includes(item.key);
-                    const orderIdx = tabKeys.indexOf(item.key);
-                    const atMax = !active && tabKeys.length >= MAX_NAV_TABS;
-                    return (
-                      <div
-                        key={item.key}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          padding: "10px 12px",
-                          borderRadius: 12,
-                          background: active
-                            ? "color-mix(in srgb, var(--accent-1) 12%, var(--input-bg))"
-                            : "var(--input-bg)",
-                          border: active
-                            ? "1px solid color-mix(in srgb, var(--accent-1) 35%, transparent)"
-                            : "1px solid rgba(var(--border-rgb),0.1)",
-                          opacity: atMax ? 0.55 : 1,
-                        }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => (active ? removeTab(item.key) : addTab(item.key))}
-                          disabled={atMax}
-                          aria-pressed={active}
-                          aria-label={active ? "Remove" : "Add"}
-                          style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 8,
-                            border: active ? "none" : "1.5px solid rgba(var(--border-rgb),0.35)",
-                            background: active ? "var(--accent-1)" : "transparent",
-                            color: active ? "var(--on-accent, #fff)" : "var(--muted-strong)",
-                            fontWeight: 900,
-                            fontSize: 14,
-                            cursor: atMax ? "default" : "pointer",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {active ? "✓" : "+"}
-                        </button>
-                        <span style={{ color: "var(--icon-muted)", display: "flex" }}>{item.icon}</span>
-                        <span style={{ flex: 1, fontWeight: 700, fontSize: 13 }}>
-                          {tr(isAr, item.labelEn, item.labelAr)}
-                        </span>
-                        {active && (
-                          <span style={{ display: "inline-flex", gap: 2 }}>
-                            <button
-                              type="button"
-                              onClick={() => moveTab(orderIdx, -1)}
-                              disabled={orderIdx <= 0}
-                              aria-label="Move up"
-                              style={{
-                                border: "none",
-                                background: "transparent",
-                                cursor: orderIdx <= 0 ? "default" : "pointer",
-                                opacity: orderIdx <= 0 ? 0.3 : 1,
-                                fontSize: 16,
-                                padding: 4,
-                                color: "var(--ink)",
-                              }}
-                            >
-                              ↑
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => moveTab(orderIdx, 1)}
-                              disabled={orderIdx < 0 || orderIdx >= tabKeys.length - 1}
-                              aria-label="Move down"
-                              style={{
-                                border: "none",
-                                background: "transparent",
-                                cursor: orderIdx >= tabKeys.length - 1 ? "default" : "pointer",
-                                opacity: orderIdx >= tabKeys.length - 1 ? 0.3 : 1,
-                                fontSize: 16,
-                                padding: 4,
-                                color: "var(--ink)",
-                              }}
-                            >
-                              ↓
-                            </button>
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={() => setEditMode(false)}
-            style={{
-              marginTop: 14,
-              width: "100%",
-              padding: "12px 14px",
-              borderRadius: 12,
-              border: "none",
-              background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-              color: "var(--on-accent, #fff)",
-              fontWeight: 800,
-              fontSize: 14,
-              cursor: "pointer",
-            }}
-          >
-            {tr(isAr, "Done — tap items to open", "تم — المس العناصر لفتحها")}
-          </button>
-        </div>
-      )}
 
       <div className="arc-nav-bar" ref={listRef} role="tablist">
         <span
@@ -498,16 +470,12 @@ export default function MobileBottomNav({
               "mobile-bottom-nav-item arc-nav-item" +
               (activeKey === t.key ? " is-active" : "")
             }
-            onClick={
-              editMode
-                ? undefined
-                : (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    runAction(t.key);
-                  }
-            }
-            onContextMenu={editMode ? undefined : t.onContextMenu}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              runAction(t.key);
+            }}
+            onContextMenu={t.onContextMenu}
             title={
               t.key === "quiz"
                 ? tr(isAr, "Tap: quiz · Long-press: due only", "ضغط: اختبار · ضغطة طويلة: المستحق فقط")
@@ -518,19 +486,6 @@ export default function MobileBottomNav({
             <span>{t.label}</span>
           </button>
         ))}
-        <button
-          type="button"
-          className="mobile-bottom-nav-item arc-nav-item"
-          onClick={() => setEditMode((v) => !v)}
-          aria-label={tr(isAr, "Customize nav bar", "تخصيص شريط التنقل")}
-          title={tr(isAr, "Customize nav bar", "تخصيص شريط التنقل")}
-          style={{ flex: "0 0 auto", minWidth: 40, opacity: 0.7 }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-          </svg>
-        </button>
       </div>
     </nav>,
     document.body

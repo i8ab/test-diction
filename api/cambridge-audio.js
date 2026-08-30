@@ -21,31 +21,43 @@ function toSlug(word) {
     .replace(/-+/g, "-");
 }
 
-function extractAudioUrl(html, accent) {
+/**
+ * Extract Cambridge MP3 URL from page HTML.
+ * When preferredSlug is multi-word (contains "-"), only accept an MP3 whose
+ * path clearly matches that full slug — never a headword-only clip.
+ */
+function extractAudioUrl(html, accent, preferredSlug) {
   if (!html) return null;
   const needle = accent === "uk" ? "uk_pron" : "us_pron";
-  const reData = new RegExp(
-    `data-src-mp3="(https://dictionary\\.cambridge\\.org/media/english/${needle}[^"]+\\.mp3)"`,
-    "i"
+  const reAll = new RegExp(
+    `(?:data-src-mp3|src)="((?:https://dictionary\\.cambridge\\.org)?/media/english/${needle}[^"]+\\.mp3)"`,
+    "gi"
   );
-  let m = html.match(reData);
-  if (m) return m[1];
+  const urls = [];
+  let m;
+  while ((m = reAll.exec(html)) !== null) {
+    let u = m[1];
+    if (u.startsWith("/")) u = `https://dictionary.cambridge.org${u}`;
+    urls.push(u);
+  }
+  if (!urls.length) return null;
 
-  const reSrc = new RegExp(
-    `src="(https://dictionary\\.cambridge\\.org/media/english/${needle}[^"]+\\.mp3)"`,
-    "i"
-  );
-  m = html.match(reSrc);
-  if (m) return m[1];
-
-  const reRel = new RegExp(
-    `(?:data-src-mp3|src)="(/media/english/${needle}[^"]+\\.mp3)"`,
-    "i"
-  );
-  m = html.match(reRel);
-  if (m) return `https://dictionary.cambridge.org${m[1]}`;
-
-  return null;
+  const slug = String(preferredSlug || "").toLowerCase();
+  if (slug) {
+    const slugHit = urls.find((u) => {
+      const path = u.toLowerCase();
+      return (
+        path.includes(`/${slug}/`) ||
+        path.includes(`_${slug}.`) ||
+        path.includes(`/${slug}.`) ||
+        path.includes(`-${slug}.`)
+      );
+    });
+    if (slugHit) return slugHit;
+    // Multi-word: refuse unrelated first MP3 on the page
+    if (slug.includes("-")) return null;
+  }
+  return urls[0];
 }
 
 export default async function handler(req, res) {
@@ -117,9 +129,9 @@ export default async function handler(req, res) {
 
     const html = page.html;
     const pageUrl = page.pageUrl;
-    let audioUrl = extractAudioUrl(html, accent);
+    let audioUrl = extractAudioUrl(html, accent, fullSlug);
     if (!audioUrl) {
-      audioUrl = extractAudioUrl(html, accent === "us" ? "uk" : "us");
+      audioUrl = extractAudioUrl(html, accent === "us" ? "uk" : "us", fullSlug);
     }
     // Do NOT fall back to first-word audio when the query is multi-word.
     // Client will use full-phrase browser TTS instead.
@@ -150,6 +162,14 @@ export default async function handler(req, res) {
     }
 
     const buf = Buffer.from(await audioRes.arrayBuffer());
+    if (!buf || buf.length < 500) {
+      return res.status(404).json({
+        ok: false,
+        error: "Empty or invalid Cambridge audio",
+        multiWord: isMultiWord,
+        requestId: rid,
+      });
+    }
     res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader("Cache-Control", "public, max-age=604800, stale-while-revalidate=86400");
     res.setHeader("X-Cambridge-Accent", accent);

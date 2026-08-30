@@ -1555,11 +1555,12 @@ export default function MainView({
       onOpenAdd={() => onOpenAdd && onOpenAdd()}
       onOpenMore={() => {
         try {
-          const btn = document.querySelector("[data-tools-menu-trigger], .tools-menu-trigger, .header-tools-btn");
-          if (btn) btn.click();
-          else if (typeof onOpenAccount === "function") onOpenAccount();
+          window.dispatchEvent(new CustomEvent("twoTongues:openToolsMenu"));
         } catch (_) {
-          if (typeof onOpenAccount === "function") onOpenAccount();
+          try {
+            const btn = document.querySelector("[data-tools-menu-trigger], .tools-more-btn");
+            if (btn) btn.click();
+          } catch (__) {}
         }
       }}
     />

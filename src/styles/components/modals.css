@@ -103,11 +103,23 @@
     max-width: 100% !important;
     margin: 0 !important;
     border-radius: 18px 18px 0 0 !important;
-    max-height: min(92dvh, 92vh) !important;
-    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)) !important;
+    /* Leave room above the fixed bottom nav so actions are not trapped */
+    max-height: min(calc(92dvh - 72px), calc(92vh - 72px)) !important;
+    padding-bottom: max(80px, calc(72px + env(safe-area-inset-bottom, 0px))) !important;
     animation: modalSheetIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) both !important;
   }
 }
+
+/* Bottom nav stays visible under the modal stack (nav z ~90, modals ≥8000).
+   Modal content has clearance above the nav; nav must never sit on top of modal UI. */
+.mobile-bottom-nav.arc-nav {
+  z-index: 90 !important;
+}
+.modal-backdrop,
+.header-menu-backdrop {
+  z-index: 8000 !important;
+}
+
 
 /* Centered modals that opt-in (keep classic center on mobile) */
 .modal-backdrop.modal-center {

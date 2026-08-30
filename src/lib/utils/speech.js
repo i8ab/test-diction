@@ -50,7 +50,11 @@ async function playCambridgeUrl(url) {
   const res = await fetch(url, { credentials: "same-origin" });
   if (!res.ok) return false;
   const ctype = (res.headers.get("content-type") || "").toLowerCase();
-  if (ctype.includes("json") || ctype.includes("text/")) return false;
+  // API returns JSON on 404/error — never treat that as audio
+  if (ctype.includes("json") || ctype.includes("text/") || ctype.includes("html")) return false;
+  if (ctype && !ctype.includes("audio") && !ctype.includes("mpeg") && !ctype.includes("octet-stream")) {
+    return false;
+  }
   const blob = await res.blob();
   if (!blob || blob.size < 500) return false;
   const objectUrl = URL.createObjectURL(blob);
@@ -81,7 +85,7 @@ export async function playCambridgeAudio(text, accent) {
   const word = String(text).trim();
   if (!word || /[\u0600-\u06FF]/.test(word)) return false;
   const acc = accent === "uk" ? "uk" : "us";
-  // Full phrase first (API maps spaces → hyphens). Also try explicit hyphen form.
+  // Always request the full string; API maps spaces → hyphens and rejects headword-only for phrases.
   const candidates = [word];
   const hyphenated = word.replace(/\s+/g, "-").replace(/-+/g, "-");
   if (hyphenated !== word) candidates.push(hyphenated);
@@ -103,7 +107,7 @@ export async function playCambridgeAudio(text, accent) {
 }
 
 function speakBrowser(text, lang) {
-  if (!text || typeof window === "undefined" || !window.speechSynthesis) return;
+  if (!text || typeof window === "undefined" || !window.speechSynthesis) return false;
   try {
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(String(text));
@@ -118,11 +122,16 @@ function speakBrowser(text, lang) {
       if (match) u.voice = match;
     } catch (_) {}
     window.speechSynthesis.speak(u);
-  } catch (_) {}
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 /**
- * Speak a word.
+ * Speak a word or phrase.
+ * English: Cambridge audio first; on any failure always full-string browser TTS.
+ * Never truncates multi-word phrases. Never treats partial Cambridge success as OK.
  * @param {string} text
  * @param {"ltr"|"rtl"|string} dir
  * @param {{ accent?: "us"|"uk" }} [opts]  force US/UK for English (overrides saved preference)
@@ -141,10 +150,16 @@ export function speakWord(text, dir, opts = {}) {
   const accent = opts.accent === "uk" || opts.accent === "us" ? opts.accent : loadEnAccent();
   const lang = enAccentLang(accent);
   (async () => {
-    // Cambridge for single words + known phrases; on any failure speak FULL phrase via browser TTS.
-    // Multi-word no longer gets silent headword-only success from the API.
-    const ok = await playCambridgeAudio(full, accent);
-    if (!ok) speakBrowser(full, lang);
+    try {
+      const ok = await playCambridgeAudio(full, accent);
+      if (!ok) {
+        stopAllSpeech();
+        speakBrowser(full, lang);
+      }
+    } catch (_) {
+      stopAllSpeech();
+      speakBrowser(full, lang);
+    }
   })();
 }
 

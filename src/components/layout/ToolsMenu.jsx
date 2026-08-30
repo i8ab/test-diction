@@ -111,6 +111,15 @@ export default function ToolsMenu({
     else openMenu();
   }
 
+  // Allow bottom nav "More" (and other callers) to open this menu reliably.
+  useEffect(() => {
+    function onExternalOpen() {
+      openMenu();
+    }
+    window.addEventListener("twoTongues:openToolsMenu", onExternalOpen);
+    return () => window.removeEventListener("twoTongues:openToolsMenu", onExternalOpen);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     // Only close via the X button (or Escape) — not on outside click or when opening items.
@@ -430,6 +439,7 @@ export default function ToolsMenu({
         aria-expanded={open}
         aria-haspopup="menu"
         className="lift-hover tools-more-btn"
+        data-tools-menu-trigger="true"
         style={{
           display: "inline-flex",
           alignItems: "center",

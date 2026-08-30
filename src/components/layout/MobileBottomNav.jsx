@@ -433,6 +433,7 @@ export default function MobileBottomNav({
             key={t.key}
             type="button"
             role="tab"
+            data-nav-key={t.key}
             aria-selected={activeKey === t.key}
             ref={(el) => {
               itemRefs.current[i] = el;
@@ -441,7 +442,18 @@ export default function MobileBottomNav({
               "mobile-bottom-nav-item arc-nav-item" +
               (activeKey === t.key ? " is-active" : "")
             }
-            onClick={editMode ? undefined : t.onClick}
+            onClick={
+              editMode
+                ? undefined
+                : (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Resolve by key so reorder never wires the wrong action
+                    const handler = clickHandlers[t.key];
+                    if (typeof handler === "function") handler();
+                    else if (typeof t.onClick === "function") t.onClick();
+                  }
+            }
             onContextMenu={editMode ? undefined : t.onContextMenu}
             title={
               t.key === "quiz"

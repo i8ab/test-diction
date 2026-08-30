@@ -1229,12 +1229,14 @@ export const PROGRESS_KEYS = [
  */
 /**
  * Safe merge of learning progress for softSync / multi-device.
- * NEVER replace local studied/favorites with a shorter server list — that was
- * wiping marks on the same device after softSync.
  *
- * - studied / favorites: union of ids
- * - studiedAt: max timestamp per id
- * - other progress keys: prefer local if pending/force, else keep server
+ * Rules:
+ * - When a local cloud write is still in flight (pending flag / force):
+ *   LOCAL wins absolutely for studied / favorites / studiedAt.
+ *   (Union was wrong here: un-study would snap back from a stale server list.)
+ * - When nothing is pending: SERVER is source of truth so other-device
+ *   study/un-study marks appear correctly on this device.
+ * - Other progress keys follow the same pending/force preference.
  */
 export function preserveLocalProgress(serverAccounts, localAccounts, {
   onlyCode = null,
@@ -1244,7 +1246,7 @@ export function preserveLocalProgress(serverAccounts, localAccounts, {
     return { accounts: serverAccounts, merged: false };
   }
   const pendingAt = getPendingCloudSyncAt();
-  const preferLocalRest = force || pendingAt > 0;
+  const preferLocal = force || pendingAt > 0;
 
   const byCode = {};
   for (const a of localAccounts) {
@@ -1252,81 +1254,21 @@ export function preserveLocalProgress(serverAccounts, localAccounts, {
   }
   let merged = false;
 
-  const unionIds = (a, b) => {
-    const out = [];
-    const seen = new Set();
-    for (const id of [...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : [])]) {
-      const s = String(id);
-      if (seen.has(s)) continue;
-      seen.add(s);
-      out.push(id);
-    }
-    return out;
-  };
-
-  const mergeStudiedAt = (a, b) => {
-    const out = { ...(a && typeof a === "object" ? a : {}) };
-    if (b && typeof b === "object") {
-      for (const [k, v] of Object.entries(b)) {
-        const n = Number(v) || 0;
-        const prev = Number(out[k]) || 0;
-        if (n >= prev) out[k] = v;
-      }
-    }
-    return out;
-  };
-
   const next = serverAccounts.map((srv) => {
     if (!srv || !srv.code) return srv;
     if (onlyCode && String(srv.code) !== String(onlyCode)) return srv;
     const loc = byCode[String(srv.code)];
     if (!loc) return srv;
+
+    // No in-flight local write → trust server (true multi-device pull).
+    if (!preferLocal) return srv;
+
     const patch = { ...srv };
-
-    // Always union studied — never allow server to shrink the list on this device
-    const locStudied = Array.isArray(loc.studied) ? loc.studied : [];
-    const srvStudied = Array.isArray(srv.studied) ? srv.studied : [];
-    if (locStudied.length || srvStudied.length) {
-      const united = unionIds(locStudied, srvStudied);
-      const same =
-        united.length === srvStudied.length &&
-        united.every((id) => srvStudied.map(String).includes(String(id)));
-      if (!same) {
-        patch.studied = united;
+    for (const k of PROGRESS_KEYS) {
+      if (loc[k] === undefined) continue;
+      if (JSON.stringify(loc[k]) !== JSON.stringify(srv[k])) {
+        patch[k] = loc[k];
         merged = true;
-      }
-    }
-    if (loc.studiedAt || srv.studiedAt) {
-      const at = mergeStudiedAt(srv.studiedAt, loc.studiedAt);
-      if (JSON.stringify(at) !== JSON.stringify(srv.studiedAt || {})) {
-        patch.studiedAt = at;
-        merged = true;
-      }
-    }
-
-    // favorites: same union rule
-    const locFav = Array.isArray(loc.favorites) ? loc.favorites : [];
-    const srvFav = Array.isArray(srv.favorites) ? srv.favorites : [];
-    if (locFav.length || srvFav.length) {
-      const united = unionIds(locFav, srvFav);
-      const same =
-        united.length === srvFav.length &&
-        united.every((id) => srvFav.map(String).includes(String(id)));
-      if (!same) {
-        patch.favorites = united;
-        merged = true;
-      }
-    }
-
-    // Other progress keys: only override from local when pending/force
-    if (preferLocalRest) {
-      for (const k of PROGRESS_KEYS) {
-        if (k === "studied" || k === "studiedAt" || k === "favorites") continue;
-        if (loc[k] === undefined) continue;
-        if (JSON.stringify(loc[k]) !== JSON.stringify(srv[k])) {
-          patch[k] = loc[k];
-          merged = true;
-        }
       }
     }
     return patch;

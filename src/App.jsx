@@ -1533,14 +1533,15 @@ export default function DictionaryApp() {
             }
           }
           // Do not wipe in-flight studied/favorites: if a cloud write is still
-          // pending (or account ops are queued), keep local progress for self.
+          // pending (ops queued OR pendingCloudSync flag), keep local absolute.
           const hasPendingOps = pendingAccountOpsRef.current.length > 0;
+          const hasPendingSync = getPendingCloudSyncAt() > 0;
           const { accounts: safeList, merged: progressMerged } = preserveLocalProgress(
             list,
             accountsRef.current || [],
             {
               onlyCode: accountCode,
-              force: hasPendingOps,
+              force: hasPendingOps || hasPendingSync,
             }
           );
           list = safeList;
@@ -1617,8 +1618,8 @@ export default function DictionaryApp() {
       if (document.visibilityState === "visible") softSync();
     }
     document.addEventListener("visibilitychange", onVis);
-    // Every 60s + on tab focus — faster multi-device progress sync
-    const interval = setInterval(softSync, 60000);
+    // Every 20s + on tab focus — version check is cheap; full pull only on change
+    const interval = setInterval(softSync, 20000);
     softSync();
     return () => {
       cancelled = true;

@@ -136,6 +136,51 @@ function dayKey(ms = Date.now()) {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
+/**
+ * Bandwidth/storage guard for `claimed`: this object only needs to answer
+ * "did we already grant XP for this exact claim key?" — nothing else in the
+ * app reads the timestamp value except this function's own `d:` cutoff, so
+ * it is always safe to shrink.
+ *
+ * - `d:<date>:...` (daily claims, e.g. "opened the app today") are pruned
+ *   after CLAIMED_DAILY_RETENTION_MS — a claim from 3 months ago can never
+ *   matter again, it only exists to stop *today's* duplicate grant. This is
+ *   the entry that used to grow by one key EVERY SINGLE DAY forever with no
+ *   cap, and was the single largest contributor to account payload size.
+ * - Everything else (`fav:<id>`, `studyWordFirst:<id>`, ...) is a one-time
+ *   "did the user ever earn XP for this specific word/action" gate, so it is
+ *   NOT time-pruned — deleting one of those could let a word re-grant XP
+ *   later and silently inflate the score, which must never happen. Only its
+ *   value is compacted from a 13-digit millisecond timestamp down to `1`
+ *   (the timestamp itself is never read for these keys), saving bytes with
+ *   zero risk to correctness.
+ *
+ * This function is intentionally the single place this logic lives, and is
+ * applied on every path data can reach the network or localStorage: save,
+ * export-to-cloud, and merge-with-cloud. Previously only `saveXp` pruned
+ * `d:` keys, so merging with an un-pruned cloud copy silently undid that
+ * pruning on every load — that was the actual bug making the growth
+ * unbounded in practice.
+ */
+const CLAIMED_DAILY_RETENTION_MS = 60 * 24 * 60 * 60 * 1000; // 60 days
+
+export function pruneClaimed(claimedIn) {
+  const claimed = claimedIn && typeof claimedIn === "object" ? claimedIn : {};
+  const cutoff = Date.now() - CLAIMED_DAILY_RETENTION_MS;
+  const out = {};
+  for (const k of Object.keys(claimed)) {
+    if (k.startsWith("d:")) {
+      const ts = Number(claimed[k]);
+      if (Number.isFinite(ts) && ts >= cutoff) out[k] = ts;
+      // else: drop — too old to ever matter again
+    } else {
+      // one-time gate — keep forever, but compact the value (never read)
+      out[k] = 1;
+    }
+  }
+  return out;
+}
+
 function emptyData() {
   return {
     total: 0,
@@ -170,11 +215,7 @@ export function loadXp(accountCode) {
 
 export function saveXp(accountCode, data) {
   try {
-    const claimed = { ...(data.claimed || {}) };
-    const cutoff = Date.now() - 60 * 24 * 60 * 60 * 1000;
-    for (const k of Object.keys(claimed)) {
-      if (k.startsWith("d:") && Number(claimed[k]) < cutoff) delete claimed[k];
-    }
+    const claimed = pruneClaimed(data.claimed || {});
     const dailyEarned = { ...(data.dailyEarned || {}) };
     const days = Object.keys(dailyEarned).sort();
     if (days.length > 45) {
@@ -613,7 +654,7 @@ export function exportXpForCloud(accountCode) {
   const data = loadXp(accountCode);
   return {
     total: Number(data.total) || 0,
-    claimed: data.claimed || {},
+    claimed: pruneClaimed(data.claimed || {}),
     history: (data.history || []).slice(0, 80),
     unlockedRewards: data.unlockedRewards || [],
     dailyEarned: data.dailyEarned || {},
@@ -626,7 +667,11 @@ export function exportXpForCloud(accountCode) {
 export function mergeXpData(local, remote) {
   const a = local && typeof local === "object" ? local : emptyData();
   const b = remote && typeof remote === "object" ? remote : emptyData();
-  const claimed = { ...(b.claimed || {}), ...(a.claimed || {}) };
+  // Prune BOTH sides before merging — this is the actual fix. Before, an
+  // un-pruned remote/cloud copy would silently re-add old `d:` keys that
+  // saveXp() had already cleaned up locally, so the payload never actually
+  // shrank once it reached the server.
+  const claimed = pruneClaimed({ ...pruneClaimed(b.claimed || {}), ...pruneClaimed(a.claimed || {}) });
   const total = Math.max(Number(a.total) || 0, Number(b.total) || 0);
   const historyMap = new Map();
   for (const h of [...(b.history || []), ...(a.history || [])]) {
@@ -642,6 +687,15 @@ export function mergeXpData(local, remote) {
       Number(b.dailyEarned && b.dailyEarned[day]) || 0,
       Number(a.dailyEarned && a.dailyEarned[day]) || 0
     );
+  }
+  // Same class of bug as `claimed`: cap here too (not just in saveXp) so the
+  // object handed back to the caller — which may go straight to the network
+  // before saveXp ever re-trims it — is already bounded.
+  const dailyEarnedDays = Object.keys(dailyEarned).sort();
+  if (dailyEarnedDays.length > 45) {
+    for (const d of dailyEarnedDays.slice(0, dailyEarnedDays.length - 45)) {
+      delete dailyEarned[d];
+    }
   }
   // Prefer local equipped choice (user just picked it); fall back to remote.
   const equippedBadge = a.equippedBadge != null ? a.equippedBadge : (b.equippedBadge != null ? b.equippedBadge : null);

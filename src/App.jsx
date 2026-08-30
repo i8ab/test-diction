@@ -11,8 +11,11 @@ import {
   fetchEntriesOnly,
   fetchLogsOnly,
   fetchVersionOnly,
+  saveLogsOnly,
   saveAccountsOnly,
+  SaveConflictError,
   patchAccountFields,
+  patchSettings,
 } from "./lib/state/cloudApi";
 import {
   loadSearchHistory, saveSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory,
@@ -26,7 +29,6 @@ import {
 import { useAppPreferences } from "./lib/hooks/useAppPreferences";
 import { useStudyReminders } from "./lib/hooks/useStudyReminders";
 import { useAppShellLifecycle } from "./lib/hooks/useAppShellLifecycle";
-import { useCloudPersist } from "./lib/hooks/useCloudPersist";
 import { readInitialOfflineSnapshot } from "./lib/app/offlineSnapshot";
 import { apiErrorMessage } from "./lib/utils/apiErrorMessage";
 import { migrateAccounts } from "./lib/utils/authUtils";
@@ -34,8 +36,8 @@ import { ensureMigratedAccounts as ensureMigratedAccountsCore } from "./lib/stat
 import { runAppBoot } from "./lib/state/cloudBootstrap";
 import { watchForReconnect } from "./lib/state/connectivity";
 import SplashScreen from "./components/layout/SplashScreen";
-import { createSaveQueue } from "./lib/state/cloudQueue";
-import { mergeAccountProgress } from "./lib/state/cloudFlush";
+import { createSaveQueue, applyOps as applyOpsPure, MAX_SAVE_RETRIES as MAX_SAVE_RETRIES_CONST } from "./lib/state/cloudQueue";
+import { flushPendingAccounts as flushAccountsCloud, flushPendingEntries as flushEntriesCloud } from "./lib/state/cloudFlush";
 import {
   switchToVaultAccount as switchVault,
   beginLinkAccount as beginLink,
@@ -216,15 +218,8 @@ export default function DictionaryApp() {
   const recordVersionRef = useRef(initialOffline?.version || 0);
   function commitRecordVersion(v) {
     const n = typeof v === "number" ? v : 0;
-    const prev = recordVersionRef.current;
     recordVersionRef.current = n;
     setRecordVersion(n);
-    // بعد حفظ ناجح (version ارتفع) → نبّه التبويبات الأخرى للمزامنة الفورية
-    if (n > prev) {
-      try {
-        window.dispatchEvent(new CustomEvent("tt-local-save", { detail: { version: n } }));
-      } catch (_) {}
-    }
   }
   // Serialize all cloud writes from this tab. Parallel persist* calls were the
   // main source of fake "updated elsewhere" errors when marking studied /
@@ -869,48 +864,281 @@ export default function DictionaryApp() {
   // fresh data so we're not left silently diverged from what's actually
   // saved. Used as a last-resort fallback when we can't safely auto-retry
   // (e.g. retry attempts exhausted).
-  const {
-    handleSaveConflict,
-    getFlushCtx,
-    flushPendingAccounts,
-    flushPendingEntries,
-    snapshotLocalNow,
-    persistEntries,
-    persistAccounts,
-    persistLogs,
-    logEvent,
-    persistSiteBanner,
-    persistExamConfig,
-    persistAcademicUnits,
-    clearLogsExceptFirstSignIn,
-  } = useCloudPersist({
-    enqueueSave,
-    pendingAccountOpsRef,
-    pendingEntryOpsRef,
-    pendingRemoveCodesRef,
-    pendingApprovedCodesRef,
-    entriesRef,
-    accountsRef,
-    logsRef,
-    siteBannerRef,
-    examConfigRef,
-    academicUnitsRef,
-    recordVersionRef,
-    lastSyncedEntriesRef,
-    commitRecordVersion,
-    setAccounts,
-    setLogs,
-    setEntries,
-    setSiteBanner,
-    setExamConfig,
-    setAcademicUnits,
-    setActiveUnitId,
-    setSaveError,
-    accountCode,
-    logs,
-    showToast,
-    appIsAr,
-  });
+  function handleSaveConflict(err) {
+    setEntries(err.fresh.entries || []);
+    setAccounts(err.fresh.accounts || []);
+    setLogs(err.fresh.logs || []);
+    if (err.fresh.siteBanner !== undefined) setSiteBanner(err.fresh.siteBanner || null);
+    if (err.fresh.examConfig !== undefined) setExamConfig(normalizeExamConfig(err.fresh.examConfig));
+    if (err.fresh.academicUnits !== undefined) {
+      const u = normalizeAcademicUnits(err.fresh.academicUnits);
+      setAcademicUnits(u);
+      academicUnitsRef.current = u;
+    }
+    commitRecordVersion(err.fresh.version || 0);
+    setSaveError(""); // conflict recovered by resync — no scary banner
+  }
+
+  // Max number of automatic retries on a version conflict before giving up
+  // and falling back to handleSaveConflict (which discards the pending
+  // change and asks the user to retry manually). In practice a single
+  // retry resolves the vast majority of real-world races (two people
+  // adding a word within the same second), since each retry re-reads the
+  // absolute latest server state.
+  const MAX_SAVE_RETRIES = MAX_SAVE_RETRIES_CONST;
+
+  // Apply a list of ops (each op is { fn, logFn }) onto base state.
+  // Functional fns compose; plain-array ops replace.
+  const applyOps = applyOpsPure;
+
+  function getFlushCtx() {
+    return {
+      enqueueSave,
+      pendingAccountOpsRef,
+      pendingEntryOpsRef,
+      pendingRemoveCodesRef,
+      pendingApprovedCodesRef,
+      entriesRef,
+      accountsRef,
+      logsRef,
+      siteBannerRef,
+      examConfigRef,
+      academicUnitsRef,
+      recordVersionRef,
+      commitRecordVersion,
+      setAccounts,
+      setLogs,
+      setEntries,
+      setSiteBanner,
+      setSaveError,
+      accountCode,
+      lastSyncedEntriesRef,
+    };
+  }
+
+  function flushPendingAccounts() {
+    return flushAccountsCloud(getFlushCtx());
+  }
+
+  function flushPendingEntries() {
+    return flushEntriesCloud(getFlushCtx());
+  }
+
+  // Snapshot current in-memory record to localStorage RIGHT NOW so a reload
+  // mid-flight cannot lose studied/favorite toggles (cloud PUT is slower).
+  function snapshotLocalNow() {
+    try {
+      saveOfflineCache({
+        entries: entriesRef.current,
+        accounts: accountsRef.current,
+        logs: logsRef.current,
+        siteBanner: siteBannerRef.current,
+        examConfig: examConfigRef.current, academicUnits: academicUnitsRef.current,
+        version: recordVersionRef.current,
+      });
+      markPendingCloudSync();
+    } catch (_) {}
+  }
+
+  // Public API: queue the op (optimistic UI update) and schedule a coalesced flush.
+  const persistEntries = useCallback(async (entriesFn, logEntryFn) => {
+    // Optimistic local apply immediately for snappy UI.
+    const base = entriesRef.current;
+    const optimistic = typeof entriesFn === "function" ? entriesFn(base) : entriesFn;
+    setEntries(optimistic);
+    entriesRef.current = optimistic;
+    if (logEntryFn) {
+      const le = typeof logEntryFn === "function" ? logEntryFn(base) : logEntryFn;
+      if (le) {
+        const nl = capLogs([...logsRef.current, le]);
+        setLogs(nl);
+        logsRef.current = nl;
+      }
+    }
+    // Survive reload before cloud write finishes
+    snapshotLocalNow();
+    pendingEntryOpsRef.current.push({ fn: entriesFn, logFn: logEntryFn || null });
+    return flushPendingEntries();
+  }, []);
+
+  const persistAccounts = useCallback(async (accountsFn, logEntryFn) => {
+    const base = accountsRef.current;
+    const optimistic = typeof accountsFn === "function" ? accountsFn(base) : accountsFn;
+    setAccounts(optimistic);
+    accountsRef.current = optimistic;
+    if (logEntryFn) {
+      const le = typeof logEntryFn === "function" ? logEntryFn(base) : logEntryFn;
+      if (le) {
+        const nl = capLogs([...logsRef.current, le]);
+        setLogs(nl);
+        logsRef.current = nl;
+      }
+    }
+    // Survive reload before cloud write finishes (studied / favorites / SRS)
+    snapshotLocalNow();
+    pendingAccountOpsRef.current.push({ fn: accountsFn, logFn: logEntryFn || null });
+    return flushPendingAccounts();
+  }, []);
+
+  // أحداث اللوج (sign in/out) — كتابة جزئية scope=logsReplace فقط (لا تعيد القاموس).
+  const persistLogs = useCallback(async (next) => {
+    setLogs(next);
+    logsRef.current = next;
+    return enqueueSave(async () => {
+      let curVersion = recordVersionRef.current;
+      for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+        try {
+          const newVersion = await saveLogsOnly(next, curVersion);
+          commitRecordVersion(newVersion);
+          return;
+        } catch (e) {
+          if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
+            curVersion = e.fresh?.version || curVersion;
+            if (Array.isArray(e.fresh?.logs)) {
+              // Keep our pending next; only adopt server version for retry.
+            }
+            commitRecordVersion(curVersion);
+            await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+            continue;
+          }
+          if (e instanceof SaveConflictError && e.fresh) {
+            if (Array.isArray(e.fresh.logs)) {
+              setLogs(e.fresh.logs);
+              logsRef.current = e.fresh.logs;
+            }
+            if (e.fresh.accounts) {
+              setAccounts(e.fresh.accounts || []);
+              accountsRef.current = e.fresh.accounts || [];
+            }
+            commitRecordVersion(e.fresh.version || 0);
+          }
+          return;
+        }
+      }
+    });
+  }, []);
+
+  function logEvent(action, message, actorName, actorCode) {
+    persistLogs(capLogs([...logs, makeLogEntry(action, message, actorName, actorCode)]));
+  }
+
+  // Admin publishes / clears the site-wide announcement banner.
+  const persistSiteBanner = useCallback(async (nextBanner) => {
+    setSiteBanner(nextBanner);
+    siteBannerRef.current = nextBanner;
+    return enqueueSave(async () => {
+      let curVersion = recordVersionRef.current;
+      for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+        try {
+          const newVersion = await patchSettings("site_banner", nextBanner, curVersion);
+          commitRecordVersion(newVersion);
+          saveOfflineCache({
+            entries: entriesRef.current,
+            accounts: accountsRef.current,
+            logs: logsRef.current,
+            siteBanner: nextBanner,
+            examConfig: examConfigRef.current,
+            academicUnits: academicUnitsRef.current,
+          });
+          return { ok: true };
+        } catch (e) {
+          if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
+            curVersion = e.fresh.version || 0;
+            commitRecordVersion(curVersion);
+            await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+            continue;
+          }
+          if (e instanceof SaveConflictError) handleSaveConflict(e);
+          return { ok: false, error: "Couldn't save the announcement — try again." };
+        }
+      }
+      return { ok: false, error: "Couldn't save the announcement — try again." };
+    });
+  }, []);
+
+
+
+  // Admin publishes exam countdown (date/time/color) for all users.
+  const persistExamConfig = useCallback(async (nextCfg) => {
+    const normalized = normalizeExamConfig(nextCfg);
+    setExamConfig(normalized);
+    examConfigRef.current = normalized;
+    saveExamConfigCache(normalized);
+    return enqueueSave(async () => {
+      let curVersion = recordVersionRef.current;
+      for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+        try {
+          const newVersion = await patchSettings("exam_config", normalized, curVersion);
+          commitRecordVersion(newVersion);
+          saveOfflineCache({
+            entries: entriesRef.current,
+            accounts: accountsRef.current,
+            logs: logsRef.current,
+            siteBanner: siteBannerRef.current,
+            examConfig: normalized,
+            academicUnits: academicUnitsRef.current,
+          });
+          return { ok: true };
+        } catch (e) {
+          if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
+            curVersion = e.fresh.version || 0;
+            commitRecordVersion(curVersion);
+            await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+            continue;
+          }
+          if (e instanceof SaveConflictError) handleSaveConflict(e);
+          return { ok: false, error: "Couldn't save exam settings — try again." };
+        }
+      }
+      return { ok: false, error: "Couldn't save exam settings — try again." };
+    });
+  }, []);
+
+  const persistAcademicUnits = useCallback(async (nextUnits) => {
+    const normalized = normalizeAcademicUnits(nextUnits);
+    setAcademicUnits(normalized);
+    academicUnitsRef.current = normalized;
+    saveAcademicUnitsCache(normalized);
+    setActiveUnitId((cur) => {
+      if (normalized.some((u) => u.id === cur)) return cur;
+      return normalized[0]?.id || null;
+    });
+    return enqueueSave(async () => {
+      let curVersion = recordVersionRef.current;
+      for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+        try {
+          const newVersion = await patchSettings("academic_units", normalized, curVersion);
+          commitRecordVersion(newVersion);
+          saveOfflineCache({
+            entries: entriesRef.current,
+            accounts: accountsRef.current,
+            logs: logsRef.current,
+            siteBanner: siteBannerRef.current,
+            examConfig: examConfigRef.current,
+            academicUnits: normalized,
+          });
+          return { ok: true };
+        } catch (e) {
+          if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
+            curVersion = e.fresh.version || 0;
+            commitRecordVersion(curVersion);
+            await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+            continue;
+          }
+          if (e instanceof SaveConflictError) handleSaveConflict(e);
+          return { ok: false, error: "Couldn't save units — try again." };
+        }
+      }
+      return { ok: false, error: "Couldn't save units — try again." };
+    });
+  }, []);
+
+  // Admin action: wipe the activity log down to just the "first sign in"
+  // entries (keeps the account-creation history, drops everything else —
+  // word/account edits, regular sign-in/out noise, etc.).
+  function clearLogsExceptFirstSignIn() {
+    persistLogs(logs.filter((entry) => entry.action === "first_sign_in"));
+  }
 
   // Auto-clearing stale log entries used to run once per app load, right
   // after the logs arrived from the server — but that meant EVERY device/
@@ -1388,28 +1616,11 @@ export default function DictionaryApp() {
   // people on refresh and when the OS briefly hid the tab. We only sync
   // data + adopt the cloud sessionId. Logout happens solely via Sign out,
   // or if the account itself is gone / pending / rejected.
-  //
-  // Near-realtime strategy (no WebSocket):
-  //  - While the tab is visible: poll cheap `version` every ~3s
-  //  - Full account/entries pull ONLY when version actually changes
-  //  - On visibility/focus: immediate check
-  //  - Same-origin tabs: BroadcastChannel instant nudge after local save
   useEffect(() => {
     if (authStage !== "in" || !accountCode) return;
     let cancelled = false;
-    let inFlight = false;
-    let bc = null;
-    try {
-      bc = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("tt-cloud-sync") : null;
-    } catch (_) {
-      bc = null;
-    }
 
-    async function softSync({ forceEntries = false } = {}) {
-      if (cancelled || inFlight) return;
-      // Don't clobber local studied/favorites while a save is still queued.
-      if (pendingAccountOpsRef.current.length > 0 || pendingEntryOpsRef.current.length > 0) return;
-      inFlight = true;
+    async function softSync() {
       try {
         // 1) فحص الإصدار أولاً — لو مفيش تغيير نوفر الباندويث بالكامل
         const remoteVersion = await fetchVersionOnly({ fresh: true }).catch(() => null);
@@ -1417,59 +1628,27 @@ export default function DictionaryApp() {
         if (
           typeof remoteVersion === "number" &&
           remoteVersion === recordVersionRef.current &&
-          remoteVersion > 0 &&
-          !forceEntries
+          remoteVersion > 0
         ) {
           // لا تغيير على السيرفر — لا نجلب شيء آخر
           return;
         }
 
-        // 2) في حالة التغيير: حسابات + أقسام محمّلة (عشان تعديل كلمة يظهر على الجهاز التاني)
+        // 2) في حالة التغيير: جلب مجزأ خفيف (بدون entries — تبقى من الكاش/الفتح)
         const isPrivileged = isAdmin || isTeacher;
-        const sections = [...(loadedSectionsRef.current || [])];
-        const entryFetches = sections.map((sec) =>
-          fetchEntriesOnly({ section: sec, fresh: true }).catch(() => null)
-        );
-        const [myAccount, bootstrap, accountsList, ...sectionResults] = await Promise.all([
+        const [myAccount, bootstrap, accountsList] = await Promise.all([
           fetchMyAccount(accountCode, { fresh: true }).catch(() => null),
           fetchBootstrap({ fresh: true }).catch(() => ({})),
           isPrivileged
             ? fetchAccountsOnly({ fresh: true }).catch(() => [])
             : Promise.resolve(null),
-          ...entryFetches,
         ]);
         if (cancelled) return;
-        // Ops may have started while we were fetching — protect local progress
-        if (pendingAccountOpsRef.current.length > 0 || pendingEntryOpsRef.current.length > 0) return;
-
-        // دمج كلمات الأقسام المحمّلة بدون مسح أقسام لم تُجلب
-        if (sections.length && sectionResults.some((r) => Array.isArray(r))) {
-          setEntries((prev) => {
-            let next = prev || [];
-            sections.forEach((sec, i) => {
-              const remoteList = sectionResults[i];
-              if (Array.isArray(remoteList)) {
-                next = mergeSectionEntries(next, remoteList, sec);
-              }
-            });
-            entriesRef.current = next;
-            if (lastSyncedEntriesRef) lastSyncedEntriesRef.current = next;
-            return next;
-          });
-        }
 
         // بناء قائمة حسابات مناسبة للصلاحية
         let list = [];
         if (isPrivileged && Array.isArray(accountsList) && accountsList.length) {
           list = accountsList;
-          if (myAccount) {
-            list = list.map((a) =>
-              a && a.code === myAccount.code ? { ...a, ...myAccount } : a
-            );
-            if (!list.some((a) => a && a.code === myAccount.code)) {
-              list = [myAccount, ...list];
-            }
-          }
         } else if (myAccount) {
           list = [myAccount];
         }
@@ -1485,6 +1664,9 @@ export default function DictionaryApp() {
         };
 
         if (rec.accounts) {
+          // list already prepared above
+          // Hide accounts we intentionally deleted even if a brief race still
+          // returns them; prune localStorage once the server dropped them.
           if (pendingRemoveCodesRef.current.size) {
             const drop = pendingRemoveCodesRef.current;
             const stillOnServer = [];
@@ -1503,6 +1685,7 @@ export default function DictionaryApp() {
               }
             }
           }
+          // Sticky until *server* confirms non-pending (not after local patch).
           if (pendingApprovedCodesRef.current.size) {
             const approved = pendingApprovedCodesRef.current;
             const serverConfirmed = [];
@@ -1530,6 +1713,7 @@ export default function DictionaryApp() {
                     ? { ...a, status: "active" }
                     : a
                 );
+                // كتابة جزئية: موافقات الحسابات فقط
                 const newVersion = await saveAccountsOnly(
                   { accounts: forced, approveAccountCodes: stillPending },
                   typeof rec.version === "number" ? rec.version : recordVersionRef.current
@@ -1539,35 +1723,12 @@ export default function DictionaryApp() {
               } catch (_) {}
             }
           }
-
-          const localAccounts = accountsRef.current || [];
-          const localByCode = new Map(
-            localAccounts.filter((a) => a && a.code).map((a) => [String(a.code), a])
-          );
-          list = list.map((remote) => {
-            if (!remote || !remote.code) return remote;
-            const local = localByCode.get(String(remote.code));
-            if (!local) return remote;
-            if (String(remote.code) === String(accountCode)) {
-              return mergeAccountProgress(local, remote);
-            }
-            return remote;
-          });
-          if (isPrivileged) {
-            for (const [code, local] of localByCode) {
-              if (!list.some((a) => a && String(a.code) === code)) {
-                if (pendingRemoveCodesRef.current.has(code)) continue;
-                list = [...list, local];
-              }
-            }
-          }
-
           setAccounts(list);
           accountsRef.current = list;
         }
         if (rec.siteBanner !== undefined) setSiteBanner(rec.siteBanner || null);
         if (typeof rec.version === "number") commitRecordVersion(rec.version);
-        const account = (list || []).find((a) => a && a.code === accountCode);
+        const account = (rec.accounts || []).find((a) => a.code === accountCode);
         if (account && account.xp) {
           try { hydrateXpFromCloud(accountCode, account.xp); } catch (_) {}
         }
@@ -1578,62 +1739,17 @@ export default function DictionaryApp() {
         if (account.sessionId) saveSessionId(account.sessionId);
       } catch (_) {
         // Offline — stay signed in.
-      } finally {
-        inFlight = false;
       }
     }
 
-    // فحص version خفيف كل ~3 ثوانٍ والتب ظاهر → إحساس شبه لحظي بين الأجهزة
-    // (الـ endpoint رخيص جداً؛ الجلب الكامل يحدث فقط عند تغيّر الرقم)
-    const VISIBLE_MS = 3000;
-    const HIDDEN_MS = 60000;
-    let interval = setInterval(softSync, VISIBLE_MS);
-
-    function retuneInterval() {
-      clearInterval(interval);
-      const ms = document.visibilityState === "visible" ? VISIBLE_MS : HIDDEN_MS;
-      interval = setInterval(softSync, ms);
-    }
-
-    function onVis() {
-      retuneInterval();
-      if (document.visibilityState === "visible") softSync();
-    }
-    function onFocus() {
-      softSync();
-    }
-    function onLocalSave() {
-      // تبويب آخر في نفس المتصفح: مزامنة فورية
-      try {
-        bc?.postMessage({ type: "local-save", at: Date.now() });
-      } catch (_) {}
-    }
-    function onBcMessage(ev) {
-      if (ev && ev.data && ev.data.type === "local-save") softSync();
-    }
-
-    document.addEventListener("visibilitychange", onVis);
-    window.addEventListener("focus", onFocus);
-    window.addEventListener("tt-local-save", onLocalSave);
-    if (bc) bc.onmessage = onBcMessage;
-
-    // أول فحص سريع بعد الدخول
-    const first = setTimeout(softSync, 1500);
+    // No focus/visibility listeners (screenshot & app-switch were logging people out).
+    // كل 3 دقائق + فحص version أولاً → توفير باندويث مع بقاء البيانات حديثة
+    const interval = setInterval(softSync, 180000);
     return () => {
       cancelled = true;
       clearInterval(interval);
-      clearTimeout(first);
-      document.removeEventListener("visibilitychange", onVis);
-      window.removeEventListener("focus", onFocus);
-      window.removeEventListener("tt-local-save", onLocalSave);
-      try {
-        if (bc) {
-          bc.onmessage = null;
-          bc.close();
-        }
-      } catch (_) {}
     };
-  }, [authStage, accountCode, isAdmin, isTeacher]);
+  }, [authStage, accountCode]);
 
   async function handleUpdateOwnAccount({
     name: newName,

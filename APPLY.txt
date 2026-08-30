@@ -1,17 +1,22 @@
-Frontend: persist/flush extraction + clearer save errors
-========================================================
+Frontend phases A–D (safe extract + mobile + error UX)
+=====================================================
+Modified only:
+  src/App.jsx                     (~2245 → ~2015 lines)
+  src/components/MainView.jsx
+  src/index.css                   (+ mobile ≤768 pass)
 
-App.jsx ~2245 → ~1738 lines (with previous extracts).
+New:
+  src/lib/app/refreshLock.js
+  src/lib/app/offlineSnapshot.js
+  src/lib/hooks/useAppShellLifecycle.js
+  src/lib/hooks/useSectionEntries.js
+  src/lib/utils/apiErrorMessage.js
 
-New this pack:
-  src/lib/hooks/useCloudPersist.js
+What changed:
+1) App: SW / force-refresh / PWA attr extracted to hook; offline snapshot + refresh lock modules; Facebook dead code stubs
+2) MainView: section/academic list logic → useSectionEntries
+3) Mobile ≤768: sticky search, FAB safe-area, banner stack, 44px taps
+4) Clearer API error messages on profile save failures
 
-Also includes previous FE extracts (apply all together):
-  useAppShellLifecycle, useSectionEntries, refreshLock, offlineSnapshot,
-  apiErrorMessage, MainView, index.css mobile pass
-
-Behavior: same optimistic save + conflict retries.
-Errors on save paths map to Arabic/English via apiErrorMessage (403/429/conflict).
-
-Smoke-test after deploy:
-  toggle studied, edit word, profile save, admin banner if staff
+No API/backend files in this zip.
+Copy over project root and deploy. Smoke-test login, dictionary, add word, profile bac path, admin.

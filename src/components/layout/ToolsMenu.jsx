@@ -10,7 +10,7 @@ import {
   MessageIcon, FileTextIcon, ShuffleIcon, PenLineIcon, SparklesIcon,
   GaugeIcon, LibraryIcon, SwordsIcon, ScanTextIcon, HistoryIcon, ReportIcon,
 } from "../common/Icons";
-import { preloadAllTools } from "../modals/lazyModals";
+import { preloadToolByKey } from "../modals/lazyModals";
 
 
 /**
@@ -101,10 +101,9 @@ export default function ToolsMenu({
       });
     }
     setOpen(true);
-    // Warm every tools-menu chunk so the next tap opens immediately
-    try {
-      preloadAllTools();
-    } catch (_) {}
+    // Chunks are now preloaded per-item on hover/focus/touch (see the button
+    // below), not all at once here — most sessions only ever open 1-2 tools,
+    // so blanket-preloading all ~25 chunks wasted a lot of data.
   }
 
   function toggleOpen() {
@@ -359,6 +358,9 @@ export default function ToolsMenu({
                     role="menuitem"
                     disabled={!!it.disabled}
                     onClick={() => handleItemClick(it)}
+                    onMouseEnter={() => preloadToolByKey(it.key)}
+                    onFocus={() => preloadToolByKey(it.key)}
+                    onTouchStart={() => preloadToolByKey(it.key)}
                     className="tools-menu-item"
                     style={{
                       display: "flex",

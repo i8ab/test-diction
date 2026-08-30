@@ -156,6 +156,49 @@ export function preloadAllTools() {
 }
 
 /**
+ * Map of ToolsMenu item key -> dynamic importer.
+ * Used to preload ONLY the specific tool the user is hovering/focusing,
+ * instead of eagerly downloading every tool chunk when the menu opens.
+ * This is the main lever for cutting wasted data transfer: most sessions
+ * only ever open 1-2 of these ~25 chunks.
+ */
+const TOOL_IMPORTERS = {
+  quick: () => import("./QuickReviewModal"),
+  weakness: () => import("./WeaknessReviewModal"),
+  smartCards: () => import("./SmartCardsModal"),
+  dictation: () => import("./DictationModal"),
+  sentence: () => import("./SentencePracticeModal"),
+  quiz: () => import("./QuizModal"),
+  exam: () => import("./ExamModeModal"),
+  random: () => import("./RandomWordModal"),
+  motivationDua: () => import("./MotivationDuaModal"),
+  dashboard: () => import("../dashboard/DashboardPage"),
+  stats: () => import("./StatsModal"),
+  weekly: () => import("./WeeklyReportModal"),
+  achievements: () => import("./AchievementsModal"),
+  goals: () => import("../goals/GoalsPage"),
+  leaderboard: () => import("./LeaderboardModal"),
+  levels: () => import("./LevelsModal"),
+  compare: () => import("./ProgressCompareModal"),
+  timer: () => import("../timer/TimerPage"),
+  languageNotes: () => import("../notes/LanguageNotesPage"),
+  calendar: () => import("../calendar/CalendarPage"),
+  todo: () => import("../todo/TodoPage"),
+  dayAch: () => import("./DayAchievementsModal"),
+  lists: () => import("./WordListsModal"),
+  challenges: () => import("./ChallengeModal"),
+  conversation: () => import("./ConversationModal"),
+  tutorChat: () => import("./TutorChatModal"),
+  extract: () => import("./TextExtractModal"),
+};
+
+/** Preload a single tool chunk by its ToolsMenu item key (hover/focus/touch intent). */
+export function preloadToolByKey(key) {
+  const importer = TOOL_IMPORTERS[key];
+  if (importer) preload(key, importer);
+}
+
+/**
  * After the main UI is idle, warm the common chunks in the background
  * so the first real click does not wait on the network.
  */

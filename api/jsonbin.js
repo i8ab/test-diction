@@ -6,11 +6,11 @@
 
 import {
   redisConfigured,
-  acquireLock,
-  releaseLock,
   cacheGet,
   cacheSet,
   invalidateHotCaches,
+  acquireScopeLocks,
+  releaseScopeLocks,
 } from "../lib/redis.js";
 import { rateLimit, clientIp } from "../lib/rateLimit.js";
 import {
@@ -54,8 +54,6 @@ import {
   saveFullRecord,
   buildConflictPayload
 } from "../lib/jsonbinDb.js";
-
-const LOCK_KEY = "twoTongues:dictWriteLock";
 
 export default async function handler(req, res) {
   const rid = requestId(req);
@@ -195,16 +193,26 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: "entry scope requires id" });
         }
         let row = null;
+        let indexedLookupFailed = false;
         try {
           const rows = await sbFetch(
             "GET",
             `entries?select=data&data->>id=eq.${encodeURIComponent(entryId)}&limit=1`
           );
           row = rows && rows[0] ? rows[0].data : null;
-        } catch (_) {
+        } catch (err) {
           row = null;
+          indexedLookupFailed = true;
+          console.warn(
+            `[jsonbin] scope=entry indexed lookup failed for id=${entryId} — falling back to full table scan. ` +
+              `Check that entries_id_idx exists (docs/SUPABASE_INDEXES.sql). error=${err && err.message}`
+          );
         }
         if (!row) {
+          console.warn(
+            `[jsonbin] scope=entry full-table fallback for id=${entryId} ` +
+              `(reason=${indexedLookupFailed ? "indexed_query_error" : "not_found_via_index"})`
+          );
           const all = await sbFetch("GET", "entries?select=data");
           row =
             (all || [])
@@ -215,6 +223,13 @@ export default async function handler(req, res) {
       }
 
       if (scope === "entries") {
+        // Dictionary entries change rarely (admin edits only) and are the
+        // same for every visitor, so — unlike account/version — this can be
+        // cached publicly (CDN + browser) for a short window.
+        res.setHeader(
+          "Cache-Control",
+          "public, max-age=10, stale-while-revalidate=30"
+        );
         // section: en-ar | ar-ar | academic
         // fields=light → list-sized objects (bandwidth)
         // limit + after → cursor pagination
@@ -250,8 +265,12 @@ export default async function handler(req, res) {
               path += `&data->>id=gt.${encodeURIComponent(after)}`;
             }
             entriesRows = await sbFetch("GET", path);
-          } catch (_) {
+          } catch (err) {
             entriesRows = null;
+            console.warn(
+              `[jsonbin] scope=entries (paginated) indexed query failed — falling back to full table scan. ` +
+                `section=${sectionFilter || "all"} error=${err && err.message}`
+            );
           }
           if (!entriesRows) {
             const all = await sbFetch("GET", "entries?select=data");
@@ -280,14 +299,33 @@ export default async function handler(req, res) {
           return finish(entries, { nextCursor, hasMore: !!nextCursor });
         }
 
+        // Unpaginated whole-list request (the default frontend call) — this
+        // is the hottest and most expensive path, so it gets a short Redis
+        // cache on top of the CDN cache above.
+        const entriesCacheKey = `tt:entries:${light ? "L" : "F"}:${
+          sectionFilter && allowed.has(sectionFilter) ? sectionFilter : "all"
+        }`;
+        const cachedEntries = await cacheGet(entriesCacheKey);
+        if (cachedEntries) {
+          return res.status(200).json({
+            entries: cachedEntries,
+            section: sectionFilter || null,
+            fields: light ? "light" : "full",
+          });
+        }
+
         if (sectionFilter && allowed.has(sectionFilter)) {
           try {
             entriesRows = await sbFetch(
               "GET",
               `entries?select=data&data->>section=eq.${encodeURIComponent(sectionFilter)}`
             );
-          } catch (_) {
+          } catch (err) {
             entriesRows = null;
+            console.warn(
+              `[jsonbin] scope=entries indexed section query failed — falling back to full table scan. ` +
+                `section=${sectionFilter} error=${err && err.message}`
+            );
           }
           if (!entriesRows) {
             const all = await sbFetch("GET", "entries?select=data");
@@ -299,16 +337,30 @@ export default async function handler(req, res) {
           entriesRows = await sbFetch("GET", "entries?select=data");
         }
         const entries = (entriesRows || []).map((r) => r.data).filter(Boolean);
-        return finish(entries);
+        const outEntries = light ? mapEntriesLight(entries) : entries;
+        await cacheSet(entriesCacheKey, outEntries, 15);
+        return res.status(200).json({
+          entries: outEntries,
+          section: sectionFilter || null,
+          fields: light ? "light" : "full",
+        });
       }
 
       if (scope === "logs") {
+        // Admin-only activity feed — still private (no CDN/public caching),
+        // but a short server-side Redis cache avoids re-querying Supabase
+        // on every dashboard refresh/poll.
+        const cachedLogs = await cacheGet("tt:logs:default");
+        if (cachedLogs) {
+          return res.status(200).json({ logs: cachedLogs });
+        }
         const logsRows = await sbFetch(
           "GET",
           "logs?select=*&order=at.desc&limit=500"
         );
         let logs = pruneLogsLast24h((logsRows || []).map(logFromRow));
         logs.sort((a, b) => (a.at || 0) - (b.at || 0));
+        await cacheSet("tt:logs:default", logs, 8);
         return res.status(200).json({ logs });
       }
 
@@ -317,6 +369,18 @@ export default async function handler(req, res) {
         const wanted = keysParam
           ? keysParam.split(",").map((k) => k.trim()).filter(Boolean)
           : ["site_banner", "exam_config", "academic_units", "version"];
+        const isDefaultKeys = !keysParam;
+        // Global site settings — same for everyone, safe to cache publicly.
+        res.setHeader(
+          "Cache-Control",
+          "public, max-age=10, stale-while-revalidate=30"
+        );
+        if (isDefaultKeys) {
+          const cachedSettings = await cacheGet("tt:settings:default");
+          if (cachedSettings) {
+            return res.status(200).json(cachedSettings);
+          }
+        }
         const settingsRows = await sbFetch("GET", "settings?select=key,value");
         const out = {};
         for (const row of settingsRows || []) {
@@ -338,6 +402,9 @@ export default async function handler(req, res) {
             const bannerRows = await sbFetch("GET", "site_banner?select=*&limit=1");
             if (bannerRows && bannerRows[0]) out.siteBanner = pickBanner(bannerRows[0]);
           } catch (_) {}
+        }
+        if (isDefaultKeys) {
+          await cacheSet("tt:settings:default", out, 15);
         }
         return res.status(200).json(out);
       }
@@ -478,10 +545,13 @@ export default async function handler(req, res) {
       body.__authz = authz;
 
       const useLock = redisConfigured();
-      let lockToken = null;
+      let heldLocks = null;
       if (useLock) {
-        lockToken = await acquireLock(LOCK_KEY);
-        if (!lockToken) {
+        // Scope-specific lock(s) only — unrelated scopes (e.g. an accounts
+        // write and an entries write) no longer queue behind each other.
+        // "full"/legacy writes lock every scope since they touch all tables.
+        heldLocks = await acquireScopeLocks(body.scope || "full");
+        if (!heldLocks) {
           // Busy lock: return minimal payload instead of the whole dictionary.
           const busyPayload = await buildConflictPayload(body.scope || "full", {
             message: "The dictionary is busy — please try again.",
@@ -1027,7 +1097,7 @@ export default async function handler(req, res) {
         }
         return res.status(200).json({ ok: true, version: nextVersion });
       } finally {
-        if (useLock && lockToken) await releaseLock(LOCK_KEY, lockToken);
+        if (useLock && heldLocks) await releaseScopeLocks(heldLocks);
       }
     }
 

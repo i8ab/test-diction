@@ -47,6 +47,7 @@ import { useListPagination } from "../lib/hooks/useListPagination";
 import WelcomeOnboardingModal, { hasSeenWelcome, markWelcomeSeen } from "./modals/WelcomeOnboardingModal";
 import { consumeSessionOpenTool, setSessionOpenTool } from "../lib/state/sessionUi";
 import { useSectionEntries } from "../lib/hooks/useSectionEntries";
+import { guessDeviceMode } from "../lib/state/storage";
 
 export default function MainView({
   name, isAdmin, isTeacher = false, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
@@ -90,6 +91,8 @@ export default function MainView({
   facebookLinkBusy = false,
 }) {
   const cfg = SECTIONS[section] || SECTIONS["en-ar"];
+  // When deviceMode is null ("auto"), still show mobile/tablet chrome based on viewport.
+  const effectiveDevice = deviceMode || (typeof window !== "undefined" ? guessDeviceMode() : "desktop");
   const {
     isAr,
     isAcademic,
@@ -1498,7 +1501,7 @@ export default function MainView({
       openGoals={openGoals}
     />
 
-    {deviceMode === "mobile" && (
+    {effectiveDevice === "mobile" && (
       <button
         type="button"
         className="mobile-fab-add"
@@ -1511,9 +1514,9 @@ export default function MainView({
     )}
 
 
-    {/* Tablet side dock removed — tablet uses header/menu like desktop; phone keeps bottom nav + FAB */}
+    {/* Bottom nav on phone + tablet (including auto device mode) */}
 
-    {(deviceMode === "mobile" || deviceMode === "tablet") && (
+    {(effectiveDevice === "mobile" || effectiveDevice === "tablet") && (
       <MobileBottomNav
         isAr={appIsAr}
         mobileNavTab={mobileNavTab}

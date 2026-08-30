@@ -45,12 +45,13 @@ function stopAllSpeech() {
   } catch (_) {}
 }
 
-/** Play Cambridge MP3 for an English word. Returns true if playback started. */
+/** Play Cambridge MP3 for an English word/phrase. Returns true if playback started. */
 export async function playCambridgeAudio(text, accent) {
   if (!text || typeof window === "undefined") return false;
   const word = String(text).trim();
   if (!word || /[\u0600-\u06FF]/.test(word)) return false;
   const acc = accent === "uk" ? "uk" : "us";
+  // Always send the full phrase — API normalizes spaces→hyphens and falls back.
   const url =
     "/api/cambridge-audio?word=" +
     encodeURIComponent(word) +
@@ -58,8 +59,21 @@ export async function playCambridgeAudio(text, accent) {
     encodeURIComponent(acc);
   try {
     stopAllSpeech();
-    const audio = new Audio(url);
+    // Fetch first so we can reject JSON error bodies (Audio() would fail opaquely).
+    const res = await fetch(url, { credentials: "same-origin" });
+    if (!res.ok) return false;
+    const ctype = (res.headers.get("content-type") || "").toLowerCase();
+    if (ctype.includes("json") || ctype.includes("text/")) return false;
+    const blob = await res.blob();
+    if (!blob || blob.size < 500) return false; // tiny body ≈ error page
+    const objectUrl = URL.createObjectURL(blob);
+    const audio = new Audio(objectUrl);
     _currentAudio = audio;
+    const cleanup = () => {
+      try { URL.revokeObjectURL(objectUrl); } catch (_) {}
+    };
+    audio.addEventListener("ended", cleanup, { once: true });
+    audio.addEventListener("error", cleanup, { once: true });
     await new Promise((resolve, reject) => {
       let settled = false;
       const ok = () => { if (!settled) { settled = true; resolve(); } };
@@ -68,7 +82,7 @@ export async function playCambridgeAudio(text, accent) {
       audio.addEventListener("error", fail);
       if (audio.readyState >= 2) ok();
       else audio.load();
-      setTimeout(() => { if (!settled) { settled = true; reject(new Error("timeout")); } }, 8000);
+      setTimeout(() => { if (!settled) { settled = true; reject(new Error("timeout")); } }, 10000);
     });
     await audio.play();
     return true;

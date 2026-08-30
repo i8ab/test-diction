@@ -1937,9 +1937,17 @@ html[data-device="tablet"] .mobile-banners-stack {
   max-height: none;
   overflow: visible;
 }
-html[data-device="tablet"] .mobile-bottom-nav,
+/* Tablet: keep bottom nav visible (customizable). Only hide the old FAB if desired. */
 html[data-device="tablet"] .mobile-fab-add {
   display: none !important;
+}
+html[data-device="tablet"] .mobile-bottom-nav,
+html[data-device="tablet"] .mobile-bottom-nav.arc-nav {
+  display: flex !important;
+}
+/* Room for bottom nav on tablet */
+html[data-device="tablet"] .app-main-row {
+  padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)) !important;
 }
 
 /* Tablet vertical dock — removed (tablet uses header/menu like desktop) */
@@ -3156,8 +3164,13 @@ select {
   box-shadow: none !important;
   height: auto !important;
 }
+/* Customize panel sits above the bar — must receive taps (parent has pointer-events: none) */
+.mobile-bottom-nav.arc-nav .nav-customize-panel {
+  pointer-events: auto;
+}
 .arc-nav-bar {
   pointer-events: auto;
+}
   position: relative;
   display: flex;
   align-items: center;

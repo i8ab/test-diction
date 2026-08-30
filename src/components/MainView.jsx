@@ -34,7 +34,7 @@ import WordListPanel from "./layout/WordListPanel";
 import EntryFiltersBar from "./layout/EntryFiltersBar";
 import AccountRequestsModal, { AccountRequestsButton } from "./layout/AccountRequestsModal";
 import InboxBell from "./layout/InboxBell";
-import MobileBottomNav from "./layout/MobileBottomNav";
+import MobileBottomNav, { loadNavTabKeys, saveNavTabKeys } from "./layout/MobileBottomNav";
 import MainViewOverlays from "./layout/MainViewOverlays";
 import ToolShell from "./layout/ToolShell";
 import { loadXp, snapshotProgress } from "../lib/state/xp";
@@ -203,6 +203,7 @@ export default function MainView({
   const [showQuiz, setShowQuiz] = useState(() => restored.tool === "quiz");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [mobileNavTab, setMobileNavTab] = useState("words");
+  const [navTabKeysForFab, setNavTabKeysForFab] = useState(() => loadNavTabKeys());
 
 
   const [quizDueOnly, setQuizDueOnly] = useState(() => !!restored.quizDueOnly);
@@ -241,6 +242,17 @@ export default function MainView({
   useEffect(() => {
     if (!showAccount && mobileNavTab === "account") setMobileNavTab("words");
   }, [showAccount]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!showAdd && mobileNavTab === "add") setMobileNavTab("words");
+  }, [showAdd]); // eslint-disable-line react-hooks/exhaustive-deps
+  // More/tools menu closed → return highlight to Words (transient destination)
+  useEffect(() => {
+    function onToolsClosed() {
+      setMobileNavTab((t) => (t === "more" ? "words" : t));
+    }
+    window.addEventListener("twoTongues:toolsMenuClosed", onToolsClosed);
+    return () => window.removeEventListener("twoTongues:toolsMenuClosed", onToolsClosed);
+  }, []);
 
   const [showSmartCards, setShowSmartCards] = useState(() => restored.tool === "smartCards");
   const [showConversation, setShowConversation] = useState(() => restored.tool === "conversation");
@@ -1523,7 +1535,8 @@ export default function MainView({
       openGoals={openGoals}
     />
 
-    {(effectiveDevice === "mobile" || viewportDevice === "mobile") && (
+    {(effectiveDevice === "mobile" || viewportDevice === "mobile") &&
+      !navTabKeysForFab.includes("add") && (
       <button
         type="button"
         className="mobile-fab-add"
@@ -1562,6 +1575,11 @@ export default function MainView({
             if (btn) btn.click();
           } catch (__) {}
         }
+      }}
+      tabKeys={navTabKeysForFab}
+      onChangeTabKeys={(keys) => {
+        setNavTabKeysForFab(keys);
+        saveNavTabKeys(keys);
       }}
     />
 

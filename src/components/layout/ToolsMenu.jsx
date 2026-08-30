@@ -86,6 +86,9 @@ export default function ToolsMenu({
 
   function closeMenu() {
     setOpen(false);
+    try {
+      window.dispatchEvent(new CustomEvent("twoTongues:toolsMenuClosed"));
+    } catch (_) {}
   }
 
   function openMenu() {
@@ -245,6 +248,8 @@ export default function ToolsMenu({
   }
 
   // Always a full modal (all devices) so the whole list is reachable + scrollable
+  // Compact (phone): bottom sheet above the nav (X/Y placement).
+  // Desktop: centered modal. This is spatial layout, not z-index stacking.
   const menuPanel = (
     <div
       ref={menuRef}
@@ -258,9 +263,11 @@ export default function ToolsMenu({
         zIndex: 3100,
         background: "rgba(0,0,0,0.55)",
         display: "flex",
-        alignItems: "center",
+        alignItems: isCompact ? "flex-end" : "center",
         justifyContent: "center",
-        padding: "max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom))",
+        padding: isCompact
+          ? "max(12px, env(safe-area-inset-top)) 0 calc(72px + env(safe-area-inset-bottom, 0px))"
+          : "max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom))",
       }}
       onClick={() => { /* Menu stays open unless user presses the X */ }}
     >
@@ -269,16 +276,17 @@ export default function ToolsMenu({
         className="modal-card"
         style={{
           background: "var(--card)",
-          borderRadius: 16,
+          borderRadius: isCompact ? "18px 18px 0 0" : 16,
           border: "1px solid rgba(var(--border-rgb),0.15)",
           boxShadow: "0 24px 60px -12px rgba(0,0,0,0.4)",
           width: "100%",
-          maxWidth: 420,
-          maxHeight: "min(92dvh, 92vh)",
+          maxWidth: isCompact ? "100%" : 420,
+          maxHeight: isCompact ? "min(78dvh, 78vh)" : "min(92dvh, 92vh)",
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
           padding: 0,
+          margin: 0,
         }}
       >
         {/* Header outside scroll area — prevents items showing above MORE */}

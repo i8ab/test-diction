@@ -106,6 +106,22 @@ export async function playCambridgeAudio(text, accent) {
   return false;
 }
 
+/** Play full-string audio via /api/tts (Google Translate TTS proxy). Returns true if started. */
+async function playGoogleTts(text, langHint) {
+  if (!text || typeof window === "undefined") return false;
+  const q = String(text).trim().slice(0, 200);
+  if (!q) return false;
+  const isAr = /[\u0600-\u06FF]/.test(q) || String(langHint || "").toLowerCase().startsWith("ar");
+  const lang = isAr ? "ar" : "en";
+  const url =
+    "/api/tts?text=" + encodeURIComponent(q) + "&lang=" + encodeURIComponent(lang);
+  try {
+    return await playCambridgeUrl(url); // same fetch+Audio path; validates audio/* body
+  } catch (_) {
+    return false;
+  }
+}
+
 function speakBrowser(text, lang) {
   if (!text || typeof window === "undefined" || !window.speechSynthesis) return false;
   try {
@@ -121,6 +137,7 @@ function speakBrowser(text, lang) {
         voices.find((v) => (v.lang || "").toLowerCase().startsWith(want.split("-")[0]));
       if (match) u.voice = match;
     } catch (_) {}
+    // Chrome often needs a warm-up getVoices; retry speak if still silent
     window.speechSynthesis.speak(u);
     return true;
   } catch (_) {
@@ -130,7 +147,7 @@ function speakBrowser(text, lang) {
 
 /**
  * Speak a word or phrase.
- * English: Cambridge audio first; on any failure always full-string browser TTS.
+ * English chain: Cambridge → /api/tts (full string) → browser speechSynthesis.
  * Never truncates multi-word phrases. Never treats partial Cambridge success as OK.
  * @param {string} text
  * @param {"ltr"|"rtl"|string} dir
@@ -144,21 +161,33 @@ export function speakWord(text, dir, opts = {}) {
   const isRtl = dir === "rtl" || /[\u0600-\u06FF]/.test(full);
   if (isRtl) {
     stopAllSpeech();
-    speakBrowser(full, loadArDialect());
+    (async () => {
+      const ok = await playGoogleTts(full, "ar");
+      if (!ok) speakBrowser(full, loadArDialect());
+    })();
     return;
   }
   const accent = opts.accent === "uk" || opts.accent === "us" ? opts.accent : loadEnAccent();
   const lang = enAccentLang(accent);
   (async () => {
     try {
-      const ok = await playCambridgeAudio(full, accent);
+      let ok = await playCambridgeAudio(full, accent);
+      if (!ok) {
+        stopAllSpeech();
+        ok = await playGoogleTts(full, "en");
+      }
       if (!ok) {
         stopAllSpeech();
         speakBrowser(full, lang);
       }
     } catch (_) {
       stopAllSpeech();
-      speakBrowser(full, lang);
+      try {
+        const ok2 = await playGoogleTts(full, "en");
+        if (!ok2) speakBrowser(full, lang);
+      } catch (__) {
+        speakBrowser(full, lang);
+      }
     }
   })();
 }

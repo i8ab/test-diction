@@ -397,9 +397,10 @@ export function flushPendingEntries(ctx) {
           break;
         } catch (e) {
           if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
-            curEntries = e.fresh.entries || [];
-            curAccounts = e.fresh.accounts || [];
-            curLogs = e.fresh.logs || [];
+            // Never fall back to [] — scoped entry conflicts may omit entries.
+            curEntries = Array.isArray(e.fresh.entries) ? e.fresh.entries : curEntries;
+            curAccounts = Array.isArray(e.fresh.accounts) ? e.fresh.accounts : curAccounts;
+            curLogs = Array.isArray(e.fresh.logs) ? e.fresh.logs : curLogs;
             if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
             curVersion = e.fresh.version || 0;
             entriesRef.current = curEntries;
@@ -416,7 +417,8 @@ export function flushPendingEntries(ctx) {
           if (e instanceof SaveConflictError && e.fresh) {
             // CRITICAL: re-apply local ops on top of server state so deletes
             // (and other pending mutations) are not wiped by a conflict.
-            let mergedEntries = e.fresh.entries || [];
+            // Prefer server entries when present; otherwise keep local and re-apply ops.
+            let mergedEntries = Array.isArray(e.fresh.entries) ? e.fresh.entries : (entriesRef.current || []);
             try {
               const reapplied = applyOps(mergedEntries, ops, "entries");
               mergedEntries = reapplied.next;

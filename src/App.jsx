@@ -1399,16 +1399,47 @@ export default function DictionaryApp() {
           return;
         }
 
-        // 2) في حالة التغيير: جلب مجزأ خفيف (بدون entries — تبقى من الكاش/الفتح)
+        // 2) Version changed: fetch account/bootstrap AND refresh loaded dictionary
+        // sections so words added on another device appear without full reload.
         const isPrivileged = isAdmin || isTeacher;
-        const [myAccount, bootstrap, accountsList] = await Promise.all([
+
+        // Sections to refresh: already loaded this session, or at least current section.
+        let sectionsToRefresh = [...loadedSectionsRef.current];
+        if (sectionsToRefresh.length === 0) {
+          let primary = "en-ar";
+          try {
+            const s = localStorage.getItem("twoTongues.section");
+            if (s === "en-ar" || s === "ar-ar" || s === "academic") primary = s;
+          } catch (_) {}
+          sectionsToRefresh = [primary];
+        }
+
+        const [myAccount, bootstrap, accountsList, ...refreshedSections] = await Promise.all([
           fetchMyAccount(accountCode, { fresh: true }).catch(() => null),
           fetchBootstrap({ fresh: true }).catch(() => ({})),
           isPrivileged
             ? fetchAccountsOnly({ fresh: true }).catch(() => [])
             : Promise.resolve(null),
+          ...sectionsToRefresh.map((sec) =>
+            fetchEntriesOnly({ section: sec, fresh: true }).catch(() => null)
+          ),
         ]);
         if (cancelled) return;
+
+        // Merge refreshed sections into local entries (server wins per section).
+        let nextEntries = entriesRef.current || [];
+        for (let i = 0; i < sectionsToRefresh.length; i++) {
+          const list = refreshedSections[i];
+          if (Array.isArray(list)) {
+            nextEntries = mergeSectionEntries(nextEntries, list, sectionsToRefresh[i]);
+            loadedSectionsRef.current.add(sectionsToRefresh[i]);
+          }
+        }
+        if (nextEntries !== entriesRef.current) {
+          setEntries(nextEntries);
+          entriesRef.current = nextEntries;
+          if (lastSyncedEntriesRef) lastSyncedEntriesRef.current = nextEntries;
+        }
 
         // Network blip: do not treat a failed myAccount fetch as "account gone"
         // (that was logging people out on softSync and blocking multi-device sync).
@@ -1432,7 +1463,7 @@ export default function DictionaryApp() {
         }
 
         const rec = {
-          entries: entriesRef.current || [],
+          entries: nextEntries,
           accounts: list,
           logs: logsRef.current || [],
           siteBanner: bootstrap.siteBanner !== undefined ? bootstrap.siteBanner : siteBannerRef.current,
@@ -1562,6 +1593,19 @@ export default function DictionaryApp() {
           return;
         }
         if (account.sessionId) saveSessionId(account.sessionId);
+
+        // Persist the refreshed snapshot so a reload on this device keeps
+        // words/progress pulled from the other device.
+        try {
+          saveOfflineCache({
+            entries: entriesRef.current || [],
+            accounts: accountsRef.current || [],
+            logs: logsRef.current || [],
+            siteBanner: siteBannerRef.current,
+            examConfig: examConfigRef?.current,
+            academicUnits: academicUnitsRef?.current,
+          });
+        } catch (_) {}
       } catch (_) {
         // Offline — stay signed in.
       }

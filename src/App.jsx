@@ -22,6 +22,7 @@ import {
   loadPendingApproveCodes, addPendingApproveCode, removePendingApproveCode,
   saveSessionId, loadSessionId, generateSessionId,
   detectDeviceIsAr, hasInviteParam,
+  PROGRESS_KEYS,
 } from "./lib/state/storage";
 import { useAppPreferences } from "./lib/hooks/useAppPreferences";
 import { useStudyReminders } from "./lib/hooks/useStudyReminders";
@@ -1508,18 +1509,33 @@ export default function DictionaryApp() {
           list = safeList;
           setAccounts(list);
           accountsRef.current = list;
-          // If we kept newer local progress, push it so other devices see it.
+          // If we kept newer local progress, push it via narrow accountPatch
+          // (not full saveAccountsOnly) so we do not fight other writers with 409.
           if (progressMerged && accountCode) {
-            try {
-              markPendingCloudSync();
-              const newVersion = await saveAccountsOnly(
-                { accounts: list },
-                typeof rec.version === "number" ? rec.version : recordVersionRef.current
-              );
-              commitRecordVersion(newVersion);
-              clearPendingCloudSync();
-            } catch (_) {
-              // Leave pending flag set; next flush / softSync will retry.
+            const mine = list.find((a) => a && String(a.code) === String(accountCode));
+            if (mine) {
+              const patch = {};
+              for (const k of PROGRESS_KEYS) {
+                if (mine[k] !== undefined) patch[k] = mine[k];
+              }
+              if (Object.keys(patch).length) {
+                try {
+                  markPendingCloudSync();
+                  let ver =
+                    typeof rec.version === "number"
+                      ? rec.version
+                      : recordVersionRef.current;
+                  try {
+                    const latest = await fetchVersionOnly({ fresh: true });
+                    if (typeof latest === "number" && latest > ver) ver = latest;
+                  } catch (_) {}
+                  const result = await patchAccountFields(accountCode, patch, ver);
+                  commitRecordVersion(result.version);
+                  clearPendingCloudSync();
+                } catch (_) {
+                  // Leave pending flag set; next flush / softSync will retry.
+                }
+              }
             }
           }
         }

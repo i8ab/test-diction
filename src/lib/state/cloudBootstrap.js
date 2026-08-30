@@ -11,6 +11,7 @@ import {
   fetchLogsOnly,
   saveAccountsOnly,
   patchAccountFields,
+  fetchVersionOnly,
   SaveConflictError,
 } from "./cloudApi";
 import {
@@ -29,6 +30,7 @@ import {
   removePendingApproveCode,
   addPendingRemoveCode,
   addPendingApproveCode,
+  PROGRESS_KEYS,
 } from "./storage";
 import { migrateAccounts } from "../utils/authUtils";
 import { normalizeExamConfig } from "./exam";
@@ -191,16 +193,33 @@ export async function runAppBoot(ctx, cancelledRef) {
         const { accounts: mergedAccounts, merged } = mergeOfflineProgress(rec.accounts || [], offline);
         if (merged) {
           rec = { ...rec, accounts: mergedAccounts };
-          try {
-            const newVersion = await saveAccountsOnly(
-              { accounts: mergedAccounts },
-              rec.version || 0
-            );
-            commitRecordVersion(newVersion);
-            rec = { ...rec, version: newVersion };
-            clearPendingCloudSync();
-          } catch (_) {
-            // Keep local merge; pending flag / next softSync will retry.
+          // Push only the signed-in account's progress via accountPatch to
+          // avoid bulk saveAccountsOnly 409s during boot.
+          const selfCode = personalCode || loadPersonalCode();
+          const mine =
+            selfCode &&
+            mergedAccounts.find((a) => a && String(a.code) === String(selfCode));
+          if (mine && selfCode) {
+            const patch = {};
+            for (const k of PROGRESS_KEYS) {
+              if (mine[k] !== undefined) patch[k] = mine[k];
+            }
+            if (Object.keys(patch).length) {
+              try {
+                let ver = rec.version || 0;
+                try {
+                  const latest = await fetchVersionOnly({ fresh: true });
+                  if (typeof latest === "number" && latest > ver) ver = latest;
+                } catch (_) {}
+                const result = await patchAccountFields(selfCode, patch, ver);
+                commitRecordVersion(result.version);
+                rec = { ...rec, version: result.version };
+                clearPendingCloudSync();
+              } catch (_) {
+                markPendingCloudSync();
+              }
+            }
+          } else {
             markPendingCloudSync();
           }
         }

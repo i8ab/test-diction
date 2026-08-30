@@ -9,6 +9,7 @@ import {
   patchAccountFields,
   patchEntry,
   deleteEntryRemote,
+  fetchVersionOnly,
 } from "./cloudApi";
 import {
   saveOfflineCache,
@@ -119,6 +120,17 @@ export function flushPendingAccounts(ctx) {
             !approveCodes.length &&
             accountCode &&
             progressPatch;
+
+          // Refresh version right before write — softSync / other tabs often
+          // bump it; using a stale expectedVersion was the main source of 409
+          // after the first studied mark.
+          try {
+            const latest = await fetchVersionOnly({ fresh: true });
+            if (typeof latest === "number" && latest > curVersion) {
+              curVersion = latest;
+              commitRecordVersion(latest);
+            }
+          } catch (_) {}
 
           if (useProgressPatch) {
             const result = await patchAccountFields(

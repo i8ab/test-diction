@@ -290,98 +290,130 @@ export default function MobileBottomNav({
             left: 8,
             right: 8,
             marginBottom: 8,
-            padding: 12,
+            padding: 14,
             borderRadius: 16,
             background: "var(--card)",
             border: "1px solid rgba(var(--border-rgb),0.14)",
             boxShadow: "0 12px 32px -12px rgba(0,0,0,0.35)",
-            zIndex: 20,
-            maxHeight: "50vh",
+            zIndex: 30,
+            maxHeight: "55vh",
             overflowY: "auto",
           }}
         >
-          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8, color: "var(--ink)" }}>
+          <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, color: "var(--ink)" }}>
             {tr(isAr, "Customize navigation bar", "تخصيص شريط التنقل")}
           </div>
-          <div style={{ fontSize: 11, color: "var(--muted-strong)", marginBottom: 10 }}>
-            {tr(isAr, "Reorder or remove items. Add from the list below.", "رتّب أو احذف العناصر. أضف من القائمة تحت.")}
+          <div style={{ fontSize: 11, color: "var(--muted-strong)", marginBottom: 12 }}>
+            {tr(
+              isAr,
+              "Toggle items on/off. Use arrows to reorder. Press Done, then tap an item to open it.",
+              "فعّل أو أوقف العناصر. الأسهم للترتيب. اضغط تم ثم المس العنصر لفتحه."
+            )}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {tabs.map((t, i) => (
-              <div
-                key={t.key}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "8px 10px",
-                  borderRadius: 10,
-                  background: "var(--input-bg)",
-                  border: "1px solid rgba(var(--border-rgb),0.1)",
-                }}
-              >
-                <span style={{ color: "var(--icon-muted)" }}>{t.icon}</span>
-                <span style={{ flex: 1, fontWeight: 700, fontSize: 13 }}>{t.label}</span>
-                <button type="button" onClick={() => moveTab(i, -1)} disabled={i === 0} aria-label="Up"
-                  style={{ border: "none", background: "transparent", cursor: i === 0 ? "default" : "pointer", opacity: i === 0 ? 0.3 : 1, fontSize: 16, padding: 4 }}>↑</button>
-                <button type="button" onClick={() => moveTab(i, 1)} disabled={i === tabs.length - 1} aria-label="Down"
-                  style={{ border: "none", background: "transparent", cursor: i === tabs.length - 1 ? "default" : "pointer", opacity: i === tabs.length - 1 ? 0.3 : 1, fontSize: 16, padding: 4 }}>↓</button>
-                <button type="button" onClick={() => removeTab(t.key)} disabled={tabs.length <= 2} aria-label="Remove"
-                  style={{ border: "none", background: "transparent", cursor: tabs.length <= 2 ? "default" : "pointer", color: "var(--danger)", opacity: tabs.length <= 2 ? 0.3 : 1, fontSize: 14, padding: 4, fontWeight: 700 }}>✕</button>
-              </div>
-            ))}
-          </div>
-          {unused.length > 0 && (
-            <>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-strong)", margin: "12px 0 6px" }}>
-                {tr(isAr, "Add item", "إضافة عنصر")}
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {unused.map((u) => (
+            {ALL_NAV_ITEMS.map((item) => {
+              const active = tabKeys.includes(item.key);
+              const orderIdx = tabKeys.indexOf(item.key);
+              return (
+                <div
+                  key={item.key}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--input-bg))" : "var(--input-bg)",
+                    border: active
+                      ? "1px solid color-mix(in srgb, var(--accent-1) 35%, transparent)"
+                      : "1px solid rgba(var(--border-rgb),0.1)",
+                  }}
+                >
                   <button
-                    key={u.key}
                     type="button"
-                    onClick={() => addTab(u.key)}
-                    disabled={tabKeys.length >= 6}
+                    onClick={() => (active ? removeTab(item.key) : addTab(item.key))}
+                    disabled={!active && tabKeys.length >= 6}
+                    aria-pressed={active}
+                    aria-label={active ? "Remove" : "Add"}
                     style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "8px 12px",
-                      borderRadius: 999,
-                      border: "1px dashed rgba(var(--border-rgb),0.25)",
-                      background: "var(--input-bg)",
-                      color: "var(--ink)",
-                      fontWeight: 700,
-                      fontSize: 12,
-                      cursor: tabKeys.length >= 6 ? "default" : "pointer",
-                      opacity: tabKeys.length >= 6 ? 0.5 : 1,
+                      width: 28,
+                      height: 28,
+                      borderRadius: 8,
+                      border: active ? "none" : "1.5px solid rgba(var(--border-rgb),0.35)",
+                      background: active ? "var(--accent-1)" : "transparent",
+                      color: active ? "var(--on-accent, #fff)" : "var(--muted-strong)",
+                      fontWeight: 900,
+                      fontSize: 14,
+                      cursor: !active && tabKeys.length >= 6 ? "default" : "pointer",
+                      flexShrink: 0,
+                      opacity: !active && tabKeys.length >= 6 ? 0.4 : 1,
                     }}
                   >
-                    {u.icon}
-                    {tr(isAr, u.labelEn, u.labelAr)}
+                    {active ? "✓" : "+"}
                   </button>
-                ))}
-              </div>
-            </>
-          )}
+                  <span style={{ color: "var(--icon-muted)", display: "flex" }}>{item.icon}</span>
+                  <span style={{ flex: 1, fontWeight: 700, fontSize: 13 }}>
+                    {tr(isAr, item.labelEn, item.labelAr)}
+                  </span>
+                  {active && (
+                    <span style={{ display: "inline-flex", gap: 2 }}>
+                      <button
+                        type="button"
+                        onClick={() => moveTab(orderIdx, -1)}
+                        disabled={orderIdx <= 0}
+                        aria-label="Move up"
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          cursor: orderIdx <= 0 ? "default" : "pointer",
+                          opacity: orderIdx <= 0 ? 0.3 : 1,
+                          fontSize: 16,
+                          padding: 4,
+                          color: "var(--ink)",
+                        }}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveTab(orderIdx, 1)}
+                        disabled={orderIdx < 0 || orderIdx >= tabKeys.length - 1}
+                        aria-label="Move down"
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          cursor: orderIdx >= tabKeys.length - 1 ? "default" : "pointer",
+                          opacity: orderIdx >= tabKeys.length - 1 ? 0.3 : 1,
+                          fontSize: 16,
+                          padding: 4,
+                          color: "var(--ink)",
+                        }}
+                      >
+                        ↓
+                      </button>
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
           <button
             type="button"
             onClick={() => setEditMode(false)}
             style={{
-              marginTop: 12,
+              marginTop: 14,
               width: "100%",
-              padding: "10px 14px",
+              padding: "12px 14px",
               borderRadius: 12,
               border: "none",
               background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
               color: "var(--on-accent, #fff)",
               fontWeight: 800,
-              fontSize: 13,
+              fontSize: 14,
               cursor: "pointer",
             }}
           >
-            {tr(isAr, "Done", "تم")}
+            {tr(isAr, "Done — tap items to open", "تم — المس العناصر لفتحها")}
           </button>
         </div>
       )}

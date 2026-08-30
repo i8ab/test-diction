@@ -2604,21 +2604,22 @@ html[data-skin] input[type="search"] {
   outline: none !important;
 }
 
-/* ── Entry cards: soft glass so photo peeks around edges (desktop/tablet) ──
+/* ── Entry cards: transparent glass when a background image is set (all devices) ──
    Use background-COLOR only so card-surface patterns (grid/paper/ruled) survive. */
 html[data-has-bg-image="1"] .entry-card,
 html[data-has-bg-image="1"] .word-card {
-  background-color: color-mix(in srgb, var(--card) 94%, transparent) !important;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  /* Was 94% (nearly solid on desktop) — match phone see-through treatment */
+  background-color: color-mix(in srgb, var(--card) 55%, transparent) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
-/* Mobile + Tablet: respect card-clarity so bg-image cards are transparent
-   on both form factors (tablet previously stayed solid/opaque). */
+/* Mobile + Tablet + Desktop: same transparent baseline when bg image is on */
 html[data-device="mobile"][data-has-bg-image="1"] .entry-card,
 html[data-device="mobile"][data-has-bg-image="1"] .word-card,
 html[data-device="tablet"][data-has-bg-image="1"] .entry-card,
-html[data-device="tablet"][data-has-bg-image="1"] .word-card {
-  /* default glass-like when clarity not set — see-through like phone */
+html[data-device="tablet"][data-has-bg-image="1"] .word-card,
+html[data-device="desktop"][data-has-bg-image="1"] .entry-card,
+html[data-device="desktop"][data-has-bg-image="1"] .word-card {
   background-color: color-mix(in srgb, var(--card) 55%, transparent) !important;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -2626,7 +2627,9 @@ html[data-device="tablet"][data-has-bg-image="1"] .word-card {
 html[data-device="mobile"][data-card-clarity="opaque"] .entry-card,
 html[data-device="mobile"][data-card-clarity="opaque"] .word-card,
 html[data-device="tablet"][data-card-clarity="opaque"] .entry-card,
-html[data-device="tablet"][data-card-clarity="opaque"] .word-card {
+html[data-device="tablet"][data-card-clarity="opaque"] .word-card,
+html[data-device="desktop"][data-card-clarity="opaque"] .entry-card,
+html[data-device="desktop"][data-card-clarity="opaque"] .word-card {
   background-color: var(--card) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -2634,7 +2637,9 @@ html[data-device="tablet"][data-card-clarity="opaque"] .word-card {
 html[data-device="mobile"][data-card-clarity="glass"] .entry-card,
 html[data-device="mobile"][data-card-clarity="glass"] .word-card,
 html[data-device="tablet"][data-card-clarity="glass"] .entry-card,
-html[data-device="tablet"][data-card-clarity="glass"] .word-card {
+html[data-device="tablet"][data-card-clarity="glass"] .word-card,
+html[data-device="desktop"][data-card-clarity="glass"] .entry-card,
+html[data-device="desktop"][data-card-clarity="glass"] .word-card {
   background-color: color-mix(in srgb, var(--card) 72%, transparent) !important;
   backdrop-filter: blur(8px) !important;
   -webkit-backdrop-filter: blur(8px) !important;
@@ -2642,7 +2647,9 @@ html[data-device="tablet"][data-card-clarity="glass"] .word-card {
 html[data-device="mobile"][data-card-clarity="clear"] .entry-card,
 html[data-device="mobile"][data-card-clarity="clear"] .word-card,
 html[data-device="tablet"][data-card-clarity="clear"] .entry-card,
-html[data-device="tablet"][data-card-clarity="clear"] .word-card {
+html[data-device="tablet"][data-card-clarity="clear"] .word-card,
+html[data-device="desktop"][data-card-clarity="clear"] .entry-card,
+html[data-device="desktop"][data-card-clarity="clear"] .word-card {
   background-color: color-mix(in srgb, var(--card) 48%, transparent) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -3153,7 +3160,8 @@ select {
   left: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
-  z-index: 5000 !important;
+  /* Below modals (5000–15000). Original nav was z-index:80. */
+  z-index: 90 !important;
   display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;

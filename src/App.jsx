@@ -17,7 +17,7 @@ import {
 import {
   loadSearchHistory, saveSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory,
   saveOfflineCache, loadOfflineCache, loadOfflineMeta, flushFullCacheSync, savePersonalCode, loadPersonalCode, clearPersonalCode,
-  markPendingCloudSync, clearPendingCloudSync, mergeOfflineProgress,
+  markPendingCloudSync, clearPendingCloudSync, mergeOfflineProgress, preserveLocalProgress, getPendingCloudSyncAt,
   loadPendingRemoveCodes, savePendingRemoveCodes, addPendingRemoveCode, removePendingRemoveCode,
   loadPendingApproveCodes, addPendingApproveCode, removePendingApproveCode,
   saveSessionId, loadSessionId, generateSessionId,
@@ -1410,9 +1410,16 @@ export default function DictionaryApp() {
         if (cancelled) return;
 
         // بناء قائمة حسابات مناسبة للصلاحية
+        // Light admin list must not wipe the signed-in user's full progress
+        // (studied / favorites / SRS) that fetchMyAccount returned.
         let list = [];
         if (isPrivileged && Array.isArray(accountsList) && accountsList.length) {
-          list = accountsList;
+          list = accountsList.map((a) =>
+            a && myAccount && a.code === myAccount.code ? { ...a, ...myAccount } : a
+          );
+          if (myAccount && !list.some((a) => a && a.code === myAccount.code)) {
+            list = [myAccount, ...list];
+          }
         } else if (myAccount) {
           list = [myAccount];
         }
@@ -1487,12 +1494,38 @@ export default function DictionaryApp() {
               } catch (_) {}
             }
           }
+          // Do not wipe in-flight studied/favorites: if a cloud write is still
+          // pending (or account ops are queued), keep local progress for self.
+          const hasPendingOps = pendingAccountOpsRef.current.length > 0;
+          const { accounts: safeList, merged: progressMerged } = preserveLocalProgress(
+            list,
+            accountsRef.current || [],
+            {
+              onlyCode: accountCode,
+              force: hasPendingOps,
+            }
+          );
+          list = safeList;
           setAccounts(list);
           accountsRef.current = list;
+          // If we kept newer local progress, push it so other devices see it.
+          if (progressMerged && accountCode) {
+            try {
+              markPendingCloudSync();
+              const newVersion = await saveAccountsOnly(
+                { accounts: list },
+                typeof rec.version === "number" ? rec.version : recordVersionRef.current
+              );
+              commitRecordVersion(newVersion);
+              clearPendingCloudSync();
+            } catch (_) {
+              // Leave pending flag set; next flush / softSync will retry.
+            }
+          }
         }
         if (rec.siteBanner !== undefined) setSiteBanner(rec.siteBanner || null);
         if (typeof rec.version === "number") commitRecordVersion(rec.version);
-        const account = (rec.accounts || []).find((a) => a.code === accountCode);
+        const account = (list && list.length ? list : rec.accounts || []).find((a) => a.code === accountCode);
         if (account && account.xp) {
           try { hydrateXpFromCloud(accountCode, account.xp); } catch (_) {}
         }

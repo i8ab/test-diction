@@ -184,12 +184,25 @@ export async function runAppBoot(ctx, cancelledRef) {
         rec = await ensureMigratedAccounts(rec, migrationDoneRef);
 
         // If user reloaded while a studied/favorite save was still in flight,
-        // offline cache holds the newer progress — merge it back and re-save.
+        // offline cache holds the newer progress — merge it back and re-save
+        // to the cloud so other devices see it (not only this tab's memory).
         // Use lightweight meta (accounts + cachedAt only, no entries) for speed.
         const offline = loadOfflineMeta() || loadOfflineCache();
         const { accounts: mergedAccounts, merged } = mergeOfflineProgress(rec.accounts || [], offline);
         if (merged) {
           rec = { ...rec, accounts: mergedAccounts };
+          try {
+            const newVersion = await saveAccountsOnly(
+              { accounts: mergedAccounts },
+              rec.version || 0
+            );
+            commitRecordVersion(newVersion);
+            rec = { ...rec, version: newVersion };
+            clearPendingCloudSync();
+          } catch (_) {
+            // Keep local merge; pending flag / next softSync will retry.
+            markPendingCloudSync();
+          }
         }
 
         // Re-apply intentional deletes that may not have landed on the server yet

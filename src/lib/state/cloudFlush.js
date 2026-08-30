@@ -108,14 +108,14 @@ export function flushPendingAccounts(ctx) {
           break;
         } catch (e) {
           if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
-            curEntries = e.fresh.entries || [];
-            curAccounts = e.fresh.accounts || [];
-            curLogs = e.fresh.logs || [];
+            // Prefer server accounts (full rows from conflict payload) then
+            // re-apply our account ops on the next loop iteration.
+            curEntries = e.fresh.entries || curEntries;
+            curAccounts = Array.isArray(e.fresh.accounts) ? e.fresh.accounts : curAccounts;
+            curLogs = e.fresh.logs || curLogs;
             if (e.fresh.siteBanner !== undefined) curBanner = e.fresh.siteBanner || null;
-            if (e.fresh.examConfig !== undefined) curExam = e.fresh.examConfig || null;
-            if (e.fresh.academicUnits !== undefined) curUnits = e.fresh.academicUnits || null;
             curVersion = e.fresh.version || 0;
-            entriesRef.current = curEntries;
+            if (e.fresh.entries) entriesRef.current = curEntries;
             accountsRef.current = curAccounts;
             logsRef.current = curLogs;
             siteBannerRef.current = curBanner;
@@ -125,67 +125,82 @@ export function flushPendingAccounts(ctx) {
             continue;
           }
           if (e instanceof SaveConflictError && e.fresh) {
-            // Re-apply the user's pending ops on top of the latest server data
-            // so an add/edit is not silently discarded after conflicts.
-            const baseEntries = e.fresh.entries || [];
-            const applied = applyOps(baseEntries, ops, "entries");
-            let mergedEntries = applied.next;
-            let mergedLogs = e.fresh.logs || [];
-            for (const le of applied.logsToAdd) mergedLogs = capLogs([...mergedLogs, le]);
-            setEntries(mergedEntries);
-            entriesRef.current = mergedEntries;
-            let freshAccounts = e.fresh.accounts || [];
+            // CRITICAL (accounts path): re-apply pending *account* ops on top of
+            // the latest server accounts so studied/favorites/SRS are never
+            // silently discarded after a version conflict.
+            // (Previously this block wrongly treated ops as entry ops and
+            // re-queued them on pendingEntryOpsRef — that dropped studied.)
+            let baseAccounts = Array.isArray(e.fresh.accounts)
+              ? e.fresh.accounts
+              : accountsRef.current || [];
+            let mergedAccounts = baseAccounts;
+            let mergedLogs = curLogs;
+            try {
+              const reapplied = applyOps(baseAccounts, ops, "accounts");
+              mergedAccounts = reapplied.next;
+              for (const le of reapplied.logsToAdd) {
+                mergedLogs = capLogs([...mergedLogs, le]);
+              }
+            } catch (_) {}
             if (pendingRemoveCodesRef.current.size) {
               const drop = pendingRemoveCodesRef.current;
-              freshAccounts = freshAccounts.filter((a) => a && a.code && !drop.has(String(a.code)));
+              mergedAccounts = mergedAccounts.filter(
+                (a) => a && a.code && !drop.has(String(a.code))
+              );
             }
             if (pendingApprovedCodesRef.current.size) {
               const approved = pendingApprovedCodesRef.current;
-              freshAccounts = freshAccounts.map((a) =>
+              mergedAccounts = mergedAccounts.map((a) =>
                 a && a.code && approved.has(String(a.code)) && a.status === "pending"
                   ? { ...a, status: "active" }
                   : a
               );
             }
-            setAccounts(freshAccounts);
-            setLogs(mergedLogs);
-            logsRef.current = mergedLogs;
+            try {
+              mergedAccounts = attachXpToAccounts(mergedAccounts, accountCode);
+            } catch (_) {}
+            setAccounts(mergedAccounts);
+            accountsRef.current = mergedAccounts;
+            if (mergedLogs !== curLogs) {
+              setLogs(mergedLogs);
+              logsRef.current = mergedLogs;
+            }
             if (e.fresh.siteBanner !== undefined) setSiteBanner(e.fresh.siteBanner || null);
-            accountsRef.current = freshAccounts;
             commitRecordVersion(e.fresh.version || 0);
-            // Put ops back so a later flush can still push to the server
-            pendingEntryOpsRef.current = ops.concat(pendingEntryOpsRef.current);
-            setSaveError("Save conflict — changes kept locally. Retrying…");
-            // one more immediate attempt will happen if more ops arrive; snapshot local
+            // Re-queue account ops so a later flush still pushes to the server.
+            if (ops.length) {
+              pendingAccountOpsRef.current = [...ops, ...pendingAccountOpsRef.current];
+            }
+            markPendingCloudSync();
+            setSaveError("Save conflict — progress kept locally. Retrying…");
             try {
               saveOfflineCache({
-                entries: mergedEntries,
-                accounts: freshAccounts,
-                logs: mergedLogs,
-                siteBanner: e.fresh.siteBanner,
-                examConfig: e.fresh.examConfig,
-                academicUnits: e.fresh.academicUnits,
+                entries: entriesRef.current,
+                accounts: mergedAccounts,
+                logs: logsRef.current,
+                siteBanner:
+                  e.fresh.siteBanner !== undefined ? e.fresh.siteBanner : curBanner,
                 version: e.fresh.version || 0,
               });
             } catch (_) {}
           } else if (String(e && e.message) === "unauthorized") {
             setSaveError("Session expired — sign out and sign in again.");
           } else {
-            // Keep optimistic local data — do not wipe the user's new word
+            // Keep optimistic local data (including studied) — do not wipe progress.
             try {
               saveOfflineCache({
                 entries: entriesRef.current,
                 accounts: accountsRef.current,
                 logs: logsRef.current,
                 siteBanner: siteBannerRef.current,
-                examConfig: examConfigRef?.current || null,
-                academicUnits: academicUnitsRef?.current || null,
                 version: recordVersionRef.current,
               });
               markPendingCloudSync();
             } catch (_) {}
-            // re-queue ops so next successful online flush can push them
-            pendingEntryOpsRef.current = ops.concat(pendingEntryOpsRef.current);
+            // Re-queue *account* ops (not entry ops) for the next successful flush.
+            if (ops.length) {
+              pendingAccountOpsRef.current = [...ops, ...pendingAccountOpsRef.current];
+            }
             setSaveError("Couldn't save — check your connection and try again.");
           }
           break;

@@ -1212,11 +1212,55 @@ export function clearPendingApproveCodes() {
  * Progress fields that live per-account and must survive a reload that
  * races a still-in-flight cloud write.
  */
-const PROGRESS_KEYS = [
+export const PROGRESS_KEYS = [
   "studied", "studiedAt", "favorites",
   "srsStats", "srsDueAt", "srsBox", "srsCards",
   "xp", "xpHistory", "achievements",
 ];
+
+/**
+ * Copy per-account progress fields from local rows onto matching server rows.
+ * Used by softSync so a still-in-flight studied/favorite save is not wiped
+ * when the periodic version check pulls a slightly older server snapshot.
+ *
+ * When `onlyCode` is set, only that account is patched (normal user path).
+ * When pending cloud sync is marked OR `force` is true, local progress wins
+ * on any differing key. Otherwise this is a no-op (server wins).
+ */
+export function preserveLocalProgress(serverAccounts, localAccounts, {
+  onlyCode = null,
+  force = false,
+} = {}) {
+  if (!Array.isArray(serverAccounts) || !Array.isArray(localAccounts) || !localAccounts.length) {
+    return { accounts: serverAccounts, merged: false };
+  }
+  const pendingAt = getPendingCloudSyncAt();
+  if (!force && !(pendingAt > 0)) {
+    return { accounts: serverAccounts, merged: false };
+  }
+  const byCode = {};
+  for (const a of localAccounts) {
+    if (a && a.code) byCode[String(a.code)] = a;
+  }
+  let merged = false;
+  const next = serverAccounts.map((srv) => {
+    if (!srv || !srv.code) return srv;
+    if (onlyCode && String(srv.code) !== String(onlyCode)) return srv;
+    const loc = byCode[String(srv.code)];
+    if (!loc) return srv;
+    const patch = { ...srv };
+    for (const k of PROGRESS_KEYS) {
+      if (loc[k] === undefined) continue;
+      const same = JSON.stringify(loc[k]) === JSON.stringify(srv[k]);
+      if (!same) {
+        patch[k] = loc[k];
+        merged = true;
+      }
+    }
+    return patch;
+  });
+  return { accounts: next, merged };
+}
 
 /**
  * If the user toggled studied/favorite and reloaded before the cloud PUT
@@ -1230,10 +1274,9 @@ export function mergeOfflineProgress(serverAccounts, offlineRec) {
   }
   const pendingAt = getPendingCloudSyncAt();
   const offlineAt = Number(offlineRec.cachedAt) || 0;
-  // Only trust offline progress if we know a sync was pending, or offline
-  // is very recent (last 2 minutes) — avoids stomping real multi-device edits
-  // with ancient cache.
-  const trustOffline = pendingAt > 0 || (Date.now() - offlineAt < 2 * 60 * 1000);
+  // Trust offline when a sync was pending, or cache is recent (5 min) —
+  // covers "studied then reloaded before the cloud write finished".
+  const trustOffline = pendingAt > 0 || (Date.now() - offlineAt < 5 * 60 * 1000);
   if (!trustOffline || !offlineAt) {
     return { accounts: serverAccounts, merged: false };
   }

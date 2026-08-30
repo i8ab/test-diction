@@ -94,19 +94,30 @@ export function useCloudPersist({
     return flushEntriesCloud(getFlushCtx());
   }
 
+  // Heavy offline JSON write is debounced; pending flag is set immediately
+  // so softSync / reload never drop an in-flight study toggle.
+  const offlineSnapTimerRef = useRef(null);
   function snapshotLocalNow() {
     try {
-      saveOfflineCache({
-        entries: entriesRef.current,
-        accounts: accountsRef.current,
-        logs: logsRef.current,
-        siteBanner: siteBannerRef.current,
-        examConfig: examConfigRef.current,
-        academicUnits: academicUnitsRef.current,
-        version: recordVersionRef.current,
-      });
       markPendingCloudSync();
     } catch (_) {}
+    if (offlineSnapTimerRef.current) {
+      try { clearTimeout(offlineSnapTimerRef.current); } catch (_) {}
+    }
+    offlineSnapTimerRef.current = setTimeout(() => {
+      offlineSnapTimerRef.current = null;
+      try {
+        saveOfflineCache({
+          entries: entriesRef.current,
+          accounts: accountsRef.current,
+          logs: logsRef.current,
+          siteBanner: siteBannerRef.current,
+          examConfig: examConfigRef.current,
+          academicUnits: academicUnitsRef.current,
+          version: recordVersionRef.current,
+        });
+      } catch (_) {}
+    }, 280);
   }
 
   function failMsg(err, fallbackEn, fallbackAr) {
@@ -133,14 +144,13 @@ export function useCloudPersist({
     }
     snapshotLocalNow();
     pendingEntryOpsRef.current.push({ fn: entriesFn, logFn: logEntryFn || null });
-    try {
-      return await flushPendingEntries();
-    } catch (e) {
+    // UI already updated — flush in background so add/edit feels instant.
+    flushPendingEntries().catch((e) => {
       const msg = failMsg(e, "Couldn't save words — try again.", "تعذّر حفظ الكلمات — حاول تاني.");
       if (typeof showToast === "function") showToast(msg);
       setSaveError(msg);
-      return { ok: false, error: msg };
-    }
+    });
+    return { ok: true };
   }, [appIsAr, showToast]);
 
   // Serialize optimistic account mutations so rapid studied toggles cannot
@@ -164,17 +174,16 @@ export function useCloudPersist({
       snapshotLocalNow();
       pendingAccountOpsRef.current.push({ fn: accountsFn, logFn: logEntryFn || null });
     };
-    // Chain local applies so each toggle sees the previous word, then flush.
+    // Chain local applies so rapid toggles compose correctly, then flush
+    // in the background — study / un-study must feel instant on the UI.
     const chained = accountsMutateChainRef.current.then(run, run);
     accountsMutateChainRef.current = chained.catch(() => {});
     await chained;
-    try {
-      return await flushPendingAccounts();
-    } catch (e) {
+    flushPendingAccounts().catch((e) => {
       const msg = failMsg(e, "Couldn't save account — try again.", "تعذّر حفظ الحساب — حاول تاني.");
       if (typeof showToast === "function") showToast(msg);
-      return { ok: false, error: msg };
-    }
+    });
+    return { ok: true };
   }, [appIsAr, showToast]);
 
   const persistLogs = useCallback(async (next) => {

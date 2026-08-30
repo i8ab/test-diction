@@ -24,7 +24,7 @@ const NAME_EN = "Alexander the Great";
  */
 export default function SplashScreen({
   onComplete,
-  minMs = 1800,
+  minMs = 700,
   forceProgress = null,
   isAr = true,
   blocking = false,

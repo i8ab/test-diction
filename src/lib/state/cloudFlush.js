@@ -23,6 +23,26 @@ import { attachXpToAccounts } from "./xp";
 import { applyOps, MAX_SAVE_RETRIES } from "./cloudQueue";
 import { diffEntries, GRANULAR_ENTRY_LIMIT } from "./partialSave";
 
+/** Skip extra version RTT when we fetched very recently (409 path still corrects). */
+let _lastVersionFetchAt = 0;
+const VERSION_FETCH_MIN_GAP_MS = 1500;
+
+async function refreshVersionIfStale(curVersion, commitRecordVersion) {
+  const now = Date.now();
+  if (now - _lastVersionFetchAt < VERSION_FETCH_MIN_GAP_MS) {
+    return curVersion;
+  }
+  try {
+    const latest = await fetchVersionOnly({ fresh: true });
+    _lastVersionFetchAt = Date.now();
+    if (typeof latest === "number" && latest > curVersion) {
+      if (typeof commitRecordVersion === "function") commitRecordVersion(latest);
+      return latest;
+    }
+  } catch (_) {}
+  return curVersion;
+}
+
 /** Build a progress-only patch for accountPatch (studied / favorites / SRS / xp). */
 function progressPatchFromAccount(account) {
   if (!account || typeof account !== "object") return null;
@@ -122,16 +142,8 @@ export function flushPendingAccounts(ctx) {
             accountCode &&
             progressPatch;
 
-          // Refresh version right before write — softSync / other tabs often
-          // bump it; using a stale expectedVersion was the main source of 409
-          // after the first studied mark.
-          try {
-            const latest = await fetchVersionOnly({ fresh: true });
-            if (typeof latest === "number" && latest > curVersion) {
-              curVersion = latest;
-              commitRecordVersion(latest);
-            }
-          } catch (_) {}
+          // Refresh version only if stale — avoids +1 RTT on rapid study toggles.
+          curVersion = await refreshVersionIfStale(curVersion, commitRecordVersion);
 
           if (useProgressPatch) {
             const result = await patchAccountFields(

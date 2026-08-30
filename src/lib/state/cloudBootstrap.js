@@ -94,6 +94,9 @@ export async function runAppBoot(ctx, cancelledRef) {
               setEntriesLoaded(true);
             }
           } catch (_) {}
+        } else {
+          // Already hydrated from readInitialOfflineSnapshot — unlock list UI now.
+          setEntriesLoaded(true);
         }
 
         // ============================================================

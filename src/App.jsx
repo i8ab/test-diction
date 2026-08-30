@@ -79,7 +79,7 @@ const MainView = lazy(() => import("./components/MainView"));
 
 /** Professional splash (Arabic slogan + progress bar) used as Suspense fallback and first paint. */
 function AppLoadingFallback() {
-  return <SplashScreen minMs={1600} />;
+  return <SplashScreen minMs={700} />;
 }
 
 const deviceIsAr = detectDeviceIsAr();

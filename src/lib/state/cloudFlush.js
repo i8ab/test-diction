@@ -6,14 +6,35 @@ import {
   SaveConflictError,
   saveRecord,
   saveAccountsOnly,
+  patchAccountFields,
   patchEntry,
   deleteEntryRemote,
 } from "./cloudApi";
-import { saveOfflineCache, clearPendingCloudSync, markPendingCloudSync, removePendingApproveCode } from "./storage";
+import {
+  saveOfflineCache,
+  clearPendingCloudSync,
+  markPendingCloudSync,
+  removePendingApproveCode,
+  PROGRESS_KEYS,
+} from "./storage";
 import { capLogs } from "./logs";
 import { attachXpToAccounts } from "./xp";
 import { applyOps, MAX_SAVE_RETRIES } from "./cloudQueue";
 import { diffEntries, GRANULAR_ENTRY_LIMIT } from "./partialSave";
+
+/** Build a progress-only patch for accountPatch (studied / favorites / SRS / xp). */
+function progressPatchFromAccount(account) {
+  if (!account || typeof account !== "object") return null;
+  const patch = {};
+  let any = false;
+  for (const k of PROGRESS_KEYS) {
+    if (account[k] !== undefined) {
+      patch[k] = account[k];
+      any = true;
+    }
+  }
+  return any ? patch : null;
+}
 
 export function flushPendingAccounts(ctx) {
   const {
@@ -84,15 +105,50 @@ export function flushPendingAccounts(ctx) {
           setAccounts(nextAccounts);
           const removeCodes = [...pendingRemoveCodesRef.current];
           const approveCodes = [...pendingApprovedCodesRef.current];
-          // Accounts-only scope: do not rewrite entries/logs on every profile tweak
-          const newVersion = await saveAccountsOnly(
-            {
-              accounts: nextAccounts,
-              ...(removeCodes.length ? { removeAccountCodes: removeCodes } : {}),
-              ...(approveCodes.length ? { approveAccountCodes: approveCodes } : {}),
-            },
-            curVersion
-          );
+
+          let newVersion = curVersion;
+          // Prefer narrow accountPatch for the signed-in user's progress
+          // (studied / favorites / SRS). Full saveAccountsOnly races with softSync
+          // and other tabs → 409 after the first word; only the first mark stuck.
+          const self =
+            accountCode &&
+            nextAccounts.find((a) => a && String(a.code) === String(accountCode));
+          const progressPatch = self ? progressPatchFromAccount(self) : null;
+          const useProgressPatch =
+            !removeCodes.length &&
+            !approveCodes.length &&
+            accountCode &&
+            progressPatch;
+
+          if (useProgressPatch) {
+            const result = await patchAccountFields(
+              accountCode,
+              progressPatch,
+              curVersion
+            );
+            newVersion = result.version;
+            // Merge server-confirmed account back so subsequent toggles
+            // start from the truth the DB just wrote.
+            if (result.account) {
+              nextAccounts = nextAccounts.map((a) =>
+                a && String(a.code) === String(accountCode)
+                  ? { ...a, ...result.account }
+                  : a
+              );
+              accountsRef.current = nextAccounts;
+              setAccounts(nextAccounts);
+            }
+          } else {
+            // Admin approve/remove or bulk profile path
+            newVersion = await saveAccountsOnly(
+              {
+                accounts: nextAccounts,
+                ...(removeCodes.length ? { removeAccountCodes: removeCodes } : {}),
+                ...(approveCodes.length ? { approveAccountCodes: approveCodes } : {}),
+              },
+              curVersion
+            );
+          }
           commitRecordVersion(newVersion);
           if (approveCodes.length) {
             for (const a of nextAccounts) {

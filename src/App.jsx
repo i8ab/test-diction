@@ -11,11 +11,8 @@ import {
   fetchEntriesOnly,
   fetchLogsOnly,
   fetchVersionOnly,
-  saveLogsOnly,
   saveAccountsOnly,
-  SaveConflictError,
   patchAccountFields,
-  patchSettings,
 } from "./lib/state/cloudApi";
 import {
   loadSearchHistory, saveSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory,
@@ -29,6 +26,7 @@ import {
 import { useAppPreferences } from "./lib/hooks/useAppPreferences";
 import { useStudyReminders } from "./lib/hooks/useStudyReminders";
 import { useAppShellLifecycle } from "./lib/hooks/useAppShellLifecycle";
+import { useCloudPersist } from "./lib/hooks/useCloudPersist";
 import { readInitialOfflineSnapshot } from "./lib/app/offlineSnapshot";
 import { apiErrorMessage } from "./lib/utils/apiErrorMessage";
 import { migrateAccounts } from "./lib/utils/authUtils";
@@ -36,8 +34,7 @@ import { ensureMigratedAccounts as ensureMigratedAccountsCore } from "./lib/stat
 import { runAppBoot } from "./lib/state/cloudBootstrap";
 import { watchForReconnect } from "./lib/state/connectivity";
 import SplashScreen from "./components/layout/SplashScreen";
-import { createSaveQueue, applyOps as applyOpsPure, MAX_SAVE_RETRIES as MAX_SAVE_RETRIES_CONST } from "./lib/state/cloudQueue";
-import { flushPendingAccounts as flushAccountsCloud, flushPendingEntries as flushEntriesCloud } from "./lib/state/cloudFlush";
+import { createSaveQueue } from "./lib/state/cloudQueue";
 import {
   switchToVaultAccount as switchVault,
   beginLinkAccount as beginLink,
@@ -864,281 +861,48 @@ export default function DictionaryApp() {
   // fresh data so we're not left silently diverged from what's actually
   // saved. Used as a last-resort fallback when we can't safely auto-retry
   // (e.g. retry attempts exhausted).
-  function handleSaveConflict(err) {
-    setEntries(err.fresh.entries || []);
-    setAccounts(err.fresh.accounts || []);
-    setLogs(err.fresh.logs || []);
-    if (err.fresh.siteBanner !== undefined) setSiteBanner(err.fresh.siteBanner || null);
-    if (err.fresh.examConfig !== undefined) setExamConfig(normalizeExamConfig(err.fresh.examConfig));
-    if (err.fresh.academicUnits !== undefined) {
-      const u = normalizeAcademicUnits(err.fresh.academicUnits);
-      setAcademicUnits(u);
-      academicUnitsRef.current = u;
-    }
-    commitRecordVersion(err.fresh.version || 0);
-    setSaveError(""); // conflict recovered by resync — no scary banner
-  }
-
-  // Max number of automatic retries on a version conflict before giving up
-  // and falling back to handleSaveConflict (which discards the pending
-  // change and asks the user to retry manually). In practice a single
-  // retry resolves the vast majority of real-world races (two people
-  // adding a word within the same second), since each retry re-reads the
-  // absolute latest server state.
-  const MAX_SAVE_RETRIES = MAX_SAVE_RETRIES_CONST;
-
-  // Apply a list of ops (each op is { fn, logFn }) onto base state.
-  // Functional fns compose; plain-array ops replace.
-  const applyOps = applyOpsPure;
-
-  function getFlushCtx() {
-    return {
-      enqueueSave,
-      pendingAccountOpsRef,
-      pendingEntryOpsRef,
-      pendingRemoveCodesRef,
-      pendingApprovedCodesRef,
-      entriesRef,
-      accountsRef,
-      logsRef,
-      siteBannerRef,
-      examConfigRef,
-      academicUnitsRef,
-      recordVersionRef,
-      commitRecordVersion,
-      setAccounts,
-      setLogs,
-      setEntries,
-      setSiteBanner,
-      setSaveError,
-      accountCode,
-      lastSyncedEntriesRef,
-    };
-  }
-
-  function flushPendingAccounts() {
-    return flushAccountsCloud(getFlushCtx());
-  }
-
-  function flushPendingEntries() {
-    return flushEntriesCloud(getFlushCtx());
-  }
-
-  // Snapshot current in-memory record to localStorage RIGHT NOW so a reload
-  // mid-flight cannot lose studied/favorite toggles (cloud PUT is slower).
-  function snapshotLocalNow() {
-    try {
-      saveOfflineCache({
-        entries: entriesRef.current,
-        accounts: accountsRef.current,
-        logs: logsRef.current,
-        siteBanner: siteBannerRef.current,
-        examConfig: examConfigRef.current, academicUnits: academicUnitsRef.current,
-        version: recordVersionRef.current,
-      });
-      markPendingCloudSync();
-    } catch (_) {}
-  }
-
-  // Public API: queue the op (optimistic UI update) and schedule a coalesced flush.
-  const persistEntries = useCallback(async (entriesFn, logEntryFn) => {
-    // Optimistic local apply immediately for snappy UI.
-    const base = entriesRef.current;
-    const optimistic = typeof entriesFn === "function" ? entriesFn(base) : entriesFn;
-    setEntries(optimistic);
-    entriesRef.current = optimistic;
-    if (logEntryFn) {
-      const le = typeof logEntryFn === "function" ? logEntryFn(base) : logEntryFn;
-      if (le) {
-        const nl = capLogs([...logsRef.current, le]);
-        setLogs(nl);
-        logsRef.current = nl;
-      }
-    }
-    // Survive reload before cloud write finishes
-    snapshotLocalNow();
-    pendingEntryOpsRef.current.push({ fn: entriesFn, logFn: logEntryFn || null });
-    return flushPendingEntries();
-  }, []);
-
-  const persistAccounts = useCallback(async (accountsFn, logEntryFn) => {
-    const base = accountsRef.current;
-    const optimistic = typeof accountsFn === "function" ? accountsFn(base) : accountsFn;
-    setAccounts(optimistic);
-    accountsRef.current = optimistic;
-    if (logEntryFn) {
-      const le = typeof logEntryFn === "function" ? logEntryFn(base) : logEntryFn;
-      if (le) {
-        const nl = capLogs([...logsRef.current, le]);
-        setLogs(nl);
-        logsRef.current = nl;
-      }
-    }
-    // Survive reload before cloud write finishes (studied / favorites / SRS)
-    snapshotLocalNow();
-    pendingAccountOpsRef.current.push({ fn: accountsFn, logFn: logEntryFn || null });
-    return flushPendingAccounts();
-  }, []);
-
-  // أحداث اللوج (sign in/out) — كتابة جزئية scope=logsReplace فقط (لا تعيد القاموس).
-  const persistLogs = useCallback(async (next) => {
-    setLogs(next);
-    logsRef.current = next;
-    return enqueueSave(async () => {
-      let curVersion = recordVersionRef.current;
-      for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
-        try {
-          const newVersion = await saveLogsOnly(next, curVersion);
-          commitRecordVersion(newVersion);
-          return;
-        } catch (e) {
-          if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
-            curVersion = e.fresh?.version || curVersion;
-            if (Array.isArray(e.fresh?.logs)) {
-              // Keep our pending next; only adopt server version for retry.
-            }
-            commitRecordVersion(curVersion);
-            await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
-            continue;
-          }
-          if (e instanceof SaveConflictError && e.fresh) {
-            if (Array.isArray(e.fresh.logs)) {
-              setLogs(e.fresh.logs);
-              logsRef.current = e.fresh.logs;
-            }
-            if (e.fresh.accounts) {
-              setAccounts(e.fresh.accounts || []);
-              accountsRef.current = e.fresh.accounts || [];
-            }
-            commitRecordVersion(e.fresh.version || 0);
-          }
-          return;
-        }
-      }
-    });
-  }, []);
-
-  function logEvent(action, message, actorName, actorCode) {
-    persistLogs(capLogs([...logs, makeLogEntry(action, message, actorName, actorCode)]));
-  }
-
-  // Admin publishes / clears the site-wide announcement banner.
-  const persistSiteBanner = useCallback(async (nextBanner) => {
-    setSiteBanner(nextBanner);
-    siteBannerRef.current = nextBanner;
-    return enqueueSave(async () => {
-      let curVersion = recordVersionRef.current;
-      for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
-        try {
-          const newVersion = await patchSettings("site_banner", nextBanner, curVersion);
-          commitRecordVersion(newVersion);
-          saveOfflineCache({
-            entries: entriesRef.current,
-            accounts: accountsRef.current,
-            logs: logsRef.current,
-            siteBanner: nextBanner,
-            examConfig: examConfigRef.current,
-            academicUnits: academicUnitsRef.current,
-          });
-          return { ok: true };
-        } catch (e) {
-          if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
-            curVersion = e.fresh.version || 0;
-            commitRecordVersion(curVersion);
-            await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
-            continue;
-          }
-          if (e instanceof SaveConflictError) handleSaveConflict(e);
-          return { ok: false, error: "Couldn't save the announcement — try again." };
-        }
-      }
-      return { ok: false, error: "Couldn't save the announcement — try again." };
-    });
-  }, []);
-
-
-
-  // Admin publishes exam countdown (date/time/color) for all users.
-  const persistExamConfig = useCallback(async (nextCfg) => {
-    const normalized = normalizeExamConfig(nextCfg);
-    setExamConfig(normalized);
-    examConfigRef.current = normalized;
-    saveExamConfigCache(normalized);
-    return enqueueSave(async () => {
-      let curVersion = recordVersionRef.current;
-      for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
-        try {
-          const newVersion = await patchSettings("exam_config", normalized, curVersion);
-          commitRecordVersion(newVersion);
-          saveOfflineCache({
-            entries: entriesRef.current,
-            accounts: accountsRef.current,
-            logs: logsRef.current,
-            siteBanner: siteBannerRef.current,
-            examConfig: normalized,
-            academicUnits: academicUnitsRef.current,
-          });
-          return { ok: true };
-        } catch (e) {
-          if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
-            curVersion = e.fresh.version || 0;
-            commitRecordVersion(curVersion);
-            await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
-            continue;
-          }
-          if (e instanceof SaveConflictError) handleSaveConflict(e);
-          return { ok: false, error: "Couldn't save exam settings — try again." };
-        }
-      }
-      return { ok: false, error: "Couldn't save exam settings — try again." };
-    });
-  }, []);
-
-  const persistAcademicUnits = useCallback(async (nextUnits) => {
-    const normalized = normalizeAcademicUnits(nextUnits);
-    setAcademicUnits(normalized);
-    academicUnitsRef.current = normalized;
-    saveAcademicUnitsCache(normalized);
-    setActiveUnitId((cur) => {
-      if (normalized.some((u) => u.id === cur)) return cur;
-      return normalized[0]?.id || null;
-    });
-    return enqueueSave(async () => {
-      let curVersion = recordVersionRef.current;
-      for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
-        try {
-          const newVersion = await patchSettings("academic_units", normalized, curVersion);
-          commitRecordVersion(newVersion);
-          saveOfflineCache({
-            entries: entriesRef.current,
-            accounts: accountsRef.current,
-            logs: logsRef.current,
-            siteBanner: siteBannerRef.current,
-            examConfig: examConfigRef.current,
-            academicUnits: normalized,
-          });
-          return { ok: true };
-        } catch (e) {
-          if (e instanceof SaveConflictError && attempt < MAX_SAVE_RETRIES) {
-            curVersion = e.fresh.version || 0;
-            commitRecordVersion(curVersion);
-            await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
-            continue;
-          }
-          if (e instanceof SaveConflictError) handleSaveConflict(e);
-          return { ok: false, error: "Couldn't save units — try again." };
-        }
-      }
-      return { ok: false, error: "Couldn't save units — try again." };
-    });
-  }, []);
-
-  // Admin action: wipe the activity log down to just the "first sign in"
-  // entries (keeps the account-creation history, drops everything else —
-  // word/account edits, regular sign-in/out noise, etc.).
-  function clearLogsExceptFirstSignIn() {
-    persistLogs(logs.filter((entry) => entry.action === "first_sign_in"));
-  }
+  const {
+    handleSaveConflict,
+    getFlushCtx,
+    flushPendingAccounts,
+    flushPendingEntries,
+    snapshotLocalNow,
+    persistEntries,
+    persistAccounts,
+    persistLogs,
+    logEvent,
+    persistSiteBanner,
+    persistExamConfig,
+    persistAcademicUnits,
+    clearLogsExceptFirstSignIn,
+  } = useCloudPersist({
+    enqueueSave,
+    pendingAccountOpsRef,
+    pendingEntryOpsRef,
+    pendingRemoveCodesRef,
+    pendingApprovedCodesRef,
+    entriesRef,
+    accountsRef,
+    logsRef,
+    siteBannerRef,
+    examConfigRef,
+    academicUnitsRef,
+    recordVersionRef,
+    lastSyncedEntriesRef,
+    commitRecordVersion,
+    setAccounts,
+    setLogs,
+    setEntries,
+    setSiteBanner,
+    setExamConfig,
+    setAcademicUnits,
+    setActiveUnitId,
+    setSaveError,
+    accountCode,
+    logs,
+    showToast,
+    appIsAr,
+  });
 
   // Auto-clearing stale log entries used to run once per app load, right
   // after the logs arrived from the server — but that meant EVERY device/

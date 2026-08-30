@@ -134,38 +134,18 @@ export async function toggleStudied({
       if (a.code !== accountCode) return a;
       const studied = a.studied || [];
       const studiedAt = { ...(a.studiedAt || {}) };
-      const revokedAt = { ...(a.studiedRevokedAt || {}) };
-      const has = studied.map(String).includes(String(entryId));
+      const has = studied.includes(entryId);
       let next = a;
       if (wantStudied && !has) {
-        // Mark studied; clear any prior revoke so merges keep the study
-        const nextRevoked = { ...revokedAt };
-        delete nextRevoked[entryId];
-        delete nextRevoked[String(entryId)];
         next = {
           ...a,
           studied: [...studied, entryId],
           studiedAt: { ...studiedAt, [entryId]: stampedAt },
-          studiedRevokedAt: nextRevoked,
         };
       } else if (!wantStudied && has) {
-        // Un-study: drop from list + stamp revoke so softSync/merge cannot
-        // resurrect it from a stale remote "still studied" snapshot.
         const nextAt = { ...studiedAt };
         delete nextAt[entryId];
-        delete nextAt[String(entryId)];
-        next = {
-          ...a,
-          studied: studied.filter((id) => String(id) !== String(entryId)),
-          studiedAt: nextAt,
-          studiedRevokedAt: { ...revokedAt, [entryId]: stampedAt },
-        };
-      } else if (!wantStudied && !has) {
-        // Already not studied — still stamp revoke so concurrent remote adds lose
-        next = {
-          ...a,
-          studiedRevokedAt: { ...revokedAt, [entryId]: stampedAt },
-        };
+        next = { ...a, studied: studied.filter((id) => id !== entryId), studiedAt: nextAt };
       } else {
         return a;
       }

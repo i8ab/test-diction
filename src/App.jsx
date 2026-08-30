@@ -1410,6 +1410,12 @@ export default function DictionaryApp() {
         ]);
         if (cancelled) return;
 
+        // Network blip: do not treat a failed myAccount fetch as "account gone"
+        // (that was logging people out on softSync and blocking multi-device sync).
+        if (!myAccount && !(isPrivileged && Array.isArray(accountsList) && accountsList.length)) {
+          return;
+        }
+
         // بناء قائمة حسابات مناسبة للصلاحية
         // Light admin list must not wipe the signed-in user's full progress
         // (studied / favorites / SRS) that fetchMyAccount returned.
@@ -1545,8 +1551,14 @@ export default function DictionaryApp() {
         if (account && account.xp) {
           try { hydrateXpFromCloud(accountCode, account.xp); } catch (_) {}
         }
-        if (!account || account.status === "pending" || account.status === "rejected" || account.status === "blocked") {
+        // Only logout when the server confirmed the account is gone / blocked.
+        // Never logout solely because a fetch failed (empty list).
+        if (account && (account.status === "pending" || account.status === "rejected" || account.status === "blocked")) {
           handleLogout();
+          return;
+        }
+        if (!account) {
+          if (myAccount) handleLogout();
           return;
         }
         if (account.sessionId) saveSessionId(account.sessionId);
@@ -1555,12 +1567,19 @@ export default function DictionaryApp() {
       }
     }
 
-    // No focus/visibility listeners (screenshot & app-switch were logging people out).
-    // كل 3 دقائق + فحص version أولاً → توفير باندويث مع بقاء البيانات حديثة
-    const interval = setInterval(softSync, 180000);
+    // Pull progress when the tab becomes visible (other device may have
+    // marked studied). Safe now: failed fetches no longer force logout.
+    function onVis() {
+      if (document.visibilityState === "visible") softSync();
+    }
+    document.addEventListener("visibilitychange", onVis);
+    // Every 60s + on tab focus — faster multi-device progress sync
+    const interval = setInterval(softSync, 60000);
+    softSync();
     return () => {
       cancelled = true;
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, [authStage, accountCode]);
 

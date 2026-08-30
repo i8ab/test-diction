@@ -159,6 +159,9 @@ export default async function handler(req, res) {
       }
 
       if (scope === "account" && code) {
+        // Always fresh from DB — studied/favorites must not be CDN/browser-cached
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
         const account = await loadOneAccount(code);
         return res.status(200).json({ account: account || null });
       }

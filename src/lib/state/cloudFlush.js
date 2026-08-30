@@ -67,19 +67,20 @@ export function flushPendingAccounts(ctx) {
       let curLogs = logsRef.current;
       let curBanner = siteBannerRef.current;
       let curVersion = recordVersionRef.current;
-      let useOptimisticSnapshot = true;
+      // Snapshot the accounts as they were when this batch started. Concurrent
+      // rapid studied toggles can race on accountsRef (last optimistic write
+      // wins → only one word kept). We ALWAYS re-apply every op in `ops` onto
+      // a base so marking word2 never drops word1.
+      const batchBaseAccounts = curAccounts;
 
       for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
-        let nextAccounts;
         let nextLogs = curLogs;
-        if (useOptimisticSnapshot && attempt === 0) {
-          nextAccounts = curAccounts;
-        } else {
-          const applied = applyOps(curAccounts, ops, "accounts");
-          nextAccounts = applied.next;
-          nextLogs = curLogs;
-          for (const le of applied.logsToAdd) nextLogs = capLogs([...nextLogs, le]);
-        }
+        // Always compose from ops (absolute toggles are idempotent). Never save
+        // a bare optimistic snapshot — that was why only the first studied word stuck.
+        const baseForOps = attempt === 0 ? batchBaseAccounts : curAccounts;
+        const applied = applyOps(baseForOps, ops, "accounts");
+        let nextAccounts = applied.next;
+        for (const le of applied.logsToAdd) nextLogs = capLogs([...nextLogs, le]);
 
         setAccounts(nextAccounts);
         accountsRef.current = nextAccounts;
@@ -188,7 +189,6 @@ export function flushPendingAccounts(ctx) {
             logsRef.current = curLogs;
             siteBannerRef.current = curBanner;
             commitRecordVersion(curVersion);
-            useOptimisticSnapshot = false;
             await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
             continue;
           }

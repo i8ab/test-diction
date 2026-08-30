@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { SaveConflictError, saveLogsOnly, patchSettings } from "../state/cloudApi";
 import {
   saveOfflineCache,
@@ -143,21 +143,31 @@ export function useCloudPersist({
     }
   }, [appIsAr, showToast]);
 
+  // Serialize optimistic account mutations so rapid studied toggles cannot
+  // overwrite each other on accountsRef (last-write-wins was dropping words).
+  const accountsMutateChainRef = useRef(Promise.resolve());
+
   const persistAccounts = useCallback(async (accountsFn, logEntryFn) => {
-    const base = accountsRef.current;
-    const optimistic = typeof accountsFn === "function" ? accountsFn(base) : accountsFn;
-    setAccounts(optimistic);
-    accountsRef.current = optimistic;
-    if (logEntryFn) {
-      const le = typeof logEntryFn === "function" ? logEntryFn(base) : logEntryFn;
-      if (le) {
-        const nl = capLogs([...logsRef.current, le]);
-        setLogs(nl);
-        logsRef.current = nl;
+    const run = async () => {
+      const base = accountsRef.current;
+      const optimistic = typeof accountsFn === "function" ? accountsFn(base) : accountsFn;
+      setAccounts(optimistic);
+      accountsRef.current = optimistic;
+      if (logEntryFn) {
+        const le = typeof logEntryFn === "function" ? logEntryFn(base) : logEntryFn;
+        if (le) {
+          const nl = capLogs([...logsRef.current, le]);
+          setLogs(nl);
+          logsRef.current = nl;
+        }
       }
-    }
-    snapshotLocalNow();
-    pendingAccountOpsRef.current.push({ fn: accountsFn, logFn: logEntryFn || null });
+      snapshotLocalNow();
+      pendingAccountOpsRef.current.push({ fn: accountsFn, logFn: logEntryFn || null });
+    };
+    // Chain local applies so each toggle sees the previous word, then flush.
+    const chained = accountsMutateChainRef.current.then(run, run);
+    accountsMutateChainRef.current = chained.catch(() => {});
+    await chained;
     try {
       return await flushPendingAccounts();
     } catch (e) {

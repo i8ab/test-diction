@@ -867,9 +867,8 @@ export default function AppearanceModal({
 
           {/* Icon style fixed to Outline — setting removed. */}
 
-          {/* ── Exam visual ── */}
-          {typeof onChangeExamVisual === "function" && (
-            {showNavCustomize && (
+          {/* ── Bottom navigation (mobile / tablet only) ── */}
+          {showNavCustomize && (
             <AppearanceSection
               {...sp("bottomnav")}
               title={T("Bottom navigation", "شريط التنقل")}
@@ -884,8 +883,10 @@ export default function AppearanceModal({
                 }}
               />
             </AppearanceSection>
-            )}
+          )}
 
+          {/* ── Exam visual ── */}
+          {typeof onChangeExamVisual === "function" && (
             <AppearanceSection {...sp("examvisual")}
               title={T("Exam visual mode", "وضع الامتحان البصري")}
               summary={examVisual ? T("On", "تشغيل") : T("Off", "إيقاف")}

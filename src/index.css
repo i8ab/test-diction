@@ -3153,8 +3153,10 @@ select {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 200;
-  display: flex;
+  z-index: 5000; /* above letter rail / banners so it cannot sit "under" content */
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
   justify-content: center;
   align-items: flex-end;
   padding: 0 12px calc(10px + env(safe-area-inset-bottom, 0px));
@@ -3163,6 +3165,16 @@ select {
   border: none !important;
   box-shadow: none !important;
   height: auto !important;
+  max-height: none !important;
+  transform: none !important;
+  overflow: visible !important;
+}
+/* Media-query safety net: if JS device mode is wrong, still show nav on narrow screens */
+@media (max-width: 1023px) {
+  .mobile-bottom-nav.arc-nav {
+    display: flex !important;
+    visibility: visible !important;
+  }
 }
 /* Customize panel sits above the bar — must receive taps (parent has pointer-events: none) */
 .mobile-bottom-nav.arc-nav .nav-customize-panel {

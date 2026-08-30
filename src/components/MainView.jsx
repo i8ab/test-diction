@@ -91,8 +91,30 @@ export default function MainView({
   facebookLinkBusy = false,
 }) {
   const cfg = SECTIONS[section] || SECTIONS["en-ar"];
-  // When deviceMode is null ("auto"), still show mobile/tablet chrome based on viewport.
-  const effectiveDevice = deviceMode || (typeof window !== "undefined" ? guessDeviceMode() : "desktop");
+  // Viewport-aware device (updates on resize) so Auto mode and phones keep chrome correct.
+  const [viewportDevice, setViewportDevice] = useState(() =>
+    typeof window !== "undefined" ? guessDeviceMode() : "desktop"
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const sync = () => setViewportDevice(guessDeviceMode());
+    sync();
+    window.addEventListener("resize", sync);
+    window.addEventListener("orientationchange", sync);
+    return () => {
+      window.removeEventListener("resize", sync);
+      window.removeEventListener("orientationchange", sync);
+    };
+  }, [deviceMode]);
+  // Explicit setting wins when set; otherwise viewport.
+  // Always show bottom nav when viewport is phone/tablet — even if user once picked "Computer"
+  // (common cause of "nav disappeared on my phone").
+  const effectiveDevice = deviceMode || viewportDevice;
+  const showBottomNav =
+    effectiveDevice === "mobile" ||
+    effectiveDevice === "tablet" ||
+    viewportDevice === "mobile" ||
+    viewportDevice === "tablet";
   const {
     isAr,
     isAcademic,
@@ -1501,7 +1523,7 @@ export default function MainView({
       openGoals={openGoals}
     />
 
-    {effectiveDevice === "mobile" && (
+    {(effectiveDevice === "mobile" || viewportDevice === "mobile") && (
       <button
         type="button"
         className="mobile-fab-add"
@@ -1514,9 +1536,9 @@ export default function MainView({
     )}
 
 
-    {/* Bottom nav on phone + tablet (including auto device mode) */}
+    {/* Bottom nav: phone + tablet viewport, even if saved device mode is Computer */}
 
-    {(effectiveDevice === "mobile" || effectiveDevice === "tablet") && (
+    {showBottomNav && (
       <MobileBottomNav
         isAr={appIsAr}
         mobileNavTab={mobileNavTab}

@@ -45,50 +45,61 @@ function stopAllSpeech() {
   } catch (_) {}
 }
 
+/** Fetch + play one Cambridge MP3 URL. Returns true if playback started. */
+async function playCambridgeUrl(url) {
+  const res = await fetch(url, { credentials: "same-origin" });
+  if (!res.ok) return false;
+  const ctype = (res.headers.get("content-type") || "").toLowerCase();
+  if (ctype.includes("json") || ctype.includes("text/")) return false;
+  const blob = await res.blob();
+  if (!blob || blob.size < 500) return false;
+  const objectUrl = URL.createObjectURL(blob);
+  const audio = new Audio(objectUrl);
+  _currentAudio = audio;
+  const cleanup = () => {
+    try { URL.revokeObjectURL(objectUrl); } catch (_) {}
+  };
+  audio.addEventListener("ended", cleanup, { once: true });
+  audio.addEventListener("error", cleanup, { once: true });
+  await new Promise((resolve, reject) => {
+    let settled = false;
+    const ok = () => { if (!settled) { settled = true; resolve(); } };
+    const fail = () => { if (!settled) { settled = true; reject(new Error("audio error")); } };
+    audio.addEventListener("canplay", ok);
+    audio.addEventListener("error", fail);
+    if (audio.readyState >= 2) ok();
+    else audio.load();
+    setTimeout(() => { if (!settled) { settled = true; reject(new Error("timeout")); } }, 10000);
+  });
+  await audio.play();
+  return true;
+}
+
 /** Play Cambridge MP3 for an English word/phrase. Returns true if playback started. */
 export async function playCambridgeAudio(text, accent) {
   if (!text || typeof window === "undefined") return false;
   const word = String(text).trim();
   if (!word || /[\u0600-\u06FF]/.test(word)) return false;
   const acc = accent === "uk" ? "uk" : "us";
-  // Always send the full phrase — API normalizes spaces→hyphens and falls back.
-  const url =
-    "/api/cambridge-audio?word=" +
-    encodeURIComponent(word) +
-    "&accent=" +
-    encodeURIComponent(acc);
-  try {
-    stopAllSpeech();
-    // Fetch first so we can reject JSON error bodies (Audio() would fail opaquely).
-    const res = await fetch(url, { credentials: "same-origin" });
-    if (!res.ok) return false;
-    const ctype = (res.headers.get("content-type") || "").toLowerCase();
-    if (ctype.includes("json") || ctype.includes("text/")) return false;
-    const blob = await res.blob();
-    if (!blob || blob.size < 500) return false; // tiny body ≈ error page
-    const objectUrl = URL.createObjectURL(blob);
-    const audio = new Audio(objectUrl);
-    _currentAudio = audio;
-    const cleanup = () => {
-      try { URL.revokeObjectURL(objectUrl); } catch (_) {}
-    };
-    audio.addEventListener("ended", cleanup, { once: true });
-    audio.addEventListener("error", cleanup, { once: true });
-    await new Promise((resolve, reject) => {
-      let settled = false;
-      const ok = () => { if (!settled) { settled = true; resolve(); } };
-      const fail = () => { if (!settled) { settled = true; reject(new Error("audio error")); } };
-      audio.addEventListener("canplay", ok);
-      audio.addEventListener("error", fail);
-      if (audio.readyState >= 2) ok();
-      else audio.load();
-      setTimeout(() => { if (!settled) { settled = true; reject(new Error("timeout")); } }, 10000);
-    });
-    await audio.play();
-    return true;
-  } catch (_) {
-    return false;
+  // Full phrase first (API maps spaces → hyphens). Also try explicit hyphen form.
+  const candidates = [word];
+  const hyphenated = word.replace(/\s+/g, "-").replace(/-+/g, "-");
+  if (hyphenated !== word) candidates.push(hyphenated);
+
+  stopAllSpeech();
+  for (const q of candidates) {
+    const url =
+      "/api/cambridge-audio?word=" +
+      encodeURIComponent(q) +
+      "&accent=" +
+      encodeURIComponent(acc);
+    try {
+      if (await playCambridgeUrl(url)) return true;
+    } catch (_) {
+      /* try next candidate */
+    }
   }
+  return false;
 }
 
 function speakBrowser(text, lang) {

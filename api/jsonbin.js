@@ -760,7 +760,8 @@ export default async function handler(req, res) {
             if (authzInfo.publicAccounts) {
               nextAccounts = sanitizePublicAccountsMerge(
                 nextAccounts,
-                currentAccounts
+                currentAccounts,
+                authzInfo.actorCode || body.actorCode || ""
               );
             }
             if (currentAccounts.length) {

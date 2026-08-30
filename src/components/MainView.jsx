@@ -1536,34 +1536,33 @@ export default function MainView({
     )}
 
 
-    {/* Bottom nav: phone + tablet viewport, even if saved device mode is Computer */}
-
-    {showBottomNav && (
-      <MobileBottomNav
-        isAr={appIsAr}
-        mobileNavTab={mobileNavTab}
-        setMobileNavTab={setMobileNavTab}
-        showQuiz={showQuiz}
-        showGoals={showGoals}
-        showTodo={showTodo}
-        dueCountMobile={dueCountMobile}
-        onOpenQuiz={() => { setQuizDueOnly(false); setShowQuiz(true); }}
-        onOpenDueQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }}
-        onOpenGoals={() => { setGoalsBubble(false); setShowGoals(true); }}
-        onOpenTodo={() => { setTodoBubble(false); setShowTodo(true); }}
-        onOpenAccount={() => onOpenAccount && onOpenAccount()}
-        onOpenAdd={() => onOpenAdd && onOpenAdd()}
-        onOpenMore={() => {
-          try {
-            const btn = document.querySelector("[data-tools-menu-trigger], .tools-menu-trigger, .header-tools-btn");
-            if (btn) btn.click();
-            else if (typeof onOpenAccount === "function") onOpenAccount();
-          } catch (_) {
-            if (typeof onOpenAccount === "function") onOpenAccount();
-          }
-        }}
-      />
-    )}
+    {/* ALWAYS mount bottom nav — visibility is CSS-only (hidden on large desktop).
+        Conditional JS mount was the root cause of "nav gone on phone" when deviceMode
+        was saved as Computer or Auto resolved wrong. */}
+    <MobileBottomNav
+      isAr={appIsAr}
+      mobileNavTab={mobileNavTab}
+      setMobileNavTab={setMobileNavTab}
+      showQuiz={showQuiz}
+      showGoals={showGoals}
+      showTodo={showTodo}
+      dueCountMobile={dueCountMobile}
+      onOpenQuiz={() => { setQuizDueOnly(false); setShowQuiz(true); }}
+      onOpenDueQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }}
+      onOpenGoals={() => { setGoalsBubble(false); setShowGoals(true); }}
+      onOpenTodo={() => { setTodoBubble(false); setShowTodo(true); }}
+      onOpenAccount={() => onOpenAccount && onOpenAccount()}
+      onOpenAdd={() => onOpenAdd && onOpenAdd()}
+      onOpenMore={() => {
+        try {
+          const btn = document.querySelector("[data-tools-menu-trigger], .tools-menu-trigger, .header-tools-btn");
+          if (btn) btn.click();
+          else if (typeof onOpenAccount === "function") onOpenAccount();
+        } catch (_) {
+          if (typeof onOpenAccount === "function") onOpenAccount();
+        }
+      }}
+    />
 
     </>
   );

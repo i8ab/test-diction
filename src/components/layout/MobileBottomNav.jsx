@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 
 const NAV_STORAGE_KEY = "twoTongues.mobileNavTabs";
@@ -272,11 +273,13 @@ export default function MobileBottomNav({
 
   const unused = ALL_NAV_ITEMS.filter((i) => !tabKeys.includes(i.key));
 
-  return (
+  // Portal to document.body so no parent overflow/transform can clip or trap the bar.
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <nav
       className="mobile-bottom-nav arc-nav"
       aria-label={tr(isAr, "Main navigation", "التنقل الرئيسي")}
-      style={{ position: "relative" }}
     >
       {editMode && (
         <div
@@ -432,6 +435,7 @@ export default function MobileBottomNav({
           </svg>
         </button>
       </div>
-    </nav>
+    </nav>,
+    document.body
   );
 }

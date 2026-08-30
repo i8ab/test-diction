@@ -73,11 +73,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ ok: false, error: "Missing word", requestId: rid });
   }
 
-  // Full phrase first (spaces → hyphens). Fall back to first token if needed.
-  // Fixes multi-word ("ice cream") and hyphenated ("ice-cream", "look-up") terms
-  // that previously only requested the first word.
+  // CRITICAL: never return headword-only audio for multi-word queries.
+  // Falling back to the first token made the client think playback "succeeded"
+  // while the user only heard the first word (e.g. "by" for "by all means").
+  const isMultiWord = /\s/.test(word);
   const fullSlug = toSlug(word).slice(0, 80);
-  const firstSlug = toSlug(word.split(/\s+/)[0] || "").slice(0, 64);
   if (!fullSlug) {
     return res.status(400).json({ ok: false, error: "Invalid word", requestId: rid });
   }
@@ -102,16 +102,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    let page = await fetchCambridgePage(fullSlug);
-    if ((!page.ok || !page.html) && firstSlug && firstSlug !== fullSlug) {
-      page = await fetchCambridgePage(firstSlug);
-    }
+    // Only the full phrase/hyphen slug — no first-token fallback for multi-word.
+    const page = await fetchCambridgePage(fullSlug);
 
     if (!page.ok || !page.html) {
       return res.status(404).json({
         ok: false,
         error: "Word not found on Cambridge",
         status: page.status || 404,
+        multiWord: isMultiWord,
         requestId: rid,
       });
     }
@@ -122,19 +121,13 @@ export default async function handler(req, res) {
     if (!audioUrl) {
       audioUrl = extractAudioUrl(html, accent === "us" ? "uk" : "us");
     }
-    // Last resort: headword-only audio for compounds
-    if (!audioUrl && firstSlug && firstSlug !== fullSlug) {
-      const fallback = await fetchCambridgePage(firstSlug);
-      if (fallback.ok && fallback.html) {
-        audioUrl =
-          extractAudioUrl(fallback.html, accent) ||
-          extractAudioUrl(fallback.html, accent === "us" ? "uk" : "us");
-      }
-    }
+    // Do NOT fall back to first-word audio when the query is multi-word.
+    // Client will use full-phrase browser TTS instead.
     if (!audioUrl) {
       return res.status(404).json({
         ok: false,
         error: "No pronunciation audio for this word",
+        multiWord: isMultiWord,
         requestId: rid,
       });
     }
@@ -160,6 +153,7 @@ export default async function handler(req, res) {
     res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader("Cache-Control", "public, max-age=604800, stale-while-revalidate=86400");
     res.setHeader("X-Cambridge-Accent", accent);
+    res.setHeader("X-Cambridge-Slug", fullSlug);
     return res.status(200).send(buf);
   } catch (e) {
     return res.status(500).json({

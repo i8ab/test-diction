@@ -129,17 +129,22 @@ function speakBrowser(text, lang) {
  */
 export function speakWord(text, dir, opts = {}) {
   if (!text) return;
-  const isRtl = dir === "rtl" || /[\u0600-\u06FF]/.test(String(text));
+  // Never truncate — always speak the full string the UI passed in.
+  const full = String(text).trim();
+  if (!full) return;
+  const isRtl = dir === "rtl" || /[\u0600-\u06FF]/.test(full);
   if (isRtl) {
     stopAllSpeech();
-    speakBrowser(text, loadArDialect());
+    speakBrowser(full, loadArDialect());
     return;
   }
   const accent = opts.accent === "uk" || opts.accent === "us" ? opts.accent : loadEnAccent();
   const lang = enAccentLang(accent);
   (async () => {
-    const ok = await playCambridgeAudio(text, accent);
-    if (!ok) speakBrowser(text, lang);
+    // Cambridge for single words + known phrases; on any failure speak FULL phrase via browser TTS.
+    // Multi-word no longer gets silent headword-only success from the API.
+    const ok = await playCambridgeAudio(full, accent);
+    if (!ok) speakBrowser(full, lang);
   })();
 }
 

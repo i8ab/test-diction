@@ -3149,11 +3149,11 @@ select {
 
 /* ========== ARC-style bottom nav (mobile + tablet) ========== */
 .mobile-bottom-nav.arc-nav {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 5000; /* above letter rail / banners so it cannot sit "under" content */
+  position: fixed !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 5000 !important;
   display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;
@@ -3169,11 +3169,18 @@ select {
   transform: none !important;
   overflow: visible !important;
 }
-/* Media-query safety net: if JS device mode is wrong, still show nav on narrow screens */
+/* Always show on phone/tablet widths */
 @media (max-width: 1023px) {
   .mobile-bottom-nav.arc-nav {
     display: flex !important;
     visibility: visible !important;
+    opacity: 1 !important;
+  }
+}
+/* Hide only on large desktop */
+@media (min-width: 1024px) {
+  html[data-device="desktop"] .mobile-bottom-nav.arc-nav {
+    display: none !important;
   }
 }
 /* Customize panel sits above the bar — must receive taps (parent has pointer-events: none) */
@@ -3182,7 +3189,6 @@ select {
 }
 .arc-nav-bar {
   pointer-events: auto;
-}
   position: relative;
   display: flex;
   align-items: center;

@@ -1213,7 +1213,7 @@ export function clearPendingApproveCodes() {
  * races a still-in-flight cloud write.
  */
 const PROGRESS_KEYS = [
-  "studied", "studiedAt", "favorites",
+  "studied", "studiedAt", "studiedRevokedAt", "favorites", "favoritesRevokedAt",
   "srsStats", "srsDueAt", "srsBox", "srsCards",
   "xp", "xpHistory", "achievements",
 ];
@@ -1245,20 +1245,73 @@ export function mergeOfflineProgress(serverAccounts, offlineRec) {
   const next = serverAccounts.map((srv) => {
     const off = byCode[srv.code];
     if (!off) return srv;
-    // Union progress fields so multi-device studied/favorites are not lost
-    // to a stale full replace of the array.
-    const patch = { ...srv };
+    // Studied: last-write-wins with studiedRevokedAt (NOT pure union —
+    // pure union was resurrecting words the user had un-studied).
+    const offStudied = Array.isArray(off.studied) ? off.studied.map(String) : [];
+    const srvStudied = Array.isArray(srv.studied) ? srv.studied.map(String) : [];
+    const offAt = off.studiedAt && typeof off.studiedAt === "object" ? off.studiedAt : {};
+    const srvAt = srv.studiedAt && typeof srv.studiedAt === "object" ? srv.studiedAt : {};
+    const offRev =
+      off.studiedRevokedAt && typeof off.studiedRevokedAt === "object" ? off.studiedRevokedAt : {};
+    const srvRev =
+      srv.studiedRevokedAt && typeof srv.studiedRevokedAt === "object" ? srv.studiedRevokedAt : {};
+    const allIds = new Set([
+      ...offStudied,
+      ...srvStudied,
+      ...Object.keys(offAt).map(String),
+      ...Object.keys(srvAt).map(String),
+      ...Object.keys(offRev).map(String),
+      ...Object.keys(srvRev).map(String),
+    ]);
+    const mergedAt = {};
+    const mergedRev = {};
+    const studied = [];
+    for (const id of allIds) {
+      const studyTs = Math.max(Number(offAt[id]) || 0, Number(srvAt[id]) || 0);
+      const revTs = Math.max(Number(offRev[id]) || 0, Number(srvRev[id]) || 0);
+      const inEither = offStudied.includes(id) || srvStudied.includes(id);
+      const effectiveStudy = studyTs > 0 ? studyTs : inEither ? 1 : 0;
+      if (revTs > 0) mergedRev[id] = revTs;
+      if (effectiveStudy > 0 && effectiveStudy >= revTs) {
+        studied.push(id);
+        if (studyTs > 0) mergedAt[id] = studyTs;
+      }
+    }
+    const patch = { ...srv, studied, studiedAt: mergedAt, studiedRevokedAt: mergedRev };
+    const studiedChanged =
+      JSON.stringify([...(srv.studied || [])].map(String).sort()) !==
+      JSON.stringify([...studied].sort());
+    if (studiedChanged || Object.keys(mergedRev).length) merged = true;
+
     for (const k of PROGRESS_KEYS) {
+      if (k === "studied" || k === "studiedAt" || k === "studiedRevokedAt") continue;
       if (off[k] === undefined) continue;
-      if (k === "studied" || k === "favorites" || k === "achievements") {
+      if (k === "favorites" || k === "achievements") {
         const a = Array.isArray(off[k]) ? off[k] : [];
         const b = Array.isArray(srv[k]) ? srv[k] : [];
-        const union = [...new Set([...a, ...b].map(String))];
-        if (JSON.stringify(union) !== JSON.stringify(b)) {
-          patch[k] = union;
-          merged = true;
+        if (k === "favorites") {
+          const aSet = new Set(a.map(String));
+          const bSet = new Set(b.map(String));
+          const onlyB = b.filter((id) => !aSet.has(String(id)));
+          const onlyA = a.filter((id) => !bSet.has(String(id)));
+          let nextFav;
+          if (onlyA.length === 0 && onlyB.length > 0) nextFav = a.map(String);
+          else nextFav = [...new Set([...a, ...b].map(String))];
+          if (
+            JSON.stringify([...nextFav].map(String).sort()) !==
+            JSON.stringify([...b].map(String).sort())
+          ) {
+            patch[k] = nextFav;
+            merged = true;
+          }
+        } else {
+          const union = [...new Set([...a, ...b].map(String))];
+          if (JSON.stringify(union) !== JSON.stringify(b)) {
+            patch[k] = union;
+            merged = true;
+          }
         }
-      } else if (k === "studiedAt" || k === "srsStats" || k === "srsDueAt" || k === "srsCards" || k === "srsBox") {
+      } else if (k === "srsStats" || k === "srsDueAt" || k === "srsCards" || k === "srsBox") {
         const a = off[k] && typeof off[k] === "object" ? off[k] : {};
         const b = srv[k] && typeof srv[k] === "object" ? srv[k] : {};
         const combined = { ...b, ...a };

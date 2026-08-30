@@ -52,7 +52,8 @@ async function playCambridgeUrl(url) {
   const ctype = (res.headers.get("content-type") || "").toLowerCase();
   // API returns JSON on 404/error — never treat that as audio
   if (ctype.includes("json") || ctype.includes("text/") || ctype.includes("html")) return false;
-  if (ctype && !ctype.includes("audio") && !ctype.includes("mpeg") && !ctype.includes("octet-stream")) {
+  // Allow empty content-type or audio/* / mpeg / octet-stream
+  if (ctype && !ctype.includes("audio") && !ctype.includes("mpeg") && !ctype.includes("octet-stream") && !ctype.includes("application/octet")) {
     return false;
   }
   const blob = await res.blob();
@@ -169,12 +170,24 @@ export function speakWord(text, dir, opts = {}) {
   }
   const accent = opts.accent === "uk" || opts.accent === "us" ? opts.accent : loadEnAccent();
   const lang = enAccentLang(accent);
+  const isMulti = /\s/.test(full);
   (async () => {
     try {
-      let ok = await playCambridgeAudio(full, accent);
-      if (!ok) {
-        stopAllSpeech();
+      let ok = false;
+      // Multi-word phrases: Cambridge rarely has full-phrase audio → prefer /api/tts first
+      // so the user always hears the full phrase, not silence or a wrong headword.
+      if (isMulti) {
         ok = await playGoogleTts(full, "en");
+        if (!ok) {
+          stopAllSpeech();
+          ok = await playCambridgeAudio(full, accent);
+        }
+      } else {
+        ok = await playCambridgeAudio(full, accent);
+        if (!ok) {
+          stopAllSpeech();
+          ok = await playGoogleTts(full, "en");
+        }
       }
       if (!ok) {
         stopAllSpeech();

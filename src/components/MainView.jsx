@@ -229,30 +229,7 @@ export default function MainView({
   const [nightStudy, setNightStudy] = useState(() => {
     try { return localStorage.getItem("twoTongues.nightStudy") === "1"; } catch (_) { return false; }
   });
-  /* nav-tab sync: clear sticky highlight when tool/account closes → back to board (words) */
-  useEffect(() => {
-    if (!showQuiz && mobileNavTab === "quiz") setMobileNavTab("words");
-  }, [showQuiz]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!showGoals && mobileNavTab === "goals") setMobileNavTab("words");
-  }, [showGoals]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!showTodo && mobileNavTab === "todo") setMobileNavTab("words");
-  }, [showTodo]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!showAccount && mobileNavTab === "account") setMobileNavTab("words");
-  }, [showAccount]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!showAdd && mobileNavTab === "add") setMobileNavTab("words");
-  }, [showAdd]); // eslint-disable-line react-hooks/exhaustive-deps
-  // More/tools menu closed → return highlight to Words (transient destination)
-  useEffect(() => {
-    function onToolsClosed() {
-      setMobileNavTab((t) => (t === "more" ? "words" : t));
-    }
-    window.addEventListener("twoTongues:toolsMenuClosed", onToolsClosed);
-    return () => window.removeEventListener("twoTongues:toolsMenuClosed", onToolsClosed);
-  }, []);
+  // (nav-tab sync effects placed after tool state declarations below)
 
   const [showSmartCards, setShowSmartCards] = useState(() => restored.tool === "smartCards");
   const [showConversation, setShowConversation] = useState(() => restored.tool === "conversation");
@@ -267,6 +244,7 @@ export default function MainView({
   const [showSentencePractice, setShowSentencePractice] = useState(() => restored.tool === "sentencePractice");
   const [showWeeklyReport, setShowWeeklyReport] = useState(() => restored.tool === "weeklyReport");
   const [showWelcome, setShowWelcome] = useState(false);
+
 
   const [showExamMode, setShowExamMode] = useState(() => restored.tool === "exam");
   const [showExamSettings, setShowExamSettings] = useState(() => restored.tool === "examSettings");
@@ -318,6 +296,47 @@ export default function MainView({
   }, [accountCode]);
 
   const [showDictation, setShowDictation] = useState(() => restored.tool === "dictation");
+
+  /* nav-tab sync: any closed tool/account → return highlight to Words */
+  useEffect(() => {
+    const pairs = [
+      [showQuiz, "quiz"],
+      [showGoals, "goals"],
+      [showTodo, "todo"],
+      [showAccount, "account"],
+      [showAdd, "add"],
+      [showFlashcards, "flashcards"],
+      [showDictation, "dictation"],
+      [showExamMode, "exam"],
+      [showSmartCards, "smartCards"],
+      [showTimer, "timer"],
+      [showCalendar, "calendar"],
+      [showStats, "stats"],
+      [showLeaderboard, "leaderboard"],
+      [showDashboard, "dashboard"],
+      [showWordLists, "wordLists"],
+      [showChallenges, "challenges"],
+    ];
+    for (const [open, key] of pairs) {
+      if (!open && mobileNavTab === key) {
+        setMobileNavTab("words");
+        break;
+      }
+    }
+  }, [
+    showQuiz, showGoals, showTodo, showAccount, showAdd,
+    showFlashcards, showDictation, showExamMode, showSmartCards,
+    showTimer, showCalendar, showStats, showLeaderboard,
+    showDashboard, showWordLists, showChallenges,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    function onToolsClosed() {
+      setMobileNavTab((t) => (t === "more" ? "words" : t));
+    }
+    window.addEventListener("twoTongues:toolsMenuClosed", onToolsClosed);
+    return () => window.removeEventListener("twoTongues:toolsMenuClosed", onToolsClosed);
+  }, []);
+
   const [showAchievements, setShowAchievements] = useState(() => restored.tool === "achievements");
   const [showRandomWord, setShowRandomWord] = useState(() => restored.tool === "randomWord");
   const [showMotivationDua, setShowMotivationDua] = useState(() => restored.tool === "motivationDua");
@@ -1556,25 +1575,54 @@ export default function MainView({
       isAr={appIsAr}
       mobileNavTab={mobileNavTab}
       setMobileNavTab={setMobileNavTab}
-      showQuiz={showQuiz}
-      showGoals={showGoals}
-      showTodo={showTodo}
       dueCountMobile={dueCountMobile}
-      onOpenQuiz={() => { setQuizDueOnly(false); setShowQuiz(true); }}
       onOpenDueQuiz={() => { setQuizDueOnly(true); setShowQuiz(true); }}
-      onOpenGoals={() => { setGoalsBubble(false); setShowGoals(true); }}
-      onOpenTodo={() => { setTodoBubble(false); setShowTodo(true); }}
-      onOpenAccount={() => onOpenAccount && onOpenAccount()}
-      onOpenAdd={() => onOpenAdd && onOpenAdd()}
-      onOpenMore={() => {
-        try {
-          window.dispatchEvent(new CustomEvent("twoTongues:openToolsMenu"));
-        } catch (_) {
+      actions={{
+        words: () => {},
+        add: () => onOpenAdd && onOpenAdd(),
+        quiz: () => { setQuizDueOnly(false); setShowQuiz(true); },
+        flashcards: () => setShowFlashcards(true),
+        dictation: () => setShowDictation(true),
+        exam: () => setShowExamMode(true),
+        smartCards: () => setShowSmartCards(true),
+        timer: () => openTimer(),
+        calendar: () => openCalendar(),
+        todo: () => { setTodoBubble(false); setShowTodo(true); },
+        goals: () => { setGoalsBubble(false); setShowGoals(true); },
+        stats: () => setShowStats(true),
+        leaderboard: () => setShowLeaderboard(true),
+        dashboard: () => setShowDashboard(true),
+        wordLists: () => setShowWordLists(true),
+        challenges: () => setShowChallenges(true),
+        account: () => onOpenAccount && onOpenAccount(),
+        more: () => {
           try {
-            const btn = document.querySelector("[data-tools-menu-trigger], .tools-more-btn");
-            if (btn) btn.click();
-          } catch (__) {}
-        }
+            window.dispatchEvent(new CustomEvent("twoTongues:openToolsMenu"));
+          } catch (_) {
+            try {
+              const btn = document.querySelector("[data-tools-menu-trigger], .tools-more-btn");
+              if (btn) btn.click();
+            } catch (__) {}
+          }
+        },
+      }}
+      activeOverrides={{
+        quiz: showQuiz,
+        goals: showGoals,
+        todo: showTodo,
+        account: showAccount,
+        add: showAdd,
+        flashcards: showFlashcards,
+        dictation: showDictation,
+        exam: showExamMode,
+        smartCards: showSmartCards,
+        timer: showTimer,
+        calendar: showCalendar,
+        stats: showStats,
+        leaderboard: showLeaderboard,
+        dashboard: showDashboard,
+        wordLists: showWordLists,
+        challenges: showChallenges,
       }}
       tabKeys={navTabKeysForFab}
       onChangeTabKeys={(keys) => {

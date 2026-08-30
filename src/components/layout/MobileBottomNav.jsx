@@ -3,89 +3,137 @@ import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 
 const NAV_STORAGE_KEY = "twoTongues.mobileNavTabs";
+const MAX_NAV_TABS = 5;
 
-/** All available nav destinations the user can place in the bottom bar. */
+/** Inline icons kept small so the catalog can grow without new asset files. */
+function Ico({ d, children }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      {d ? <path d={d} /> : children}
+    </svg>
+  );
+}
+
+/**
+ * Full catalog of pin-able destinations.
+ * Keys are stable; MainView maps each key → open action via `actions` prop.
+ */
 export const ALL_NAV_ITEMS = [
-  {
-    key: "words",
-    labelEn: "Words",
-    labelAr: "كلمات",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-      </svg>
-    ),
-  },
-  {
-    key: "quiz",
-    labelEn: "Quiz",
-    labelAr: "اختبار",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-        <path d="M9 11l3 3L22 4" />
-        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-      </svg>
-    ),
-  },
-  {
-    key: "goals",
-    labelEn: "Goals",
-    labelAr: "أهداف",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3 2" />
-      </svg>
-    ),
-  },
-  {
-    key: "todo",
-    labelEn: "To-do",
-    labelAr: "مهام",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-        <path d="M9 11l3 3L22 4" />
-        <path d="M3 12h6" />
-        <path d="M3 6h6" />
-        <path d="M3 18h6" />
-      </svg>
-    ),
-  },
-  {
-    key: "account",
-    labelEn: "Account",
-    labelAr: "حسابي",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-        <circle cx="12" cy="8" r="4" />
-        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-      </svg>
-    ),
-  },
-  {
-    key: "add",
-    labelEn: "Add word",
-    labelAr: "إضافة كلمة",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-        <path d="M12 5v14M5 12h14" />
-      </svg>
-    ),
-  },
-  {
-    key: "more",
-    labelEn: "More",
-    labelAr: "المزيد",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-        <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-        <circle cx="6" cy="12" r="1.5" fill="currentColor" />
-        <circle cx="18" cy="12" r="1.5" fill="currentColor" />
-      </svg>
-    ),
-  },
+  { key: "words", labelEn: "Words", labelAr: "كلمات", group: "core", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </svg>
+  )},
+  { key: "add", labelEn: "Add word", labelAr: "إضافة كلمة", group: "core", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )},
+  { key: "quiz", labelEn: "Quiz", labelAr: "اختبار", group: "practice", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M9 11l3 3L22 4" />
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  )},
+  { key: "flashcards", labelEn: "Flashcards", labelAr: "بطاقات", group: "practice", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <rect x="3" y="5" width="14" height="14" rx="2" />
+      <path d="M7 5V3h14v14h-2" />
+    </svg>
+  )},
+  { key: "dictation", labelEn: "Dictation", labelAr: "إملاء", group: "practice", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M12 3a4 4 0 0 1 4 4v5a4 4 0 0 1-8 0V7a4 4 0 0 1 4-4z" />
+      <path d="M19 11a7 7 0 0 1-14 0M12 18v3" />
+    </svg>
+  )},
+  { key: "exam", labelEn: "Exam mode", labelAr: "وضع الامتحان", group: "practice", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6M9 13h6M9 17h4" />
+    </svg>
+  )},
+  { key: "smartCards", labelEn: "Smart cards", labelAr: "بطاقات ذكية", group: "practice", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 16.5 7.1 18.2l.9-5.5-4-3.9 5.5-.8z" />
+    </svg>
+  )},
+  { key: "timer", labelEn: "Timer", labelAr: "مؤقت", group: "tools", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <circle cx="12" cy="13" r="8" />
+      <path d="M12 9v4l2 2M9 2h6" />
+    </svg>
+  )},
+  { key: "calendar", labelEn: "Calendar", labelAr: "تقويم", group: "tools", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+    </svg>
+  )},
+  { key: "todo", labelEn: "To-do", labelAr: "مهام", group: "tools", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M9 11l3 3L22 4" />
+      <path d="M3 12h6M3 6h6M3 18h6" />
+    </svg>
+  )},
+  { key: "goals", labelEn: "Goals", labelAr: "أهداف", group: "progress", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )},
+  { key: "stats", labelEn: "Stats", labelAr: "إحصائيات", group: "progress", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M4 19V9M12 19V5M20 19v-7" />
+    </svg>
+  )},
+  { key: "leaderboard", labelEn: "Leaderboard", labelAr: "المتصدرون", group: "progress", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z" />
+      <path d="M17 4h2a2 2 0 0 1 2 2v1a4 4 0 0 1-4 4M7 4H5a2 2 0 0 0-2 2v1a4 4 0 0 0 4 4" />
+    </svg>
+  )},
+  { key: "dashboard", labelEn: "Dashboard", labelAr: "لوحة", group: "progress", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <rect x="3" y="3" width="7" height="9" rx="1.5" />
+      <rect x="14" y="3" width="7" height="5" rx="1.5" />
+      <rect x="14" y="12" width="7" height="9" rx="1.5" />
+      <rect x="3" y="16" width="7" height="5" rx="1.5" />
+    </svg>
+  )},
+  { key: "wordLists", labelEn: "Word lists", labelAr: "قوائم", group: "progress", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+    </svg>
+  )},
+  { key: "challenges", labelEn: "Challenges", labelAr: "تحديات", group: "progress", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M12 2l2.5 6.5L21 9l-5 4.5L17.5 21 12 17.5 6.5 21 8 13.5 3 9l6.5-.5z" />
+    </svg>
+  )},
+  { key: "account", labelEn: "Account", labelAr: "حسابي", group: "core", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+    </svg>
+  )},
+  { key: "more", labelEn: "More", labelAr: "المزيد", group: "core", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="6" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="18" cy="12" r="1.5" fill="currentColor" />
+    </svg>
+  )},
 ];
+
+const GROUP_ORDER = ["core", "practice", "tools", "progress"];
+const GROUP_LABELS = {
+  core: { en: "Core", ar: "أساسي" },
+  practice: { en: "Practice", ar: "تدريب" },
+  tools: { en: "Tools", ar: "أدوات" },
+  progress: { en: "Progress", ar: "تقدّم" },
+};
 
 const DEFAULT_TAB_KEYS = ["words", "quiz", "goals", "todo", "account"];
 
@@ -95,7 +143,9 @@ export function loadNavTabKeys() {
     if (!raw) return [...DEFAULT_TAB_KEYS];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed) || !parsed.length) return [...DEFAULT_TAB_KEYS];
-    const valid = parsed.filter((k) => ALL_NAV_ITEMS.some((i) => i.key === k));
+    const valid = parsed
+      .filter((k) => ALL_NAV_ITEMS.some((i) => i.key === k))
+      .slice(0, MAX_NAV_TABS);
     return valid.length ? valid : [...DEFAULT_TAB_KEYS];
   } catch (_) {
     return [...DEFAULT_TAB_KEYS];
@@ -104,29 +154,28 @@ export function loadNavTabKeys() {
 
 export function saveNavTabKeys(keys) {
   try {
-    localStorage.setItem(NAV_STORAGE_KEY, JSON.stringify(keys));
+    const cleaned = (Array.isArray(keys) ? keys : [])
+      .filter((k) => ALL_NAV_ITEMS.some((i) => i.key === k))
+      .slice(0, MAX_NAV_TABS);
+    localStorage.setItem(NAV_STORAGE_KEY, JSON.stringify(cleaned));
   } catch (_) {}
 }
 
 /**
  * ARC-style floating bottom nav (mobile + tablet).
- * Fully customizable: user chooses which items appear and in which order.
+ * Fully customizable: up to MAX_NAV_TABS items from the full feature catalog.
+ *
+ * `actions` — map of key → () => void open handlers from MainView.
+ * `activeOverrides` — optional map of key → boolean (tool open) for highlight.
  */
 export default function MobileBottomNav({
   isAr,
   mobileNavTab,
   setMobileNavTab,
-  showQuiz,
-  showGoals,
-  showTodo,
   dueCountMobile = 0,
-  onOpenQuiz,
+  actions = {},
+  activeOverrides = {},
   onOpenDueQuiz,
-  onOpenGoals,
-  onOpenTodo,
-  onOpenAccount,
-  onOpenAdd,
-  onOpenMore,
   tabKeys: controlledTabKeys,
   onChangeTabKeys,
 }) {
@@ -140,7 +189,8 @@ export default function MobileBottomNav({
 
   const setTabKeys = useCallback(
     (next) => {
-      const keys = typeof next === "function" ? next(tabKeys) : next;
+      let keys = typeof next === "function" ? next(tabKeys) : next;
+      keys = (keys || []).slice(0, MAX_NAV_TABS);
       if (onChangeTabKeys) onChangeTabKeys(keys);
       else {
         setLocalKeys(keys);
@@ -151,50 +201,26 @@ export default function MobileBottomNav({
   );
 
   const activeKey = useMemo(() => {
-    if (showQuiz) return "quiz";
-    if (showGoals) return "goals";
-    if (showTodo) return "todo";
-    if (mobileNavTab === "account") return "account";
-    if (mobileNavTab === "words") return "words";
-    if (mobileNavTab === "add") return "add";
-    if (mobileNavTab === "more") return "more";
-    return "words";
-  }, [mobileNavTab, showQuiz, showGoals, showTodo]);
+    // Prefer an open tool that is currently pinned
+    for (const k of tabKeys) {
+      if (activeOverrides[k]) return k;
+    }
+    if (mobileNavTab && tabKeys.includes(mobileNavTab)) return mobileNavTab;
+    return tabKeys.includes("words") ? "words" : tabKeys[0] || "words";
+  }, [mobileNavTab, tabKeys, activeOverrides]);
 
-  const clickHandlers = useMemo(
-    () => ({
-      words: () => {
-        setMobileNavTab("words");
+  const runAction = useCallback(
+    (key) => {
+      setMobileNavTab(key);
+      const fn = actions[key];
+      if (typeof fn === "function") fn();
+      if (key === "words") {
         try {
           window.scrollTo({ top: 0, behavior: "smooth" });
         } catch (_) {}
-      },
-      quiz: () => {
-        setMobileNavTab("quiz");
-        onOpenQuiz?.();
-      },
-      goals: () => {
-        setMobileNavTab("goals");
-        onOpenGoals?.();
-      },
-      todo: () => {
-        setMobileNavTab("todo");
-        onOpenTodo?.();
-      },
-      account: () => {
-        setMobileNavTab("account");
-        onOpenAccount?.();
-      },
-      add: () => {
-        setMobileNavTab("add");
-        onOpenAdd?.();
-      },
-      more: () => {
-        setMobileNavTab("more");
-        onOpenMore?.();
-      },
-    }),
-    [setMobileNavTab, onOpenQuiz, onOpenGoals, onOpenTodo, onOpenAccount, onOpenAdd, onOpenMore]
+      }
+    },
+    [actions, setMobileNavTab]
   );
 
   const tabs = useMemo(() => {
@@ -205,7 +231,6 @@ export default function MobileBottomNav({
         return {
           key: meta.key,
           label: tr(isAr, meta.labelEn, meta.labelAr),
-          onClick: clickHandlers[meta.key],
           onContextMenu:
             meta.key === "quiz"
               ? (e) => {
@@ -228,7 +253,7 @@ export default function MobileBottomNav({
         };
       })
       .filter(Boolean);
-  }, [tabKeys, isAr, clickHandlers, dueCountMobile, setMobileNavTab, onOpenDueQuiz]);
+  }, [tabKeys, isAr, dueCountMobile, setMobileNavTab, onOpenDueQuiz]);
 
   const activeIndex = Math.max(0, tabs.findIndex((t) => t.key === activeKey));
 
@@ -261,19 +286,24 @@ export default function MobileBottomNav({
   }
 
   function removeTab(key) {
-    if (tabKeys.length <= 2) return;
+    if (tabKeys.length <= 1) return;
     setTabKeys(tabKeys.filter((k) => k !== key));
   }
 
   function addTab(key) {
     if (tabKeys.includes(key)) return;
-    if (tabKeys.length >= 6) return;
+    if (tabKeys.length >= MAX_NAV_TABS) return;
     setTabKeys([...tabKeys, key]);
   }
 
-  const unused = ALL_NAV_ITEMS.filter((i) => !tabKeys.includes(i.key));
+  const groupedCatalog = useMemo(() => {
+    return GROUP_ORDER.map((g) => ({
+      id: g,
+      title: tr(isAr, GROUP_LABELS[g].en, GROUP_LABELS[g].ar),
+      items: ALL_NAV_ITEMS.filter((i) => i.group === g),
+    })).filter((g) => g.items.length);
+  }, [isAr]);
 
-  // Portal to document.body so no parent overflow/transform can clip or trap the bar.
   if (typeof document === "undefined") return null;
 
   return createPortal(
@@ -296,7 +326,7 @@ export default function MobileBottomNav({
             border: "1px solid rgba(var(--border-rgb),0.14)",
             boxShadow: "0 12px 32px -12px rgba(0,0,0,0.35)",
             zIndex: 30,
-            maxHeight: "55vh",
+            maxHeight: "60vh",
             overflowY: "auto",
           }}
         >
@@ -306,96 +336,122 @@ export default function MobileBottomNav({
           <div style={{ fontSize: 11, color: "var(--muted-strong)", marginBottom: 12 }}>
             {tr(
               isAr,
-              "Toggle items on/off. Use arrows to reorder. Press Done, then tap an item to open it.",
-              "فعّل أو أوقف العناصر. الأسهم للترتيب. اضغط تم ثم المس العنصر لفتحه."
+              `Choose up to ${MAX_NAV_TABS} items. Toggle on/off, reorder with arrows, then Done.`,
+              `اختر حتى ${MAX_NAV_TABS} عناصر. فعّل/أوقف، رتّب بالأسهم، ثم تم.`
             )}
+            {" · "}
+            <strong>
+              {tabKeys.length}/{MAX_NAV_TABS}
+            </strong>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {ALL_NAV_ITEMS.map((item) => {
-              const active = tabKeys.includes(item.key);
-              const orderIdx = tabKeys.indexOf(item.key);
-              return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {groupedCatalog.map((group) => (
+              <div key={group.id}>
                 <div
-                  key={item.key}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    background: active ? "color-mix(in srgb, var(--accent-1) 12%, var(--input-bg))" : "var(--input-bg)",
-                    border: active
-                      ? "1px solid color-mix(in srgb, var(--accent-1) 35%, transparent)"
-                      : "1px solid rgba(var(--border-rgb),0.1)",
+                    fontSize: 11,
+                    fontWeight: 800,
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                    color: "var(--muted-strong)",
+                    marginBottom: 6,
+                    paddingInline: 4,
                   }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => (active ? removeTab(item.key) : addTab(item.key))}
-                    disabled={!active && tabKeys.length >= 6}
-                    aria-pressed={active}
-                    aria-label={active ? "Remove" : "Add"}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 8,
-                      border: active ? "none" : "1.5px solid rgba(var(--border-rgb),0.35)",
-                      background: active ? "var(--accent-1)" : "transparent",
-                      color: active ? "var(--on-accent, #fff)" : "var(--muted-strong)",
-                      fontWeight: 900,
-                      fontSize: 14,
-                      cursor: !active && tabKeys.length >= 6 ? "default" : "pointer",
-                      flexShrink: 0,
-                      opacity: !active && tabKeys.length >= 6 ? 0.4 : 1,
-                    }}
-                  >
-                    {active ? "✓" : "+"}
-                  </button>
-                  <span style={{ color: "var(--icon-muted)", display: "flex" }}>{item.icon}</span>
-                  <span style={{ flex: 1, fontWeight: 700, fontSize: 13 }}>
-                    {tr(isAr, item.labelEn, item.labelAr)}
-                  </span>
-                  {active && (
-                    <span style={{ display: "inline-flex", gap: 2 }}>
-                      <button
-                        type="button"
-                        onClick={() => moveTab(orderIdx, -1)}
-                        disabled={orderIdx <= 0}
-                        aria-label="Move up"
-                        style={{
-                          border: "none",
-                          background: "transparent",
-                          cursor: orderIdx <= 0 ? "default" : "pointer",
-                          opacity: orderIdx <= 0 ? 0.3 : 1,
-                          fontSize: 16,
-                          padding: 4,
-                          color: "var(--ink)",
-                        }}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveTab(orderIdx, 1)}
-                        disabled={orderIdx < 0 || orderIdx >= tabKeys.length - 1}
-                        aria-label="Move down"
-                        style={{
-                          border: "none",
-                          background: "transparent",
-                          cursor: orderIdx >= tabKeys.length - 1 ? "default" : "pointer",
-                          opacity: orderIdx >= tabKeys.length - 1 ? 0.3 : 1,
-                          fontSize: 16,
-                          padding: 4,
-                          color: "var(--ink)",
-                        }}
-                      >
-                        ↓
-                      </button>
-                    </span>
-                  )}
+                  {group.title}
                 </div>
-              );
-            })}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {group.items.map((item) => {
+                    const active = tabKeys.includes(item.key);
+                    const orderIdx = tabKeys.indexOf(item.key);
+                    const atMax = !active && tabKeys.length >= MAX_NAV_TABS;
+                    return (
+                      <div
+                        key={item.key}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "10px 12px",
+                          borderRadius: 12,
+                          background: active
+                            ? "color-mix(in srgb, var(--accent-1) 12%, var(--input-bg))"
+                            : "var(--input-bg)",
+                          border: active
+                            ? "1px solid color-mix(in srgb, var(--accent-1) 35%, transparent)"
+                            : "1px solid rgba(var(--border-rgb),0.1)",
+                          opacity: atMax ? 0.55 : 1,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => (active ? removeTab(item.key) : addTab(item.key))}
+                          disabled={atMax}
+                          aria-pressed={active}
+                          aria-label={active ? "Remove" : "Add"}
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 8,
+                            border: active ? "none" : "1.5px solid rgba(var(--border-rgb),0.35)",
+                            background: active ? "var(--accent-1)" : "transparent",
+                            color: active ? "var(--on-accent, #fff)" : "var(--muted-strong)",
+                            fontWeight: 900,
+                            fontSize: 14,
+                            cursor: atMax ? "default" : "pointer",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {active ? "✓" : "+"}
+                        </button>
+                        <span style={{ color: "var(--icon-muted)", display: "flex" }}>{item.icon}</span>
+                        <span style={{ flex: 1, fontWeight: 700, fontSize: 13 }}>
+                          {tr(isAr, item.labelEn, item.labelAr)}
+                        </span>
+                        {active && (
+                          <span style={{ display: "inline-flex", gap: 2 }}>
+                            <button
+                              type="button"
+                              onClick={() => moveTab(orderIdx, -1)}
+                              disabled={orderIdx <= 0}
+                              aria-label="Move up"
+                              style={{
+                                border: "none",
+                                background: "transparent",
+                                cursor: orderIdx <= 0 ? "default" : "pointer",
+                                opacity: orderIdx <= 0 ? 0.3 : 1,
+                                fontSize: 16,
+                                padding: 4,
+                                color: "var(--ink)",
+                              }}
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveTab(orderIdx, 1)}
+                              disabled={orderIdx < 0 || orderIdx >= tabKeys.length - 1}
+                              aria-label="Move down"
+                              style={{
+                                border: "none",
+                                background: "transparent",
+                                cursor: orderIdx >= tabKeys.length - 1 ? "default" : "pointer",
+                                opacity: orderIdx >= tabKeys.length - 1 ? 0.3 : 1,
+                                fontSize: 16,
+                                padding: 4,
+                                color: "var(--ink)",
+                              }}
+                            >
+                              ↓
+                            </button>
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
           <button
             type="button"
@@ -448,10 +504,7 @@ export default function MobileBottomNav({
                 : (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    // Resolve by key so reorder never wires the wrong action
-                    const handler = clickHandlers[t.key];
-                    if (typeof handler === "function") handler();
-                    else if (typeof t.onClick === "function") t.onClick();
+                    runAction(t.key);
                   }
             }
             onContextMenu={editMode ? undefined : t.onContextMenu}

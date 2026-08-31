@@ -22,6 +22,7 @@ import {
   RandomWordModal,
   DashboardPage,
   WordListsModal,
+  WordExportPdfModal,
   ChallengeModal,
   SmartCardsModal,
   ConversationModal,
@@ -151,6 +152,7 @@ export default function MainViewOverlays(p) {
     showLeaderboard, setShowLeaderboard,
     showDashboard, setShowDashboard, setStudyFilter, openGoals, openCalendar,
     showWordLists, setShowWordLists, showToast, persistEntries,
+    showExportPdf, setShowExportPdf, exportMarkedIds, onToggleExportMark, onClearExportMarked,
     showChallenges, setShowChallenges,
     showSmartCards, setShowSmartCards,
     showConversation, setShowConversation,
@@ -372,6 +374,18 @@ export default function MainViewOverlays(p) {
                 showToast,
               })
             }
+          />
+        )}
+        {showExportPdf && (
+          <WordExportPdfModal
+            entries={entries}
+            section={section}
+            isAr={appIsAr}
+            markedIds={exportMarkedIds}
+            onToggleMark={onToggleExportMark}
+            onClearMarked={onClearExportMarked}
+            onClose={() => setShowExportPdf(false)}
+            showToast={showToast}
           />
         )}
         {showChallenges && (

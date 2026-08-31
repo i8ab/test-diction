@@ -10,7 +10,7 @@ import { entryPosList, posLabel, getEntrySenses } from "../../lib/utils/wordType
 import { detectDir, detectFont } from "../../lib/utils/searchUtils";
 import {
   ChevronIcon, CheckIcon, StarIcon, EditIcon, TrashIcon, ZoomIcon, FlameIcon,
-  EyeIcon, EyeOffIcon, SpeakButton, MoreIcon,
+  EyeIcon, EyeOffIcon, SpeakButton, MoreIcon, DownloadIcon,
 } from "./Icons";
 
 /** Compact Cambridge Dictionary crest (shield only — no banner text). */
@@ -84,6 +84,7 @@ function MobilePairChips({ label, pairs, tone = "success" }) {
 function EntryCard({
   entry, cfg, isAdmin, isAr, canEdit, onDelete, onEdit, onOpenZoom,
   isStudied, onToggleStudied, isFavorite, onToggleFavorite, priority = 0, onCyclePriority, dueAt = null, isStudiedEntry = false,
+  isMarkedForExport = false, onToggleExportMark,
   addedByLabel, editedByLabel,
   mobileLayout = false, tabletLayout = false,
 }) {
@@ -605,6 +606,19 @@ function EntryCard({
                   : priority === 1 ? tr(isAr, "Low", "منخفضة")
                   : tr(isAr, "Priority", "أولوية")
                 }</span>
+              </button>
+            )}
+            {typeof onToggleExportMark === "function" && (
+              <button
+                type="button"
+                role="menuitem"
+                className="entry-more-tile"
+                style={moreTileStyle(isMarkedForExport)}
+                onClick={(e) => { e.stopPropagation(); onToggleExportMark(entry.id); }}
+              >
+                <DownloadIcon size={16} />
+                <span>{isMarkedForExport ? tr(isAr, "Added to PDF", "أُضيفت لـ PDF") : tr(isAr, "Add to PDF", "إضافة لـ PDF")}</span>
+                {isMarkedForExport && <span className="entry-more-dot" aria-hidden="true" />}
               </button>
             )}
             {canEdit && (

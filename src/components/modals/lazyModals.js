@@ -60,6 +60,7 @@ export const AchievementsModal = safeLazy(() => import("./AchievementsModal"));
 export const RandomWordModal = safeLazy(() => import("./RandomWordModal"));
 export const DashboardPage = safeLazy(() => import("../dashboard/DashboardPage"));
 export const WordListsModal = safeLazy(() => import("./WordListsModal"));
+export const WordExportPdfModal = safeLazy(() => import("./WordExportPdfModal"));
 export const ChallengeModal = safeLazy(() => import("./ChallengeModal"));
 export const SmartCardsModal = safeLazy(() => import("./SmartCardsModal"));
 export const ConversationModal = safeLazy(() => import("./ConversationModal"));
@@ -139,6 +140,7 @@ export function preloadAllTools() {
   preload("achievements", () => import("./AchievementsModal"));
   preload("dashboard", () => import("../dashboard/DashboardPage"));
   preload("wordLists", () => import("./WordListsModal"));
+  preload("wordExportPdf", () => import("./WordExportPdfModal"));
   preload("challenge", () => import("./ChallengeModal"));
   preload("conversation", () => import("./ConversationModal"));
   preload("levels", () => import("./LevelsModal"));
@@ -187,6 +189,7 @@ const TOOL_IMPORTERS = {
   todo: () => import("../todo/TodoPage"),
   dayAch: () => import("./DayAchievementsModal"),
   lists: () => import("./WordListsModal"),
+  exportPdf: () => import("./WordExportPdfModal"),
   challenges: () => import("./ChallengeModal"),
   conversation: () => import("./ConversationModal"),
   tutorChat: () => import("./TutorChatModal"),

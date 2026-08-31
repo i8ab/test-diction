@@ -42,6 +42,8 @@ export default function WordListPanel({
   wordPriorities = {},
   onCyclePriority,
   srsDueAt = {},
+  exportMarkedIds,
+  onToggleExportMark,
 }) {
   const letterRefs = useRef({});
   const railRef = useRef(null);
@@ -251,6 +253,8 @@ export default function WordListPanel({
                       onCyclePriority={onCyclePriority}
                       dueAt={srsDueAt[e.id]}
                       isStudiedEntry={studiedIds.has(e.id)}
+                      isMarkedForExport={!!exportMarkedIds && exportMarkedIds.has(e.id)}
+                      onToggleExportMark={onToggleExportMark}
                       addedByLabel={accountNameByCode[e.addedBy] || e.addedBy}
                       editedByLabel={
                         accountNameByCode[e.editedBy] || e.editedBy

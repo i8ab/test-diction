@@ -211,6 +211,17 @@ export default function MainView({
   const [showStats, setShowStats] = useState(() => restored.tool === "stats");
   const [showDashboard, setShowDashboard] = useState(() => restored.tool === "dashboard");
   const [showWordLists, setShowWordLists] = useState(() => restored.tool === "wordLists");
+  const [showExportPdf, setShowExportPdf] = useState(false);
+  const [exportMarkedIds, setExportMarkedIds] = useState(() => new Set());
+  const toggleExportMark = useCallback((id) => {
+    setExportMarkedIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }, []);
+  const clearExportMarked = useCallback(() => setExportMarkedIds(new Set()), []);
   const [showChallenges, setShowChallenges] = useState(() => restored.tool === "challenges");
   const [requestsOpen, setRequestsOpen] = useState(false);
   const [posFilter, setPosFilter] = useState("all"); // all | noun | verb | ...
@@ -853,6 +864,7 @@ export default function MainView({
                 const csv = exportEntriesAsCsv(list);
                 downloadTextFile(`dictionary-${section}.csv`, csv, "text/csv;charset=utf-8");
               }}
+              onExportPdf={() => setShowExportPdf(true)}
               onExportAnki={() => {
                 const list = filtered.length ? filtered : sectionEntries;
                 const tsv = exportEntriesAsAnkiTsv(list);
@@ -1289,6 +1301,8 @@ export default function MainView({
         wordPriorities={wordPriorities}
         onCyclePriority={handleCyclePriority}
         srsDueAt={srsDueAt}
+        exportMarkedIds={exportMarkedIds}
+        onToggleExportMark={toggleExportMark}
       />
 
       {showWelcome && (
@@ -1360,6 +1374,11 @@ export default function MainView({
         openCalendar={openCalendar}
         showWordLists={showWordLists}
         setShowWordLists={setShowWordLists}
+        showExportPdf={showExportPdf}
+        setShowExportPdf={setShowExportPdf}
+        exportMarkedIds={exportMarkedIds}
+        onToggleExportMark={toggleExportMark}
+        onClearExportMarked={clearExportMarked}
         showToast={showToast}
         persistEntries={persistEntries}
         showChallenges={showChallenges}

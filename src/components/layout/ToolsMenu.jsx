@@ -59,6 +59,7 @@ export default function ToolsMenu({
   importing,
   isAr,
   onExportAnki,
+  onExportPdf,
   onDashboard,
   onWordLists,
   onChallenges,
@@ -237,6 +238,7 @@ export default function ToolsMenu({
       title: tr(isAr, "Data", "البيانات"),
       items: [
         { key: "export", icon: <DownloadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Export CSV", "تصدير CSV"), onClick: onExport, disabled: exportDisabled },
+        { key: "exportPdf", icon: <DownloadIcon size={18} />, tint: "#a78bfa", label: tr(isAr, "Export PDF", "تصدير PDF"), onClick: onExportPdf },
         { key: "exportAnki", icon: <BookIcon size={18} />, tint: "#30d158", label: tr(isAr, "Export Anki", "تصدير Anki"), onClick: onExportAnki, disabled: exportDisabled },
         { key: "import", icon: importing ? <LoaderIcon size={18} /> : <UploadIcon size={18} />, tint: "#34c759", label: tr(isAr, "Import CSV", "استيراد CSV"), onClick: onImport, disabled: importing },
       ],

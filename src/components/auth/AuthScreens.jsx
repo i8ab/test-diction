@@ -1225,7 +1225,12 @@ function AuthScreens({
             </p>
           )}
           {/* Lamp toggle — lights up the login form (responsive) */}
-          <div className="lamp-login-root" aria-hidden="false">
+          <div className={"lamp-login-root" + (lampOn ? " is-lit" : "")} aria-hidden="false">
+            <span className="lamp-particles" aria-hidden="true">
+              {Array.from({ length: 14 }).map((_, i) => (
+                <i key={i} className={"lamp-dot lamp-dot--" + (i + 1)} />
+              ))}
+            </span>
             <span className="lamp-login-hint">{atr("Pull the cord to open login", "اسحب الحبل لفتح الدخول")}</span>
             <div
               className={"lamp-btn" + (lampOn ? " is-on" : "")}

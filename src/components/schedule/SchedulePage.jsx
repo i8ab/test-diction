@@ -38,6 +38,8 @@ import {
   dayProgress,
   applySleepToSchedule,
   removeBlock,
+  removeBlocks,
+  removeBlocksForDays,
   dateKey,
   weekKey,
   tipForDate,
@@ -97,6 +99,11 @@ export default function SchedulePage({
   const [focusMode, setFocusMode] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [copyTargets, setCopyTargets] = useState([]);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkDaysOpen, setBulkDaysOpen] = useState(false);
+  const [bulkDays, setBulkDays] = useState([]);
+  const [bulkMode, setBulkMode] = useState("all");
   const [conflictMsg, setConflictMsg] = useState("");
   const [sleepDraft, setSleepDraft] = useState(() => ({
     bedtime: schedule.sleep?.bedtime || "23:00",
@@ -275,6 +282,48 @@ export default function SchedulePage({
     persist(removeBlock(schedule, editor.id));
     setEditor(null);
   }
+
+  function toggleSelectId(id) {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  function selectAllVisible() {
+    const ids = visibleBlocks.map((b) => b.id);
+    setSelectedIds(ids);
+  }
+
+  function deleteSelected() {
+    if (!selectedIds.length) return;
+    const msg = T(
+      `Delete ${selectedIds.length} selected block(s)?`,
+      `تمسح ${selectedIds.length} بلوك محددين؟`
+    );
+    if (!window.confirm(msg)) return;
+    persist(removeBlocks(schedule, selectedIds));
+    setSelectedIds([]);
+    setSelectMode(false);
+  }
+
+  function deleteAllVisibleToday() {
+    const ids = visibleBlocks.map((b) => b.id);
+    if (!ids.length) return;
+    if (!window.confirm(T(`Delete all ${ids.length} blocks shown today?`, `تمسح كل الـ ${ids.length} بلوك الظاهرين النهاردة؟`))) return;
+    persist(removeBlocks(schedule, ids));
+    setSelectedIds([]);
+  }
+
+  function applyBulkDaysDelete() {
+    if (!bulkDays.length) return;
+    const label = bulkDays.map((d) => dayLabel(d, isAr)).join(isAr ? "، " : ", ");
+    if (!window.confirm(T(`Remove blocks on: ${label}?`, `تمسح بلوكات أيام: ${label}؟`))) return;
+    persist(removeBlocksForDays(schedule, bulkDays, bulkMode));
+    setBulkDaysOpen(false);
+    setBulkDays([]);
+    setSelectedIds([]);
+  }
+
 
   function saveSleep(e) {
     e?.preventDefault?.();
@@ -609,7 +658,39 @@ export default function SchedulePage({
                   <button type="button" className="sch-chip-btn" onClick={() => { setCopyOpen(true); setCopyTargets([]); }}>
                     {T("Copy day…", "نسخ اليوم…")}
                   </button>
+                  <button
+                    type="button"
+                    className={"sch-chip-btn" + (selectMode ? " is-on" : "")}
+                    onClick={() => {
+                      setSelectMode((v) => !v);
+                      setSelectedIds([]);
+                    }}
+                  >
+                    {selectMode ? T("Cancel select", "إلغاء التحديد") : T("Select", "تحديد")}
+                  </button>
+                  <button type="button" className="sch-chip-btn" onClick={() => { setBulkDaysOpen(true); setBulkDays([]); setBulkMode("all"); }}>
+                    {T("Clear days…", "مسح أيام…")}
+                  </button>
                 </div>
+
+                {selectMode && (
+                  <div className="sch-bulk-bar">
+                    <button type="button" className="sch-chip-btn" onClick={selectAllVisible}>
+                      {T("Select all shown", "تحديد الظاهر كله")}
+                    </button>
+                    <button type="button" className="sch-chip-btn" onClick={deleteAllVisibleToday}>
+                      {T("Delete all shown", "مسح الظاهر كله")}
+                    </button>
+                    <button
+                      type="button"
+                      className="sch-danger-chip"
+                      disabled={!selectedIds.length}
+                      onClick={deleteSelected}
+                    >
+                      {T(`Delete selected (${selectedIds.length})`, `مسح المحدد (${selectedIds.length})`)}
+                    </button>
+                  </div>
+                )}
 
                 <div className="sch-progress-row">
                   <div className="sch-progress-ring" style={{ "--pct": progress.pct }}>
@@ -650,17 +731,33 @@ export default function SchedulePage({
                         className={
                           "sch-block" +
                           (done ? " is-done" : "") +
-                          (active ? " is-now" : "")
+                          (active ? " is-now" : "") +
+                          (selectMode && selectedIds.includes(b.id) ? " is-picked" : "")
                         }
                         style={{ "--block-color": color }}
                       >
                         <button
                           type="button"
-                          className="sch-block-check"
-                          aria-label={T("Mark done", "تم")}
-                          onClick={() => handleToggleDone(b.id)}
+                          className={
+                            "sch-block-check" +
+                            (selectMode && selectedIds.includes(b.id) ? " is-selected" : "")
+                          }
+                          aria-label={
+                            selectMode
+                              ? T("Select block", "تحديد البلوك")
+                              : T("Mark done", "تم")
+                          }
+                          onClick={() =>
+                            selectMode ? toggleSelectId(b.id) : handleToggleDone(b.id)
+                          }
                         >
-                          {done ? <CheckIcon size={14} /> : null}
+                          {selectMode
+                            ? selectedIds.includes(b.id)
+                              ? <CheckIcon size={14} />
+                              : null
+                            : done
+                              ? <CheckIcon size={14} />
+                              : null}
                         </button>
                         <button
                           type="button"
@@ -787,6 +884,86 @@ export default function SchedulePage({
       </div>
 
 
+
+
+      {bulkDaysOpen && (
+        <div className="sch-editor-backdrop" onClick={() => setBulkDaysOpen(false)}>
+          <div className="sch-editor" onClick={(e) => e.stopPropagation()} role="dialog">
+            <div className="sch-editor-head">
+              <h3>{T("Clear days", "مسح أيام")}</h3>
+              <button type="button" className="sch-icon-btn" onClick={() => setBulkDaysOpen(false)}>
+                <XIcon size={16} />
+              </button>
+            </div>
+            <p className="sch-settings-lead">
+              {T(
+                "Pick days to clear. Weekly blocks lose those days; temporary blocks on them are removed.",
+                "اختَر الأيام. البلوك الثابت بيتشال من الأيام دي؛ المؤقت اللي عليها بيتنمس."
+              )}
+            </p>
+            <label className="sch-field">
+              <span>{T("What to remove", "إيه يتشال")}</span>
+              <div className="sch-type-grid">
+                {[
+                  { id: "all", en: "All types", ar: "الكل" },
+                  { id: "weekly", en: "Recurring only", ar: "الثابت فقط" },
+                  { id: "temporary", en: "Temporary only", ar: "المؤقت فقط" },
+                ].map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={"sch-type-chip" + (bulkMode === m.id ? " is-on" : "")}
+                    style={{ "--c": "var(--accent-1)" }}
+                    onClick={() => setBulkMode(m.id)}
+                  >
+                    {T(m.en, m.ar)}
+                  </button>
+                ))}
+              </div>
+            </label>
+            <label className="sch-field">
+              <span>{T("Days", "الأيام")}</span>
+              <div className="sch-days-pick">
+                {[0,1,2,3,4,5,6].map((d) => {
+                  const on = bulkDays.includes(d);
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      className={"sch-day-pick" + (on ? " is-on" : "")}
+                      onClick={() =>
+                        setBulkDays((prev) =>
+                          prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]
+                        )
+                      }
+                    >
+                      {dayLabel(d, isAr)}
+                    </button>
+                  );
+                })}
+              </div>
+            </label>
+            <div className="sch-editor-actions">
+              <button
+                type="button"
+                className="sch-chip-btn"
+                onClick={() => setBulkDays([0,1,2,3,4,5,6])}
+              >
+                {T("All days", "كل الأيام")}
+              </button>
+              <button
+                type="button"
+                className="sch-primary-btn"
+                style={{ background: "linear-gradient(135deg,#ef4444,#b91c1c)", width: "auto", minWidth: 140 }}
+                disabled={!bulkDays.length}
+                onClick={applyBulkDaysDelete}
+              >
+                {T("Delete", "مسح")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {copyOpen && (
         <div className="sch-editor-backdrop" onClick={() => setCopyOpen(false)}>

@@ -531,6 +531,70 @@ export function removeBlock(schedule, blockId) {
   return { ...schedule, blocks };
 }
 
+export function removeBlocks(schedule, ids) {
+  const set = new Set(ids || []);
+  if (!set.size) return schedule;
+  const blocks = (schedule.blocks || []).filter((b) => !set.has(b.id));
+  return { ...schedule, blocks };
+}
+
+/**
+ * Remove or strip days from blocks for the given weekday indexes (0–6).
+ * mode: "all" | "weekly" | "temporary"
+ * - weekly: only recurring; removes those days from days[]; drops block if no days left
+ * - temporary: only once/week blocks that fall on those weekdays (this week context)
+ * - all: both
+ */
+export function removeBlocksForDays(schedule, dayIndexes, mode = "all") {
+  const days = new Set((dayIndexes || []).filter((d) => d >= 0 && d <= 6));
+  if (!days.size) return schedule;
+  const wk = weekKey();
+  const out = [];
+  for (const b of schedule.blocks || []) {
+    const rec = b.recurrence || "weekly";
+    if (rec === "weekly") {
+      if (mode === "temporary") {
+        out.push(b);
+        continue;
+      }
+      const nextDays = (b.days || []).filter((d) => !days.has(d));
+      if (!nextDays.length) continue; // fully removed
+      if (nextDays.length === (b.days || []).length) {
+        out.push(b);
+      } else {
+        out.push({ ...b, days: nextDays });
+      }
+      continue;
+    }
+    // temporary
+    if (mode === "weekly") {
+      out.push(b);
+      continue;
+    }
+    if (rec === "once" && b.date) {
+      try {
+        const d = new Date(b.date + "T12:00:00").getDay();
+        if (days.has(d) && weekKey(new Date(b.date + "T12:00:00")) === wk) continue;
+      } catch (_) {}
+      out.push(b);
+      continue;
+    }
+    if (rec === "week") {
+      if (b.weekKey === wk && (b.days || []).some((d) => days.has(d))) {
+        const nextDays = (b.days || []).filter((d) => !days.has(d));
+        if (!nextDays.length) continue;
+        out.push({ ...b, days: nextDays });
+      } else {
+        out.push(b);
+      }
+      continue;
+    }
+    out.push(b);
+  }
+  return { ...schedule, blocks: out };
+}
+
+
 export function applySleepToSchedule(schedule, bedtime, wake) {
   const sleep = { bedtime, wake };
   const blocks = (schedule.blocks || []).map((b) =>

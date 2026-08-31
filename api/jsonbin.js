@@ -28,6 +28,7 @@ import {
   normalizeActorCode,
 } from "../lib/jsonbinHttp.js";
 import { auditPrivileged } from "../lib/apiAudit.js";
+import { mergeLearningProgress, mergeAccountProgressRow } from "../lib/progressMerge.js";
 import {
   pickBanner,
   pickExamConfig,
@@ -678,14 +679,18 @@ export default async function handler(req, res) {
               ...safePatch
             } = patch;
             if (patch.passwordHash != null) safePatch.passwordHash = patch.passwordHash;
-            const merged = {
-              ...prev,
+            // Root fix: progress fields merge on server (union), never blind replace
+            const merged = mergeLearningProgress(prev, {
               ...safePatch,
               code: prev.code,
               role: prev.role,
               isAdmin: prev.isAdmin,
               status: prev.status,
-            };
+            });
+            merged.code = prev.code;
+            merged.role = prev.role;
+            merged.isAdmin = prev.isAdmin;
+            merged.status = prev.status;
             // Explicit null/empty removes Google binding fields permanently
             for (const k of ["authProvider", "socialId", "email"]) {
               if (
@@ -809,7 +814,6 @@ export default async function handler(req, res) {
               if (!prev) return incoming;
               if (!incoming) return prev;
               // Do not let undefined/light-omitted keys wipe profile fields
-              // (bacTrack, avatar, Google link, …) already stored on prev.
               const merged = { ...prev };
               for (const k of Object.keys(incoming)) {
                 if (incoming[k] !== undefined) merged[k] = incoming[k];
@@ -817,7 +821,6 @@ export default async function handler(req, res) {
               if (statusRank(prev.status) > statusRank(incoming.status)) {
                 merged.status = prev.status;
               }
-              // Explicit null clears Google binding / email so unlink persists
               const CLEARABLE = ["authProvider", "socialId", "email"];
               for (const k of CLEARABLE) {
                 if (
@@ -827,7 +830,8 @@ export default async function handler(req, res) {
                   delete merged[k];
                 }
               }
-              return merged;
+              // Never let bulk accounts PUT shrink learning progress
+              return mergeAccountProgressRow(prev, merged);
             };
             let nextAccounts = Array.isArray(body.accounts) ? body.accounts : [];
             if (authzInfo.publicAccounts) {
@@ -1010,7 +1014,7 @@ export default async function handler(req, res) {
               delete merged[k];
             }
           }
-          return merged;
+          return mergeAccountProgressRow(prev, merged);
         };
         let nextAccounts = Array.isArray(body.accounts) ? body.accounts : [];
         if (Array.isArray(current.accounts) && current.accounts.length) {

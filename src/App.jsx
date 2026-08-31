@@ -1388,6 +1388,7 @@ export default function DictionaryApp() {
 
     async function softSync() {
       try {
+        if (typeof document !== "undefined" && document.hidden) return;
         // 1) فحص الإصدار أولاً — لو مفيش تغيير نوفر الباندويث بالكامل
         const remoteVersion = await fetchVersionOnly({ fresh: true }).catch(() => null);
         if (cancelled) return;
@@ -1625,7 +1626,7 @@ export default function DictionaryApp() {
     }
     document.addEventListener("visibilitychange", onVis);
     // Every 20s + on tab focus — version check is cheap; full pull only on change
-    const interval = setInterval(softSync, 20000);
+    const interval = setInterval(softSync, 90000);
     softSync();
     return () => {
       cancelled = true;

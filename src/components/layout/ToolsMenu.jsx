@@ -245,7 +245,7 @@ export default function ToolsMenu({
 
   function handleItemClick(item) {
     if (item.disabled) return;
-    // Keep More open. Tools/modals must use z-index > More (see Z_INDEX.TOOL_FULL / MODAL).
+    // Stay open under the opened tool/modal (stacking: More=5000, tools/modals >= 6000).
     if (typeof item.onClick === "function") item.onClick();
   }
 
@@ -258,11 +258,11 @@ export default function ToolsMenu({
       role="dialog"
       aria-modal="true"
       aria-label={tr(isAr, "More actions", "المزيد")}
-      className="modal-backdrop"
+      className="tools-menu-backdrop"
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: Z_INDEX.TOOL_FULL - 1000, /* 5000: under tools(6000) & modals(8000) */
+        zIndex: 5000, /* below tools/modals; do NOT use .modal-backdrop (forces 8000 !important) */
         background: "rgba(0,0,0,0.55)",
         display: "flex",
         alignItems: isCompact ? "flex-end" : "center",

@@ -133,22 +133,22 @@
 }
 .lamp-btn:active { cursor: grabbing; }
 
-/* Soft light cone (behind everything except floor) */
+/* Soft light cone — originates from under the shade rim so it reads as light FROM the shade */
 .lamp-beam {
   position: absolute;
-  top: 78px;
+  top: 68px;
   left: 50%;
   width: 170px;
-  height: 170px;
+  height: 180px;
   transform: translateX(-50%);
   background: linear-gradient(
     180deg,
-    rgba(255, 228, 150, 0.38) 0%,
-    rgba(255, 200, 90, 0.14) 28%,
-    rgba(255, 180, 60, 0.04) 58%,
+    rgba(255, 228, 150, 0.42) 0%,
+    rgba(255, 200, 90, 0.16) 26%,
+    rgba(255, 180, 60, 0.05) 55%,
     transparent 100%
   );
-  clip-path: polygon(38% 0%, 62% 0%, 100% 100%, 0% 100%);
+  clip-path: polygon(36% 0%, 64% 0%, 100% 100%, 0% 100%);
   opacity: 0;
   transition: opacity 0.5s ease;
   pointer-events: none;
@@ -159,7 +159,7 @@
 /* Metal stem — runs FROM shade INTO base (connected) */
 .lamp-pole {
   position: absolute;
-  top: 66px;
+  top: 62px;
   left: 50%;
   width: 5px;
   height: 196px;
@@ -224,11 +224,11 @@
   pointer-events: none;
 }
 
-/* Cord BEHIND the stem (lower z), hanging from underside of shade */
+/* Cord BEHIND the stem (lower z), hanging tightly from underside of shade */
 .lamp-pull {
   position: absolute;
-  top: 72px;
-  left: calc(50% + 10px);
+  top: 68px;
+  left: calc(50% + 9px);
   width: 28px;
   height: 36px;
   z-index: 1; /* behind shade (4) and stem (2) visually; still receives events via padding */
@@ -289,23 +289,24 @@
 }
 .lamp-btn.is-on .lamp-shade {
   background:
-    radial-gradient(ellipse 90% 50% at 50% 92%, rgba(255, 200, 100, 0.4) 0%, transparent 55%),
-    radial-gradient(ellipse 88% 55% at 50% 12%, rgba(255,240,200,0.12) 0%, transparent 50%),
+    radial-gradient(ellipse 92% 55% at 50% 88%, rgba(255, 210, 110, 0.55) 0%, rgba(255, 180, 70, 0.18) 40%, transparent 68%),
+    radial-gradient(ellipse 88% 55% at 50% 12%, rgba(255,240,200,0.14) 0%, transparent 50%),
     linear-gradient(180deg, #4a4234 0%, #2e281e 42%, #16120c 100%);
   box-shadow:
     0 8px 16px rgba(0,0,0,0.5),
-    inset 0 2px 4px rgba(255,240,200,0.1),
-    inset 0 -14px 20px rgba(255, 170, 50, 0.06);
+    0 0 22px 4px rgba(255, 190, 80, 0.18),
+    inset 0 2px 4px rgba(255,240,200,0.12),
+    inset 0 -12px 22px rgba(255, 175, 55, 0.14);
 }
 
-/* Bulb glow under rim (inside shade) */
+/* Bulb glow under rim (inside / just below shade) — primary light source */
 .lamp-glow-disc {
   position: absolute;
-  top: 62px;
+  top: 60px;
   left: 50%;
   transform: translateX(-50%);
-  width: 42px;
-  height: 9px;
+  width: 44px;
+  height: 10px;
   border-radius: 50%;
   background: transparent;
   opacity: 0;
@@ -315,8 +316,10 @@
 }
 .lamp-btn.is-on .lamp-glow-disc {
   opacity: 1;
-  background: radial-gradient(ellipse at center, #fff8e6 0%, #ffd878 50%, rgba(220,150,40,0.35) 100%);
-  box-shadow: 0 0 10px 3px rgba(255, 210, 100, 0.35);
+  background: radial-gradient(ellipse at center, #fff8e6 0%, #ffd878 45%, rgba(220,150,40,0.4) 100%);
+  box-shadow:
+    0 0 14px 5px rgba(255, 210, 100, 0.42),
+    0 4px 18px 2px rgba(255, 180, 70, 0.2);
 }
 
 /* Mobile-friendly alternate control under lamp */
@@ -438,9 +441,10 @@
     justify-self: center;
   }
   .lamp-shade { width: 100px; height: 52px; }
-  .lamp-glow-disc { width: 52px; top: 62px; }
-  .lamp-beam { width: 180px; height: 165px; }
-  .lamp-pole { height: 155px; }
+  .lamp-glow-disc { width: 50px; top: 58px; }
+  .lamp-beam { top: 64px; width: 180px; height: 170px; }
+  .lamp-pole { top: 62px; height: 155px; }
+  .lamp-pull { top: 64px; left: calc(50% + 10px); }
   .lamp-form-wrap {
     grid-column: 2;
     grid-row: 2;
@@ -473,9 +477,10 @@
     height: 300px;
   }
   .lamp-shade { width: 110px; height: 56px; }
-  .lamp-glow-disc { width: 56px; top: 66px; height: 11px; }
-  .lamp-beam { width: 200px; height: 185px; }
-  .lamp-pole { height: 170px; width: 4px; }
+  .lamp-glow-disc { width: 54px; top: 62px; height: 11px; }
+  .lamp-beam { top: 66px; width: 200px; height: 190px; }
+  .lamp-pole { top: 64px; height: 170px; width: 4px; }
+  .lamp-pull { top: 66px; left: calc(50% + 11px); }
   .lamp-base { width: 72px; height: 15px; }
   .lamp-form-wrap {
     max-width: min(580px, 100%);
@@ -487,7 +492,7 @@
   }
 }
 
-/* Phone only: stack vertically */
+/* Phone only: stack vertically — keep cord attached under shade rim & light from shade */
 @media (max-width: 640px) {
   .lamp-login-root {
     grid-template-columns: 1fr;
@@ -504,14 +509,35 @@
     height: 200px;
     justify-self: center;
   }
-  .lamp-shade { width: 82px; height: 44px; }
-  .lamp-glow-disc { width: 42px; top: 54px; }
-  .lamp-beam { width: 140px; height: 130px; }
-  .lamp-pole { height: 120px; }
-  .lamp-pull {
+  /* Shade sits higher proportionally; light originates from its underside */
+  .lamp-shade {
+    top: 14px;
+    width: 82px;
+    height: 44px;
+  }
+  /* Glow disc tucked right under the shade rim so light reads as coming FROM the shade */
+  .lamp-glow-disc {
     width: 40px;
-    left: calc(50% + 14px);
-    padding: 6px 12px 12px;
+    height: 8px;
+    top: 50px;
+  }
+  /* Beam starts at the shade bottom edge, not floating below */
+  .lamp-beam {
+    top: 52px;
+    width: 140px;
+    height: 130px;
+  }
+  /* Pole joins the shade cleanly */
+  .lamp-pole {
+    top: 52px;
+    height: 120px;
+  }
+  /* Cord hangs from the underside of the shade (not offset far below / aside) */
+  .lamp-pull {
+    top: 54px;
+    width: 36px;
+    left: calc(50% + 8px);
+    padding: 4px 10px 10px;
   }
   .lamp-pull-knob {
     width: 16px;

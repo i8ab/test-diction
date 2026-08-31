@@ -15,6 +15,7 @@ import {
   MoonIcon,
   BookIcon,
   StarIcon,
+  SettingsIcon,
 } from "../common/Icons";
 import HowItWorksButton from "../common/HowItWorksButton";
 import {
@@ -81,6 +82,7 @@ export default function SchedulePage({
   const [view, setView] = useState("today");
   const [selectedDay, setSelectedDay] = useState(() => todayIndex());
   const [editor, setEditor] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
   const [conflictMsg, setConflictMsg] = useState("");
   const [sleepDraft, setSleepDraft] = useState(() => ({
     bedtime: schedule.sleep?.bedtime || "23:00",
@@ -299,6 +301,15 @@ export default function SchedulePage({
           </div>
           <div className="sch-header-actions">
             <HowItWorksButton isAr={isAr} guideId="schedule" />
+            <button
+              type="button"
+              className="sch-icon-btn"
+              onClick={() => setShowSettings(true)}
+              aria-label={T("Schedule settings", "إعدادات الجدول")}
+              title={T("Settings", "إعدادات")}
+            >
+              <SettingsIcon size={18} />
+            </button>
             <button
               type="button"
               className="sch-icon-btn"
@@ -623,20 +634,64 @@ export default function SchedulePage({
         )}
       </div>
 
-      <footer className="sch-footer">
-        <button type="button" className="sch-ghost-btn" onClick={resetDefaults}>
-          {T("Recommended template", "القالب المقترح")}
-        </button>
-        <div className="sch-footer-meta">
-          <BookIcon size={14} />
-          <span>
-            {T(
-              "Recurring every week · or one-off for a day/week",
-              "ثابت كل أسبوع · أو مؤقت ليوم/أسبوع"
-            )}
-          </span>
+
+      {showSettings && (
+        <div className="sch-editor-backdrop" onClick={() => setShowSettings(false)}>
+          <div
+            className="sch-editor sch-settings-modal"
+            role="dialog"
+            aria-label={T("Schedule settings", "إعدادات الجدول")}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sch-editor-head">
+              <h3>{T("Schedule settings", "إعدادات الجدول")}</h3>
+              <button
+                type="button"
+                className="sch-icon-btn"
+                onClick={() => setShowSettings(false)}
+                aria-label={T("Close", "إغلاق")}
+              >
+                <XIcon size={16} />
+              </button>
+            </div>
+
+            <p className="sch-settings-lead">
+              {T(
+                "Recurring blocks repeat every week. One-off blocks are only for this day or this week.",
+                "البلوكات الثابتة بتتكرر كل أسبوع. البلوكات المؤقتة لليوم ده أو للأسبوع ده بس."
+              )}
+            </p>
+
+            <div className="sch-settings-card">
+              <strong>{T("Recommended template", "القالب المقترح")}</strong>
+              <p>
+                {T(
+                  "Replace your current plan with a balanced student template (sleep, school, study blocks). You can edit everything after.",
+                  "يستبدل خطتك الحالية بقالب متوازن لطالب (نوم، مدرسة، مذاكرة). تقدر تعدّل بعده عادي."
+                )}
+              </p>
+              <button
+                type="button"
+                className="sch-primary-btn"
+                onClick={() => {
+                  resetDefaults();
+                  setShowSettings(false);
+                }}
+              >
+                {T("Apply recommended template", "تطبيق القالب المقترح")}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="sch-ghost-btn sch-settings-close"
+              onClick={() => setShowSettings(false)}
+            >
+              {T("Close", "إغلاق")}
+            </button>
+          </div>
         </div>
-      </footer>
+      )}
 
       {editor && (
         <div className="sch-editor-backdrop" onClick={() => setEditor(null)}>

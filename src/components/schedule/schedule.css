@@ -555,7 +555,8 @@
   text-underline-offset: 3px;
 }
 
-.sch-footer {
+.sch-footer { display: none !important; /* moved to settings modal */
+
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -885,4 +886,39 @@
 
 .sch-editor-backdrop {
   z-index: 20;
+}
+
+
+/* Settings modal (replaces bottom footer bar) */
+.sch-settings-modal {
+  max-width: min(420px, 100%);
+}
+.sch-settings-lead {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted-strong, #6b6358);
+}
+.sch-settings-card {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(var(--border-rgb, 40, 30, 20), 0.12);
+  background: color-mix(in srgb, var(--accent-1) 6%, var(--card, #fff));
+  margin-bottom: 12px;
+}
+.sch-settings-card strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.sch-settings-card p {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--muted-strong, #6b6358);
+}
+.sch-settings-close {
+  width: 100%;
+  text-align: center;
+  padding: 10px;
 }

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { Z_INDEX } from "../../lib/config/zIndex";
 import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { tr } from "../../lib/config/i18n";
 import {
@@ -244,8 +245,7 @@ export default function ToolsMenu({
 
   function handleItemClick(item) {
     if (item.disabled) return;
-    // Keep the menu open underneath — opened content stacks above it.
-    // Menu only closes via the X button (or backdrop / Escape).
+    // Keep More open. Tools/modals must use z-index > More (see Z_INDEX.TOOL_FULL / MODAL).
     if (typeof item.onClick === "function") item.onClick();
   }
 
@@ -262,7 +262,7 @@ export default function ToolsMenu({
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 3100,
+        zIndex: Z_INDEX.TOOL_FULL - 1000, /* 5000: under tools(6000) & modals(8000) */
         background: "rgba(0,0,0,0.55)",
         display: "flex",
         alignItems: isCompact ? "flex-end" : "center",

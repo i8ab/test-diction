@@ -745,3 +745,144 @@
     padding-inline: 24px;
   }
 }
+
+/* —— v2: tip, summary, colors, conflict —— */
+.sch-root {
+  z-index: 6000;
+}
+
+.sch-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-1) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-1) 22%, transparent);
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.sch-tip svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--accent-1);
+}
+
+.sch-summary {
+  max-width: 480px;
+  margin: 0 auto;
+}
+.sch-summary-hero {
+  text-align: center;
+  padding: 20px 16px;
+  border-radius: 18px;
+  background: var(--card, #fff);
+  border: 1px solid rgba(var(--border-rgb, 40, 30, 20), 0.1);
+  margin-bottom: 14px;
+}
+.sch-summary-hero h2 {
+  margin: 0 0 8px;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.25rem;
+}
+.sch-summary-pct {
+  font-size: 2.4rem;
+  font-weight: 800;
+  font-family: "Fraunces", Georgia, serif;
+  color: var(--accent-1);
+  line-height: 1.1;
+}
+.sch-summary-hero p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted-strong, #6b6358);
+}
+.sch-summary-study {
+  margin-top: 10px !important;
+}
+.sch-summary-days {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sch-summary-days li {
+  display: grid;
+  grid-template-columns: 52px 1fr 40px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.sch-summary-dayname {
+  font-weight: 800;
+}
+.sch-summary-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(var(--border-rgb, 40, 30, 20), 0.1);
+  overflow: hidden;
+}
+.sch-summary-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent-1), var(--accent-2, var(--accent-1)));
+}
+.sch-summary-nums {
+  text-align: end;
+  font-weight: 700;
+  color: var(--muted-strong, #6b6358);
+}
+.sch-summary-note {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--muted-strong, #6b6358);
+  line-height: 1.4;
+}
+
+.sch-color-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.sch-color-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.sch-color-dot.is-on {
+  box-shadow: 0 0 0 2px var(--paper, #fff), 0 0 0 4px currentColor;
+  border-color: rgba(0, 0, 0, 0.15);
+}
+.sch-color-picker {
+  width: 36px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.sch-conflict {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #b91c1c;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.sch-editor-backdrop {
+  z-index: 20;
+}

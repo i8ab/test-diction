@@ -1,6 +1,6 @@
 /**
- * Student weekly schedule — sleep, lessons, study blocks, routines.
- * Per-account localStorage. Days are 0=Sun … 6=Sat (JS Date.getDay()).
+ * Student weekly schedule — recurring + one-off blocks, conflicts, weekly summary.
+ * Per-account localStorage.
  */
 
 const LEGACY_KEY = "twoTongues.schedule";
@@ -10,7 +10,10 @@ const KEY_FOR = (code) =>
 const COMPLETION_KEY_FOR = (code) =>
   code ? `twoTongues.scheduleDone.${String(code)}` : "twoTongues.scheduleDone";
 
-/** Block categories — colors work on light & dark paper surfaces */
+const SUMMARY_KEY_FOR = (code) =>
+  code ? `twoTongues.scheduleWeekLog.${String(code)}` : "twoTongues.scheduleWeekLog";
+
+/** Block categories */
 export const BLOCK_TYPES = {
   sleep: { en: "Sleep", ar: "نوم", color: "#6366f1", icon: "moon" },
   school: { en: "School", ar: "مدرسة", color: "#0ea5e9", icon: "book" },
@@ -23,13 +26,49 @@ export const BLOCK_TYPES = {
   custom: { en: "Custom", ar: "مخصص", color: "#64748b", icon: "star" },
 };
 
+export const PRESET_COLORS = [
+  "#6366f1", "#0ea5e9", "#f59e0b", "#10b981", "#f97316",
+  "#ef4444", "#a78bfa", "#ec4899", "#14b8a6", "#64748b",
+];
+
 const DAY_NAMES = {
+  en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+  ar: ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"],
+};
+const DAY_SHORT = {
   en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
   ar: ["أحد", "إثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت"],
 };
 
-export function dayLabel(dayIndex, isAr) {
-  const list = isAr ? DAY_NAMES.ar : DAY_NAMES.en;
+const DAILY_TIPS = {
+  en: [
+    "Start with the hardest subject while your mind is fresh.",
+    "A 5-minute review before bed locks memory better than an extra hour of cramming.",
+    "Protect your sleep window — focus drops hard after midnight.",
+    "One finished block beats three half-done ones. Tick something off.",
+    "Put your phone in another room during the next study block.",
+    "Drink water and stand up between blocks — your brain needs oxygen.",
+    "If a block feels too big, split it. Small wins stack.",
+  ],
+  ar: [
+    "ابدأ بأصعب مادة وإنت لسه ذهنك فريش.",
+    "مراجعة ٥ دقايق قبل النوم بتثبّت أكتر من ساعة سهر زيادة.",
+    "احمِ مواعيد نومك — التركيز بيقع جامد بعد منتصف الليل.",
+    "بلوك واحد مكتمل أحسن من تلاتة نصّهم. علّم حاجة كـ تم.",
+    "حط الموبايل في أوضة تانية في جلسة المذاكرة الجاية.",
+    "اشرب مية وقف بين البلوكات — المخ محتاج أكسجين.",
+    "لو البلوك كبير، قسّمه. الإنجازات الصغيرة بتتراكم.",
+  ],
+};
+
+export function dayLabel(dayIndex, isAr, short = true) {
+  const list = short
+    ? isAr
+      ? DAY_SHORT.ar
+      : DAY_SHORT.en
+    : isAr
+      ? DAY_NAMES.ar
+      : DAY_NAMES.en;
   return list[dayIndex] || list[0];
 }
 
@@ -37,7 +76,26 @@ export function todayIndex() {
   return new Date().getDay();
 }
 
-/** "HH:MM" → minutes from midnight */
+/** Local calendar date YYYY-MM-DD */
+export function dateKey(d = new Date()) {
+  const x = d instanceof Date ? d : new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+}
+
+/** ISO-like week key: year-Wxx based on Thursday of that week */
+export function weekKey(d = new Date()) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  x.setDate(x.getDate() + 3 - ((x.getDay() + 6) % 7));
+  const week1 = new Date(x.getFullYear(), 0, 4);
+  const wk =
+    1 +
+    Math.round(
+      ((x - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7
+    );
+  return `${x.getFullYear()}-W${String(wk).padStart(2, "0")}`;
+}
+
 export function timeToMinutes(t) {
   if (typeof t !== "string" || !/^\d{1,2}:\d{2}$/.test(t)) return 0;
   const [h, m] = t.split(":").map(Number);
@@ -57,9 +115,7 @@ export function formatTimeDisplay(t, isAr = false) {
   const mm = mins % 60;
   const h12 = h24 % 12 || 12;
   const am = h24 < 12;
-  if (isAr) {
-    return `${h12}:${String(mm).padStart(2, "0")} ${am ? "ص" : "م"}`;
-  }
+  if (isAr) return `${h12}:${String(mm).padStart(2, "0")} ${am ? "ص" : "م"}`;
   return `${h12}:${String(mm).padStart(2, "0")} ${am ? "AM" : "PM"}`;
 }
 
@@ -67,32 +123,46 @@ function uid() {
   return `b_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * recurrence:
+ *  - "weekly" (default): repeats every week on `days`
+ *  - "once": only on `date` (YYYY-MM-DD)
+ *  - "week": only during `weekKey` (this calendar week)
+ */
 function block(partial) {
+  const type = BLOCK_TYPES[partial.type] ? partial.type : "custom";
+  const color =
+    typeof partial.color === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(partial.color)
+      ? partial.color
+      : BLOCK_TYPES[type].color;
+  const recurrence = ["weekly", "once", "week"].includes(partial.recurrence)
+    ? partial.recurrence
+    : "weekly";
   return {
     id: partial.id || uid(),
     title: String(partial.title || "").slice(0, 80),
-    type: BLOCK_TYPES[partial.type] ? partial.type : "custom",
+    type,
+    color,
     start: partial.start || "08:00",
     end: partial.end || "09:00",
     note: String(partial.note || "").slice(0, 200),
     days: Array.isArray(partial.days)
       ? partial.days.filter((d) => d >= 0 && d <= 6)
       : [0, 1, 2, 3, 4, 5, 6],
+    recurrence,
+    date: typeof partial.date === "string" ? partial.date : null,
+    weekKey: typeof partial.weekKey === "string" ? partial.weekKey : null,
   };
 }
 
-/**
- * Sensible default for a secondary / baccalaureate student:
- * fixed sleep window, school-week study focus, lighter Friday, recovery Saturday.
- */
 export function defaultSchedule() {
-  const weekday = [0, 1, 2, 3, 4]; // Sun–Thu (common school week in many MENA countries)
+  const weekday = [0, 1, 2, 3, 4];
   const all = [0, 1, 2, 3, 4, 5, 6];
 
   return {
-    version: 1,
+    version: 2,
     sleep: { bedtime: "23:00", wake: "06:30" },
-    weekStartsOn: 6, // Saturday-first option for AR users; UI can flip
+    weekStartsOn: 6,
     blocks: [
       block({
         title: "نوم",
@@ -175,7 +245,6 @@ export function defaultSchedule() {
         end: "23:00",
         days: all,
       }),
-      // Friday lighter
       block({
         title: "صلاة الجمعة + راحة",
         type: "prayer",
@@ -190,7 +259,6 @@ export function defaultSchedule() {
         end: "18:00",
         days: [5],
       }),
-      // Saturday recovery + catch-up
       block({
         title: "مذاكرة عميقة / مشروع",
         type: "study",
@@ -219,10 +287,10 @@ function normalize(raw) {
     wake: typeof raw.sleep?.wake === "string" ? raw.sleep.wake : base.sleep.wake,
   };
   const blocks = Array.isArray(raw.blocks)
-    ? raw.blocks.map((b) => block(b)).slice(0, 80)
+    ? raw.blocks.map((b) => block(b)).slice(0, 120)
     : base.blocks;
   return {
-    version: 1,
+    version: 2,
     sleep,
     weekStartsOn: raw.weekStartsOn === 0 || raw.weekStartsOn === 6 ? raw.weekStartsOn : 6,
     blocks,
@@ -252,15 +320,37 @@ export function saveSchedule(accountCode, data) {
   }
 }
 
-/** Blocks that apply on a given day index, sorted by start (sleep spanning midnight last-first handled). */
-export function blocksForDay(schedule, dayIndex) {
-  const list = (schedule?.blocks || []).filter((b) =>
-    (b.days || []).includes(dayIndex)
-  );
+/** Does this block apply on calendar date `d`? */
+export function blockAppliesOnDate(b, d = new Date()) {
+  const day = d.getDay();
+  const dk = dateKey(d);
+  const wk = weekKey(d);
+  const rec = b.recurrence || "weekly";
+  if (rec === "once") return b.date === dk;
+  if (rec === "week") return b.weekKey === wk && (b.days || []).includes(day);
+  return (b.days || []).includes(day);
+}
+
+export function blocksForDate(schedule, d = new Date()) {
+  const list = (schedule?.blocks || []).filter((b) => blockAppliesOnDate(b, d));
   return list.slice().sort((a, b) => {
     const as = timeToMinutes(a.start);
     const bs = timeToMinutes(b.start);
-    // Keep overnight sleep visually at top when start is late evening
+    const aNight = a.type === "sleep" && as > 12 * 60 ? as - 24 * 60 : as;
+    const bNight = b.type === "sleep" && bs > 12 * 60 ? bs - 24 * 60 : bs;
+    return aNight - bNight;
+  });
+}
+
+/** @deprecated prefer blocksForDate — kept for day-index previews of recurring only */
+export function blocksForDay(schedule, dayIndex) {
+  const list = (schedule?.blocks || []).filter((b) => {
+    if ((b.recurrence || "weekly") !== "weekly") return false;
+    return (b.days || []).includes(dayIndex);
+  });
+  return list.slice().sort((a, b) => {
+    const as = timeToMinutes(a.start);
+    const bs = timeToMinutes(b.start);
     const aNight = a.type === "sleep" && as > 12 * 60 ? as - 24 * 60 : as;
     const bNight = b.type === "sleep" && bs > 12 * 60 ? bs - 24 * 60 : bs;
     return aNight - bNight;
@@ -270,8 +360,102 @@ export function blocksForDay(schedule, dayIndex) {
 export function blockDurationMinutes(b) {
   let s = timeToMinutes(b.start);
   let e = timeToMinutes(b.end);
-  if (e <= s) e += 24 * 60; // overnight
+  if (e <= s) e += 24 * 60;
   return e - s;
+}
+
+/** Interval in minutes from midnight; overnight → end + 24h */
+function interval(b) {
+  let s = timeToMinutes(b.start);
+  let e = timeToMinutes(b.end);
+  if (e <= s) e += 24 * 60;
+  return { s, e };
+}
+
+/**
+ * True if two blocks overlap in time (same calendar day context).
+ * Sleep overnight is handled via interval expansion.
+ */
+export function blocksOverlap(a, b) {
+  if (a.id && b.id && a.id === b.id) return false;
+  const A = interval(a);
+  const B = interval(b);
+  return A.s < B.e && B.s < A.e;
+}
+
+/**
+ * Find conflicts for a candidate block against existing ones on a given date.
+ * Returns array of conflicting blocks.
+ */
+export function findConflicts(schedule, candidate, d = new Date()) {
+  const others = blocksForDate(schedule, d).filter(
+    (b) => !candidate.id || b.id !== candidate.id
+  );
+  // For weekly candidate without a fixed date, check against each selected day
+  // by simulating the next occurrence — caller should pass the day being edited.
+  return others.filter((b) => blocksOverlap(candidate, b));
+}
+
+/**
+ * Conflict check when saving: for weekly, test each day in candidate.days
+ * against recurring + temporary blocks that fall on the "next" such weekday
+ * in the current week when possible.
+ */
+export function findConflictsForSave(schedule, candidate) {
+  const conflicts = [];
+  const rec = candidate.recurrence || "weekly";
+  const seen = new Set();
+
+  if (rec === "once" && candidate.date) {
+    const [y, m, d] = candidate.date.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    for (const c of findConflicts(schedule, candidate, dt)) {
+      if (!seen.has(c.id)) {
+        seen.add(c.id);
+        conflicts.push(c);
+      }
+    }
+    return conflicts;
+  }
+
+  if (rec === "week" && candidate.weekKey) {
+    // Approximate: check today-week days that match
+    const days = candidate.days?.length ? candidate.days : [todayIndex()];
+    for (const day of days) {
+      const dt = dateOnWeekdayThisWeek(day);
+      if (weekKey(dt) !== candidate.weekKey && candidate.weekKey !== weekKey()) continue;
+      for (const c of findConflicts(schedule, candidate, dt)) {
+        if (!seen.has(c.id)) {
+          seen.add(c.id);
+          conflicts.push(c);
+        }
+      }
+    }
+    return conflicts;
+  }
+
+  // weekly
+  const days = candidate.days?.length ? candidate.days : [todayIndex()];
+  for (const day of days) {
+    const dt = dateOnWeekdayThisWeek(day);
+    for (const c of findConflicts(schedule, candidate, dt)) {
+      if (!seen.has(c.id)) {
+        seen.add(c.id);
+        conflicts.push(c);
+      }
+    }
+  }
+  return conflicts;
+}
+
+function dateOnWeekdayThisWeek(targetDay) {
+  const now = new Date();
+  const cur = now.getDay();
+  const delta = targetDay - cur;
+  const d = new Date(now);
+  d.setDate(now.getDate() + delta);
+  d.setHours(12, 0, 0, 0);
+  return d;
 }
 
 export function orderedWeekDays(weekStartsOn = 6) {
@@ -280,22 +464,28 @@ export function orderedWeekDays(weekStartsOn = 6) {
   return out;
 }
 
-// ——— completion tracking (today only, rolls with date) ———
-
-function todayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+export function dateForWeekday(dayIndex, weekStartsOn = 6) {
+  return dateOnWeekdayThisWeek(dayIndex);
 }
+
+// ——— completions (keyed by date) ———
 
 export function loadCompletions(accountCode) {
   try {
     const raw = localStorage.getItem(COMPLETION_KEY_FOR(accountCode));
-    if (!raw) return { date: todayKey(), done: {} };
+    if (!raw) return { date: dateKey(), done: {} };
     const parsed = JSON.parse(raw);
-    if (parsed.date !== todayKey()) return { date: todayKey(), done: {} };
-    return { date: parsed.date, done: parsed.done || {} };
+    // keep map of date -> { blockId: true }
+    if (parsed.byDate && typeof parsed.byDate === "object") {
+      return { byDate: parsed.byDate };
+    }
+    // migrate old single-day format
+    if (parsed.date && parsed.done) {
+      return { byDate: { [parsed.date]: parsed.done } };
+    }
+    return { byDate: {} };
   } catch (_) {
-    return { date: todayKey(), done: {} };
+    return { byDate: {} };
   }
 }
 
@@ -303,32 +493,37 @@ export function saveCompletions(accountCode, state) {
   try {
     localStorage.setItem(
       COMPLETION_KEY_FOR(accountCode),
-      JSON.stringify({ date: todayKey(), done: state.done || {} })
+      JSON.stringify({ byDate: state.byDate || {} })
     );
   } catch (_) {}
 }
 
-export function toggleCompletion(accountCode, blockId) {
+export function toggleCompletion(accountCode, blockId, d = new Date()) {
   const cur = loadCompletions(accountCode);
-  const next = { ...cur.done, [blockId]: !cur.done[blockId] };
-  saveCompletions(accountCode, { done: next });
-  return next;
+  const dk = dateKey(d);
+  const dayMap = { ...(cur.byDate?.[dk] || {}) };
+  dayMap[blockId] = !dayMap[blockId];
+  const byDate = { ...(cur.byDate || {}), [dk]: dayMap };
+  // prune old dates (>21 days)
+  const cutoff = Date.now() - 21 * 86400000;
+  for (const k of Object.keys(byDate)) {
+    const [y, m, dd] = k.split("-").map(Number);
+    if (new Date(y, m - 1, dd).getTime() < cutoff) delete byDate[k];
+  }
+  saveCompletions(accountCode, { byDate });
+  return dayMap;
 }
 
-export function dayProgress(schedule, dayIndex, completions) {
-  const blocks = blocksForDay(schedule, dayIndex).filter((b) => b.type !== "sleep");
+export function completionsForDate(accountCode, d = new Date()) {
+  const cur = loadCompletions(accountCode);
+  return cur.byDate?.[dateKey(d)] || {};
+}
+
+export function dayProgress(schedule, d, completions) {
+  const blocks = blocksForDate(schedule, d).filter((b) => b.type !== "sleep");
   if (!blocks.length) return { done: 0, total: 0, pct: 0 };
   const done = blocks.filter((b) => completions?.[b.id]).length;
   return { done, total: blocks.length, pct: Math.round((done / blocks.length) * 100) };
-}
-
-export function upsertBlock(schedule, nextBlock) {
-  const b = block(nextBlock);
-  const idx = (schedule.blocks || []).findIndex((x) => x.id === b.id);
-  const blocks = [...(schedule.blocks || [])];
-  if (idx >= 0) blocks[idx] = b;
-  else blocks.push(b);
-  return saveSchedule(null, { ...schedule, blocks }) || { ...schedule, blocks };
 }
 
 export function removeBlock(schedule, blockId) {
@@ -339,9 +534,13 @@ export function removeBlock(schedule, blockId) {
 export function applySleepToSchedule(schedule, bedtime, wake) {
   const sleep = { bedtime, wake };
   const blocks = (schedule.blocks || []).map((b) =>
-    b.type === "sleep" ? { ...b, start: bedtime, end: wake } : b
+    b.type === "sleep" && (b.recurrence || "weekly") === "weekly"
+      ? { ...b, start: bedtime, end: wake }
+      : b
   );
-  const hasSleep = blocks.some((b) => b.type === "sleep");
+  const hasSleep = blocks.some(
+    (b) => b.type === "sleep" && (b.recurrence || "weekly") === "weekly"
+  );
   if (!hasSleep) {
     blocks.unshift(
       block({
@@ -350,8 +549,79 @@ export function applySleepToSchedule(schedule, bedtime, wake) {
         start: bedtime,
         end: wake,
         days: [0, 1, 2, 3, 4, 5, 6],
+        recurrence: "weekly",
       })
     );
   }
   return { ...schedule, sleep, blocks };
+}
+
+export function tipForDate(d = new Date(), isAr = false) {
+  const list = isAr ? DAILY_TIPS.ar : DAILY_TIPS.en;
+  // stable per date
+  const dk = dateKey(d);
+  let hash = 0;
+  for (let i = 0; i < dk.length; i++) hash = (hash * 31 + dk.charCodeAt(i)) >>> 0;
+  return list[hash % list.length];
+}
+
+/**
+ * Build end-of-week summary for the current week.
+ */
+export function buildWeekSummary(schedule, accountCode, weekStartsOn = 6) {
+  const days = orderedWeekDays(weekStartsOn);
+  const byDate = loadCompletions(accountCode).byDate || {};
+  const daysOut = [];
+  let totalBlocks = 0;
+  let totalDone = 0;
+  let studyMinsPlanned = 0;
+  let studyMinsDone = 0;
+
+  for (const day of days) {
+    const d = dateOnWeekdayThisWeek(day);
+    // only count up to today for "done" narrative; still list full week plan
+    const blocks = blocksForDate(schedule, d).filter((b) => b.type !== "sleep");
+    const doneMap = byDate[dateKey(d)] || {};
+    const done = blocks.filter((b) => doneMap[b.id]).length;
+    totalBlocks += blocks.length;
+    totalDone += done;
+    for (const b of blocks) {
+      const mins = blockDurationMinutes(b);
+      if (b.type === "study" || b.type === "school") {
+        studyMinsPlanned += mins;
+        if (doneMap[b.id]) studyMinsDone += mins;
+      }
+    }
+    daysOut.push({
+      day,
+      date: dateKey(d),
+      label: dayLabel(day, false, true),
+      total: blocks.length,
+      done,
+      pct: blocks.length ? Math.round((done / blocks.length) * 100) : 0,
+    });
+  }
+
+  return {
+    weekKey: weekKey(),
+    days: daysOut,
+    totalBlocks,
+    totalDone,
+    pct: totalBlocks ? Math.round((totalDone / totalBlocks) * 100) : 0,
+    studyMinsPlanned,
+    studyMinsDone,
+  };
+}
+
+export function formatMins(mins, isAr) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (isAr) {
+    if (h && m) return `${h} س ${m} د`;
+    if (h) return `${h} ساعة`;
+    return `${m} دقيقة`;
+  }
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
 }

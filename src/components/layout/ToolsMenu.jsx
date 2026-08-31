@@ -266,7 +266,7 @@ export default function ToolsMenu({
         alignItems: isCompact ? "flex-end" : "center",
         justifyContent: "center",
         padding: isCompact
-          ? "max(12px, env(safe-area-inset-top)) 0 calc(72px + env(safe-area-inset-bottom, 0px))"
+          ? "max(12px, env(safe-area-inset-top)) 0 0"
           : "max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom))",
       }}
       onClick={() => { /* Menu stays open unless user presses the X */ }}

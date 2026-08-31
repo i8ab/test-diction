@@ -71,6 +71,12 @@ export const ALL_NAV_ITEMS = [
       <path d="M3 10h18M8 3v4M16 3v4" />
     </svg>
   )},
+  { key: "schedule", labelEn: "Schedule", labelAr: "الجدول", group: "tools", icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M3 10h18M8 2v4M16 2v4M8 14h3M14 14h2M8 18h8" />
+    </svg>
+  )},
   { key: "todo", labelEn: "To-do", labelAr: "مهام", group: "tools", icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
       <path d="M9 11l3 3L22 4" />

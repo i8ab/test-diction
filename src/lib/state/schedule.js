@@ -625,3 +625,160 @@ export function formatMins(mins, isAr) {
   if (h) return `${h}h`;
   return `${m}m`;
 }
+
+/** Free gaps between non-sleep blocks on a date (minutes from midnight). */
+export function findFreeGaps(schedule, d = new Date(), minGap = 20) {
+  const blocks = blocksForDate(schedule, d)
+    .filter((b) => b.type !== "sleep")
+    .map((b) => {
+      let s = timeToMinutes(b.start);
+      let e = timeToMinutes(b.end);
+      if (e <= s) e += 24 * 60;
+      return { s, e, title: b.title };
+    })
+    .sort((a, b) => a.s - b.s);
+
+  const gaps = [];
+  const dayStart = 6 * 60; // 06:00
+  const dayEnd = 23 * 60; // 23:00
+  let cursor = dayStart;
+  for (const b of blocks) {
+    if (b.s - cursor >= minGap) {
+      gaps.push({ start: minutesToTime(cursor), end: minutesToTime(Math.min(b.s, dayEnd)), minutes: b.s - cursor });
+    }
+    cursor = Math.max(cursor, b.e);
+  }
+  if (dayEnd - cursor >= minGap) {
+    gaps.push({ start: minutesToTime(cursor), end: minutesToTime(dayEnd), minutes: dayEnd - cursor });
+  }
+  return gaps;
+}
+
+/** Current or next block for "now" on a given date (defaults today). */
+export function getNowAndNext(schedule, d = new Date()) {
+  const now = new Date();
+  const isToday = dateKey(d) === dateKey(now);
+  const mins = isToday ? now.getHours() * 60 + now.getMinutes() : -1;
+  const blocks = blocksForDate(schedule, d).filter((b) => b.type !== "sleep");
+
+  let current = null;
+  let next = null;
+  for (const b of blocks) {
+    let s = timeToMinutes(b.start);
+    let e = timeToMinutes(b.end);
+    if (e <= s) e += 24 * 60;
+    if (isToday && mins >= s && mins < e) {
+      current = b;
+    } else if (isToday && s > mins) {
+      if (!next) next = b;
+    } else if (!isToday && !next) {
+      next = blocks[0] || null;
+    }
+  }
+  if (!isToday) {
+    next = blocks[0] || null;
+    current = null;
+  }
+  return { current, next };
+}
+
+/** Copy recurring structure of source weekday onto target weekdays (weekly blocks only). */
+export function copyDayToDays(schedule, sourceDay, targetDays) {
+  const targets = (targetDays || []).filter((d) => d !== sourceDay && d >= 0 && d <= 6);
+  if (!targets.length) return schedule;
+  const blocks = (schedule.blocks || []).map((b) => {
+    if ((b.recurrence || "weekly") !== "weekly") return b;
+    if (!(b.days || []).includes(sourceDay)) return b;
+    const days = new Set(b.days || []);
+    targets.forEach((t) => days.add(t));
+    return { ...b, days: [...days].sort() };
+  });
+  return { ...schedule, blocks };
+}
+
+/** Remove once/week temporary blocks for current week (or all temps). */
+export function clearTemporaryBlocks(schedule, mode = "week") {
+  const wk = weekKey();
+  const blocks = (schedule.blocks || []).filter((b) => {
+    const r = b.recurrence || "weekly";
+    if (r === "weekly") return true;
+    if (mode === "all") return false;
+    if (r === "once") {
+      if (!b.date) return false;
+      try {
+        return weekKey(new Date(b.date + "T12:00:00")) !== wk;
+      } catch (_) {
+        return false;
+      }
+    }
+    if (r === "week") return b.weekKey !== wk;
+    return true;
+  });
+  return { ...schedule, blocks };
+}
+
+/** Consecutive days (ending today) with 100% non-sleep completion. */
+export function scheduleStreak(schedule, accountCode, maxLookback = 21) {
+  const byDate = loadCompletions(accountCode).byDate || {};
+  let streak = 0;
+  const cursor = new Date();
+  cursor.setHours(12, 0, 0, 0);
+  for (let i = 0; i < maxLookback; i++) {
+    const d = new Date(cursor);
+    d.setDate(cursor.getDate() - i);
+    const blocks = blocksForDate(schedule, d).filter((b) => b.type !== "sleep");
+    if (!blocks.length) {
+      if (i === 0) continue; // empty today doesn't break yet
+      break;
+    }
+    const doneMap = byDate[dateKey(d)] || {};
+    const allDone = blocks.every((b) => doneMap[b.id]);
+    if (!allDone) break;
+    streak += 1;
+  }
+  return streak;
+}
+
+export function exportWeekText(schedule, accountCode, isAr = false, weekStartsOn = 6) {
+  const days = orderedWeekDays(weekStartsOn);
+  const lines = [];
+  lines.push(isAr ? "جدول الأسبوع" : "Weekly schedule");
+  lines.push("────────────");
+  for (const day of days) {
+    const d = dateForWeekday(day, weekStartsOn);
+    const blocks = blocksForDate(schedule, d);
+    const doneMap = completionsForDate(accountCode, d);
+    lines.push(`${dayLabel(day, isAr, false)} (${dateKey(d)})`);
+    if (!blocks.length) {
+      lines.push(isAr ? "  (فارغ)" : "  (empty)");
+    }
+    for (const b of blocks) {
+      const mark = doneMap[b.id] ? "✓" : "•";
+      const meta = BLOCK_TYPES[b.type] || BLOCK_TYPES.custom;
+      lines.push(
+        `  ${mark} ${b.start}-${b.end} ${b.title} (${isAr ? meta.ar : meta.en})`
+      );
+    }
+    lines.push("");
+  }
+  const summary = buildWeekSummary(schedule, accountCode, weekStartsOn);
+  lines.push(
+    isAr
+      ? `إنجاز الأسبوع: ${summary.pct}% (${summary.totalDone}/${summary.totalBlocks})`
+      : `Week progress: ${summary.pct}% (${summary.totalDone}/${summary.totalBlocks})`
+  );
+  return lines.join("\n");
+}
+
+export function setWeekStartsOn(schedule, value) {
+  const v = value === 0 ? 0 : 6;
+  return { ...schedule, weekStartsOn: v };
+}
+
+export const QUICK_DURATIONS = [
+  { mins: 25, en: "25m", ar: "٢٥ د" },
+  { mins: 45, en: "45m", ar: "٤٥ د" },
+  { mins: 60, en: "1h", ar: "١ س" },
+  { mins: 90, en: "1.5h", ar: "١.٥ س" },
+  { mins: 120, en: "2h", ar: "٢ س" },
+];

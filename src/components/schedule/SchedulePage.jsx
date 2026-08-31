@@ -16,6 +16,7 @@ import {
   BookIcon,
   StarIcon,
   SettingsIcon,
+  ChevronIcon,
 } from "../common/Icons";
 import HowItWorksButton from "../common/HowItWorksButton";
 import {
@@ -28,6 +29,7 @@ import {
   dayLabel,
   todayIndex,
   timeToMinutes,
+  minutesToTime,
   formatTimeDisplay,
   BLOCK_TYPES,
   PRESET_COLORS,
@@ -43,7 +45,16 @@ import {
   buildWeekSummary,
   formatMins,
   dateForWeekday,
+  findFreeGaps,
+  getNowAndNext,
+  copyDayToDays,
+  clearTemporaryBlocks,
+  scheduleStreak,
+  exportWeekText,
+  setWeekStartsOn,
+  QUICK_DURATIONS,
 } from "../../lib/state/schedule";
+import { openSchedulePdf } from "../../lib/utils/schedulePdf";
 import "./schedule.css";
 
 const TYPE_KEYS = Object.keys(BLOCK_TYPES);
@@ -83,6 +94,9 @@ export default function SchedulePage({
   const [selectedDay, setSelectedDay] = useState(() => todayIndex());
   const [editor, setEditor] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [copyTargets, setCopyTargets] = useState([]);
   const [conflictMsg, setConflictMsg] = useState("");
   const [sleepDraft, setSleepDraft] = useState(() => ({
     bedtime: schedule.sleep?.bedtime || "23:00",
@@ -142,6 +156,32 @@ export default function SchedulePage({
     const n = new Date();
     return n.getHours() * 60 + n.getMinutes();
   }, [view, selectedDay, dayBlocks]);
+
+  const nowNext = useMemo(
+    () => getNowAndNext(schedule, selectedDate),
+    [schedule, selectedDate, nowMins]
+  );
+
+  const freeGaps = useMemo(
+    () => findFreeGaps(schedule, selectedDate, 25),
+    [schedule, selectedDate]
+  );
+
+  const streak = useMemo(
+    () => scheduleStreak(schedule, accountCode),
+    [schedule, accountCode, completions]
+  );
+
+  const visibleBlocks = useMemo(() => {
+    if (!focusMode || selectedDay !== today) return dayBlocks;
+    return dayBlocks.filter((b) => {
+      if (b.type === "sleep") return true;
+      let e = timeToMinutes(b.end);
+      let s = timeToMinutes(b.start);
+      if (e <= s) e += 24 * 60;
+      return e > nowMins;
+    });
+  }, [dayBlocks, focusMode, selectedDay, today, nowMins]);
 
   const todayLabelLong = dayLabel(today, isAr, false);
   const selectedLabelLong = dayLabel(selectedDay, isAr, false);
@@ -260,6 +300,50 @@ export default function SchedulePage({
     let e = timeToMinutes(b.end);
     if (e <= s) return nowMins >= s || nowMins < e;
     return nowMins >= s && nowMins < e;
+  }
+
+
+  function shiftDay(delta) {
+    const ordered = weekDays;
+    const idx = ordered.indexOf(selectedDay);
+    if (idx < 0) return;
+    const next = ordered[(idx + delta + ordered.length) % ordered.length];
+    setSelectedDay(next);
+    setView("today");
+  }
+
+  function applyCopyDay() {
+    if (!copyTargets.length) return;
+    persist(copyDayToDays(schedule, selectedDay, copyTargets));
+    setCopyOpen(false);
+    setCopyTargets([]);
+  }
+
+  function handleExport() {
+    openSchedulePdf({ schedule, accountCode, isAr });
+  }
+
+  function fillGap(gap) {
+    setConflictMsg("");
+    setEditor({
+      id: null,
+      title: "",
+      type: "study",
+      color: BLOCK_TYPES.study.color,
+      start: gap.start,
+      end: gap.end,
+      note: "",
+      days: [selectedDay],
+      recurrence: "once",
+      date: dateKey(selectedDate),
+      weekKey: weekKey(selectedDate),
+    });
+  }
+
+  function applyQuickDuration(mins) {
+    if (!editor) return;
+    const s = timeToMinutes(editor.start);
+    setEditor((d) => ({ ...d, end: minutesToTime(s + mins) }));
   }
 
   function recurrenceBadge(b) {
@@ -469,9 +553,62 @@ export default function SchedulePage({
 
             {view === "today" && (
               <section className="sch-today">
+                <div className="sch-day-nav">
+                  <button type="button" className="sch-icon-btn" onClick={() => shiftDay(-1)} aria-label={T("Previous day", "اليوم السابق")}>
+                    <ChevronIcon size={18} style={{ transform: isAr ? "none" : "scaleX(-1)" }} />
+                  </button>
+                  <strong>{selectedLabelLong}</strong>
+                  <button type="button" className="sch-icon-btn" onClick={() => shiftDay(1)} aria-label={T("Next day", "اليوم التالي")}>
+                    <ChevronIcon size={18} style={{ transform: isAr ? "scaleX(-1)" : "none" }} />
+                  </button>
+                </div>
+
+                {streak > 0 && (
+                  <div className="sch-streak">
+                    🔥 {T(`${streak}-day plan streak`, `سلسلة ${streak} يوم على الخطة`)}
+                  </div>
+                )}
+
+                {selectedDay === today && (nowNext.current || nowNext.next) && (
+                  <div className="sch-next-card">
+                    {nowNext.current ? (
+                      <>
+                        <span className="sch-next-label">{T("Now", "دلوقتي")}</span>
+                        <strong>{nowNext.current.title}</strong>
+                        <span>{formatTimeDisplay(nowNext.current.start, isAr)} – {formatTimeDisplay(nowNext.current.end, isAr)}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="sch-next-label">{T("Up next", "الجاي")}</span>
+                        <strong>{nowNext.next.title}</strong>
+                        <span>{formatTimeDisplay(nowNext.next.start, isAr)} – {formatTimeDisplay(nowNext.next.end, isAr)}</span>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {progress.total > 0 && progress.pct === 100 && (
+                  <div className="sch-day-done">
+                    {T("Day complete — well done!", "اليوم مكتمل — بطل!")}
+                  </div>
+                )}
+
                 <div className="sch-tip" role="note">
                   <StarIcon size={14} />
                   <span>{tip}</span>
+                </div>
+
+                <div className="sch-toolbar-row">
+                  <button
+                    type="button"
+                    className={"sch-chip-btn" + (focusMode ? " is-on" : "")}
+                    onClick={() => setFocusMode((v) => !v)}
+                  >
+                    {T("Focus remaining", "الباقي فقط")}
+                  </button>
+                  <button type="button" className="sch-chip-btn" onClick={() => { setCopyOpen(true); setCopyTargets([]); }}>
+                    {T("Copy day…", "نسخ اليوم…")}
+                  </button>
                 </div>
 
                 <div className="sch-progress-row">
@@ -500,7 +637,7 @@ export default function SchedulePage({
                 </div>
 
                 <ul className="sch-timeline">
-                  {dayBlocks.map((b) => {
+                  {visibleBlocks.map((b) => {
                     const meta = typeMeta(b.type);
                     const color = b.color || meta.color;
                     const done = !!completions[b.id];
@@ -555,7 +692,7 @@ export default function SchedulePage({
                       </li>
                     );
                   })}
-                  {!dayBlocks.length && (
+                  {!visibleBlocks.length && (
                     <li className="sch-empty">
                       <StarIcon size={22} />
                       <p>
@@ -570,6 +707,21 @@ export default function SchedulePage({
                     </li>
                   )}
                 </ul>
+
+                {freeGaps.length > 0 && selectedDay === today && (
+                  <div className="sch-gaps">
+                    <div className="sch-gaps-title">{T("Open gaps", "أوقات فاضية")}</div>
+                    <div className="sch-gaps-list">
+                      {freeGaps.slice(0, 4).map((g, i) => (
+                        <button key={i} type="button" className="sch-gap-chip" onClick={() => fillGap(g)}>
+                          {formatTimeDisplay(g.start, isAr)} – {formatTimeDisplay(g.end, isAr)}
+                          <span>({formatMins(g.minutes, isAr)})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
               </section>
             )}
 
@@ -635,6 +787,51 @@ export default function SchedulePage({
       </div>
 
 
+
+      {copyOpen && (
+        <div className="sch-editor-backdrop" onClick={() => setCopyOpen(false)}>
+          <div className="sch-editor" onClick={(e) => e.stopPropagation()} role="dialog">
+            <div className="sch-editor-head">
+              <h3>{T("Copy this day to…", "انسخ هذا اليوم إلى…")}</h3>
+              <button type="button" className="sch-icon-btn" onClick={() => setCopyOpen(false)}>
+                <XIcon size={16} />
+              </button>
+            </div>
+            <p className="sch-settings-lead">
+              {T(
+                "Adds this day's recurring blocks onto the days you pick (does not remove existing).",
+                "بيضيف بلوكات اليوم الثابتة على الأيام اللي تختارها (مش بيمسح الموجود)."
+              )}
+            </p>
+            <div className="sch-days-pick">
+              {[0,1,2,3,4,5,6].filter((d) => d !== selectedDay).map((d) => {
+                const on = copyTargets.includes(d);
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    className={"sch-day-pick" + (on ? " is-on" : "")}
+                    onClick={() =>
+                      setCopyTargets((prev) =>
+                        prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]
+                      )
+                    }
+                  >
+                    {dayLabel(d, isAr)}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="sch-editor-actions" style={{ marginTop: 14 }}>
+              <span />
+              <button type="button" className="sch-primary-btn" onClick={applyCopyDay} disabled={!copyTargets.length}>
+                {T("Copy", "نسخ")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSettings && (
         <div className="sch-editor-backdrop" onClick={() => setShowSettings(false)}>
           <div
@@ -663,6 +860,28 @@ export default function SchedulePage({
             </p>
 
             <div className="sch-settings-card">
+              <strong>{T("Week starts on", "بداية الأسبوع")}</strong>
+              <div className="sch-type-grid" style={{ marginTop: 8 }}>
+                <button
+                  type="button"
+                  className={"sch-type-chip" + ((schedule.weekStartsOn ?? 6) === 6 ? " is-on" : "")}
+                  style={{ "--c": "var(--accent-1)" }}
+                  onClick={() => persist(setWeekStartsOn(schedule, 6))}
+                >
+                  {T("Saturday", "السبت")}
+                </button>
+                <button
+                  type="button"
+                  className={"sch-type-chip" + ((schedule.weekStartsOn ?? 6) === 0 ? " is-on" : "")}
+                  style={{ "--c": "var(--accent-1)" }}
+                  onClick={() => persist(setWeekStartsOn(schedule, 0))}
+                >
+                  {T("Sunday", "الأحد")}
+                </button>
+              </div>
+            </div>
+
+            <div className="sch-settings-card">
               <strong>{T("Recommended template", "القالب المقترح")}</strong>
               <p>
                 {T(
@@ -679,6 +898,37 @@ export default function SchedulePage({
                 }}
               >
                 {T("Apply recommended template", "تطبيق القالب المقترح")}
+              </button>
+            </div>
+
+            <div className="sch-settings-card">
+              <strong>{T("Temporary blocks", "البلوكات المؤقتة")}</strong>
+              <p>
+                {T(
+                  "Remove one-off / this-week blocks. Recurring weekly blocks stay.",
+                  "يمسح البلوكات المؤقتة (يوم/أسبوع). الثابتة كل أسبوع تفضل."
+                )}
+              </p>
+              <button
+                type="button"
+                className="sch-primary-btn"
+                style={{ background: "linear-gradient(135deg,#ef4444,#b91c1c)" }}
+                onClick={() => {
+                  if (window.confirm(T("Clear temporary blocks for this week?", "تمسح البلوكات المؤقتة لهذا الأسبوع؟"))) {
+                    persist(clearTemporaryBlocks(schedule, "week"));
+                    setShowSettings(false);
+                  }
+                }}
+              >
+                {T("Clear this week's temporary", "مسح مؤقت هذا الأسبوع")}
+              </button>
+            </div>
+
+            <div className="sch-settings-card">
+              <strong>{T("Export week", "تصدير الأسبوع")}</strong>
+              <p>{T("Open a print-ready PDF of your week.", "يفتح PDF جاهز للطباعة لأسبوعك.")}</p>
+              <button type="button" className="sch-primary-btn" onClick={handleExport}>
+                {T("Export PDF", "تصدير PDF")}
               </button>
             </div>
 
@@ -821,6 +1071,23 @@ export default function SchedulePage({
                   required
                 />
               </label>
+            </div>
+
+            <div className="sch-quick-dur">
+              <span>{T("Duration", "المدة")}</span>
+              <div className="sch-type-grid">
+                {QUICK_DURATIONS.map((q) => (
+                  <button
+                    key={q.mins}
+                    type="button"
+                    className="sch-type-chip"
+                    style={{ "--c": "var(--accent-1)" }}
+                    onClick={() => applyQuickDuration(q.mins)}
+                  >
+                    {T(q.en, q.ar)}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {editor.recurrence !== "once" && (

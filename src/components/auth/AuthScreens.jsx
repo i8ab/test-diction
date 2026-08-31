@@ -1239,11 +1239,11 @@ function AuthScreens({
                 ? atr("Lamp is on — pull cord to turn off", "اللمبة شغالة — اسحب الحبل للإطفاء")
                 : atr("Lamp is off — pull cord to show login", "اللمبة مطفأة — اسحب الحبل لإظهار الدخول")}
             >
-              <span className="lamp-shade" />
-              <span className="lamp-glow-disc" />
               <span className="lamp-beam" />
               <span className="lamp-pole" />
               <span className="lamp-base" />
+              <span className="lamp-glow-disc" />
+              <span className="lamp-shade" />
               <span
                 className={"lamp-pull" + (cordPull > 0 ? " is-dragging" : "")}
                 style={{

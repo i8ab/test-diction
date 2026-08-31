@@ -113,11 +113,11 @@
   margin-bottom: 4px;
 }
 
-/* Floor lamp — realistic abajour (shade + stem + base + cord from shade) */
+/* Floor lamp — shade connected to pole to base; cord under shade, behind stem */
 .lamp-btn {
   position: relative;
-  width: 160px;
-  height: 268px;
+  width: 168px;
+  height: 280px;
   border: none;
   background: transparent;
   cursor: grab;
@@ -129,140 +129,115 @@
   grid-row: 2;
   touch-action: none;
   user-select: none;
-  /* Isolate paint so glow doesn't bleed weirdly on desktop GPUs */
-  contain: layout style;
+  overflow: visible;
 }
 .lamp-btn:active { cursor: grabbing; }
 
-/* Domed shade — wider bottom, soft fabric feel */
-.lamp-shade {
-  position: absolute;
-  top: 22px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 92px;
-  height: 48px;
-  background:
-    radial-gradient(ellipse 90% 70% at 50% 18%, rgba(255,255,255,0.12) 0%, transparent 55%),
-    linear-gradient(180deg, #3a3632 0%, #242220 40%, #141312 78%, #0a0908 100%);
-  border-radius: 50% 50% 42% 42% / 70% 70% 30% 30%;
-  box-shadow:
-    0 6px 14px rgba(0,0,0,0.55),
-    inset 0 2px 3px rgba(255,255,255,0.1),
-    inset 0 -10px 16px rgba(0,0,0,0.45);
-  transition: background 0.45s ease, box-shadow 0.45s ease;
-  z-index: 4;
-  pointer-events: none;
-}
-.lamp-btn.is-on .lamp-shade {
-  background:
-    radial-gradient(ellipse 85% 60% at 50% 85%, rgba(255, 210, 120, 0.35) 0%, transparent 55%),
-    radial-gradient(ellipse 90% 70% at 50% 18%, rgba(255,240,200,0.14) 0%, transparent 55%),
-    linear-gradient(180deg, #4a4030 0%, #2c261c 45%, #18140e 100%);
-  box-shadow:
-    0 6px 14px rgba(0,0,0,0.5),
-    0 0 22px rgba(255, 190, 80, 0.12),
-    inset 0 2px 3px rgba(255,240,200,0.12),
-    inset 0 -12px 20px rgba(255, 180, 60, 0.08);
-}
-
-/* Inner bulb glow under shade rim */
-.lamp-glow-disc {
-  position: absolute;
-  top: 58px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 48px;
-  height: 10px;
-  border-radius: 50%;
-  background: transparent;
-  transition: background 0.45s ease, box-shadow 0.45s ease, opacity 0.45s ease;
-  z-index: 3;
-  pointer-events: none;
-  opacity: 0;
-}
-.lamp-btn.is-on .lamp-glow-disc {
-  opacity: 1;
-  background: radial-gradient(ellipse at center, #fff8e0 0%, #ffd978 45%, rgba(230,160,40,0.4) 100%);
-  box-shadow:
-    0 0 12px 4px rgba(255, 220, 120, 0.45),
-    0 4px 18px rgba(255, 190, 70, 0.2);
-}
-
-/* Soft floor cone — no mix-blend (avoids desktop random bloom glitches) */
+/* Soft light cone (behind everything except floor) */
 .lamp-beam {
   position: absolute;
-  top: 62px;
+  top: 78px;
   left: 50%;
-  width: 168px;
-  height: 155px;
+  width: 170px;
+  height: 170px;
   transform: translateX(-50%);
   background: linear-gradient(
     180deg,
-    rgba(255, 230, 160, 0.42) 0%,
-    rgba(255, 200, 90, 0.16) 32%,
-    rgba(255, 180, 60, 0.05) 62%,
+    rgba(255, 228, 150, 0.38) 0%,
+    rgba(255, 200, 90, 0.14) 28%,
+    rgba(255, 180, 60, 0.04) 58%,
     transparent 100%
   );
-  clip-path: polygon(36% 0%, 64% 0%, 100% 100%, 0% 100%);
+  clip-path: polygon(38% 0%, 62% 0%, 100% 100%, 0% 100%);
   opacity: 0;
   transition: opacity 0.5s ease;
   pointer-events: none;
-  z-index: 1;
-  filter: none;
+  z-index: 0;
 }
-.lamp-btn.is-on .lamp-beam {
-  opacity: 1;
-}
+.lamp-btn.is-on .lamp-beam { opacity: 1; }
 
-/* Slim metal stem */
+/* Metal stem — runs FROM shade INTO base (connected) */
 .lamp-pole {
   position: absolute;
-  top: 64px;
+  top: 66px;
   left: 50%;
-  width: 4px;
-  height: 148px;
-  margin-left: -2px;
-  background: linear-gradient(90deg, #1a1a1a 0%, #6a6a6a 35%, #3a3a3a 55%, #151515 100%);
+  width: 5px;
+  height: 196px;
+  margin-left: -2.5px;
+  background: linear-gradient(
+    90deg,
+    #0e0e0e 0%,
+    #5c5c5c 28%,
+    #9a9a9a 48%,
+    #4a4a4a 62%,
+    #121212 100%
+  );
   border-radius: 2px;
-  box-shadow: 1px 0 0 rgba(255,255,255,0.05);
+  box-shadow:
+    1px 0 0 rgba(255,255,255,0.08),
+    -1px 0 0 rgba(0,0,0,0.5);
   z-index: 2;
   pointer-events: none;
 }
-
-/* Weighted base */
-.lamp-base {
+/* Joint under shade where stem meets shade */
+.lamp-pole::before {
+  content: "";
   position: absolute;
-  bottom: 4px;
+  top: -6px;
   left: 50%;
   transform: translateX(-50%);
-  width: 64px;
-  height: 14px;
+  width: 12px;
+  height: 10px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #6a6a6a, #2a2a2a);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
+}
+/* Stem foot into base */
+.lamp-pole::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 8px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #4a4a4a, #1a1a1a);
+}
+
+/* Weighted base — stem sits in the center */
+.lamp-base {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 72px;
+  height: 18px;
   background:
-    radial-gradient(ellipse 80% 60% at 50% 30%, #3a3a3a 0%, #1a1a1a 55%, #0a0a0a 100%);
+    radial-gradient(ellipse 90% 80% at 50% 35%, #4a4a4a 0%, #222 45%, #0c0c0c 100%);
   border-radius: 50%;
   box-shadow:
-    0 4px 12px rgba(0,0,0,0.55),
-    inset 0 1px 0 rgba(255,255,255,0.08);
+    0 5px 14px rgba(0,0,0,0.55),
+    inset 0 2px 2px rgba(255,255,255,0.1),
+    inset 0 -3px 6px rgba(0,0,0,0.5);
   z-index: 2;
   pointer-events: none;
 }
 
-/* Cord hangs from underside of shade (attached, not floating away) */
+/* Cord BEHIND the stem (lower z), hanging from underside of shade */
 .lamp-pull {
   position: absolute;
-  top: 56px;
-  left: calc(50% + 18px);
-  width: 36px;
-  height: 40px;
-  margin-left: 0;
-  z-index: 6;
+  top: 72px;
+  left: calc(50% + 10px);
+  width: 28px;
+  height: 36px;
+  z-index: 1; /* behind shade (4) and stem (2) visually; still receives events via padding */
   touch-action: none;
   cursor: grab;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 4px 10px 10px;
+  padding: 2px 8px 8px;
   box-sizing: content-box;
 }
 .lamp-pull::before {
@@ -270,32 +245,80 @@
   display: block;
   width: 1.5px;
   flex: 1;
-  min-height: 22px;
-  background: linear-gradient(180deg, #c8b48a 0%, #8a7a58 40%, #5a5040 100%);
+  min-height: 20px;
+  background: linear-gradient(180deg, #b8a878 0%, #7a6a48 55%, #4a4030 100%);
   border-radius: 1px;
   pointer-events: none;
-  box-shadow: 0.5px 0 0 rgba(255,255,255,0.12);
 }
 .lamp-pull-knob {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: radial-gradient(circle at 30% 28%, #fff6e0, #d4b07a 42%, #8a6a38 78%, #5a4428 100%);
+  background: radial-gradient(circle at 32% 28%, #fff4dc, #c4a06a 50%, #6a5430 100%);
   box-shadow:
-    0 2px 4px rgba(0,0,0,0.45),
-    inset 0 -1px 2px rgba(0,0,0,0.3),
-    inset 0 1px 1px rgba(255,255,255,0.4);
+    0 1px 3px rgba(0,0,0,0.5),
+    inset 0 1px 1px rgba(255,255,255,0.35);
   flex-shrink: 0;
   pointer-events: none;
-  transition: transform 0.15s ease, box-shadow 0.2s;
+  transition: transform 0.12s ease;
 }
 .lamp-pull:active .lamp-pull-knob,
 .lamp-pull.is-dragging .lamp-pull-knob {
-  transform: scale(1.08);
-  box-shadow:
-    0 3px 8px rgba(0,0,0,0.5),
-    inset 0 -1px 2px rgba(0,0,0,0.3);
+  transform: scale(1.06);
 }
+
+/* Domed shade ON TOP of stem joint */
+.lamp-shade {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 96px;
+  height: 54px;
+  background:
+    radial-gradient(ellipse 88% 55% at 50% 12%, rgba(255,255,255,0.14) 0%, transparent 50%),
+    linear-gradient(180deg, #3c3834 0%, #252320 38%, #141312 72%, #0a0908 100%);
+  border-radius: 50% 50% 46% 46% / 72% 72% 28% 28%;
+  box-shadow:
+    0 8px 16px rgba(0,0,0,0.55),
+    inset 0 2px 4px rgba(255,255,255,0.1),
+    inset 0 -14px 18px rgba(0,0,0,0.5);
+  transition: background 0.45s ease, box-shadow 0.45s ease;
+  z-index: 4;
+  pointer-events: none;
+}
+.lamp-btn.is-on .lamp-shade {
+  background:
+    radial-gradient(ellipse 90% 50% at 50% 92%, rgba(255, 200, 100, 0.4) 0%, transparent 55%),
+    radial-gradient(ellipse 88% 55% at 50% 12%, rgba(255,240,200,0.12) 0%, transparent 50%),
+    linear-gradient(180deg, #4a4234 0%, #2e281e 42%, #16120c 100%);
+  box-shadow:
+    0 8px 16px rgba(0,0,0,0.5),
+    inset 0 2px 4px rgba(255,240,200,0.1),
+    inset 0 -14px 20px rgba(255, 170, 50, 0.06);
+}
+
+/* Bulb glow under rim (inside shade) */
+.lamp-glow-disc {
+  position: absolute;
+  top: 62px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 42px;
+  height: 9px;
+  border-radius: 50%;
+  background: transparent;
+  opacity: 0;
+  transition: opacity 0.45s ease, background 0.45s ease, box-shadow 0.45s ease;
+  z-index: 3;
+  pointer-events: none;
+}
+.lamp-btn.is-on .lamp-glow-disc {
+  opacity: 1;
+  background: radial-gradient(ellipse at center, #fff8e6 0%, #ffd878 50%, rgba(220,150,40,0.35) 100%);
+  box-shadow: 0 0 10px 3px rgba(255, 210, 100, 0.35);
+}
+
 /* Mobile-friendly alternate control under lamp */
 .lamp-touch-bar {
   display: none;
@@ -721,13 +744,11 @@
 .lamp-dot--13 { left: 48%; top: 15%; animation-delay: 1.1s; }
 .lamp-dot--14 { left: 22%; top: 45%; animation-delay: 1.9s; }
 @keyframes lampDotFloat {
-  0%, 100% { transform: translateY(0) scale(1); opacity: 0.35; }
-  50% { transform: translateY(-14px) scale(1.25); opacity: 0.95; }
+  0%, 100% { transform: translateY(0); opacity: 0.25; }
+  50% { transform: translateY(-10px); opacity: 0.75; }
 }
 
-/* Beam realism handled in base .lamp-beam — no mix-blend (desktop bloom bugs) */
-  50% { opacity: 1; }
-}
+/* beam: base rules only */
 
 /* Glass form card closer to reference */
 .lamp-form-card {
@@ -737,8 +758,8 @@
   box-shadow:
     0 24px 60px -18px rgba(0, 0, 0, 0.65),
     inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
-  backdrop-filter: blur(18px) saturate(1.15) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(1.15) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
 }
 .lamp-form-card h3 {
   font-size: 1.35rem !important;
@@ -801,12 +822,10 @@
 @keyframes lampFormInV2 {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.96);
-    filter: brightness(0.6);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
     transform: none;
-    filter: none;
   }
 }

@@ -22,6 +22,7 @@ import {
   clearPendingCloudSync,
   markPendingCloudSync,
   mergeOfflineProgress,
+  preserveLocalProgress,
   saveOfflineCache,
   loadSessionId,
   saveSessionId,
@@ -308,6 +309,15 @@ export async function runAppBoot(ctx, cancelledRef) {
         setEntries(rec.entries);
         entriesRef.current = rec.entries || [];
         lastSyncedEntriesRef.current = rec.entries || [];
+        // Never let boot overwrite local studied/favorites with a poorer server snapshot
+        {
+          const { accounts: protectedAccounts } = preserveLocalProgress(
+            accountsForUi,
+            accountsRef.current || [],
+            { force: true }
+          );
+          accountsForUi = protectedAccounts || accountsForUi;
+        }
         setAccounts(accountsForUi);
         accountsRef.current = accountsForUi;
         setLogs(rec.logs);

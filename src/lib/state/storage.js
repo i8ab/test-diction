@@ -1219,58 +1219,146 @@ export const PROGRESS_KEYS = [
 ];
 
 /**
- * Copy per-account progress fields from local rows onto matching server rows.
- * Used by softSync so a still-in-flight studied/favorite save is not wiped
- * when the periodic version check pulls a slightly older server snapshot.
+ * Safe merge of learning progress for softSync / multi-device / post-deploy.
  *
- * When `onlyCode` is set, only that account is patched (normal user path).
- * When pending cloud sync is marked OR `force` is true, local progress wins
- * on any differing key. Otherwise this is a no-op (server wins).
- */
-/**
- * Safe merge of learning progress for softSync / multi-device.
+ * CRITICAL: never let a shorter/empty server `studied` or `favorites` list
+ * wipe local progress (common after deploy, softSync, or partial account loads).
  *
  * Rules:
- * - When a local cloud write is still in flight (pending flag / force):
- *   LOCAL wins absolutely for studied / favorites / studiedAt.
- *   (Union was wrong here: un-study would snap back from a stale server list.)
- * - When nothing is pending: SERVER is source of truth so other-device
- *   study/un-study marks appear correctly on this device.
- * - Other progress keys follow the same pending/force preference.
+ * - studied / favorites: UNION of local ∪ server (never drop local ids)
+ * - studiedAt: merge maps, keep the newer timestamp per entry id
+ * - When pending/force: all other PROGRESS_KEYS prefer local on conflict
+ * - When not pending: other keys still prefer server, but lists never shrink
+ *   below local via subset wipe
  */
+function unionIdList(local, remote) {
+  const L = Array.isArray(local) ? local : [];
+  const R = Array.isArray(remote) ? remote : [];
+  const out = [];
+  const seen = new Set();
+  for (const id of [...L, ...R]) {
+    const s = String(id);
+    if (!s || seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
+  }
+  return out;
+}
+
+function mergeStudiedAtMaps(local, remote) {
+  const L = local && typeof local === "object" ? local : {};
+  const R = remote && typeof remote === "object" ? remote : {};
+  const out = { ...R };
+  for (const [k, v] of Object.entries(L)) {
+    const lv = Number(v) || 0;
+    const rv = Number(R[k]) || 0;
+    out[k] = Math.max(lv, rv) || v;
+  }
+  return out;
+}
+
+function listLen(v) {
+  return Array.isArray(v) ? v.length : 0;
+}
+
+/** Persistent safety net — survives softSync wiping memory state. */
+const PROGRESS_BACKUP_PREFIX = "twoTongues.progressBackup.";
+
+export function saveProgressBackup(account) {
+  if (!account || !account.code) return;
+  try {
+    const payload = {
+      at: Date.now(),
+      code: String(account.code),
+      studied: Array.isArray(account.studied) ? account.studied.map(String) : [],
+      favorites: Array.isArray(account.favorites) ? account.favorites.map(String) : [],
+      studiedAt: account.studiedAt && typeof account.studiedAt === "object" ? account.studiedAt : {},
+    };
+    // Never overwrite a richer backup with a poorer one
+    const prev = loadProgressBackup(account.code);
+    if (prev) {
+      payload.studied = unionIdList(prev.studied, payload.studied);
+      payload.favorites = unionIdList(prev.favorites, payload.favorites);
+      payload.studiedAt = mergeStudiedAtMaps(prev.studiedAt, payload.studiedAt);
+    }
+    localStorage.setItem(PROGRESS_BACKUP_PREFIX + String(account.code), JSON.stringify(payload));
+  } catch (_) {}
+}
+
+export function loadProgressBackup(code) {
+  try {
+    const raw = localStorage.getItem(PROGRESS_BACKUP_PREFIX + String(code || ""));
+    if (!raw) return null;
+    const o = JSON.parse(raw);
+    if (!o || typeof o !== "object") return null;
+    return o;
+  } catch (_) {
+    return null;
+  }
+}
+
 export function preserveLocalProgress(serverAccounts, localAccounts, {
   onlyCode = null,
   force = false,
 } = {}) {
-  if (!Array.isArray(serverAccounts) || !Array.isArray(localAccounts) || !localAccounts.length) {
+  if (!Array.isArray(serverAccounts)) {
     return { accounts: serverAccounts, merged: false };
   }
   const pendingAt = getPendingCloudSyncAt();
   const preferLocal = force || pendingAt > 0;
 
   const byCode = {};
-  for (const a of localAccounts) {
-    if (a && a.code) byCode[String(a.code)] = a;
+  if (Array.isArray(localAccounts)) {
+    for (const a of localAccounts) {
+      if (a && a.code) byCode[String(a.code)] = a;
+    }
   }
   let merged = false;
 
   const next = serverAccounts.map((srv) => {
     if (!srv || !srv.code) return srv;
     if (onlyCode && String(srv.code) !== String(onlyCode)) return srv;
-    const loc = byCode[String(srv.code)];
-    if (!loc) return srv;
+    const code = String(srv.code);
+    const loc = byCode[code] || null;
+    const backup = loadProgressBackup(code);
 
-    // No in-flight local write → trust server (true multi-device pull).
-    if (!preferLocal) return srv;
+    // Sources for list fields (prefer non-empty)
+    const locStudied = loc && Array.isArray(loc.studied) ? loc.studied : (backup && backup.studied) || [];
+    const locFav = loc && Array.isArray(loc.favorites) ? loc.favorites : (backup && backup.favorites) || [];
+    const locAt = (loc && loc.studiedAt) || (backup && backup.studiedAt) || {};
 
-    const patch = { ...srv };
-    for (const k of PROGRESS_KEYS) {
-      if (loc[k] === undefined) continue;
-      if (JSON.stringify(loc[k]) !== JSON.stringify(srv[k])) {
-        patch[k] = loc[k];
-        merged = true;
+    const studied = unionIdList(locStudied, srv.studied);
+    const favorites = unionIdList(locFav, srv.favorites);
+    const studiedAt = mergeStudiedAtMaps(locAt, srv.studiedAt);
+
+    const patch = { ...srv, studied, favorites, studiedAt };
+
+    if (
+      listLen(studied) !== listLen(srv.studied) ||
+      listLen(favorites) !== listLen(srv.favorites) ||
+      JSON.stringify(studiedAt) !== JSON.stringify(srv.studiedAt || {})
+    ) {
+      merged = true;
+    }
+
+    // Other progress keys: when pending/force prefer local; else keep server
+    // but never take empty local-overwritten maps when local had data.
+    if (loc && preferLocal) {
+      for (const k of PROGRESS_KEYS) {
+        if (k === "studied" || k === "favorites" || k === "studiedAt") continue;
+        if (loc[k] === undefined) continue;
+        if (JSON.stringify(loc[k]) !== JSON.stringify(srv[k])) {
+          patch[k] = loc[k];
+          merged = true;
+        }
       }
     }
+
+    // Refresh backup with the protected merge result
+    try {
+      saveProgressBackup(patch);
+    } catch (_) {}
+
     return patch;
   });
   return { accounts: next, merged };
@@ -1301,20 +1389,38 @@ export function mergeOfflineProgress(serverAccounts, offlineRec) {
   }
   let merged = false;
   const next = serverAccounts.map((srv) => {
-    const off = byCode[srv.code];
+    const off = byCode[srv.code] || byCode[String(srv.code)];
     if (!off) return srv;
-    // Prefer offline progress when offline cache is at least as fresh as
-    // the pending marker (or always when pending flag is set).
     const patch = { ...srv };
-    for (const k of PROGRESS_KEYS) {
-      if (off[k] !== undefined) {
-        const same = JSON.stringify(off[k]) === JSON.stringify(srv[k]);
-        if (!same) {
-          patch[k] = off[k];
-          merged = true;
+    // Always protect list progress from empty server snapshot
+    const studied = unionIdList(off.studied, srv.studied);
+    const favorites = unionIdList(off.favorites, srv.favorites);
+    const studiedAt = mergeStudiedAtMaps(off.studiedAt, srv.studiedAt);
+    if (JSON.stringify(studied) !== JSON.stringify(srv.studied || [])) {
+      patch.studied = studied;
+      merged = true;
+    }
+    if (JSON.stringify(favorites) !== JSON.stringify(srv.favorites || [])) {
+      patch.favorites = favorites;
+      merged = true;
+    }
+    if (JSON.stringify(studiedAt) !== JSON.stringify(srv.studiedAt || {})) {
+      patch.studiedAt = studiedAt;
+      merged = true;
+    }
+    if (trustOffline) {
+      for (const k of PROGRESS_KEYS) {
+        if (k === "studied" || k === "favorites" || k === "studiedAt") continue;
+        if (off[k] !== undefined) {
+          const same = JSON.stringify(off[k]) === JSON.stringify(srv[k]);
+          if (!same) {
+            patch[k] = off[k];
+            merged = true;
+          }
         }
       }
     }
+    try { saveProgressBackup(patch); } catch (_) {}
     return patch;
   });
   // IMPORTANT: never re-add accounts that exist only in offline cache.

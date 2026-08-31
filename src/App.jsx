@@ -23,6 +23,7 @@ import {
   saveSessionId, loadSessionId, generateSessionId,
   detectDeviceIsAr, hasInviteParam,
   PROGRESS_KEYS,
+  saveProgressBackup,
 } from "./lib/state/storage";
 import { useAppPreferences } from "./lib/hooks/useAppPreferences";
 import { useStudyReminders } from "./lib/hooks/useStudyReminders";
@@ -1387,9 +1388,6 @@ export default function DictionaryApp() {
 
     async function softSync() {
       try {
-        // Bandwidth: do not poll while tab is in background
-        if (typeof document !== "undefined" && document.hidden) return;
-
         // 1) فحص الإصدار أولاً — لو مفيش تغيير نوفر الباندويث بالكامل
         const remoteVersion = await fetchVersionOnly({ fresh: true }).catch(() => null);
         if (cancelled) return;
@@ -1544,12 +1542,17 @@ export default function DictionaryApp() {
             accountsRef.current || [],
             {
               onlyCode: accountCode,
+              // Always protect lists (union). force still prefers local for other keys when pending.
               force: hasPendingOps || hasPendingSync,
             }
           );
           list = safeList;
           setAccounts(list);
           accountsRef.current = list;
+          try {
+            const mine = list.find((a) => a && String(a.code) === String(accountCode));
+            if (mine) saveProgressBackup(mine);
+          } catch (_) {}
           // If we kept newer local progress, push it via narrow accountPatch
           // (not full saveAccountsOnly) so we do not fight other writers with 409.
           if (progressMerged && accountCode) {
@@ -1622,7 +1625,7 @@ export default function DictionaryApp() {
     }
     document.addEventListener("visibilitychange", onVis);
     // Every 20s + on tab focus — version check is cheap; full pull only on change
-    const interval = setInterval(softSync, 90000);
+    const interval = setInterval(softSync, 20000);
     softSync();
     return () => {
       cancelled = true;

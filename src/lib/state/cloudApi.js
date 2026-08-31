@@ -131,13 +131,14 @@ const NO_STORE = {
 // كاش قصير المدى لكل نطاق على حدة (يقلل الطلبات المتكررة في نفس التبويب)
 const _scopedCache = new Map(); // key → { at, data }
 const SCOPED_TTL_MS = {
-  bootstrap: 30 * 1000,
-  account: 20 * 1000,
-  accounts: 15 * 1000,
-  entries: 45 * 1000,
-  logs: 15 * 1000,
-  settings: 30 * 1000,
-  version: 10 * 1000,
+  /* Bandwidth: longer soft-cache; writes still invalidate via invalidateScopedCaches */
+  bootstrap: 60 * 1000,
+  account: 45 * 1000,
+  accounts: 45 * 1000,
+  entries: 90 * 1000,
+  logs: 45 * 1000,
+  settings: 60 * 1000,
+  version: 45 * 1000,
 };
 
 function scopedGet(key) {
@@ -421,6 +422,21 @@ export async function saveRecord(record, expectedVersion) {
  * Fast path: update accounts (+ optional remove/approve codes) without
  * rewriting the entire dictionary (entries/logs/banners).
  */
+
+/** Skip identical full-accounts PUT (common when UI saves with no real change). */
+let _lastAccountsPutFp = "";
+function accountsPutFingerprint(accounts, removeAccountCodes, approveAccountCodes) {
+  try {
+    return JSON.stringify({
+      a: accounts || [],
+      r: removeAccountCodes || [],
+      p: approveAccountCodes || [],
+    });
+  } catch (_) {
+    return String(Date.now());
+  }
+}
+
 export async function saveAccountsOnly(
   {
     accounts,
@@ -429,6 +445,11 @@ export async function saveAccountsOnly(
   },
   expectedVersion
 ) {
+  const fp = accountsPutFingerprint(accounts, removeAccountCodes, approveAccountCodes);
+  if (fp && fp === _lastAccountsPutFp) {
+    return typeof expectedVersion === "number" ? expectedVersion : 0;
+  }
+
   const res = await fetch("/api/jsonbin", {
     method: "PUT",
     headers: writeHeaders(),
@@ -458,6 +479,7 @@ export async function saveAccountsOnly(
   }
   await assertWriteOk(res);
   invalidateRecordCache();
+  try { _lastAccountsPutFp = fp; } catch (_) {}
   const data = await res.json().catch(() => ({}));
   return typeof data.version === "number" ? data.version : expectedVersion + 1;
 }

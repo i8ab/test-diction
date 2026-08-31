@@ -25,7 +25,7 @@ import { diffEntries, GRANULAR_ENTRY_LIMIT } from "./partialSave";
 
 /** Skip extra version RTT when we fetched very recently (409 path still corrects). */
 let _lastVersionFetchAt = 0;
-const VERSION_FETCH_MIN_GAP_MS = 1500;
+const VERSION_FETCH_MIN_GAP_MS = 4000;
 
 async function refreshVersionIfStale(curVersion, commitRecordVersion) {
   const now = Date.now();

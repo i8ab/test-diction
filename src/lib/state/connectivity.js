@@ -35,7 +35,7 @@ export async function probeCloudReachable(timeoutMs = 6000) {
  * Also listens to window 'online'.
  * @returns {() => void} cleanup
  */
-export function watchForReconnect({ onBackOnline, intervalMs = 8000 } = {}) {
+export function watchForReconnect({ onBackOnline, intervalMs = 20000 } = {}) {
   if (typeof window === "undefined") return () => {};
 
   let stopped = false;

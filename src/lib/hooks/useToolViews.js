@@ -10,6 +10,8 @@ import {
   saveGoalsView,
   loadLanguageNotesView,
   saveLanguageNotesView,
+  loadScheduleView,
+  saveScheduleView,
 } from "../state/toolViews";
 
 /**
@@ -50,6 +52,20 @@ export function useToolViews() {
       return false;
     }
   });
+  const [showSchedule, setShowSchedule] = useState(() => {
+    try {
+      return !!loadScheduleView().open;
+    } catch (_) {
+      return false;
+    }
+  });
+  const [scheduleBubble, setScheduleBubble] = useState(() => {
+    try {
+      return !!loadScheduleView().bubble;
+    } catch (_) {
+      return false;
+    }
+  });
   const [showDayAchievements, setShowDayAchievements] = useState(false);
 
   useEffect(() => {
@@ -85,6 +101,10 @@ export function useToolViews() {
   useEffect(() => {
     saveLanguageNotesView(showLanguageNotes, languageNotesBubble);
   }, [showLanguageNotes, languageNotesBubble]);
+
+  useEffect(() => {
+    saveScheduleView(showSchedule, scheduleBubble);
+  }, [showSchedule, scheduleBubble]);
 
   const openTimer = useCallback(() => {
     setTimerBubble(false);
@@ -136,6 +156,16 @@ export function useToolViews() {
     setLanguageNotesBubble(false);
   }, []);
 
+  const openSchedule = useCallback(() => {
+    setScheduleBubble(false);
+    setShowSchedule(true);
+  }, []);
+
+  const closeSchedule = useCallback(() => {
+    setShowSchedule(false);
+    setScheduleBubble(false);
+  }, []);
+
   const openDayAchievements = useCallback(() => {
     setShowDayAchievements(true);
   }, []);
@@ -151,6 +181,7 @@ export function useToolViews() {
     (showTodo && !todoBubble) ||
     (showGoals && !goalsBubble) ||
     (showLanguageNotes && !languageNotesBubble) ||
+    (showSchedule && !scheduleBubble) ||
     showDayAchievements;
 
   return {
@@ -188,6 +219,12 @@ export function useToolViews() {
     setShowDayAchievements,
     openDayAchievements,
     closeDayAchievements,
+    showSchedule,
+    setShowSchedule,
+    scheduleBubble,
+    setScheduleBubble,
+    openSchedule,
+    closeSchedule,
     toolFullscreen,
   };
 }

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { tr } from "../../lib/config/i18n";
 import { computeStreak } from "../../lib/utils/quizHelpers";
-import { TimerPage, CalendarPage, TodoPage, GoalsPage, LanguageNotesPage, DayAchievementsModal } from "../modals/lazyModals";
+import { TimerPage, CalendarPage, TodoPage, GoalsPage, SchedulePage, LanguageNotesPage, DayAchievementsModal } from "../modals/lazyModals";
 import { FlameIcon, CheckIcon } from "../common/Icons";
 
 /**
@@ -22,6 +22,7 @@ export default function ToolShell({
   showGoals, goalsBubble, closeGoals, setGoalsBubble, openGoals,
   showDayAchievements, closeDayAchievements,
   showLanguageNotes, languageNotesBubble, closeLanguageNotes, setLanguageNotesBubble,
+  showSchedule, scheduleBubble, closeSchedule, setScheduleBubble,
 }) {
   const paperFallback = (
     <div style={{ position: "fixed", inset: 0, zIndex: 6000, background: "var(--paper)" }} aria-hidden />
@@ -87,6 +88,18 @@ export default function ToolShell({
             isAr={appIsAr}
             accountCode={accountCode || ""}
             onClose={closeDayAchievements}
+          />
+        </Suspense>
+      )}
+
+      {showSchedule && (
+        <Suspense fallback={paperFallback}>
+          <SchedulePage
+            isAr={appIsAr}
+            accountCode={accountCode || ""}
+            initialBubble={scheduleBubble}
+            onClose={closeSchedule}
+            onBubbleChange={setScheduleBubble}
           />
         </Suspense>
       )}

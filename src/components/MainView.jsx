@@ -224,6 +224,7 @@ export default function MainView({
     showDayAchievements, openDayAchievements, closeDayAchievements,
     showGoals, setShowGoals, goalsBubble, setGoalsBubble, openGoals, closeGoals,
     showLanguageNotes, setShowLanguageNotes, languageNotesBubble, setLanguageNotesBubble, openLanguageNotes, closeLanguageNotes,
+    showSchedule, setShowSchedule, scheduleBubble, setScheduleBubble, openSchedule, closeSchedule,
     toolFullscreen,
   } = useToolViews();
   const [nightStudy, setNightStudy] = useState(() => {
@@ -271,6 +272,7 @@ export default function MainView({
   useHistoryBackClose(showExamMode, () => setShowExamMode(false));
   useHistoryBackClose(!!zoomEntry, () => { setZoomEntry(null); setZoomAlreadyExists(false); });
   useHistoryBackClose(showGoals, closeGoals);
+  useHistoryBackClose(showSchedule, closeSchedule);
   useHistoryBackClose(showLanguageNotes, closeLanguageNotes);
   useHistoryBackClose(showTodo, closeTodo);
   useHistoryBackClose(showInfoGuide, () => setShowInfoGuide(false));
@@ -311,6 +313,7 @@ export default function MainView({
       [showSmartCards, "smartCards"],
       [showTimer, "timer"],
       [showCalendar, "calendar"],
+      [showSchedule, "schedule"],
       [showStats, "stats"],
       [showLeaderboard, "leaderboard"],
       [showDashboard, "dashboard"],
@@ -833,6 +836,7 @@ export default function MainView({
               onTimer={openTimer}
               onLanguageNotes={openLanguageNotes}
               onCalendar={openCalendar}
+              onSchedule={openSchedule}
               onTodo={openTodo}
               onDayAchievements={openDayAchievements}
               onGoals={openGoals}
@@ -1556,6 +1560,10 @@ export default function MainView({
       goalsBubble={goalsBubble}
       closeGoals={closeGoals}
       closeLanguageNotes={closeLanguageNotes}
+      showSchedule={showSchedule}
+      scheduleBubble={scheduleBubble}
+      closeSchedule={closeSchedule}
+      setScheduleBubble={setScheduleBubble}
       openLanguageNotes={openLanguageNotes}
       languageNotesBubble={languageNotesBubble}
       setLanguageNotesBubble={setLanguageNotesBubble}

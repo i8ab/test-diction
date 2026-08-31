@@ -10,6 +10,20 @@ import { tr } from "../../lib/config/i18n";
  */
 
 const GUIDES = {
+  schedule: {
+    en: [
+      "Set your sleep times first — everything else builds around rest.",
+      "Add school and study blocks. Tap a block to edit or mark it done.",
+      "Use Week view to balance the whole week. Keep Friday/Saturday lighter.",
+      "Same bedtime every day beats late-night cramming.",
+    ],
+    ar: [
+      "ظبط مواعيد النوم الأول — الباقي يتبني على الراحة.",
+      "ضيف الحصص والمذاكرة. اضغط على بلوك تعدّل أو علّم إنه خلص.",
+      "من عرض الأسبوع توازن الأسبوع كله. الجمعة والسبت يفضل يكونوا أخف.",
+      "مواعيد نوم ثابتة أحسن من السهر على المذاكرة.",
+    ],
+  },
   quiz: {
     en: [
       "Part A = multiple choice (labeled Choose / اختر).",

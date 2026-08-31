@@ -76,6 +76,7 @@ export default function ToolsMenu({
   onToggleNightStudy = null,
   onMotivationDua = null,
   onLanguageNotes = null,
+  onSchedule = null,
 }) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState(null);
@@ -201,6 +202,7 @@ export default function ToolsMenu({
         { key: "timer", icon: <ClockIcon size={18} />, tint: "#19A7CE", label: tr(isAr, "Timer", "مؤقّت"), onClick: onTimer },
         { key: "languageNotes", icon: <BookIcon size={18} />, tint: "#5e5ce6", label: tr(isAr, "Language Notes", "ملاحظات اللغة"), onClick: onLanguageNotes },
         { key: "calendar", icon: <CalendarIcon size={18} />, tint: "#e85d04", label: tr(isAr, "Calendar", "التقويم"), onClick: onCalendar },
+        { key: "schedule", icon: <ClockIcon size={18} />, tint: "#6366f1", label: tr(isAr, "Schedule", "الجدول"), onClick: onSchedule },
         { key: "todo", icon: <ListChecksIcon size={18} />, tint: "#30d158", label: tr(isAr, "To-do list", "قائمة المهام"), onClick: onTodo },
         ...(typeof onDayAchievements === "function"
           ? [{ key: "dayAch", icon: <MedalIcon size={18} />, tint: "#af52de", label: tr(isAr, "Day achievements", "إنجازات اليوم"), onClick: onDayAchievements }]

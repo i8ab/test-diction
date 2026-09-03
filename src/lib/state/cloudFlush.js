@@ -16,6 +16,8 @@ import {
   clearPendingCloudSync,
   markPendingCloudSync,
   removePendingApproveCode,
+  clearPendingApproveCodes,
+  clearPendingRemoveCodes,
   PROGRESS_KEYS,
 } from "./storage";
 import { capLogs } from "./logs";
@@ -277,6 +279,29 @@ export function flushPendingAccounts(ctx) {
             } catch (_) {}
           } else if (String(e && e.message) === "unauthorized") {
             setSaveError("Session expired — sign out and sign in again.");
+          } else if (
+            e &&
+            e.status === 403 &&
+            (pendingRemoveCodesRef.current.size || pendingApprovedCodesRef.current.size)
+          ) {
+            // Forbidden while approving/removing accounts: the signed-in actor
+            // is not staff (or was demoted/blocked). These codes can NEVER
+            // succeed for this actor — retrying forever just spams 403s.
+            // Drop them (locally + persisted) so the queue can't loop, but
+            // keep any non-approve/remove ops queued for retry.
+            pendingRemoveCodesRef.current = new Set();
+            pendingApprovedCodesRef.current = new Set();
+            try {
+              clearPendingRemoveCodes();
+              clearPendingApproveCodes();
+            } catch (_) {}
+            if (ops.length) {
+              pendingAccountOpsRef.current = [...ops, ...pendingAccountOpsRef.current];
+            }
+            setSaveError(
+              (e.payload && e.payload.message) ||
+                "Admin or teacher required to approve or remove accounts."
+            );
           } else {
             // Keep optimistic local data (including studied) — do not wipe progress.
             try {

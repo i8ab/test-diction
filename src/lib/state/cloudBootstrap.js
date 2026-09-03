@@ -31,6 +31,8 @@ import {
   removePendingApproveCode,
   addPendingRemoveCode,
   addPendingApproveCode,
+  clearPendingRemoveCodes,
+  clearPendingApproveCodes,
   PROGRESS_KEYS,
 } from "./storage";
 import { migrateAccounts } from "../utils/authUtils";
@@ -264,8 +266,16 @@ export async function runAppBoot(ctx, cancelledRef) {
               commitRecordVersion(newVersion);
               rec = { ...rec, accounts: cleaned, version: newVersion };
               accountsForUi = cleaned;
-            } catch (_) {
-              // Keep pendingRemoveCodes so the next load retries.
+            } catch (e) {
+              if (e && e.status === 403) {
+                // Signed-in actor is not staff — this can never succeed for
+                // them. Drop instead of retrying forever on every reload.
+                for (const code of stillOnServer) {
+                  drop.delete(code);
+                  removePendingRemoveCode(code);
+                }
+              }
+              // Otherwise keep pendingRemoveCodes so the next load retries.
             }
           }
         }
@@ -302,7 +312,16 @@ export async function runAppBoot(ctx, cancelledRef) {
                 approved.delete(code);
                 removePendingApproveCode(code);
               }
-            } catch (_) {}
+            } catch (e) {
+              if (e && e.status === 403) {
+                // Signed-in actor is not staff — this can never succeed for
+                // them. Drop instead of retrying forever on every reload.
+                for (const code of stillPendingOnServer) {
+                  approved.delete(code);
+                  removePendingApproveCode(code);
+                }
+              }
+            }
           }
         }
 
@@ -379,7 +398,17 @@ export async function runAppBoot(ctx, cancelledRef) {
             commitRecordVersion(newVersion);
             saveOfflineCache({ ...rec, accounts: accountsToSave, version: newVersion });
             clearPendingCloudSync();
-          } catch (_) {
+            if (removeCodes.length) {
+              pendingRemoveCodesRef.current = new Set();
+              clearPendingRemoveCodes();
+            }
+          } catch (e) {
+            if (e && e.status === 403 && pendingRemoveCodesRef.current.size) {
+              // Signed-in actor is not staff — this can never succeed for
+              // them. Drop instead of retrying forever on every reload.
+              pendingRemoveCodesRef.current = new Set();
+              clearPendingRemoveCodes();
+            }
             // Keep pending flag so next load retries the merge.
             markPendingCloudSync();
           }

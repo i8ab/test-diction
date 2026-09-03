@@ -11,7 +11,7 @@ import {
  * Optional onSelectEntry(entry) is called after a suggestion is chosen
  * (e.g. to open zoom / scroll to the word).
  */
-export function useEntrySearch({ section, query, setQuery, suggestions, onSelectEntry, inputRef }) {
+export function useEntrySearch({ section, query, setQuery, suggestions, onSelectEntry, inputRef, findBestMatch }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [showHistory, setShowHistory] = useState(false);
@@ -61,15 +61,38 @@ export function useEntrySearch({ section, query, setQuery, suggestions, onSelect
     [setQuery, commitSearchTerm, onSelectEntry, dismissKeyboard]
   );
 
+  // Actually run a search for a typed/recalled term: jump straight to the
+  // best-matching word (same as picking a suggestion) when one exists,
+  // otherwise just leave the list filtered on that term. Used both by
+  // pressing Enter (even with the suggestions dropdown closed) and by
+  // picking a term from history — neither of those did an actual search
+  // before, they only filled the box.
+  const submitSearch = useCallback(
+    (term) => {
+      const t = String(term || "").trim();
+      if (!t) return;
+      commitSearchTerm(t);
+      setShowSuggestions(false);
+      setShowHistory(false);
+      setActiveIndex(-1);
+      dismissKeyboard();
+      const match = typeof findBestMatch === "function" ? findBestMatch(t) : null;
+      if (match && typeof onSelectEntry === "function") {
+        setQuery("");
+        requestAnimationFrame(() => onSelectEntry(match));
+      } else {
+        setQuery(t);
+      }
+    },
+    [commitSearchTerm, dismissKeyboard, findBestMatch, onSelectEntry, setQuery]
+  );
+
   const selectHistoryTerm = useCallback(
     (term) => {
-      setQuery(term);
-      setShowHistory(false);
-      setShowSuggestions(false);
-      commitSearchTerm(term);
-      dismissKeyboard();
+      submitSearch(term);
     },
-    [setQuery, commitSearchTerm, dismissKeyboard]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [submitSearch]
   );
 
   const handleRemoveHistoryTerm = useCallback(
@@ -91,25 +114,37 @@ export function useEntrySearch({ section, query, setQuery, suggestions, onSelect
         if (e.key === "Escape") setShowHistory(false);
         return;
       }
-      if (!showSuggestions || !suggestions || suggestions.length === 0) return;
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setActiveIndex((i) => (i + 1) % suggestions.length);
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setActiveIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
-      } else if (e.key === "Enter") {
-        if (activeIndex >= 0 && activeIndex < suggestions.length) {
+      if (showSuggestions && suggestions && suggestions.length > 0) {
+        if (e.key === "ArrowDown") {
           e.preventDefault();
-          selectSuggestion(suggestions[activeIndex]);
-        } else if (String(query || "").trim()) {
-          commitSearchTerm(query);
-          setShowSuggestions(false);
-          dismissKeyboard();
+          setActiveIndex((i) => (i + 1) % suggestions.length);
+          return;
         }
-      } else if (e.key === "Escape") {
-        setShowSuggestions(false);
-        setActiveIndex(-1);
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setActiveIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
+          return;
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          if (activeIndex >= 0 && activeIndex < suggestions.length) {
+            selectSuggestion(suggestions[activeIndex]);
+          } else {
+            submitSearch(query);
+          }
+          return;
+        }
+        if (e.key === "Escape") {
+          setShowSuggestions(false);
+          setActiveIndex(-1);
+          return;
+        }
+      }
+      // No suggestions dropdown open (or nothing in it) — Enter should
+      // still run the search instead of doing nothing.
+      if (e.key === "Enter" && String(query || "").trim()) {
+        e.preventDefault();
+        submitSearch(query);
       }
     },
     [
@@ -119,8 +154,7 @@ export function useEntrySearch({ section, query, setQuery, suggestions, onSelect
       activeIndex,
       query,
       selectSuggestion,
-      commitSearchTerm,
-      dismissKeyboard,
+      submitSearch,
     ]
   );
 

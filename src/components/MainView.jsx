@@ -491,6 +491,11 @@ export default function MainView({
   // Ref so useEntrySearch can call the latest "go to entry" without reordering hooks
   const onSelectEntryRef = useRef(null);
 
+  const findBestSearchMatch = useCallback(
+    (term) => buildSearchSuggestions(sectionEntries, term, section, 1)[0] || null,
+    [sectionEntries, section]
+  );
+
   const {
     showSuggestions, setShowSuggestions,
     activeIndex, setActiveIndex,
@@ -505,6 +510,7 @@ export default function MainView({
     suggestions,
     onSelectEntry: (entry) => onSelectEntryRef.current?.(entry),
     inputRef: searchInputRef,
+    findBestMatch: findBestSearchMatch,
   });
 
   const filtered = useMemo(

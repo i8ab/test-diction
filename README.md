@@ -33,6 +33,8 @@ Push the repo as-is. Vercel detects Vite and turns `api/*.js` into serverless fu
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push |
 | `CRON_SECRET` | Protect scheduled reminder endpoint |
 | `GOOGLE_CLIENT_ID` | Optional social login |
+| `AI_AGENT_URL` | Base URL of the external AI agent (PDF extraction / tutor chat). Defaults to the current Railway deployment if unset. |
+| `AI_AGENT_SECRET` | Shared secret for the AI agent. **Server-only** — set this in Vercel, never in client code. `/api/ai-agent` proxies requests so the browser never sees it. |
 
 ---
 

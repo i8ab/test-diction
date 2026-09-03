@@ -6,8 +6,9 @@ import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { srsLevelFromStats, computeStreak, dateKey } from "../../lib/utils/quizHelpers";
 import { loadXp, levelFromXp } from "../../lib/state/xp";
 
-const AI_AGENT_URL = "https://web-production-40a8e.up.railway.app";
-const AI_API_SECRET = "bacaloria-secret-2026";
+// Calls go through /api/ai-agent so the real upstream secret stays
+// server-side and is never shipped to the browser bundle.
+const AI_AGENT_PROXY_URL = "/api/ai-agent?action=tutor-chat";
 
 const MAX_WEAK_SAMPLE = 20;
 const MAX_RECENT_SAMPLE = 10;
@@ -412,11 +413,10 @@ export default function TutorChatModal({
       .map((m) => ({ role: m.role, content: m.content }));
 
     try {
-      const res = await fetch(`${AI_AGENT_URL}/tutor-chat`, {
+      const res = await fetch(AI_AGENT_PROXY_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-API-Secret": AI_API_SECRET,
         },
         body: JSON.stringify({
           question,

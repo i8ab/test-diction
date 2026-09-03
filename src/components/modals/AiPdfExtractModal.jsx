@@ -5,8 +5,9 @@ import { XIcon, CheckIcon, LoaderIcon, BookIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import WaterProgressBar from "../common/WaterProgressBar";
 
-const AI_AGENT_URL = "https://web-production-40a8e.up.railway.app";
-const AI_API_SECRET = "bacaloria-secret-2026";
+// Calls go through /api/ai-agent so the real upstream secret stays
+// server-side and is never shipped to the browser bundle.
+const AI_AGENT_PROXY_URL = "/api/ai-agent?action=extract-pdf";
 
 /**
  * Upload a PDF textbook → AI Agent extracts vocabulary → admin picks words to add.
@@ -104,11 +105,8 @@ export default function AiPdfExtractModal({
       if (pf != null) form.append("page_from", String(pf));
       if (pt != null) form.append("page_to", String(pt));
 
-      const res = await fetch(`${AI_AGENT_URL}/extract-pdf`, {
+      const res = await fetch(AI_AGENT_PROXY_URL, {
         method: "POST",
-        headers: {
-          "X-API-Secret": AI_API_SECRET,
-        },
         body: form,
       });
 

@@ -30,12 +30,34 @@ Denied writes return `403 { ok:false, error:"forbidden", message }`.
 - JWT removed.
 - **Server-side ownership checks via actorCode** (this pass).
 - Indexes SQL: `docs/SUPABASE_INDEXES.sql` (apply in Supabase if not already).
+- **Fixed: account-takeover via `scope=accounts` public path** — `sanitizePublicAccountsMerge`
+  used to apply `PUBLIC_SOFT_KEYS` (including `passwordHash`, `email`, `sessionId`,
+  `authProvider`, `socialId`) to *any* existing account code present in the incoming
+  array, not just the signed-in actor's own row. An unauthenticated or any
+  active-but-non-staff caller could overwrite another user's password hash or
+  linked email/session. Fixed: the public (non-staff) path now only ever
+  touches the row matching the caller's own `actorCode`; every other existing
+  row in the incoming array is ignored (the DB copy is kept, as it already was
+  via the merge in `api/jsonbin.js`). See `lib/jsonbinAuthz.js`.
+- **Fixed: hardcoded AI agent secret shipped to the browser** — `AiPdfExtractModal.jsx`
+  and `TutorChatModal.jsx` called the external AI agent directly from client code
+  with a secret literal (`X-API-Secret`) visible to anyone via DevTools. Both now
+  call `/api/ai-agent` (new server-side proxy); the real secret lives only in the
+  `AI_AGENT_SECRET` env var. Also removed a stale duplicate `/components/modals/`
+  at the repo root that still had the old hardcoded secret and was dead code
+  (unimported, not part of `src/`).
 
 ## Still open
 
 1. Optional Argon2/scrypt password hashing with re-hash on login.
 2. CSP + stricter CORS for production origin.
 3. Further Phase D split of `api/jsonbin.js` (authz already extracted to `lib/jsonbinAuthz.js`).
+4. `ensureMigratedAccounts` (one-time username/birthDate normalization) no longer
+   back-fills *other* users' rows from a regular (non-staff) session, now that the
+   account-takeover path above is closed — it still fixes each user's own row on
+   their own login/save, and an admin session still migrates everyone. If a full
+   one-time bulk migration is needed, run it from a staff account or a one-off
+   admin script rather than relying on the public write path.
 
 ## Env
 

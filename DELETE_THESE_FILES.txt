@@ -1,5 +1,4 @@
-احذف إن وُجدت:
-  api/session.js
-  lib/sessionToken.js
-  src/lib/state/sessionAuth.js
-Vercel: امسح SESSION_SECRET
+احذف هذا الفولدر بالكامل من الريبو بعد رفع هذا الباتش (كود ميت مكرر فيه secret قديم مكشوف):
+  components/modals/AiPdfExtractModal.jsx
+  components/modals/WordZoomModal.jsx
+(أي فولدر components/ على مستوى الروت — خارج src/ — مش مستخدم أصلاً)

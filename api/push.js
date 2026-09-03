@@ -709,9 +709,9 @@ export default async function handler(req, res) {
     case "test":
       return handleTest(req, res);
     case "dayach":
-    case "dayAchSchedule":
+    case "dayachschedule":
       return handleDayAchSchedule(req, res);
-    case "dayAchNotifyDue":
+    case "dayachnotifydue":
     case "dayachnotify":
       return handleDayAchNotifyDue(req, res);
     default:

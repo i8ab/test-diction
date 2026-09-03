@@ -107,11 +107,10 @@ export default function ExamModeModal({
     function flush() {
       saveExamSession({ ...payload, answers: answersRef.current, endAt: endAtRef.current });
     }
+    // beforeunload disables bfcache in most browsers; pagehide alone is enough here.
     window.addEventListener("pagehide", flush);
-    window.addEventListener("beforeunload", flush);
     return () => {
       window.removeEventListener("pagehide", flush);
-      window.removeEventListener("beforeunload", flush);
     };
   }, [stage, modes, limit, timerMin, pool, questions, index, phase, selected, typedAnswer, answers, results, knew, learning, startedAt]);
 

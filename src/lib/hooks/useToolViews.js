@@ -78,11 +78,10 @@ export function useToolViews() {
         saveTimerView(showTimer, timerBubble);
       } catch (_) {}
     }
+    // beforeunload disables bfcache in most browsers; pagehide alone is enough here.
     window.addEventListener("pagehide", flush);
-    window.addEventListener("beforeunload", flush);
     return () => {
       window.removeEventListener("pagehide", flush);
-      window.removeEventListener("beforeunload", flush);
     };
   }, [showTimer, timerBubble]);
 

@@ -124,11 +124,10 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
     function flush() {
       saveQuizSession(payload);
     }
+    // beforeunload disables bfcache in most browsers; pagehide alone is enough here.
     window.addEventListener("pagehide", flush);
-    window.addEventListener("beforeunload", flush);
     return () => {
       window.removeEventListener("pagehide", flush);
-      window.removeEventListener("beforeunload", flush);
     };
   }, [stage, quizMode, questions, index, answers, startedAt, typedAnswer]);
 

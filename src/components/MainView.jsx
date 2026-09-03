@@ -404,11 +404,10 @@ export default function MainView({
     function flush() {
       setSessionOpenTool(tool, extra);
     }
+    // beforeunload disables bfcache in most browsers; pagehide alone is enough here.
     window.addEventListener("pagehide", flush);
-    window.addEventListener("beforeunload", flush);
     return () => {
       window.removeEventListener("pagehide", flush);
-      window.removeEventListener("beforeunload", flush);
     };
   }, [
     showExamMode, showQuiz, quizDueOnly, showFlashcards, showDictation,

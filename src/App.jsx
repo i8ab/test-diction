@@ -420,12 +420,12 @@ export default function DictionaryApp() {
     function onVis() {
       if (document.visibilityState === "hidden") snap();
     }
+    // pagehide + visibilitychange cover the close/background cases without
+    // beforeunload, which disables the back/forward cache in most browsers.
     window.addEventListener("pagehide", snap);
-    window.addEventListener("beforeunload", snap);
     document.addEventListener("visibilitychange", onVis);
     return () => {
       window.removeEventListener("pagehide", snap);
-      window.removeEventListener("beforeunload", snap);
       document.removeEventListener("visibilitychange", onVis);
     };
   }, []);

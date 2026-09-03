@@ -385,12 +385,11 @@ export default function TimerPage({ onClose, isAr, accountCode, onBubbleChange, 
         if (fn) fn().catch(() => {});
       }
     }
+    // beforeunload disables bfcache in most browsers; pagehide alone is enough here.
     window.addEventListener("pagehide", markUnload);
-    window.addEventListener("beforeunload", markUnload);
     document.addEventListener("visibilitychange", onVis);
     return () => {
       window.removeEventListener("pagehide", markUnload);
-      window.removeEventListener("beforeunload", markUnload);
       document.removeEventListener("visibilitychange", onVis);
     };
   }, []);

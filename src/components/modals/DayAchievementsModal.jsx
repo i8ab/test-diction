@@ -1,7 +1,7 @@
 /**
  * Day achievements — table layout, recall % at review, weakness notes per review.
  */
-import { useState, useEffect, useMemo, Fragment } from "react";
+import { useState, useEffect, useMemo, useRef, Fragment } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, primaryBtnStyle } from "../../lib/config/theme";
 import { XIcon, CheckIcon, PlusIcon, TrashIcon } from "../common/Icons";
@@ -67,11 +67,28 @@ export default function DayAchievementsModal({
     saveDayAchievementNotifsEnabled(notifsOn, accountCode);
   }, [notifsOn, accountCode]);
 
-  // Sync due SRS items to server → real Web Push via same cron as study reminders
+  // Sync due SRS items to server → real Web Push via same cron as study reminders.
+  // Only the server-relevant subset (id/dueAt/notifiedDueAt of SRS items + the
+  // notifs toggle) is compared against the last payload actually sent, so
+  // unrelated edits (title/notes/recall %, or a new array reference from
+  // purging) don't re-upload the same schedule over and over.
+  const lastSyncedScheduleRef = useRef(null);
   useEffect(() => {
     if (!accountCode || accountCode === "guest") return;
+    const relevant = notifsOn
+      ? list
+          .filter((e) => e && e.useSrs && typeof e.srsDueAt === "number")
+          .map((e) => [e.id, e.srsDueAt, e.pushNotifiedDueAt ?? null])
+          .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+      : [];
+    const signature = JSON.stringify({ code: accountCode, on: notifsOn, items: relevant });
+    if (signature === lastSyncedScheduleRef.current) return;
     const t = setTimeout(() => {
-      syncDayAchievementPushSchedule(accountCode, list, notifsOn).catch(() => {});
+      syncDayAchievementPushSchedule(accountCode, list, notifsOn)
+        .then(() => {
+          lastSyncedScheduleRef.current = signature;
+        })
+        .catch(() => {});
     }, 400);
     return () => clearTimeout(t);
   }, [list, accountCode, notifsOn]);

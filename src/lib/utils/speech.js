@@ -673,7 +673,13 @@ export async function recognizeSpeech(lang, {
   } catch (_) {}
 
   const hint = String(hintWord || "").trim();
-  const webScore = hint && webText ? similarityScore(hint, webText) : (webText ? 50 : 0);
+  // No target word to compare against (plain search dictation) — trust
+  // Web Speech's own result as-is instead of forcing a slow Whisper
+  // fallback that was never going to "win" (its heuristic score of 50
+  // could never clear the 80 threshold below).
+  if (!hint) return webText;
+
+  const webScore = webText ? similarityScore(hint, webText) : 0;
 
   // Strong match from Web Speech — no need for Whisper
   if (webText && webScore >= 80) return webText;
@@ -690,7 +696,6 @@ export async function recognizeSpeech(lang, {
   } catch (_) {}
 
   if (!webText && !whisperText) return "";
-  if (!hint) return webText || whisperText;
 
   const wScore = whisperText ? similarityScore(hint, whisperText) : -1;
   if (wScore > webScore) return whisperText;

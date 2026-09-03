@@ -1,6 +1,7 @@
 // Modern admin panel: accounts, activity log, invite & backup tools.
 // عزل الإجراءات: المودال يجلب الحسابات والسجلات بنفسه عبر useAdminAccounts.
 import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import { formatBacSummary } from "../../lib/config/baccalaureate";
 import { INK, CARD, BRASS, labelStyle, inputStyle, errorStyle, primaryBtnStyle } from "../../lib/config/theme";
@@ -263,7 +264,7 @@ function AdminModal({
     { id: "tools", label: tr(isAr, "Tools", "أدوات"), icon: SettingsIcon },
   ];
 
-  return (
+  return createPortal(
     <div
       onClick={goBack}
       className="modal-backdrop"
@@ -1054,7 +1055,8 @@ function AdminModal({
         </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

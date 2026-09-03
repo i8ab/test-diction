@@ -11,7 +11,7 @@ import {
  * Optional onSelectEntry(entry) is called after a suggestion is chosen
  * (e.g. to open zoom / scroll to the word).
  */
-export function useEntrySearch({ section, query, setQuery, suggestions, onSelectEntry }) {
+export function useEntrySearch({ section, query, setQuery, suggestions, onSelectEntry, inputRef }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [showHistory, setShowHistory] = useState(false);
@@ -33,19 +33,32 @@ export function useEntrySearch({ section, query, setQuery, suggestions, onSelect
     [section]
   );
 
+  // Dismiss the on-screen keyboard once a search is committed, so it stops
+  // covering the results/suggestions on mobile. Never touches the query
+  // text itself — the typed word stays visible in the box.
+  const dismissKeyboard = useCallback(() => {
+    try {
+      inputRef?.current?.blur?.();
+    } catch (_) {}
+  }, [inputRef]);
+
   const selectSuggestion = useCallback(
     (entry) => {
-      setQuery(entry.word);
+      // Picking a suggestion jumps straight to that word (zoom card), so
+      // there's nothing left to filter on — clear the box instead of
+      // leaving the word sitting in it.
+      setQuery("");
       setShowSuggestions(false);
       setShowHistory(false);
       setActiveIndex(-1);
       commitSearchTerm(entry.word);
+      dismissKeyboard();
       if (typeof onSelectEntry === "function" && entry) {
         // Defer so the query filter can settle; parent can open zoom / scroll
         requestAnimationFrame(() => onSelectEntry(entry));
       }
     },
-    [setQuery, commitSearchTerm, onSelectEntry]
+    [setQuery, commitSearchTerm, onSelectEntry, dismissKeyboard]
   );
 
   const selectHistoryTerm = useCallback(
@@ -54,8 +67,9 @@ export function useEntrySearch({ section, query, setQuery, suggestions, onSelect
       setShowHistory(false);
       setShowSuggestions(false);
       commitSearchTerm(term);
+      dismissKeyboard();
     },
-    [setQuery, commitSearchTerm]
+    [setQuery, commitSearchTerm, dismissKeyboard]
   );
 
   const handleRemoveHistoryTerm = useCallback(
@@ -91,6 +105,7 @@ export function useEntrySearch({ section, query, setQuery, suggestions, onSelect
         } else if (String(query || "").trim()) {
           commitSearchTerm(query);
           setShowSuggestions(false);
+          dismissKeyboard();
         }
       } else if (e.key === "Escape") {
         setShowSuggestions(false);
@@ -105,6 +120,7 @@ export function useEntrySearch({ section, query, setQuery, suggestions, onSelect
       query,
       selectSuggestion,
       commitSearchTerm,
+      dismissKeyboard,
     ]
   );
 

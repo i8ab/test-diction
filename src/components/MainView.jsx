@@ -340,7 +340,7 @@ export default function MainView({
   }, [
     showQuiz, showGoals, showTodo, showAccount, showAdd,
     showFlashcards, showDictation, showExamMode, showSmartCards,
-    showTimer, showCalendar, showStats, showLeaderboard,
+    showTimer, showCalendar, showSchedule, showStats, showLeaderboard,
     showDashboard, showWordLists, showChallenges,
   ]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -504,6 +504,7 @@ export default function MainView({
     setQuery,
     suggestions,
     onSelectEntry: (entry) => onSelectEntryRef.current?.(entry),
+    inputRef: searchInputRef,
   });
 
   const filtered = useMemo(

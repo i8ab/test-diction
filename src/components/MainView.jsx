@@ -1111,8 +1111,16 @@ export default function MainView({
               style={{
                 width: "100%",
                 padding: "11px 12px",
-                paddingInlineStart: 44,
-                paddingInlineEnd: (query.trim() ? 68 : 0) + (speechSupported ? 38 : 12),
+                // Physical (not logical) padding: the search icon and the
+                // clear/mic buttons are positioned against the wrapper's
+                // fixed page direction, but the input's own dir="auto"
+                // flips per keystroke when Arabic is typed. Using
+                // logical paddingInlineStart/End here made the reserved
+                // space flip along with the typed text, so the buttons
+                // ended up overlapping the value. Pin the padding to the
+                // page direction instead so it always matches the icons.
+                [isAr ? "paddingRight" : "paddingLeft"]: 44,
+                [isAr ? "paddingLeft" : "paddingRight"]: (query.trim() ? 68 : 0) + (speechSupported ? 38 : 12),
                 fontSize: 15,
                 border: "1px solid rgba(var(--border-rgb),0.2)",
                 borderRadius: 12,

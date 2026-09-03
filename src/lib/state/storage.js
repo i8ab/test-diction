@@ -1555,9 +1555,13 @@ export function guessDeviceMode() {
 }
 
 
-export function loadSearchHistory() {
+export function historyKeyFor(section) {
+  return section ? `${HISTORY_KEY}.${section}` : HISTORY_KEY;
+}
+
+export function loadSearchHistory(section) {
   try {
-    const raw = localStorage.getItem(HISTORY_KEY);
+    const raw = localStorage.getItem(historyKeyFor(section));
     if (!raw) return [];
     const arr = JSON.parse(raw);
     return Array.isArray(arr) ? arr.slice(0, 30) : [];
@@ -1566,28 +1570,28 @@ export function loadSearchHistory() {
   }
 }
 
-export function saveSearchHistory(list) {
+export function saveSearchHistory(list, section) {
   try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify((list || []).slice(0, 30)));
+    localStorage.setItem(historyKeyFor(section), JSON.stringify((list || []).slice(0, 30)));
   } catch (_) {}
 }
 
-export function addToSearchHistory(q) {
+export function addToSearchHistory(section, q) {
   const query = String(q || "").trim();
-  if (!query) return loadSearchHistory();
-  const prev = loadSearchHistory().filter((x) => x !== query);
+  if (!query) return loadSearchHistory(section);
+  const prev = loadSearchHistory(section).filter((x) => x !== query);
   const next = [query, ...prev].slice(0, 30);
-  saveSearchHistory(next);
+  saveSearchHistory(next, section);
   return next;
 }
 
-export function removeFromSearchHistory(q) {
-  const next = loadSearchHistory().filter((x) => x !== q);
-  saveSearchHistory(next);
+export function removeFromSearchHistory(section, q) {
+  const next = loadSearchHistory(section).filter((x) => x !== q);
+  saveSearchHistory(next, section);
   return next;
 }
 
-export function clearSearchHistory() {
-  saveSearchHistory([]);
+export function clearSearchHistory(section) {
+  saveSearchHistory([], section);
   return [];
 }

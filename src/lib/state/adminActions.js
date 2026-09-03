@@ -11,6 +11,7 @@ import {
 } from "../utils/authUtils";
 import { generatePersonalCode } from "./storage";
 import { makeLogEntry } from "./logs";
+import { apiErrorMessage } from "../utils/apiErrorMessage";
 
 /**
  * Current user updates their own profile.
@@ -136,6 +137,8 @@ export async function adminAddAccount({
   accountCode,
   accounts,
   persistAccounts,
+  appIsAr = false,
+  showToast,
 }) {
   const trimmed = (newName || "").trim();
   if (!trimmed) return { error: "Enter a name." };
@@ -166,7 +169,13 @@ export async function adminAddAccount({
     name,
     accountCode
   );
-  await persistAccounts(nextAccounts, logEntry);
+  try {
+    await persistAccounts(nextAccounts, logEntry);
+  } catch (err) {
+    const msg = apiErrorMessage(err, appIsAr);
+    if (typeof showToast === "function") showToast(msg);
+    return { error: msg };
+  }
   return { ok: true, code, username: uCheck.username };
 }
 
@@ -181,6 +190,7 @@ export async function adminEditAccount({
   persistAccounts,
   setName,
   setIsAdmin,
+  showToast,
 }) {
   const trimmedName = (updates.name || "").trim();
   if (!trimmedName) return { error: "Enter a name." };
@@ -229,7 +239,13 @@ export async function adminEditAccount({
     name,
     accountCode
   );
-  await persistAccounts(nextAccounts, logEntry);
+  try {
+    await persistAccounts(nextAccounts, logEntry);
+  } catch (err) {
+    const msg = apiErrorMessage(err, appIsAr);
+    if (typeof showToast === "function") showToast(msg);
+    return { error: msg };
+  }
   if (targetCode === accountCode) {
     setName(trimmedName);
     setIsAdmin(nextRole === "admin" || nextRole === "teacher");

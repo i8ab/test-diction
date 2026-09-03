@@ -1722,6 +1722,8 @@ export default function DictionaryApp() {
       accountCode,
       accounts,
       persistAccounts,
+      appIsAr,
+      showToast,
     });
   }
 
@@ -1737,6 +1739,7 @@ export default function DictionaryApp() {
       persistAccounts,
       setName,
       setIsAdmin,
+      showToast,
     });
   }
 

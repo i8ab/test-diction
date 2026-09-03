@@ -166,8 +166,14 @@ function AdminModal({
     e.preventDefault();
     setSaving(true);
     setError("");
-    const result = await onAdd(formName, formRole, formUsername);
-    setSaving(false);
+    let result;
+    try {
+      result = await onAdd(formName, formRole, formUsername);
+    } catch (_) {
+      result = { error: isAr ? "تعذّر الحفظ — حاول مرة أخرى." : "Could not save — try again." };
+    } finally {
+      setSaving(false);
+    }
     if (result && result.error) {
       setError(translateAdminError(result.error, isAr));
       return;
@@ -181,8 +187,14 @@ function AdminModal({
     e.preventDefault();
     setSaving(true);
     setError("");
-    const result = await onEdit(editingCode, { name: formName, role: formRole, username: formUsername, status: formStatus });
-    setSaving(false);
+    let result;
+    try {
+      result = await onEdit(editingCode, { name: formName, role: formRole, username: formUsername, status: formStatus });
+    } catch (_) {
+      result = { error: isAr ? "تعذّر الحفظ — حاول مرة أخرى." : "Could not save — try again." };
+    } finally {
+      setSaving(false);
+    }
     if (result && result.error) {
       setError(translateAdminError(result.error, isAr));
       return;

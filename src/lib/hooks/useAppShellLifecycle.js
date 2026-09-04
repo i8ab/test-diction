@@ -78,10 +78,28 @@ export function useAppShellLifecycle() {
     };
   }, []);
 
-  // Service worker register + single reload on controllerchange
+  // Service worker register + single reload on controllerchange.
+  //
+  // PERF FIX (deep): on a *first-ever* visit there is no pre-existing
+  // controller, so the browser activates the newly installed worker
+  // immediately (no waiting phase needed). That activation still fires
+  // `controllerchange`, which this code used to treat as "an update just
+  // landed" and reacted to with a full `location.reload()`. The result:
+  // every brand-new visitor loaded the entire app twice back-to-back
+  // (two full navigations, JS parsed/executed twice, fonts/CSS re-applied
+  // twice) — this alone was responsible for most of the Total Blocking
+  // Time / Time-to-Interactive cost in the Lighthouse trace.
+  //
+  // Fix: only treat `controllerchange` as "a genuine update happened" when
+  // this tab already had an active controller *before* registering (i.e.
+  // the user was already using a previously-installed SW and a newer one
+  // just took over). First-ever installs are left alone — the page just
+  // loaded from the network a moment ago, so there is nothing stale to
+  // recover from and no reload is needed.
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
     let cancelled = false;
+    const hadControllerBeforeRegister = !!navigator.serviceWorker.controller;
     navigator.serviceWorker
       .register("/sw.js", { updateViaCache: "none" })
       .then((reg) => {
@@ -107,6 +125,9 @@ export function useAppShellLifecycle() {
       })
       .catch(() => {});
     const onControllerChange = () => {
+      // Not a real update — this is the initial activation on a page that
+      // had no SW controlling it yet. Nothing to refresh.
+      if (!hadControllerBeforeRegister) return;
       if (isRefreshInFlight()) return;
       beginRefreshLock();
       try {

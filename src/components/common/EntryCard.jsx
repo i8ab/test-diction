@@ -362,7 +362,11 @@ function EntryCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 title={tr(isAr, "Cambridge Dictionary", "قاموس كامبريدج")}
-                aria-label={tr(isAr, "Open in Cambridge Dictionary", "افتح في قاموس كامبريدج")}
+                aria-label={tr(
+                  isAr,
+                  `Open "${entry.word}" in Cambridge Dictionary`,
+                  `افتح "${entry.word}" في قاموس كامبريدج`
+                )}
                 className="lift-hover entry-cam-link"
                 style={ctrlChipStyle}
               >

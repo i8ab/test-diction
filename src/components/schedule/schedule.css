@@ -117,7 +117,6 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
   padding: 12px 14px 24px;
   padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
 }
@@ -587,6 +586,13 @@
   justify-content: center;
   padding: 12px;
   padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  /* Forces its own top compositing layer on iOS Safari so it always paints
+     above scrolled content, even content that got promoted to its own
+     layer (e.g. inside .sch-body). Plain z-index alone isn't always
+     enough across separate compositing layers on WebKit. */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
 }
 
 .sch-editor {
@@ -917,7 +923,7 @@
 }
 
 .sch-editor-backdrop {
-  z-index: 20;
+  z-index: 9999;
 }
 
 

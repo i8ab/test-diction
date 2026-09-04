@@ -107,28 +107,29 @@ function renderCard(entry, index) {
   // synonym/antonym set, or example the app shows on the card.
   const senses = getEntrySenses(entry);
   const multi = senses.length > 1;
-  const pos = !multi && entry.pos ? `<span class="pos">${escapeHtml(entry.pos)}</span>` : "";
+  // All types up top next to the word — same idea as the app's word card,
+  // which shows every POS as a chip beside the word instead of burying it
+  // in each meaning's line.
+  const posList = multi
+    ? [...new Set(senses.map((s) => s.pos).filter(Boolean))]
+    : entry.pos
+    ? [entry.pos]
+    : [];
+  const pos = posList.map((p) => `<span class="pos">${escapeHtml(p)}</span>`).join(" ");
 
   let body;
   if (senses.length) {
     body = senses
       .map((sense, i) => {
-        const label = multi
-          ? `<div class="sense">${escapeHtml(
-              [sense.pos, sense.meaning].filter(Boolean).join(" · ") || `Sense ${i + 1}`
-            )}</div>`
-          : sense.pos
-          ? ""
-          : "";
-        const meaningRow = multi
-          ? ""
-          : `
+        // Every meaning gets a plain "Meaning" row in the same green used
+        // everywhere else — no separate amber "sense" line.
+        const meaningRow = `
       <div class="field">
-        <div class="lab">Meaning</div>
+        <div class="lab">${multi ? `Meaning ${i + 1}` : "Meaning"}</div>
         <div class="val meaning">${escapeHtml(sense.meaning)}</div>
       </div>`;
         const split = i > 0 ? '<div class="split"></div>' : "";
-        return `${split}${label}${meaningRow}${renderFields(sense, entry.word)}`;
+        return `${split}${meaningRow}${renderFields(sense, entry.word)}`;
       })
       .join("");
     const wholeWordNote = entry.notes || entry.note;

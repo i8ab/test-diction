@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, primaryBtnStyle, inputStyle } from "../../lib/config/theme";
-import { XIcon, CheckIcon, LoaderIcon, BookIcon } from "../common/Icons";
+import { XIcon, CheckIcon, LoaderIcon, BookIcon, SearchIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import WaterProgressBar from "../common/WaterProgressBar";
 
@@ -29,6 +29,7 @@ export default function AiPdfExtractModal({
   const [extracted, setExtracted] = useState([]);
   const [selected, setSelected] = useState(() => new Set());
   const [error, setError] = useState("");
+  const [reviewSearch, setReviewSearch] = useState("");
   const [progressMsg, setProgressMsg] = useState("");
   // Destination dictionary: EN→AR, Academic, or AR→AR (independent of current tab)
   const [targetSection, setTargetSection] = useState(
@@ -186,6 +187,55 @@ export default function AiPdfExtractModal({
 
   function deselectAll() {
     setSelected(new Set());
+  }
+
+  // Search box: filter the review list by word/meaning so you don't have to
+  // scroll and click cards one by one to find a specific word.
+  const filteredExtracted = useMemo(() => {
+    const q = reviewSearch.trim().toLowerCase();
+    if (!q) return extracted;
+    return extracted.filter(
+      (e) =>
+        String(e.word || "").toLowerCase().includes(q) ||
+        String(e.meaning || "").toLowerCase().includes(q)
+    );
+  }, [extracted, reviewSearch]);
+
+  // Group the (filtered) list by part-of-speech so whole groups — e.g. all
+  // nouns, or everything matching a search — can be selected in one tap
+  // instead of picking each word card individually.
+  const reviewGroups = useMemo(() => {
+    const map = new Map();
+    for (const e of filteredExtracted) {
+      const g = e.pos || tr(isAr, "Other", "أخرى");
+      if (!map.has(g)) map.set(g, []);
+      map.get(g).push(e);
+    }
+    return [...map.entries()];
+  }, [filteredExtracted, isAr]);
+
+  function selectGroup(list) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const e of list) if (!e.alreadyExists) next.add(entryKey(e));
+      return next;
+    });
+  }
+
+  function clearGroup(list) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const e of list) next.delete(entryKey(e));
+      return next;
+    });
+  }
+
+  function selectAllFiltered() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const e of filteredExtracted) if (!e.alreadyExists) next.add(entryKey(e));
+      return next;
+    });
   }
 
   async function handleConfirm() {
@@ -535,11 +585,17 @@ export default function AiPdfExtractModal({
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  marginBottom: 12,
+                  marginBottom: 10,
+                  flexWrap: "wrap",
+                  gap: 8,
                 }}
               >
                 <div style={{ fontWeight: 700, fontSize: 14, color: INK }}>
-                  {tr(isAr, `Found ${extracted.length} words`, `تم العثور على ${extracted.length} كلمة`)}
+                  {tr(
+                    isAr,
+                    `Found ${extracted.length} words · ${selected.size} selected`,
+                    `تم العثور على ${extracted.length} كلمة · ${selected.size} محددة`
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button
@@ -555,7 +611,7 @@ export default function AiPdfExtractModal({
                       cursor: "pointer",
                     }}
                   >
-                    {tr(isAr, "Select new", "تحديد الجديد")}
+                    {tr(isAr, "Select all", "تحديد الكل")}
                   </button>
                   <button
                     onClick={deselectAll}
@@ -575,98 +631,202 @@ export default function AiPdfExtractModal({
                 </div>
               </div>
 
+              {/* Search box — jump straight to a word instead of scrolling
+                  through every card to find it. */}
+              <div style={{ position: "relative", marginBottom: 10 }}>
+                <SearchIcon
+                  size={15}
+                  style={{
+                    position: "absolute",
+                    insetInlineStart: 12,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "var(--muted)",
+                    pointerEvents: "none",
+                  }}
+                />
+                <input
+                  type="text"
+                  value={reviewSearch}
+                  onChange={(e) => setReviewSearch(e.target.value)}
+                  placeholder={tr(isAr, "Search a word…", "دور على كلمة…")}
+                  style={{
+                    ...inputStyle,
+                    margin: 0,
+                    width: "100%",
+                    boxSizing: "border-box",
+                    paddingInlineStart: 36,
+                  }}
+                />
+              </div>
+
+              {reviewSearch.trim() && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                    {tr(isAr, `${filteredExtracted.length} match`, `${filteredExtracted.length} نتيجة`)}
+                  </span>
+                  <button
+                    onClick={selectAllFiltered}
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      padding: "5px 10px",
+                      borderRadius: 8,
+                      border: "1px solid rgba(var(--border-rgb),0.2)",
+                      background: "var(--input-bg)",
+                      color: "var(--accent-1, var(--muted-strong))",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {tr(isAr, "Select these", "حدد دول")}
+                  </button>
+                </div>
+              )}
+
               <div
                 style={{
                   maxHeight: 340,
                   overflowY: "auto",
                   display: "flex",
                   flexDirection: "column",
-                  gap: 8,
+                  gap: 14,
                   marginBottom: 14,
                 }}
               >
-                {extracted.map((e) => {
-                  const key = entryKey(e);
-                  const isSelected = selected.has(key);
-                  const isDup = e.alreadyExists;
+                {reviewGroups.length === 0 && (
+                  <div style={{ padding: 14, textAlign: "center", fontSize: 13, color: "var(--muted)" }}>
+                    {tr(isAr, "No matching words", "مفيش كلمات مطابقة")}
+                  </div>
+                )}
+                {reviewGroups.map(([group, list]) => {
+                  const selectableCount = list.filter((e) => !e.alreadyExists).length;
+                  const selectedCount = list.filter((e) => selected.has(entryKey(e))).length;
+                  const allSelected = selectableCount > 0 && selectedCount === selectableCount;
                   return (
-                    <label
-                      key={e.id || key}
-                      style={{
-                        display: "flex",
-                        gap: 12,
-                        padding: "12px 14px",
-                        borderRadius: 12,
-                        background: isDup
-                          ? "rgba(120,120,120,0.08)"
-                          : isSelected
-                          ? "rgba(var(--accent-rgb, 100,180,255),0.12)"
-                          : "var(--input-bg)",
-                        border: `1px solid ${
-                          isSelected ? "rgba(var(--accent-rgb, 100,180,255),0.35)" : "rgba(var(--border-rgb),0.1)"
-                        }`,
-                        cursor: isDup ? "default" : "pointer",
-                        opacity: isDup ? 0.55 : 1,
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={isDup}
-                        onChange={() => !isDup && toggle(key)}
-                        style={{ marginTop: 3, width: 16, height: 16 }}
-                      />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-                          <span style={{ fontWeight: 800, fontSize: 15, color: INK }}>{e.word}</span>
-                          {e.pos && (
-                            <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
-                              {e.pos}
-                            </span>
-                          )}
-                          {isDup && (
-                            <span
-                              style={{
-                                fontSize: 11,
-                                fontWeight: 700,
-                                color: "var(--muted)",
-                                background: "rgba(120,120,120,0.15)",
-                                padding: "2px 7px",
-                                borderRadius: 6,
-                              }}
-                            >
-                              {tr(isAr, "Already exists", "موجودة")}
-                            </span>
-                          )}
-                        </div>
-                        <div
+                    <div key={group}>
+                      {/* Group header: one tap selects/clears every word of this
+                          part-of-speech (or every word left after a search) —
+                          the "select whole section" shortcut. */}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 6,
+                          padding: "0 2px",
+                        }}
+                      >
+                        <span style={{ fontSize: 12, fontWeight: 800, color: "var(--muted-strong)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                          {group} · {list.length}
+                        </span>
+                        <button
+                          onClick={() => (allSelected ? clearGroup(list) : selectGroup(list))}
+                          disabled={selectableCount === 0}
                           style={{
-                            marginTop: 3,
-                            fontSize: 14,
-                            color: "var(--meaning, var(--muted-strong))",
-                            direction: "rtl",
-                            fontFamily: "'Amiri', serif",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: "4px 9px",
+                            borderRadius: 7,
+                            border: "none",
+                            background: "transparent",
+                            color: selectableCount === 0 ? "var(--muted)" : "var(--accent-1, var(--muted-strong))",
+                            cursor: selectableCount === 0 ? "default" : "pointer",
+                            opacity: selectableCount === 0 ? 0.5 : 1,
                           }}
                         >
-                          {e.meaning}
-                        </div>
-                        {(e.synonyms?.length > 0 || e.antonyms?.length > 0) && (
-                          <div style={{ marginTop: 4, fontSize: 12, color: "var(--muted)" }}>
-                            {e.synonyms?.length > 0 && (
-                              <span>
-                                ≈ {Array.isArray(e.synonyms) ? e.synonyms.join(", ") : ""}
-                              </span>
-                            )}
-                            {e.synonyms?.length > 0 && e.antonyms?.length > 0 && " · "}
-                            {e.antonyms?.length > 0 && (
-                              <span>
-                                ≠ {Array.isArray(e.antonyms) ? e.antonyms.join(", ") : ""}
-                              </span>
-                            )}
-                          </div>
-                        )}
+                          {allSelected
+                            ? tr(isAr, "Clear group", "إلغاء القسم")
+                            : tr(isAr, `Select all (${selectableCount})`, `تحديد الكل (${selectableCount})`)}
+                        </button>
                       </div>
-                    </label>
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {list.map((e) => {
+                          const key = entryKey(e);
+                          const isSelected = selected.has(key);
+                          const isDup = e.alreadyExists;
+                          return (
+                            <label
+                              key={e.id || key}
+                              style={{
+                                display: "flex",
+                                gap: 12,
+                                padding: "12px 14px",
+                                borderRadius: 12,
+                                background: isDup
+                                  ? "rgba(120,120,120,0.08)"
+                                  : isSelected
+                                  ? "rgba(var(--accent-rgb, 100,180,255),0.12)"
+                                  : "var(--input-bg)",
+                                border: `1px solid ${
+                                  isSelected ? "rgba(var(--accent-rgb, 100,180,255),0.35)" : "rgba(var(--border-rgb),0.1)"
+                                }`,
+                                cursor: isDup ? "default" : "pointer",
+                                opacity: isDup ? 0.55 : 1,
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                disabled={isDup}
+                                onChange={() => !isDup && toggle(key)}
+                                style={{ marginTop: 3, width: 16, height: 16 }}
+                              />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                                  <span style={{ fontWeight: 800, fontSize: 15, color: INK }}>{e.word}</span>
+                                  {e.pos && (
+                                    <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                                      {e.pos}
+                                    </span>
+                                  )}
+                                  {isDup && (
+                                    <span
+                                      style={{
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        color: "var(--muted)",
+                                        background: "rgba(120,120,120,0.15)",
+                                        padding: "2px 7px",
+                                        borderRadius: 6,
+                                      }}
+                                    >
+                                      {tr(isAr, "Already exists", "موجودة")}
+                                    </span>
+                                  )}
+                                </div>
+                                <div
+                                  style={{
+                                    marginTop: 3,
+                                    fontSize: 14,
+                                    color: "var(--meaning, var(--muted-strong))",
+                                    direction: "rtl",
+                                    fontFamily: "'Amiri', serif",
+                                  }}
+                                >
+                                  {e.meaning}
+                                </div>
+                                {(e.synonyms?.length > 0 || e.antonyms?.length > 0) && (
+                                  <div style={{ marginTop: 4, fontSize: 12, color: "var(--muted)" }}>
+                                    {e.synonyms?.length > 0 && (
+                                      <span>
+                                        ≈ {Array.isArray(e.synonyms) ? e.synonyms.join(", ") : ""}
+                                      </span>
+                                    )}
+                                    {e.synonyms?.length > 0 && e.antonyms?.length > 0 && " · "}
+                                    {e.antonyms?.length > 0 && (
+                                      <span>
+                                        ≠ {Array.isArray(e.antonyms) ? e.antonyms.join(", ") : ""}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -693,6 +853,7 @@ export default function AiPdfExtractModal({
                     setExtracted([]);
                     setSelected(new Set());
                     setFile(null);
+                    setReviewSearch("");
                   }}
                   style={{
                     flex: 1,

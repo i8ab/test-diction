@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, labelStyle, inputStyle, primaryBtnStyle } from "../../lib/config/theme";
-import { XIcon, DownloadIcon } from "../common/Icons";
+import { XIcon, DownloadIcon, SearchIcon, CheckIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { exportWordListPdf } from "../../lib/utils/wordListPdf";
+import { groupEntriesByLetter } from "../../lib/utils/entryListUtils";
 
 /**
  * Dedicated "Export words as PDF" modal.
@@ -22,11 +23,54 @@ export default function WordExportPdfModal({
   showToast,
 }) {
   const [title, setTitle] = useState("");
+  const [browseQuery, setBrowseQuery] = useState("");
 
   const marked = useMemo(
     () => entries.filter((e) => markedIds && markedIds.has(e.id)),
     [entries, markedIds]
   );
+
+  // All words in the current dictionary section, available to add without
+  // hunting them down one by one on their card in the main list.
+  const sectionEntries = useMemo(
+    () => entries.filter((e) => e.section === section),
+    [entries, section]
+  );
+
+  const browseFiltered = useMemo(() => {
+    const q = browseQuery.trim().toLowerCase();
+    if (!q) return sectionEntries;
+    return sectionEntries.filter(
+      (e) =>
+        String(e.word || "").toLowerCase().includes(q) ||
+        String(e.meaning || "").toLowerCase().includes(q)
+    );
+  }, [sectionEntries, browseQuery]);
+
+  // Grouped by first letter so a whole letter group ("all of section ك", or
+  // everything matching a search) can be added in one tap.
+  const browseGroups = useMemo(() => {
+    const map = groupEntriesByLetter(browseFiltered, section);
+    return Object.keys(map)
+      .sort()
+      .map((letter) => [letter, map[letter]]);
+  }, [browseFiltered, section]);
+
+  function addGroup(list) {
+    for (const e of list) {
+      if (!markedIds || !markedIds.has(e.id)) onToggleMark(e.id);
+    }
+  }
+
+  function removeGroup(list) {
+    for (const e of list) {
+      if (markedIds && markedIds.has(e.id)) onToggleMark(e.id);
+    }
+  }
+
+  function addAllFiltered() {
+    addGroup(browseFiltered);
+  }
 
   function handleExport() {
     if (!marked.length) return;
@@ -150,6 +194,126 @@ export default function WordExportPdfModal({
               {tr(isAr, "Clear all", "مسح الكل")}
             </button>
           )}
+
+          {/* Search + select-all system: pick words without going back to
+              the main list and tapping each card individually. */}
+          <div style={{ fontSize: 12, color: "var(--muted-strong)", margin: "4px 0 6px" }}>
+            {tr(isAr, "Add more words", "إضافة كلمات تانية")}
+          </div>
+
+          <div style={{ position: "relative", marginBottom: 8 }}>
+            <SearchIcon
+              size={15}
+              style={{
+                position: "absolute",
+                insetInlineStart: 12,
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "var(--muted)",
+                pointerEvents: "none",
+              }}
+            />
+            <input
+              type="text"
+              value={browseQuery}
+              onChange={(e) => setBrowseQuery(e.target.value)}
+              placeholder={tr(isAr, "Search a word…", "دور على كلمة…")}
+              style={{ ...inputStyle, margin: 0, width: "100%", boxSizing: "border-box", paddingInlineStart: 36 }}
+            />
+          </div>
+
+          {browseQuery.trim() && browseFiltered.length > 0 && (
+            <button
+              type="button"
+              onClick={addAllFiltered}
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "1px solid rgba(var(--border-rgb),0.2)",
+                background: "var(--input-bg)",
+                color: "var(--accent-1, var(--muted-strong))",
+                cursor: "pointer",
+                marginBottom: 8,
+              }}
+            >
+              {tr(isAr, `Add all ${browseFiltered.length} matches`, `إضافة كل النتائج (${browseFiltered.length})`)}
+            </button>
+          )}
+
+          <div
+            style={{
+              maxHeight: 240,
+              overflowY: "auto",
+              border: "1px solid rgba(var(--border-rgb),0.12)",
+              borderRadius: 12,
+              padding: 8,
+              marginBottom: 16,
+            }}
+          >
+            {browseGroups.length === 0 && (
+              <div style={{ fontSize: 13, color: "var(--muted-strong)", textAlign: "center", padding: "14px 0" }}>
+                {tr(isAr, "No words found", "مفيش كلمات مطابقة")}
+              </div>
+            )}
+            {browseGroups.map(([letter, list]) => {
+              const allIn = list.every((e) => markedIds && markedIds.has(e.id));
+              return (
+                <div key={letter} style={{ marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: "var(--muted-strong)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      {letter} · {list.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => (allIn ? removeGroup(list) : addGroup(list))}
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: "3px 8px",
+                        borderRadius: 7,
+                        border: "none",
+                        background: "transparent",
+                        color: "var(--accent-1, var(--muted-strong))",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {allIn ? tr(isAr, "Remove all", "إزالة الكل") : tr(isAr, "Add all", "إضافة الكل")}
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {list.map((e) => {
+                      const on = markedIds && markedIds.has(e.id);
+                      return (
+                        <button
+                          key={e.id}
+                          type="button"
+                          onClick={() => onToggleMark(e.id)}
+                          style={{
+                            fontSize: 12,
+                            padding: "5px 10px",
+                            borderRadius: 16,
+                            border: on ? "1px solid var(--accent-1)" : "1px solid rgba(var(--border-rgb),0.2)",
+                            background: on ? "var(--accent-1-soft)" : "var(--input-bg)",
+                            color: on ? "var(--accent-1)" : "var(--muted-strong)",
+                            cursor: "pointer",
+                            fontWeight: 600,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 5,
+                          }}
+                        >
+                          {on && <CheckIcon size={11} />}
+                          {e.word}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
           <button
             type="button"

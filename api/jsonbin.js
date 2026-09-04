@@ -736,6 +736,10 @@ export default async function handler(req, res) {
                 { Prefer: "return=minimal" }
               );
             }
+            // Without this, other devices keep getting a cached entries list
+            // (Redis, up to 15s) that predates this word's edit — that's how
+            // a second meaning/type "only shows on the device that added it".
+            await invalidateHotCaches();
             return res.status(200).json({
               ok: true,
               version: nextVersion,
@@ -761,6 +765,7 @@ export default async function handler(req, res) {
                 { Prefer: "return=minimal" }
               );
             } catch (_) {}
+            await invalidateHotCaches();
             return res.status(200).json({
               ok: true,
               version: nextVersion,

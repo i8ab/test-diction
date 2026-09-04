@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from "react";
 import { tr } from "../lib/config/i18n";
 import { useHistoryBackClose, haptic } from "../lib/utils/useModalDismiss";
 import { INK, PAPER, CARD, BRASS, errorStyle } from "../lib/config/theme";
@@ -44,10 +44,13 @@ import { useToolViews } from "../lib/hooks/useToolViews";
 import { useEntrySearch } from "../lib/hooks/useEntrySearch";
 import { useStudyShortcuts } from "../lib/hooks/useStudyShortcuts";
 import { useListPagination } from "../lib/hooks/useListPagination";
-import WelcomeOnboardingModal, { hasSeenWelcome, markWelcomeSeen } from "./modals/WelcomeOnboardingModal";
+import { hasSeenWelcome, markWelcomeSeen } from "../lib/state/welcomeStatus";
 import { consumeSessionOpenTool, setSessionOpenTool } from "../lib/state/sessionUi";
 import { useSectionEntries } from "../lib/hooks/useSectionEntries";
 import { guessDeviceMode } from "../lib/state/storage";
+
+// Lazy: ~900-line onboarding modal only needed once per account on first visit.
+const WelcomeOnboardingModal = lazy(() => import("./modals/WelcomeOnboardingModal"));
 
 export default function MainView({
   name, isAdmin, isTeacher = false, entries, entriesLoaded, loadError, isOffline, offlineCachedAt, section, onChangeSection, query, setQuery,
@@ -1320,14 +1323,16 @@ export default function MainView({
       />
 
       {showWelcome && (
-        <WelcomeOnboardingModal
-          isAr={appIsAr}
-          userName={name}
-          onClose={() => {
-            markWelcomeSeen(accountCode);
-            setShowWelcome(false);
-          }}
-        />
+        <Suspense fallback={null}>
+          <WelcomeOnboardingModal
+            isAr={appIsAr}
+            userName={name}
+            onClose={() => {
+              markWelcomeSeen(accountCode);
+              setShowWelcome(false);
+            }}
+          />
+        </Suspense>
       )}
 
       <MainViewOverlays

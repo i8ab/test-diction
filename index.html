@@ -42,6 +42,9 @@
 <!-- Critical fonts only on preload; other weights share files / load on demand -->
 <link rel="preload" href="/fonts/amiri-arabic-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/source-sans-3-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<!-- Splash screen portrait is the LCP element on first load; preload it so the
+     browser doesn't wait for JS to discover it inside SplashScreen.jsx. -->
+<link rel="preload" href="/alexander-portrait.jpg" as="image" fetchpriority="high">
 <style>
 /* Amiri: 400 preloaded; 700 loads when bold text appears (no preload) */
 @font-face{font-family:'Amiri';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/amiri-arabic-400-normal.woff2') format('woff2');}

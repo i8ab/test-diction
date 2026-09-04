@@ -138,6 +138,7 @@ export default function SplashScreen({
             width={184}
             height={184}
             decoding="async"
+            fetchpriority="high"
           />
         </div>
 

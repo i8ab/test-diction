@@ -859,18 +859,6 @@ const CSS = `
 }
 `;
 
-export function hasSeenWelcome(accountCode) {
-  if (!accountCode || accountCode === "guest") return true;
-  try {
-    return localStorage.getItem("twoTongues.welcomeSeen." + accountCode) === "1";
-  } catch (_) {
-    return true;
-  }
-}
-
-export function markWelcomeSeen(accountCode) {
-  if (!accountCode || accountCode === "guest") return;
-  try {
-    localStorage.setItem("twoTongues.welcomeSeen." + accountCode, "1");
-  } catch (_) {}
-}
+// hasSeenWelcome / markWelcomeSeen moved to ../../lib/state/welcomeStatus.js
+// (re-exported here for any existing external imports of this file).
+export { hasSeenWelcome, markWelcomeSeen } from "../../lib/state/welcomeStatus";

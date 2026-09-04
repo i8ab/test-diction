@@ -426,6 +426,39 @@ function hexToRgb(hex) {
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
 
+function relativeLuminance({ r, g, b }) {
+  const lin = (c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+function contrastRatio(l1, l2) {
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/**
+ * Pick #111111 or #ffffff for text on a given accent background, choosing
+ * whichever actually clears WCAG AA (4.5:1) — or the higher-contrast option
+ * if neither does. A flat "L > 0.55 ? dark : light" luminance split (the
+ * previous approach) is wrong: plenty of mid-luminance accent colors (e.g.
+ * a burnt orange around L≈0.29) score under 0.55 but still fail 4.5:1
+ * against white text, since white only clears 4.5:1 against backgrounds
+ * with L <= ~0.18.
+ */
+function pickOnAccentColor(rgb) {
+  const L = relativeLuminance(rgb);
+  const whiteContrast = contrastRatio(L, 1);
+  const blackContrast = contrastRatio(L, 0);
+  if (whiteContrast >= 4.5 && whiteContrast >= blackContrast) return "#ffffff";
+  if (blackContrast >= 4.5) return "#111111";
+  // Neither clears AA — fall back to whichever contrasts more.
+  return whiteContrast >= blackContrast ? "#ffffff" : "#111111";
+}
+
 /** Build a full accent palette from a single hex color (custom theme). */
 export function buildCustomAccent(hex) {
   const rgb = hexToRgb(hex);
@@ -535,12 +568,7 @@ export function applyAccentTheme(id, mode, customHex) {
     // Readable text on accent fills (white accent / yellow → dark text)
     const rgb = hexToRgb(colors.a1);
     if (rgb) {
-      const lin = (c) => {
-        const s = c / 255;
-        return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-      };
-      const L = 0.2126 * lin(rgb.r) + 0.7152 * lin(rgb.g) + 0.0722 * lin(rgb.b);
-      root.style.setProperty("--on-accent", L > 0.55 ? "#111111" : "#ffffff", "important");
+      root.style.setProperty("--on-accent", pickOnAccentColor(rgb), "important");
     }
   } catch (_) {}
 }
@@ -624,13 +652,7 @@ export function applySkinTheme(id, mode) {
       null;
     const rgb = accentHex ? hexToRgb(accentHex) : null;
     if (rgb) {
-      // relative luminance (sRGB)
-      const lin = (c) => {
-        const s = c / 255;
-        return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-      };
-      const L = 0.2126 * lin(rgb.r) + 0.7152 * lin(rgb.g) + 0.0722 * lin(rgb.b);
-      root.style.setProperty("--on-accent", L > 0.55 ? "#111111" : "#ffffff", "important");
+      root.style.setProperty("--on-accent", pickOnAccentColor(rgb), "important");
     } else {
       root.style.setProperty("--on-accent", isDark ? "#111111" : "#ffffff", "important");
     }

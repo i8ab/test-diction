@@ -20,19 +20,34 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
   const [pos, setPos] = useState(isEdit ? (initialEntry.pos || (initialSenses[0] && initialSenses[0].pos) || "") : "");
   const [senses, setSenses] = useState(() => {
     if (isEdit && initialSenses.length > 1) {
-      return initialSenses.map((s) => ({ id: s.id || uid(), pos: s.pos || "", meaning: s.meaning || "" }));
+      return initialSenses.map((s) => ({
+        id: s.id || uid(),
+        pos: s.pos || "",
+        meaning: s.meaning || "",
+        definition: s.definition || "",
+        examples: s.examples && s.examples.length ? s.examples.slice() : [""],
+        notes: s.notes || "",
+      }));
     }
     if (isEdit && initialSenses.length === 1) {
-      return [{ id: uid(), pos: initialSenses[0].pos || initialEntry.pos || "", meaning: initialSenses[0].meaning || "" }];
+      return [{
+        id: uid(),
+        pos: initialSenses[0].pos || initialEntry.pos || "",
+        meaning: initialSenses[0].meaning || "",
+        definition: "",
+        examples: [""],
+        notes: "",
+      }];
     }
     return [
-      { id: uid(), pos: "", meaning: "" },
-      { id: uid(), pos: "", meaning: "" },
+      { id: uid(), pos: "", meaning: "", definition: "", examples: [""], notes: "" },
+      { id: uid(), pos: "", meaning: "", definition: "", examples: [""], notes: "" },
     ];
   });
   const [definition, setDefinition] = useState(isEdit ? (initialEntry.definition || "") : "");
   const [example, setExample] = useState(isEdit ? (initialEntry.example || "") : "");
   const [extraExamples, setExtraExamples] = useState(isEdit && initialEntry.examples ? initialEntry.examples : []);
+  const [notes, setNotes] = useState(isEdit ? (initialEntry.notes || "") : "");
   const [synonyms, setSynonyms] = useState(isEdit ? normalizePairs(initialEntry.synonyms, cfg) : []);
   const [antonyms, setAntonyms] = useState(isEdit ? normalizePairs(initialEntry.antonyms, cfg) : []);
   const [error, setError] = useState("");
@@ -107,6 +122,10 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  function nonEmpty(arr) {
+    return (arr || []).filter((x) => x && x.trim());
+  }
+
   function cleanPairs(list) {
     return list
       .map((p) => ({ id: p.id, word: p.word.trim(), meaning: p.meaning.trim() }))
@@ -133,24 +152,40 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
     let payloadMeaning = meaning.trim();
     let payloadPos = pos || "";
     let payloadSenses = undefined;
+    let cleanedSenses = null;
 
     if (multiSense) {
-      const cleaned = senses
-        .map((s) => ({ id: s.id || uid(), pos: s.pos || "", meaning: (s.meaning || "").trim() }))
+      cleanedSenses = senses
+        .map((s) => ({
+          id: s.id || uid(),
+          pos: s.pos || "",
+          meaning: (s.meaning || "").trim(),
+          definition: (s.definition || "").trim(),
+          examples: nonEmpty(s.examples).map((ex) => ex.trim()),
+          notes: (s.notes || "").trim(),
+        }))
         .filter((s) => s.meaning);
-      if (!cleaned.length) {
+      if (!cleanedSenses.length) {
         setError(tr(isAr, "Add at least one meaning.", "ضيف معنى واحد على الأقل."));
         return;
       }
-      payloadSenses = cleaned;
-      payloadMeaning = cleaned[0].meaning;
-      payloadPos = cleaned[0].pos;
+      payloadSenses = cleanedSenses;
+      payloadMeaning = cleanedSenses[0].meaning;
+      payloadPos = cleanedSenses[0].pos;
     } else {
       if (!payloadMeaning) {
         setError(tr(isAr, "Word and meaning are both required.", "الكلمة والمعنى مطلوبان."));
         return;
       }
     }
+
+    // In multi-sense mode every meaning carries its own definition/examples/
+    // notes; the top-level fields just mirror the first sense so older
+    // views (which only read entry-level fields) still show something.
+    const payloadDefinition = multiSense ? (cleanedSenses[0].definition || "") : definition.trim();
+    const payloadExamples = multiSense ? cleanedSenses[0].examples : extraExamples.map((ex) => ex.trim()).filter(Boolean);
+    const payloadExample = multiSense ? (payloadExamples[0] || "") : example.trim();
+    const payloadNotes = multiSense ? (cleanedSenses[0].notes || "") : notes.trim();
 
     setSaving(true);
     setDupEntry(null);
@@ -160,9 +195,10 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
         meaning: payloadMeaning,
         pos: payloadPos || undefined,
         senses: payloadSenses,
-        definition: definition.trim(),
-        example: example.trim(),
-        examples: extraExamples.map((ex) => ex.trim()).filter(Boolean),
+        definition: payloadDefinition,
+        example: payloadExample,
+        examples: payloadExamples,
+        notes: payloadNotes,
         synonyms: cleanPairs(synonyms),
         antonyms: cleanPairs(antonyms),
       });
@@ -279,7 +315,16 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
                     if (on && meaning.trim() && !senses.some((s) => s.meaning.trim())) {
                       setSenses((list) => {
                         const next = list.slice();
-                        next[0] = { ...next[0], pos: pos || next[0].pos, meaning: meaning.trim() };
+                        next[0] = {
+                          ...next[0],
+                          pos: pos || next[0].pos,
+                          meaning: meaning.trim(),
+                          definition: next[0].definition || definition,
+                          examples: nonEmpty(next[0].examples).length
+                            ? next[0].examples
+                            : (nonEmpty([example, ...extraExamples]).length ? [example, ...extraExamples].filter((x) => x && x.trim()) : next[0].examples),
+                          notes: next[0].notes || notes,
+                        };
                         return next;
                       });
                     }
@@ -318,9 +363,12 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
                   className="addm-link"
                   onClick={() => {
                     setMultiSense(true);
+                    const carriedExamples = nonEmpty([example, ...extraExamples]).length
+                      ? [example, ...extraExamples].filter((x) => x && x.trim())
+                      : [""];
                     setSenses([
-                      { id: uid(), pos: pos || "", meaning: meaning.trim() },
-                      { id: uid(), pos: pos || "", meaning: "" },
+                      { id: uid(), pos: pos || "", meaning: meaning.trim(), definition, examples: carriedExamples, notes },
+                      { id: uid(), pos: pos || "", meaning: "", definition: "", examples: [""], notes: "" },
                     ]);
                   }}
                 >
@@ -364,57 +412,134 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
                       className="addm-input"
                       style={{ margin: 0, fontFamily: cfg.meaningFont }}
                     />
+                    <textarea
+                      value={s.definition}
+                      onChange={(e) => setSenses((list) => list.map((row, idx) => idx === i ? { ...row, definition: e.target.value } : row))}
+                      placeholder={tr(isAr, `Definition for this meaning (optional)`, `تعريف لهذا المعنى (اختياري)`)}
+                      dir="rtl"
+                      rows={2}
+                      className="addm-input addm-textarea"
+                      style={{ margin: 0, fontFamily: "'Amiri', serif" }}
+                    />
+                    {(s.examples && s.examples.length ? s.examples : [""]).map((ex, ei) => (
+                      <div key={ei} className="addm-row" style={{ margin: 0 }}>
+                        <textarea
+                          value={ex}
+                          onChange={(e) => setSenses((list) => list.map((row, idx) => {
+                            if (idx !== i) return row;
+                            const nextExamples = (row.examples && row.examples.length ? row.examples.slice() : [""]);
+                            nextExamples[ei] = e.target.value;
+                            return { ...row, examples: nextExamples };
+                          }))}
+                          placeholder={tr(isAr, `Example sentence (optional)`, `جملة توضيحية (اختياري)`)}
+                          dir={cfg.wordDir}
+                          rows={2}
+                          className="addm-input addm-textarea"
+                          style={{ flex: 1, margin: 0, fontFamily: cfg.wordFont }}
+                        />
+                        {(s.examples && s.examples.length > 1) && (
+                          <button
+                            type="button"
+                            className="addm-icon-btn"
+                            onClick={() => setSenses((list) => list.map((row, idx) => idx === i ? { ...row, examples: row.examples.filter((_, exi) => exi !== ei) } : row))}
+                            aria-label={tr(isAr, "Remove example", "إزالة الجملة")}
+                          >
+                            <XIcon size={15} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="addm-link"
+                      style={{ marginTop: 0 }}
+                      onClick={() => setSenses((list) => list.map((row, idx) => idx === i ? { ...row, examples: [...(row.examples && row.examples.length ? row.examples : [""]), ""] } : row))}
+                    >
+                      <PlusIcon size={12} /> {tr(isAr, "Add another example", "أضف جملة تانية")}
+                    </button>
+                    <textarea
+                      value={s.notes}
+                      onChange={(e) => setSenses((list) => list.map((row, idx) => idx === i ? { ...row, notes: e.target.value } : row))}
+                      placeholder={tr(isAr, `Notes for this meaning (optional)`, `ملاحظات لهذا المعنى (اختياري)`)}
+                      dir="rtl"
+                      rows={2}
+                      className="addm-input addm-textarea"
+                      style={{ margin: 0, fontFamily: "'Amiri', serif" }}
+                    />
                   </div>
                 ))}
-                <button type="button" className="addm-link" onClick={() => setSenses((list) => [...list, { id: uid(), pos: "", meaning: "" }])}>
+                <button type="button" className="addm-link" onClick={() => setSenses((list) => [...list, { id: uid(), pos: "", meaning: "", definition: "", examples: [""], notes: "" }])}>
                   <PlusIcon size={13} /> {tr(isAr, "Add another meaning", "أضف معنى تاني")}
                 </button>
               </div>
             )}
 
-            <label className="addm-label" htmlFor="add-definition">{tr(isAr, "Definition", "تعريف")} <span className="addm-opt">{tr(isAr, "optional", "اختياري")}</span></label>
-            <textarea
-              id="add-definition"
-              className="addm-input addm-textarea"
-              value={definition}
-              onChange={(e) => setDefinition(e.target.value)}
-              placeholder={tr(isAr, "Extra explanation or note", "شرح إضافي أو مثال")}
-              dir="rtl"
-              rows={3}
-              style={{ fontFamily: "'Amiri', serif" }}
-            />
-
-            <label className="addm-label" htmlFor="add-example">{tr(isAr, "Example sentence", "جملة توضيحية")} <span className="addm-opt">{tr(isAr, "optional", "اختياري")}</span></label>
-            <textarea
-              id="add-example"
-              className="addm-input addm-textarea"
-              value={example}
-              onChange={(e) => setExample(e.target.value)}
-              placeholder={cfg.wordPlaceholder}
-              dir={cfg.wordDir}
-              rows={2}
-              style={{ fontFamily: cfg.wordFont }}
-            />
-            {extraExamples.map((ex, i) => (
-              <div key={i} className="addm-row" style={{ marginTop: 8 }}>
+            {!multiSense && (
+              <>
+                <label className="addm-label" htmlFor="add-definition">{tr(isAr, "Definition", "تعريف")} <span className="addm-opt">{tr(isAr, "optional", "اختياري")}</span></label>
                 <textarea
-                  value={ex}
+                  id="add-definition"
+                  className="addm-input addm-textarea"
+                  value={definition}
+                  onChange={(e) => setDefinition(e.target.value)}
+                  placeholder={tr(isAr, "Extra explanation or note", "شرح إضافي أو مثال")}
+                  dir="rtl"
+                  rows={3}
+                  style={{ fontFamily: "'Amiri', serif" }}
+                />
+
+                <label className="addm-label" htmlFor="add-example">{tr(isAr, "Example sentence", "جملة توضيحية")} <span className="addm-opt">{tr(isAr, "optional", "اختياري")}</span></label>
+                <textarea
+                  id="add-example"
+                  className="addm-input addm-textarea"
+                  value={example}
+                  onChange={(e) => setExample(e.target.value)}
+                  placeholder={cfg.wordPlaceholder}
                   dir={cfg.wordDir}
                   rows={2}
-                  onChange={(e) => setExtraExamples((list) => list.map((v, idx) => (idx === i ? e.target.value : v)))}
-                  placeholder={cfg.wordPlaceholder}
-                  className="addm-input addm-textarea"
-                  style={{ flex: 1, margin: 0, fontFamily: cfg.wordFont }}
+                  style={{ fontFamily: cfg.wordFont }}
                 />
-                <button type="button" className="addm-icon-btn" onClick={() => setExtraExamples((list) => list.filter((_, idx) => idx !== i))}
-                  aria-label={tr(isAr, "Remove example", "إزالة الجملة")}>
-                  <XIcon size={15} />
+                {extraExamples.map((ex, i) => (
+                  <div key={i} className="addm-row" style={{ marginTop: 8 }}>
+                    <textarea
+                      value={ex}
+                      dir={cfg.wordDir}
+                      rows={2}
+                      onChange={(e) => setExtraExamples((list) => list.map((v, idx) => (idx === i ? e.target.value : v)))}
+                      placeholder={cfg.wordPlaceholder}
+                      className="addm-input addm-textarea"
+                      style={{ flex: 1, margin: 0, fontFamily: cfg.wordFont }}
+                    />
+                    <button type="button" className="addm-icon-btn" onClick={() => setExtraExamples((list) => list.filter((_, idx) => idx !== i))}
+                      aria-label={tr(isAr, "Remove example", "إزالة الجملة")}>
+                      <XIcon size={15} />
+                    </button>
+                  </div>
+                ))}
+                <button type="button" className="addm-link" onClick={() => setExtraExamples((list) => [...list, ""])}>
+                  <PlusIcon size={13} /> {tr(isAr, "Add another example", "أضف جملة تانية")}
                 </button>
-              </div>
-            ))}
-            <button type="button" className="addm-link" onClick={() => setExtraExamples((list) => [...list, ""])}>
-              <PlusIcon size={13} /> {tr(isAr, "Add another example", "أضف جملة تانية")}
-            </button>
+
+                <label className="addm-label" htmlFor="add-notes">{tr(isAr, "Notes", "ملاحظات")} <span className="addm-opt">{tr(isAr, "optional", "اختياري")}</span></label>
+                <textarea
+                  id="add-notes"
+                  className="addm-input addm-textarea"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder={tr(isAr, "Extra notes", "ملاحظات إضافية")}
+                  dir="rtl"
+                  rows={2}
+                  style={{ fontFamily: "'Amiri', serif" }}
+                />
+              </>
+            )}
+            {multiSense && (
+              <p className="addm-hint" style={{ marginTop: 10 }}>
+                {tr(isAr,
+                  "Definition, examples and notes are entered per meaning above.",
+                  "التعريف والأمثلة والملاحظات بتتكتب لكل معنى في الصندوق الخاص بيه فوق.")}
+              </p>
+            )}
 
             <PairListEditor cfg={cfg} label={tr(isAr, "Synonyms (optional)", "مرادفات (اختياري)")} pairs={synonyms} onChange={setSynonyms} isAr={isAr} />
             <PairListEditor cfg={cfg} label={tr(isAr, "Antonyms (optional)", "مضادات (اختياري)")} pairs={antonyms} onChange={setAntonyms} isAr={isAr} />

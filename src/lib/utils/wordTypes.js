@@ -72,6 +72,8 @@ export function getEntrySenses(entry) {
             String(s.definition || (!multi ? entry.definition : "") || "").trim() || null,
           example: examples[0] || null,
           examples,
+          notes:
+            String(s.notes || (!multi ? entry.notes : "") || "").trim() || null,
           synonyms: normalizePairs(
             s.synonyms || (!multi ? entry.synonyms : [])
           ),
@@ -101,6 +103,7 @@ export function getEntrySenses(entry) {
       definition: String(entry.definition || "").trim() || null,
       example: examples[0] || null,
       examples,
+      notes: String(entry.notes || "").trim() || null,
       synonyms: normalizePairs(entry.synonyms),
       antonyms: normalizePairs(entry.antonyms),
     },

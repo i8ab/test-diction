@@ -47,6 +47,13 @@ function highlightExample(example, word) {
 
 function renderFields(part, word) {
   const rows = [];
+  if (part.definition) {
+    rows.push(`
+      <div class="field">
+        <div class="lab def">Definition</div>
+        <div class="val definition">${escapeHtml(part.definition)}</div>
+      </div>`);
+  }
   const syn = pairsToText(part.synonyms);
   if (syn) {
     rows.push(`
@@ -74,11 +81,12 @@ function renderFields(part, word) {
         <div class="val example">${highlightExample(ex, word)}</div>
       </div>`);
   });
-  if (part.note) {
+  const note = part.notes || part.note;
+  if (note) {
     rows.push(`
       <div class="field">
         <div class="lab note">Note</div>
-        <div class="val note">${escapeHtml(part.note)}</div>
+        <div class="val note">${escapeHtml(note)}</div>
       </div>`);
   }
   return rows.join("");
@@ -123,11 +131,12 @@ function renderCard(entry, index) {
         return `${split}${label}${meaningRow}${renderFields(sense, entry.word)}`;
       })
       .join("");
-    if (entry.note) {
+    const wholeWordNote = entry.notes || entry.note;
+    if (multi && wholeWordNote) {
       body += `
       <div class="field">
         <div class="lab note">Note</div>
-        <div class="val note">${escapeHtml(entry.note)}</div>
+        <div class="val note">${escapeHtml(wholeWordNote)}</div>
       </div>`;
     }
   } else {
@@ -224,8 +233,10 @@ function buildHtml(entries, { title, unit, section } = {}) {
   .lab.ant { color: #fb7185; }
   .lab.ex { color: #38bdf8; }
   .lab.note { color: #7dd3fc; }
+  .lab.def { color: #c4b5fd; }
   .val { color: rgba(245,243,255,0.92); }
   .val.meaning { font-weight: 700; color: #4ade80; }
+  .val.definition { color: rgba(245,243,255,0.85); }
   .val.antonym { color: #f87171; font-weight: 600; }
   .val.note { color: rgba(245,243,255,0.85); }
   .val.example { border-inline-start: 3px solid rgba(56,189,248,0.45); padding-inline-start: 10px; color: rgba(245,243,255,0.8); }

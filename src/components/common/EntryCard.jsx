@@ -441,22 +441,59 @@ function EntryCard({
           <div className="entry-card-expanded" style={{ marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
             {/* Full definition/examples: hidden via .entry-longform until Zoom — no redundant hints */}
             <div className="entry-longform">
-              {hasDefinition && (
-                <p dir={detectDir(entry.definition)} style={{ fontFamily: detectFont(entry.definition), fontSize: 13, color: "var(--muted-strong)", margin: "8px 0 0", lineHeight: 1.6 }}>
-                  {entry.definition}
-                </p>
-              )}
-              {!!entry.example && (
-                <p dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 13, fontStyle: "italic", color: "var(--muted)", margin: "6px 0 0", lineHeight: 1.6 }}>
-                  “{entry.example}”
-                </p>
-              )}
-              {!!(entry.examples && entry.examples.length) &&
-                entry.examples.map((ex, i) => (
-                  <p key={i} dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 13, fontStyle: "italic", color: "var(--muted)", margin: "4px 0 0", lineHeight: 1.6 }}>
-                    “{ex}”
-                  </p>
-                ))}
+              {senses.length > 1
+                ? senses.map((s, i) => {
+                    const sHasContent = !!(s.definition || (s.examples && s.examples.length) || s.notes);
+                    if (!sHasContent) return null;
+                    return (
+                      <div key={s.id || i} style={{ marginTop: i > 0 ? 10 : 8, paddingTop: i > 0 ? 8 : 0, borderTop: i > 0 ? "1px dashed rgba(var(--border-rgb),0.18)" : "none" }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted-strong)", marginBottom: 3 }}>
+                          {[s.pos ? posLabel(s.pos, isAr) : null, s.meaning].filter(Boolean).join(" · ")}
+                        </div>
+                        {!!s.definition && (
+                          <p dir={detectDir(s.definition)} style={{ fontFamily: detectFont(s.definition), fontSize: 13, color: "var(--muted-strong)", margin: "2px 0 0", lineHeight: 1.6 }}>
+                            {s.definition}
+                          </p>
+                        )}
+                        {!!(s.examples && s.examples.length) &&
+                          s.examples.map((ex, ei) => (
+                            <p key={ei} dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 13, fontStyle: "italic", color: "var(--muted)", margin: "4px 0 0", lineHeight: 1.6 }}>
+                              “{ex}”
+                            </p>
+                          ))}
+                        {!!s.notes && (
+                          <p dir={detectDir(s.notes)} style={{ fontFamily: detectFont(s.notes), fontSize: 12.5, color: "var(--muted)", margin: "4px 0 0", lineHeight: 1.6 }}>
+                            {tr(isAr, "Note: ", "ملاحظة: ")}{s.notes}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })
+                : (
+                  <>
+                    {hasDefinition && (
+                      <p dir={detectDir(entry.definition)} style={{ fontFamily: detectFont(entry.definition), fontSize: 13, color: "var(--muted-strong)", margin: "8px 0 0", lineHeight: 1.6 }}>
+                        {entry.definition}
+                      </p>
+                    )}
+                    {!!entry.example && (
+                      <p dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 13, fontStyle: "italic", color: "var(--muted)", margin: "6px 0 0", lineHeight: 1.6 }}>
+                        “{entry.example}”
+                      </p>
+                    )}
+                    {!!(entry.examples && entry.examples.length) &&
+                      entry.examples.map((ex, i) => (
+                        <p key={i} dir={cfg.wordDir} style={{ fontFamily: cfg.wordFont, fontSize: 13, fontStyle: "italic", color: "var(--muted)", margin: "4px 0 0", lineHeight: 1.6 }}>
+                          “{ex}”
+                        </p>
+                      ))}
+                    {!!entry.notes && (
+                      <p dir={detectDir(entry.notes)} style={{ fontFamily: detectFont(entry.notes), fontSize: 12.5, color: "var(--muted)", margin: "6px 0 0", lineHeight: 1.6 }}>
+                        {tr(isAr, "Note: ", "ملاحظة: ")}{entry.notes}
+                      </p>
+                    )}
+                  </>
+                )}
             </div>
 
             {/* Synonyms + antonyms chips visible on EVERY layout */}

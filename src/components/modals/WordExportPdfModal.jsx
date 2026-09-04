@@ -88,6 +88,13 @@ export default function WordExportPdfModal({
     addGroup(browseFiltered);
   }
 
+  function removeAllFiltered() {
+    removeGroup(browseFiltered);
+  }
+
+  const allSectionIn = sectionEntries.length > 0 && sectionEntries.every((e) => markedIds && markedIds.has(e.id));
+  const allFilteredIn = browseFiltered.length > 0 && browseFiltered.every((e) => markedIds && markedIds.has(e.id));
+
   function handleExport() {
     if (!marked.length) return;
     exportWordListPdf(marked, {
@@ -220,25 +227,31 @@ export default function WordExportPdfModal({
           {sectionEntries.length > 0 && (
             <button
               type="button"
-              onClick={() => addGroup(sectionEntries)}
+              onClick={() => (allSectionIn ? removeGroup(sectionEntries) : addGroup(sectionEntries))}
               style={{
                 fontSize: 12,
                 fontWeight: 700,
                 padding: "7px 12px",
                 borderRadius: 9,
-                border: "1px solid var(--accent-1)",
-                background: "var(--accent-1-soft)",
-                color: "var(--accent-1)",
+                border: allSectionIn ? "1px solid rgba(var(--border-rgb),0.25)" : "1px solid var(--accent-1)",
+                background: allSectionIn ? "var(--input-bg)" : "var(--accent-1-soft)",
+                color: allSectionIn ? "var(--muted-strong)" : "var(--accent-1)",
                 cursor: "pointer",
                 marginBottom: 10,
                 width: "100%",
               }}
             >
-              {tr(
-                isAr,
-                `Add the whole section (${sectionEntries.length} words)`,
-                `إضافة كل كلمات القسم (${sectionEntries.length} كلمة)`
-              )}
+              {allSectionIn
+                ? tr(
+                    isAr,
+                    `Remove the whole section (${sectionEntries.length} words)`,
+                    `إزالة كل كلمات القسم (${sectionEntries.length} كلمة)`
+                  )
+                : tr(
+                    isAr,
+                    `Add the whole section (${sectionEntries.length} words)`,
+                    `إضافة كل كلمات القسم (${sectionEntries.length} كلمة)`
+                  )}
             </button>
           )}
 
@@ -266,7 +279,7 @@ export default function WordExportPdfModal({
           {browseQuery.trim() && browseFiltered.length > 0 && (
             <button
               type="button"
-              onClick={addAllFiltered}
+              onClick={allFilteredIn ? removeAllFiltered : addAllFiltered}
               style={{
                 fontSize: 12,
                 fontWeight: 700,
@@ -279,7 +292,9 @@ export default function WordExportPdfModal({
                 marginBottom: 8,
               }}
             >
-              {tr(isAr, `Add all ${browseFiltered.length} matches`, `إضافة كل النتائج (${browseFiltered.length})`)}
+              {allFilteredIn
+                ? tr(isAr, `Remove all ${browseFiltered.length} matches`, `إزالة كل النتائج (${browseFiltered.length})`)
+                : tr(isAr, `Add all ${browseFiltered.length} matches`, `إضافة كل النتائج (${browseFiltered.length})`)}
             </button>
           )}
 

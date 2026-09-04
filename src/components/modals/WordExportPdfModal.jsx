@@ -21,6 +21,7 @@ export default function WordExportPdfModal({
   onClearMarked,
   onClose,
   showToast,
+  academicUnits = [],
 }) {
   const [title, setTitle] = useState("");
   const [browseQuery, setBrowseQuery] = useState("");
@@ -47,14 +48,29 @@ export default function WordExportPdfModal({
     );
   }, [sectionEntries, browseQuery]);
 
-  // Grouped by first letter so a whole letter group ("all of section ك", or
-  // everything matching a search) can be added in one tap.
+  // Grouped by first letter (or, for the Academic dictionary, by unit) so a
+  // whole group — an entire unit, or everything matching a search — can be
+  // added in one tap instead of opening every word card.
+  const isAcademic = section === "academic";
   const browseGroups = useMemo(() => {
+    if (isAcademic) {
+      const byUnit = new Map();
+      for (const e of browseFiltered) {
+        const uid = e.unitId || "__none";
+        if (!byUnit.has(uid)) byUnit.set(uid, []);
+        byUnit.get(uid).push(e);
+      }
+      return [...byUnit.entries()].map(([uid, list]) => {
+        const unit = academicUnits.find((u) => u.id === uid);
+        const label = unit ? unit.name : tr(isAr, "No unit", "بدون وحدة");
+        return [label, list];
+      });
+    }
     const map = groupEntriesByLetter(browseFiltered, section);
     return Object.keys(map)
       .sort()
       .map((letter) => [letter, map[letter]]);
-  }, [browseFiltered, section]);
+  }, [browseFiltered, section, isAcademic, academicUnits, isAr]);
 
   function addGroup(list) {
     for (const e of list) {
@@ -200,6 +216,31 @@ export default function WordExportPdfModal({
           <div style={{ fontSize: 12, color: "var(--muted-strong)", margin: "4px 0 6px" }}>
             {tr(isAr, "Add more words", "إضافة كلمات تانية")}
           </div>
+
+          {sectionEntries.length > 0 && (
+            <button
+              type="button"
+              onClick={() => addGroup(sectionEntries)}
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                padding: "7px 12px",
+                borderRadius: 9,
+                border: "1px solid var(--accent-1)",
+                background: "var(--accent-1-soft)",
+                color: "var(--accent-1)",
+                cursor: "pointer",
+                marginBottom: 10,
+                width: "100%",
+              }}
+            >
+              {tr(
+                isAr,
+                `Add the whole section (${sectionEntries.length} words)`,
+                `إضافة كل كلمات القسم (${sectionEntries.length} كلمة)`
+              )}
+            </button>
+          )}
 
           <div style={{ position: "relative", marginBottom: 8 }}>
             <SearchIcon

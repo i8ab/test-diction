@@ -386,6 +386,7 @@ export default function MainViewOverlays(p) {
             onClearMarked={onClearExportMarked}
             onClose={() => setShowExportPdf(false)}
             showToast={showToast}
+            academicUnits={practiceUnits}
           />
         )}
         {showChallenges && (

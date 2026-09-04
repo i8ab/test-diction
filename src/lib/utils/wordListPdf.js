@@ -1,3 +1,5 @@
+import { getEntrySenses } from "./wordTypes";
+
 /**
  * Export a selection of dictionary entries as a printable PDF-style sheet
  * ("Word List" layout — dark, gradient cards, synonym/antonym/example/note).
@@ -61,13 +63,17 @@ function renderFields(part, word) {
         <div class="val antonym">${escapeHtml(ant)}</div>
       </div>`);
   }
-  if (part.example) {
+  // Show every example sentence, not just the first one.
+  const examples = Array.isArray(part.examples) && part.examples.length
+    ? part.examples
+    : (part.example ? [part.example] : []);
+  examples.forEach((ex, i) => {
     rows.push(`
       <div class="field">
-        <div class="lab ex">Example</div>
-        <div class="val example">${highlightExample(part.example, word)}</div>
+        <div class="lab ex">${examples.length > 1 ? `Example ${i + 1}` : "Example"}</div>
+        <div class="val example">${highlightExample(ex, word)}</div>
       </div>`);
-  }
+  });
   if (part.note) {
     rows.push(`
       <div class="field">
@@ -80,7 +86,6 @@ function renderFields(part, word) {
 
 function renderCard(entry, index) {
   const num = String(index + 1).padStart(2, "0");
-  const pos = entry.pos ? `<span class="pos">${escapeHtml(entry.pos)}</span>` : "";
   const phonetic = entry.phonetic
     ? `<div class="phonetic">${escapeHtml(entry.phonetic)}</div>`
     : "";
@@ -88,30 +93,45 @@ function renderCard(entry, index) {
     ? `<div class="translation">${escapeHtml(entry.translation)}</div>`
     : "";
 
+  // getEntrySenses is the app's single source of truth for resolving a word's
+  // meaning(s): it merges legacy top-level fields and multi-sense entries the
+  // same way the dictionary itself does, so the PDF never drops a meaning,
+  // synonym/antonym set, or example the app shows on the card.
+  const senses = getEntrySenses(entry);
+  const multi = senses.length > 1;
+  const pos = !multi && entry.pos ? `<span class="pos">${escapeHtml(entry.pos)}</span>` : "";
+
   let body;
-  if (Array.isArray(entry.senses) && entry.senses.length) {
-    body = entry.senses
+  if (senses.length) {
+    body = senses
       .map((sense, i) => {
-        const label = sense.label
-          ? `<div class="sense">${escapeHtml(sense.label)}</div>`
+        const label = multi
+          ? `<div class="sense">${escapeHtml(
+              [sense.pos, sense.meaning].filter(Boolean).join(" · ") || `Sense ${i + 1}`
+            )}</div>`
+          : sense.pos
+          ? ""
           : "";
-        const split = i > 0 ? '<div class="split"></div>' : "";
-        return `${split}${label}${renderFields(sense, entry.word)}`;
-      })
-      .join("");
-  } else {
-    body = renderFields(
-      { synonyms: entry.synonyms, antonyms: entry.antonyms, example: entry.example, note: entry.note },
-      entry.word
-    );
-    if (!body && entry.meaning) {
-      // fallback: plain meaning only, no synonym/antonym data available
-      body = `
+        const meaningRow = multi
+          ? ""
+          : `
       <div class="field">
         <div class="lab">Meaning</div>
-        <div class="val meaning">${escapeHtml(entry.meaning)}</div>
+        <div class="val meaning">${escapeHtml(sense.meaning)}</div>
+      </div>`;
+        const split = i > 0 ? '<div class="split"></div>' : "";
+        return `${split}${label}${meaningRow}${renderFields(sense, entry.word)}`;
+      })
+      .join("");
+    if (entry.note) {
+      body += `
+      <div class="field">
+        <div class="lab note">Note</div>
+        <div class="val note">${escapeHtml(entry.note)}</div>
       </div>`;
     }
+  } else {
+    body = "";
   }
 
   return `

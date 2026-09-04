@@ -15,11 +15,11 @@
   --accent-1: #A84328;          /* deep clay / burnt sienna */
   --accent-1-soft: #F2D9CC;
   --accent-1-hover: #8F3720;
-  --accent-2: #B8832A;          /* warm gold / ochre */
+  --accent-2: #8F6620;          /* warm gold / ochre, darkened for 4.5:1+ contrast on paper */
   --accent-2-soft: #F4E7C8;
-  --muted: #9A8B75;
+  --muted: #736857;         /* darkened from #9A8B75 for 4.5:1+ contrast on paper/card */
   --muted-strong: #6A5B47;
-  --icon-muted: #86765E;
+  --icon-muted: #786A54;    /* darkened from #86765E for 4.5:1+ contrast on paper */
   --input-bg: #F0E8D9;
   --border-rgb: 42, 33, 26;
   --success: #457A43;

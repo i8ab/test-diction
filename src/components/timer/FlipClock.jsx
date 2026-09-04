@@ -13,6 +13,8 @@ function FlipDigit({ value }) {
   const shownRef = useRef(String(value));
   const busyRef = useRef(false);
   const finishRef = useRef(null);
+  const raf1Ref = useRef(null);
+  const raf2Ref = useRef(null);
 
   useEffect(() => {
     const v = String(value);
@@ -35,6 +37,10 @@ function FlipDigit({ value }) {
       root.removeEventListener("animationend", finishRef.current);
       finishRef.current = null;
     }
+    if (raf1Ref.current) cancelAnimationFrame(raf1Ref.current);
+    if (raf2Ref.current) cancelAnimationFrame(raf2Ref.current);
+    raf1Ref.current = null;
+    raf2Ref.current = null;
     root.classList.remove("running");
 
     const from = shownRef.current;
@@ -64,9 +70,18 @@ function FlipDigit({ value }) {
 
     finishRef.current = finish;
     root.addEventListener("animationend", finish);
-    // Restart CSS animation
-    void root.offsetWidth;
-    root.classList.add("running");
+    // Restart CSS animation without a synchronous forced reflow.
+    // `void root.offsetWidth` forces the browser to flush layout immediately
+    // (this clock ticks every second across several digits, so that adds up
+    // to real main-thread cost). A double rAF gets the same "class removed,
+    // then re-added on the next frame" restart, letting the browser batch
+    // the reflow with the rest of the frame's work instead of forcing it now.
+    const raf1 = requestAnimationFrame(() => {
+      raf2Ref.current = requestAnimationFrame(() => {
+        root.classList.add("running");
+      });
+    });
+    raf1Ref.current = raf1;
 
     // Safety: if animationend never fires, settle at 0.75s
     const safety = setTimeout(() => {
@@ -77,6 +92,8 @@ function FlipDigit({ value }) {
 
     return () => {
       clearTimeout(safety);
+      if (raf1Ref.current) cancelAnimationFrame(raf1Ref.current);
+      if (raf2Ref.current) cancelAnimationFrame(raf2Ref.current);
     };
   }, [value]);
 

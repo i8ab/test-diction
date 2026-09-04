@@ -651,6 +651,38 @@
   gap: 10px;
 }
 
+.sch-field-toggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.sch-field-toggle input[type="checkbox"] {
+  min-height: 0;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.sch-field-hint {
+  margin: -6px 0 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted, #9a9186);
+}
+
+.sch-block-no-time {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.45;
+}
+
+.sch-settings-import-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
 .sch-type-grid {
   display: flex;
   flex-wrap: wrap;

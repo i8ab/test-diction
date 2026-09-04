@@ -2,7 +2,7 @@
  * Student Schedule — recurring + one-off blocks, conflicts, daily tip, week summary.
  * Opens above app content like Timer (Z_INDEX.TOOL_FULL + portal).
  */
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { tr } from "../../lib/config/i18n";
 import { Z_INDEX } from "../../lib/config/zIndex";
@@ -55,7 +55,12 @@ import {
   exportWeekText,
   setWeekStartsOn,
   QUICK_DURATIONS,
+  hasTime,
+  importScheduleData,
+  exportScheduleData,
+  srsBlocksForDate,
 } from "../../lib/state/schedule";
+import { loadDayAchievements } from "../../lib/state/dayAchievements";
 import { openSchedulePdf } from "../../lib/utils/schedulePdf";
 import "./schedule.css";
 
@@ -72,8 +77,8 @@ function emptyDraft(dayIndex) {
     title: "",
     type: "study",
     color: BLOCK_TYPES.study.color,
-    start: "16:00",
-    end: "17:30",
+    start: null,
+    end: null,
     note: "",
     days: [typeof dayIndex === "number" ? dayIndex : todayIndex()],
     recurrence: "weekly",
@@ -92,6 +97,8 @@ export default function SchedulePage({
   useBodyScrollLock(true);
 
   const [schedule, setSchedule] = useState(() => loadSchedule(accountCode));
+  const [achievements, setAchievements] = useState(() => loadDayAchievements(accountCode));
+  const fileInputRef = useRef(null);
   const [view, setView] = useState("today");
   const [selectedDay, setSelectedDay] = useState(() => todayIndex());
   const [editor, setEditor] = useState(null);
@@ -127,6 +134,7 @@ export default function SchedulePage({
 
   useEffect(() => {
     setSchedule(loadSchedule(accountCode));
+    setAchievements(loadDayAchievements(accountCode));
   }, [accountCode]);
 
   useEffect(() => {
@@ -145,6 +153,18 @@ export default function SchedulePage({
   const dayBlocks = useMemo(
     () => blocksForDate(schedule, selectedDate),
     [schedule, selectedDate]
+  );
+
+  // Spaced-repetition (medical ladder) tasks due today, shown automatically
+  // alongside the real schedule blocks (read-only, not saved into the schedule).
+  const srsDayBlocks = useMemo(
+    () => srsBlocksForDate(achievements, selectedDate),
+    [achievements, selectedDate]
+  );
+
+  const displayDayBlocks = useMemo(
+    () => [...dayBlocks, ...srsDayBlocks],
+    [dayBlocks, srsDayBlocks]
   );
 
   const progress = useMemo(
@@ -180,15 +200,16 @@ export default function SchedulePage({
   );
 
   const visibleBlocks = useMemo(() => {
-    if (!focusMode || selectedDay !== today) return dayBlocks;
-    return dayBlocks.filter((b) => {
+    if (!focusMode || selectedDay !== today) return displayDayBlocks;
+    return displayDayBlocks.filter((b) => {
       if (b.type === "sleep") return true;
+      if (!hasTime(b)) return true;
       let e = timeToMinutes(b.end);
       let s = timeToMinutes(b.start);
       if (e <= s) e += 24 * 60;
       return e > nowMins;
     });
-  }, [dayBlocks, focusMode, selectedDay, today, nowMins]);
+  }, [displayDayBlocks, focusMode, selectedDay, today, nowMins]);
 
   const todayLabelLong = dayLabel(today, isAr, false);
   const selectedLabelLong = dayLabel(selectedDay, isAr, false);
@@ -204,6 +225,7 @@ export default function SchedulePage({
   }
 
   function openEdit(b) {
+    if (b.isSrs) return; // read-only spaced-repetition reminder, not a real block
     setConflictMsg("");
     setEditor({
       id: b.id,
@@ -290,7 +312,7 @@ export default function SchedulePage({
   }
 
   function selectAllVisible() {
-    const ids = visibleBlocks.map((b) => b.id);
+    const ids = visibleBlocks.filter((b) => !b.isSrs).map((b) => b.id);
     setSelectedIds(ids);
   }
 
@@ -307,7 +329,7 @@ export default function SchedulePage({
   }
 
   function deleteAllVisibleToday() {
-    const ids = visibleBlocks.map((b) => b.id);
+    const ids = visibleBlocks.filter((b) => !b.isSrs).map((b) => b.id);
     if (!ids.length) return;
     if (!window.confirm(T(`Delete all ${ids.length} blocks shown today?`, `تمسح كل الـ ${ids.length} بلوك الظاهرين النهاردة؟`))) return;
     persist(removeBlocks(schedule, ids));
@@ -344,7 +366,7 @@ export default function SchedulePage({
   }
 
   function isActiveNow(b) {
-    if (selectedDay !== today) return false;
+    if (selectedDay !== today || !hasTime(b)) return false;
     let s = timeToMinutes(b.start);
     let e = timeToMinutes(b.end);
     if (e <= s) return nowMins >= s || nowMins < e;
@@ -372,6 +394,53 @@ export default function SchedulePage({
     openSchedulePdf({ schedule, accountCode, isAr });
   }
 
+  function handleExportJson() {
+    try {
+      const data = exportScheduleData(schedule);
+      const blob = new Blob([data], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "my-schedule.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (_) {
+      window.alert(T("Couldn't export the file.", "الملف ماتصدرش."));
+    }
+  }
+
+  function handleImportClick() {
+    fileInputRef.current?.click();
+  }
+
+  function handleImportFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const imported = importScheduleData(String(reader.result || ""));
+      if (!imported) {
+        window.alert(T("This file isn't a valid schedule.", "الملف ده مش جدول صالح."));
+        return;
+      }
+      if (
+        !window.confirm(
+          T(
+            "Replace your current schedule with the imported one?",
+            "تستبدل جدولك الحالي بالجدول المستورد؟"
+          )
+        )
+      )
+        return;
+      persist(imported);
+      setShowSettings(false);
+    };
+    reader.readAsText(file);
+  }
+
   function fillGap(gap) {
     setConflictMsg("");
     setEditor({
@@ -396,6 +465,7 @@ export default function SchedulePage({
   }
 
   function recurrenceBadge(b) {
+    if (b.isSrs) return null;
     const r = b.recurrence || "weekly";
     if (r === "once") return T("Today only", "اليوم فقط");
     if (r === "week") return T("This week", "هذا الأسبوع");
@@ -765,16 +835,26 @@ export default function SchedulePage({
                           onClick={() => openEdit(b)}
                         >
                           <div className="sch-block-time">
-                            <span>{formatTimeDisplay(b.start, isAr)}</span>
-                            <span className="sch-block-dur">
-                              {dur >= 60
-                                ? `${Math.floor(dur / 60)}h${dur % 60 ? ` ${dur % 60}m` : ""}`
-                                : `${dur}m`}
-                            </span>
+                            {hasTime(b) ? (
+                              <>
+                                <span>{formatTimeDisplay(b.start, isAr)}</span>
+                                <span className="sch-block-dur">
+                                  {dur >= 60
+                                    ? `${Math.floor(dur / 60)}h${dur % 60 ? ` ${dur % 60}m` : ""}`
+                                    : `${dur}m`}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="sch-block-no-time">—</span>
+                            )}
                           </div>
                           <div className="sch-block-body">
                             <span className="sch-block-type">
-                              {isAr ? meta.ar : meta.en}
+                              {b.isSrs
+                                ? T("Spaced review", "تكرار متباعد")
+                                : isAr
+                                  ? meta.ar
+                                  : meta.en}
                               {badge ? ` · ${badge}` : ""}
                             </span>
                             <strong className="sch-block-title">{b.title}</strong>
@@ -826,9 +906,10 @@ export default function SchedulePage({
               <section className="sch-week">
                 {weekDays.map((d) => {
                   const dt = dateForWeekday(d, schedule.weekStartsOn ?? 6);
-                  const blocks = blocksForDate(schedule, dt).filter(
-                    (b) => b.type !== "sleep"
-                  );
+                  const blocks = [
+                    ...blocksForDate(schedule, dt).filter((b) => b.type !== "sleep"),
+                    ...srsBlocksForDate(achievements, dt),
+                  ];
                   const p = dayProgress(
                     schedule,
                     dt,
@@ -851,12 +932,19 @@ export default function SchedulePage({
                               borderInlineStartColor: b.color || typeMeta(b.type).color,
                             }}
                             onClick={() => {
+                              if (b.isSrs) return;
                               setSelectedDay(d);
                               setView("today");
                               openEdit(b);
                             }}
                           >
-                            <span>{formatTimeDisplay(b.start, isAr)}</span>
+                            <span>
+                              {hasTime(b)
+                                ? formatTimeDisplay(b.start, isAr)
+                                : b.isSrs
+                                  ? T("Review", "مراجعة")
+                                  : "—"}
+                            </span>
                             <em>{b.title}</em>
                           </li>
                         ))}
@@ -1109,6 +1197,31 @@ export default function SchedulePage({
               </button>
             </div>
 
+            <div className="sch-settings-card">
+              <strong>{T("Import / export schedule", "استيراد وتصدير الجدول")}</strong>
+              <p>
+                {T(
+                  "Save your schedule as a file, or load a schedule file someone shared with you.",
+                  "احفظ جدولك كملف، أو حمّل ملف جدول حد بعتهولك عشان يتطبق عندك."
+                )}
+              </p>
+              <div className="sch-settings-import-row">
+                <button type="button" className="sch-chip-btn" onClick={handleExportJson}>
+                  {T("Export file", "تصدير ملف")}
+                </button>
+                <button type="button" className="sch-chip-btn" onClick={handleImportClick}>
+                  {T("Import file", "استيراد ملف")}
+                </button>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json,.json"
+                style={{ display: "none" }}
+                onChange={handleImportFile}
+              />
+            </div>
+
             <button
               type="button"
               className="sch-ghost-btn sch-settings-close"
@@ -1227,45 +1340,71 @@ export default function SchedulePage({
               </div>
             </label>
 
-            <div className="sch-field-row">
-              <label className="sch-field">
-                <span>{T("Start", "من")}</span>
-                <input
-                  type="time"
-                  value={editor.start}
-                  onChange={(e) =>
-                    setEditor((d) => ({ ...d, start: e.target.value }))
-                  }
-                  required
-                />
-              </label>
-              <label className="sch-field">
-                <span>{T("End", "إلى")}</span>
-                <input
-                  type="time"
-                  value={editor.end}
-                  onChange={(e) => setEditor((d) => ({ ...d, end: e.target.value }))}
-                  required
-                />
-              </label>
-            </div>
+            <label className="sch-field sch-field-toggle">
+              <input
+                type="checkbox"
+                checked={hasTime(editor)}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setEditor((d) => ({
+                    ...d,
+                    start: on ? d.start || "16:00" : null,
+                    end: on ? d.end || "17:00" : null,
+                  }));
+                }}
+              />
+              <span>{T("Set a specific time", "حدد وقت معيّن")}</span>
+            </label>
+            <p className="sch-field-hint">
+              {T(
+                "Optional — leave off for a plain to-do with no start/end time.",
+                "اختياري — سيبه من غير وقت لو عايزها مجرد مهمة بلا وقت بداية أو نهاية."
+              )}
+            </p>
 
-            <div className="sch-quick-dur">
-              <span>{T("Duration", "المدة")}</span>
-              <div className="sch-type-grid">
-                {QUICK_DURATIONS.map((q) => (
-                  <button
-                    key={q.mins}
-                    type="button"
-                    className="sch-type-chip"
-                    style={{ "--c": "var(--accent-1)" }}
-                    onClick={() => applyQuickDuration(q.mins)}
-                  >
-                    {T(q.en, q.ar)}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {hasTime(editor) && (
+              <>
+                <div className="sch-field-row">
+                  <label className="sch-field">
+                    <span>{T("Start", "من")}</span>
+                    <input
+                      type="time"
+                      value={editor.start || ""}
+                      onChange={(e) =>
+                        setEditor((d) => ({ ...d, start: e.target.value }))
+                      }
+                      required
+                    />
+                  </label>
+                  <label className="sch-field">
+                    <span>{T("End", "إلى")}</span>
+                    <input
+                      type="time"
+                      value={editor.end || ""}
+                      onChange={(e) => setEditor((d) => ({ ...d, end: e.target.value }))}
+                      required
+                    />
+                  </label>
+                </div>
+
+                <div className="sch-quick-dur">
+                  <span>{T("Duration", "المدة")}</span>
+                  <div className="sch-type-grid">
+                    {QUICK_DURATIONS.map((q) => (
+                      <button
+                        key={q.mins}
+                        type="button"
+                        className="sch-type-chip"
+                        style={{ "--c": "var(--accent-1)" }}
+                        onClick={() => applyQuickDuration(q.mins)}
+                      >
+                        {T(q.en, q.ar)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
 
             {editor.recurrence !== "once" && (
               <label className="sch-field">

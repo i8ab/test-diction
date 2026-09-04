@@ -14,6 +14,7 @@ import {
   formatMins,
   BLOCK_TYPES,
   scheduleStreak,
+  hasTime,
 } from "../state/schedule";
 
 function escapeHtml(s) {
@@ -69,11 +70,14 @@ export function openSchedulePdf({ schedule, accountCode = "", isAr = false }) {
                       ? "هذا الأسبوع"
                       : "this week"
                     : "";
+              const timeLine = hasTime(b)
+                ? `<div class="time">${escapeHtml(formatTimeDisplay(b.start, isAr))} – ${escapeHtml(formatTimeDisplay(b.end, isAr))}</div>`
+                : `<div class="time time-none">${isAr ? "بلا وقت" : "No time"}</div>`;
               return `
             <div class="block ${done ? "done" : ""}">
               <i class="swatch" style="background:${color}"></i>
               <div class="block-body">
-                <div class="time">${escapeHtml(formatTimeDisplay(b.start, isAr))} – ${escapeHtml(formatTimeDisplay(b.end, isAr))}</div>
+                ${timeLine}
                 <div class="title">${escapeHtml(b.title)}${done ? " ✓" : ""}</div>
                 <div class="meta">${escapeHtml(typeLabel(b.type, isAr))}${rec ? " · " + escapeHtml(rec) : ""}</div>
               </div>
@@ -162,10 +166,10 @@ export function openSchedulePdf({ schedule, accountCode = "", isAr = false }) {
     background: #fffdf9;
     border: 1px solid rgba(28, 25, 23, 0.1);
     border-radius: 12px;
-    overflow: hidden;
     min-height: 220px;
     display: flex;
     flex-direction: column;
+    break-inside: avoid-column;
   }
   .day header {
     padding: 8px 8px 6px;
@@ -199,6 +203,7 @@ export function openSchedulePdf({ schedule, accountCode = "", isAr = false }) {
     background: #f8f4ec;
     border: 1px solid rgba(28,25,23,0.06);
   }
+  .block { break-inside: avoid; }
   .block.done { opacity: 0.55; }
   .block.done .title { text-decoration: line-through; }
   .swatch {

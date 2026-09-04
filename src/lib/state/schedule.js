@@ -129,6 +129,16 @@ function uid() {
  *  - "once": only on `date` (YYYY-MM-DD)
  *  - "week": only during `weekKey` (this calendar week)
  */
+/** True when a block has both a start and end time set. Time is optional. */
+export function hasTime(b) {
+  return (
+    typeof b?.start === "string" &&
+    /^\d{1,2}:\d{2}$/.test(b.start) &&
+    typeof b?.end === "string" &&
+    /^\d{1,2}:\d{2}$/.test(b.end)
+  );
+}
+
 function block(partial) {
   const type = BLOCK_TYPES[partial.type] ? partial.type : "custom";
   const color =
@@ -138,13 +148,18 @@ function block(partial) {
   const recurrence = ["weekly", "once", "week"].includes(partial.recurrence)
     ? partial.recurrence
     : "weekly";
+  // Time is optional: a block only carries a start/end when both are valid
+  // "HH:MM" strings. Anything else (missing, empty, malformed) becomes a
+  // timeless block instead of silently defaulting to 08:00–09:00.
+  const validStart = typeof partial.start === "string" && /^\d{1,2}:\d{2}$/.test(partial.start);
+  const validEnd = typeof partial.end === "string" && /^\d{1,2}:\d{2}$/.test(partial.end);
   return {
     id: partial.id || uid(),
     title: String(partial.title || "").slice(0, 80),
     type,
     color,
-    start: partial.start || "08:00",
-    end: partial.end || "09:00",
+    start: validStart && validEnd ? partial.start : null,
+    end: validStart && validEnd ? partial.end : null,
     note: String(partial.note || "").slice(0, 200),
     days: Array.isArray(partial.days)
       ? partial.days.filter((d) => d >= 0 && d <= 6)
@@ -310,6 +325,60 @@ export function loadSchedule(accountCode) {
   }
 }
 
+/** Parse an imported schedule (JSON string or object) into a valid schedule, or null if invalid. */
+export function importScheduleData(raw) {
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.blocks)) return null;
+    return normalize(parsed);
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Serialize a schedule to a portable JSON string, for sharing/backup. */
+export function exportScheduleData(schedule) {
+  return JSON.stringify(
+    {
+      version: 2,
+      weekStartsOn: schedule?.weekStartsOn ?? 6,
+      sleep: schedule?.sleep,
+      blocks: schedule?.blocks || [],
+    },
+    null,
+    2
+  );
+}
+
+/**
+ * Read-only "virtual" schedule entries for spaced-repetition (medical ladder)
+ * day-achievement items due on calendar date `d`. These are not persisted in
+ * the schedule itself — they're derived live from dayAchievements so they
+ * always reflect the current due dates automatically.
+ */
+export function srsBlocksForDate(dayAchievements, d = new Date()) {
+  const dk = dateKey(d);
+  return (dayAchievements || [])
+    .filter(
+      (e) => e && e.useSrs && e.srsDueAt != null && dateKey(new Date(e.srsDueAt)) === dk
+    )
+    .map((e) => ({
+      id: `srs_${e.id}`,
+      title: e.title || "",
+      type: "study",
+      color: BLOCK_TYPES.study.color,
+      start: null,
+      end: null,
+      note: e.note || "",
+      days: [d.getDay()],
+      recurrence: "once",
+      date: dk,
+      weekKey: null,
+      isSrs: true,
+      srsSourceId: e.id,
+    }));
+}
+
 export function saveSchedule(accountCode, data) {
   try {
     const normalized = normalize({ ...data, updatedAt: Date.now() });
@@ -331,15 +400,26 @@ export function blockAppliesOnDate(b, d = new Date()) {
   return (b.days || []).includes(day);
 }
 
+function timeSort(a, b) {
+  const as = timeToMinutes(a.start);
+  const bs = timeToMinutes(b.start);
+  const aNight = a.type === "sleep" && as > 12 * 60 ? as - 24 * 60 : as;
+  const bNight = b.type === "sleep" && bs > 12 * 60 ? bs - 24 * 60 : bs;
+  return aNight - bNight;
+}
+
+/** Timed blocks first (by start time), then timeless blocks (by title). */
+function sortBlocksForDisplay(list) {
+  const timed = list.filter(hasTime).sort(timeSort);
+  const untimed = list
+    .filter((b) => !hasTime(b))
+    .sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), "ar"));
+  return [...timed, ...untimed];
+}
+
 export function blocksForDate(schedule, d = new Date()) {
   const list = (schedule?.blocks || []).filter((b) => blockAppliesOnDate(b, d));
-  return list.slice().sort((a, b) => {
-    const as = timeToMinutes(a.start);
-    const bs = timeToMinutes(b.start);
-    const aNight = a.type === "sleep" && as > 12 * 60 ? as - 24 * 60 : as;
-    const bNight = b.type === "sleep" && bs > 12 * 60 ? bs - 24 * 60 : bs;
-    return aNight - bNight;
-  });
+  return sortBlocksForDisplay(list);
 }
 
 /** @deprecated prefer blocksForDate — kept for day-index previews of recurring only */
@@ -348,16 +428,11 @@ export function blocksForDay(schedule, dayIndex) {
     if ((b.recurrence || "weekly") !== "weekly") return false;
     return (b.days || []).includes(dayIndex);
   });
-  return list.slice().sort((a, b) => {
-    const as = timeToMinutes(a.start);
-    const bs = timeToMinutes(b.start);
-    const aNight = a.type === "sleep" && as > 12 * 60 ? as - 24 * 60 : as;
-    const bNight = b.type === "sleep" && bs > 12 * 60 ? bs - 24 * 60 : bs;
-    return aNight - bNight;
-  });
+  return sortBlocksForDisplay(list);
 }
 
 export function blockDurationMinutes(b) {
+  if (!hasTime(b)) return 0;
   let s = timeToMinutes(b.start);
   let e = timeToMinutes(b.end);
   if (e <= s) e += 24 * 60;
@@ -375,9 +450,11 @@ function interval(b) {
 /**
  * True if two blocks overlap in time (same calendar day context).
  * Sleep overnight is handled via interval expansion.
+ * Blocks without a set time never conflict with anything.
  */
 export function blocksOverlap(a, b) {
   if (a.id && b.id && a.id === b.id) return false;
+  if (!hasTime(a) || !hasTime(b)) return false;
   const A = interval(a);
   const B = interval(b);
   return A.s < B.e && B.s < A.e;
@@ -402,6 +479,8 @@ export function findConflicts(schedule, candidate, d = new Date()) {
  * in the current week when possible.
  */
 export function findConflictsForSave(schedule, candidate) {
+  // No time set → nothing to conflict with.
+  if (!hasTime(candidate)) return [];
   const conflicts = [];
   const rec = candidate.recurrence || "weekly";
   const seen = new Set();
@@ -693,7 +772,7 @@ export function formatMins(mins, isAr) {
 /** Free gaps between non-sleep blocks on a date (minutes from midnight). */
 export function findFreeGaps(schedule, d = new Date(), minGap = 20) {
   const blocks = blocksForDate(schedule, d)
-    .filter((b) => b.type !== "sleep")
+    .filter((b) => b.type !== "sleep" && hasTime(b))
     .map((b) => {
       let s = timeToMinutes(b.start);
       let e = timeToMinutes(b.end);
@@ -723,7 +802,7 @@ export function getNowAndNext(schedule, d = new Date()) {
   const now = new Date();
   const isToday = dateKey(d) === dateKey(now);
   const mins = isToday ? now.getHours() * 60 + now.getMinutes() : -1;
-  const blocks = blocksForDate(schedule, d).filter((b) => b.type !== "sleep");
+  const blocks = blocksForDate(schedule, d).filter((b) => b.type !== "sleep" && hasTime(b));
 
   let current = null;
   let next = null;
@@ -819,8 +898,9 @@ export function exportWeekText(schedule, accountCode, isAr = false, weekStartsOn
     for (const b of blocks) {
       const mark = doneMap[b.id] ? "✓" : "•";
       const meta = BLOCK_TYPES[b.type] || BLOCK_TYPES.custom;
+      const time = hasTime(b) ? `${b.start}-${b.end} ` : "";
       lines.push(
-        `  ${mark} ${b.start}-${b.end} ${b.title} (${isAr ? meta.ar : meta.en})`
+        `  ${mark} ${time}${b.title} (${isAr ? meta.ar : meta.en})`
       );
     }
     lines.push("");

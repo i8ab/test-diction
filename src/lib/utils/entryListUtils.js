@@ -2,7 +2,7 @@
  * Pure helpers for dictionary list: search suggestions, filter, sort, group.
  */
 import { firstLetterKey, fuzzyIncludes, matchScore } from "./searchUtils";
-import { entryPosList } from "./wordTypes";
+import { entryPosList, getEntrySenses } from "./wordTypes";
 import { isSrsDue } from "./quizHelpers";
 
 /**
@@ -28,6 +28,33 @@ export function buildSearchSuggestions(sectionEntries, query, section, limit = 6
 }
 
 /**
+ * Does this entry match a free-text query anywhere — the word itself, or
+ * any of its meanings/definitions/examples/notes? A word can carry several
+ * senses (multi-sense entries), so every sense has to be checked, not just
+ * the top-level (first) meaning — otherwise a match on a second or third
+ * meaning silently disappears from search results.
+ */
+function entryMatchesQuery(e, q) {
+  if (fuzzyIncludes(e.word, q)) return true;
+  const senses = getEntrySenses(e);
+  if (senses.length) {
+    for (const s of senses) {
+      if (fuzzyIncludes(s.meaning, q)) return true;
+      if (s.definition && fuzzyIncludes(s.definition, q)) return true;
+      if (s.notes && fuzzyIncludes(s.notes, q)) return true;
+      if (s.examples && s.examples.some((ex) => fuzzyIncludes(ex, q))) return true;
+    }
+    return false;
+  }
+  return (
+    fuzzyIncludes(e.meaning, q) ||
+    fuzzyIncludes(e.definition || "", q) ||
+    fuzzyIncludes(e.example || "", q) ||
+    fuzzyIncludes(e.notes || "", q)
+  );
+}
+
+/**
  * Filter + sort section entries by search query and UI filters.
  */
 export function filterSectionEntries({
@@ -45,13 +72,7 @@ export function filterSectionEntries({
 }) {
   const q = String(query || "").trim();
   let base = q
-    ? (sectionEntries || []).filter(
-        (e) =>
-          fuzzyIncludes(e.word, q) ||
-          fuzzyIncludes(e.meaning, q) ||
-          fuzzyIncludes(e.definition || "") ||
-          fuzzyIncludes(e.example || "")
-      )
+    ? (sectionEntries || []).filter((e) => entryMatchesQuery(e, q))
     : (sectionEntries || []).slice();
 
   if (studyFilter === "studied") base = base.filter((e) => studiedIds.has(e.id));

@@ -1,4 +1,5 @@
 // Search, letter keys, and text direction helpers.
+import { getEntrySenses } from "./wordTypes";
 
 export const EN_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 export const AR_LETTERS = [
@@ -46,16 +47,32 @@ export function matchScore(entry, query) {
   if (!query) return 0;
   const q = normalizeForSearch(query);
   const word = normalizeForSearch(entry.word);
-  const meaning = normalizeForSearch(entry.meaning);
-  const def = normalizeForSearch(entry.definition || "");
   if (word === q) return 100;
   if (word.startsWith(q)) return 90;
   if (word.includes(q)) return 70;
-  if (meaning.startsWith(q)) return 60;
-  if (meaning.includes(q)) return 50;
-  if (def.includes(q)) return 30;
+
+  // A word can have several meanings/senses (multi-sense entries) — search
+  // every one of them, not just the top-level (first) meaning, or a match
+  // on a second/third meaning silently disappears from results.
+  const senses = getEntrySenses(entry);
+  const meanings = senses.length ? senses.map((s) => s.meaning) : [entry.meaning];
+  const definitions = senses.length
+    ? senses.map((s) => s.definition).filter(Boolean)
+    : [entry.definition].filter(Boolean);
+
+  let best = 0;
+  for (const m of meanings) {
+    const meaning = normalizeForSearch(m);
+    if (meaning.startsWith(q)) best = Math.max(best, 60);
+    else if (meaning.includes(q)) best = Math.max(best, 50);
+    else if (fuzzyIncludes(meaning, q)) best = Math.max(best, 15);
+  }
+  for (const d of definitions) {
+    const def = normalizeForSearch(d);
+    if (def.includes(q)) best = Math.max(best, 30);
+  }
+  if (best) return best;
   if (fuzzyIncludes(word, q)) return 25;
-  if (fuzzyIncludes(meaning, q)) return 15;
   return 0;
 }
 

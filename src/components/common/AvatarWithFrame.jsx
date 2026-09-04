@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId } from "react";
 import { getEquippedBadge, getEquippedFrame } from "../../lib/state/xp";
 
 /**
@@ -17,6 +17,9 @@ export default function AvatarWithFrame({
   className,
 }) {
   const [tick, setTick] = useState(0);
+  const reactId = useId();
+  const letterId = `avatar-letter-${reactId}`;
+  const titleId = `avatar-title-${reactId}`;
 
   useEffect(() => {
     function onCosmetics() {
@@ -39,7 +42,8 @@ export default function AvatarWithFrame({
       type="button"
       onClick={onClick}
       title={title}
-      aria-label={title}
+      aria-label={avatarUrl ? title : undefined}
+      aria-labelledby={avatarUrl ? undefined : `${letterId} ${titleId}`}
       className={className}
       style={{
         position: "relative",
@@ -63,7 +67,8 @@ export default function AvatarWithFrame({
       }}
     >
       <span
-        aria-hidden="true"
+        id={avatarUrl ? undefined : letterId}
+        aria-hidden={avatarUrl ? "true" : undefined}
         style={{
           width: "100%",
           height: "100%",
@@ -80,6 +85,24 @@ export default function AvatarWithFrame({
           letter
         )}
       </span>
+      {!avatarUrl && (
+        <span
+          id={titleId}
+          style={{
+            position: "absolute",
+            width: 1,
+            height: 1,
+            padding: 0,
+            margin: -1,
+            overflow: "hidden",
+            clip: "rect(0,0,0,0)",
+            whiteSpace: "nowrap",
+            border: 0,
+          }}
+        >
+          {title}
+        </span>
+      )}
       {badge && (
         <span
           aria-hidden="true"

@@ -6,7 +6,7 @@
   "description": "Bacaloria Community — all bandwidth optimizations applied (images + self-hosted fonts + SW)",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/asyncify-css.mjs",
     "preview": "vite preview",
     "analyze": "vite build --mode production",
     "test": "vitest run",

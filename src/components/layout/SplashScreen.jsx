@@ -131,15 +131,18 @@ export default function SplashScreen({
       <div className="alex-inner">
         <div className="alex-wrap">
           <div className="alex-glow" />
-          <img
-            className="alex-portrait"
-            src="/alexander-portrait.jpg"
-            alt={isAr ? NAME_AR : NAME_EN}
-            width={184}
-            height={184}
-            decoding="async"
-            fetchpriority="high"
-          />
+          <picture>
+            <source srcSet="/alexander-portrait.webp" type="image/webp" />
+            <img
+              className="alex-portrait"
+              src="/alexander-portrait.jpg"
+              alt={isAr ? NAME_AR : NAME_EN}
+              width={184}
+              height={184}
+              decoding="async"
+              fetchpriority="high"
+            />
+          </picture>
         </div>
 
         <p className="alex-name">{isAr ? NAME_AR : NAME_EN}</p>

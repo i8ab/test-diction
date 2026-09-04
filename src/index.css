@@ -146,6 +146,10 @@
     --focus-rgb: 176,73,43;
     /* لون المعنى العربي — أخضر صريح على كل الخلفيات */
     --meaning: #16a34a;
+    /* Text color for content sitting on top of accent-colored backgrounds
+       (buttons, badges, pills). White works here because light-theme
+       accents are dark/saturated enough for AA contrast. */
+    --on-accent: #fff;
     --font-latin: "Source Sans 3", system-ui, sans-serif;
     --font-arabic: "Amiri", "Times New Roman", serif;
     --font-display: "Fraunces", "Amiri", Georgia, serif;
@@ -188,6 +192,11 @@
     --focus-rgb: 217,123,79;
     /* لون المعنى في الوضع الداكن — أخضر ساطع */
     --meaning: #4ade80;
+    /* Dark theme brightens accent-1/accent-2 for visibility against the
+       dark paper, which breaks white on-accent text (fails contrast).
+       --paper here is dark theme's own near-black ink color, and gives
+       6–10:1 contrast against all dark-theme accent backgrounds. */
+    --on-accent: #17130F;
   }
 
   /* Force Arabic meaning green everywhere (all themes / backgrounds) */
@@ -3259,7 +3268,7 @@ select {
   margin: 0 !important;
   border: none !important;
   background: transparent !important;
-  color: rgba(255, 255, 255, 0.42) !important;
+  color: rgba(255, 255, 255, 0.62) !important;
   font-size: 9px !important;
   font-weight: 600 !important;
   letter-spacing: 0.01em;

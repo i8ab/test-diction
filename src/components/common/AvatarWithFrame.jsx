@@ -63,6 +63,7 @@ export default function AvatarWithFrame({
       }}
     >
       <span
+        aria-hidden="true"
         style={{
           width: "100%",
           height: "100%",
@@ -81,6 +82,7 @@ export default function AvatarWithFrame({
       </span>
       {badge && (
         <span
+          aria-hidden="true"
           title={badge.en}
           style={{
             position: "absolute",

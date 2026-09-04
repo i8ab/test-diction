@@ -512,11 +512,11 @@ function EntryCard({
             }}
             onClick={(e) => { e.stopPropagation(); setMoreOpen(false); onToggleStudied(entry.id); }}
             aria-pressed={isStudied}
-            aria-label={tr(isAr, "Studied", "دراسة")}
-            title={tr(isAr, "Studied", "دراسة")}
+            aria-label={isStudied ? tr(isAr, "Studied", "متذاكرة") : tr(isAr, "Study", "دراسة")}
+            title={isStudied ? tr(isAr, "Studied", "متذاكرة") : tr(isAr, "Study", "دراسة")}
           >
             {isStudied ? <EyeIcon size={iconSize} /> : <EyeOffIcon size={iconSize} />}
-            <span>{tr(isAr, "Study", "دراسة")}</span>
+            <span>{isStudied ? tr(isAr, "Studied", "متذاكرة") : tr(isAr, "Study", "دراسة")}</span>
           </button>
           <button
             type="button"

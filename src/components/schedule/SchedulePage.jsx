@@ -17,6 +17,7 @@ import {
   StarIcon,
   SettingsIcon,
   ChevronIcon,
+  CalendarIcon,
 } from "../common/Icons";
 import HowItWorksButton from "../common/HowItWorksButton";
 import {
@@ -42,6 +43,8 @@ import {
   removeBlocksForDays,
   dateKey,
   weekKey,
+  nextWeekKey,
+  addDays,
   tipForDate,
   findConflictsForSave,
   buildWeekSummary,
@@ -59,6 +62,9 @@ import {
   importScheduleData,
   exportScheduleData,
   srsBlocksForDate,
+  postponeBlock,
+  buildMonthMatrix,
+  dayOverview,
 } from "../../lib/state/schedule";
 import { loadDayAchievements } from "../../lib/state/dayAchievements";
 import { openSchedulePdf } from "../../lib/utils/schedulePdf";
@@ -112,6 +118,16 @@ export default function SchedulePage({
   const [bulkDays, setBulkDays] = useState([]);
   const [bulkMode, setBulkMode] = useState("all");
   const [conflictMsg, setConflictMsg] = useState("");
+  const [postponeFor, setPostponeFor] = useState(null); // block being postponed
+  const [postponeDraft, setPostponeDraft] = useState(null); // { days, toDate, toStart, toEnd, permanent }
+  const [monthCursor, setMonthCursor] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(12, 0, 0, 0);
+    return d;
+  });
+  const [monthSelectedDate, setMonthSelectedDate] = useState(() => new Date());
+  const [monthDayCompletions, setMonthDayCompletions] = useState({});
   const [sleepDraft, setSleepDraft] = useState(() => ({
     bedtime: schedule.sleep?.bedtime || "23:00",
     wake: schedule.sleep?.wake || "06:30",
@@ -214,6 +230,33 @@ export default function SchedulePage({
   const todayLabelLong = dayLabel(today, isAr, false);
   const selectedLabelLong = dayLabel(selectedDay, isAr, false);
 
+  const monthMatrix = useMemo(
+    () =>
+      buildMonthMatrix(
+        monthCursor.getFullYear(),
+        monthCursor.getMonth(),
+        schedule.weekStartsOn ?? 6
+      ),
+    [monthCursor, schedule.weekStartsOn]
+  );
+  const monthLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat(isAr ? "ar-EG" : "en-US", {
+        month: "long",
+        year: "numeric",
+      }).format(monthCursor),
+    [monthCursor, isAr]
+  );
+  const monthDayBlocks = useMemo(
+    () =>
+      blocksForDate(schedule, monthSelectedDate).filter((b) => b.type !== "sleep"),
+    [schedule, monthSelectedDate]
+  );
+
+  useEffect(() => {
+    setMonthDayCompletions(completionsForDate(accountCode, monthSelectedDate));
+  }, [accountCode, monthSelectedDate, schedule]);
+
   function handleToggleDone(id) {
     const next = toggleCompletion(accountCode, id, selectedDate);
     setCompletions({ ...next });
@@ -260,6 +303,11 @@ export default function SchedulePage({
       nextBlock.days = [new Date(nextBlock.date + "T12:00:00").getDay()];
     } else if (nextBlock.recurrence === "week") {
       nextBlock.weekKey = weekKey(selectedDate);
+      nextBlock.date = null;
+      if (!nextBlock.days?.length) nextBlock.days = [selectedDay];
+    } else if (nextBlock.recurrence === "nextWeek") {
+      nextBlock.weekKey = nextWeekKey(selectedDate);
+      nextBlock.date = null;
       if (!nextBlock.days?.length) nextBlock.days = [selectedDay];
     } else {
       nextBlock.date = null;
@@ -303,6 +351,79 @@ export default function SchedulePage({
     }
     persist(removeBlock(schedule, editor.id));
     setEditor(null);
+  }
+
+  /** Open the postpone dialog for a block occurring on the currently selected date. */
+  function openPostpone(b, fromDateObj) {
+    if (b.isSrs) return;
+    const base = fromDateObj || selectedDate;
+    const fromDate = dateKey(base);
+    const defaultDays = 1;
+    setPostponeFor({ ...b, fromDate });
+    setPostponeDraft({
+      days: defaultDays,
+      toDate: dateKey(addDays(base, defaultDays)),
+      toStart: b.start,
+      toEnd: b.end,
+      permanent: false,
+    });
+  }
+
+  /** User picks how many days to push it forward (any number, their choice). */
+  function setPostponeDays(n) {
+    const days = Math.max(1, Math.min(60, Number(n) || 1));
+    setPostponeDraft((d) => {
+      const base = new Date(postponeFor.fromDate + "T12:00:00");
+      return { ...d, days, toDate: dateKey(addDays(base, days)) };
+    });
+  }
+
+  function applyPostpone(e) {
+    e?.preventDefault?.();
+    if (!postponeFor || !postponeDraft) return;
+    const next = postponeBlock(schedule, postponeFor.id, postponeFor.fromDate, {
+      toDate: postponeDraft.toDate,
+      toStart: postponeDraft.toStart,
+      toEnd: postponeDraft.toEnd,
+      permanent: postponeDraft.permanent,
+    });
+    persist(next);
+    setPostponeFor(null);
+    setPostponeDraft(null);
+  }
+
+  function shiftMonth(delta) {
+    setMonthCursor((d) => {
+      const n = new Date(d.getFullYear(), d.getMonth() + delta, 1);
+      n.setHours(12, 0, 0, 0);
+      return n;
+    });
+  }
+
+  function pickMonthDay(d) {
+    setMonthSelectedDate(d);
+  }
+
+  function toggleMonthDone(id) {
+    const next = toggleCompletion(accountCode, id, monthSelectedDate);
+    setMonthDayCompletions({ ...next });
+  }
+
+  function openNewForDate(d) {
+    setConflictMsg("");
+    setEditor({
+      id: null,
+      title: "",
+      type: "study",
+      color: BLOCK_TYPES.study.color,
+      start: null,
+      end: null,
+      note: "",
+      days: [d.getDay()],
+      recurrence: "once",
+      date: dateKey(d),
+      weekKey: weekKey(d),
+    });
   }
 
   function toggleSelectId(id) {
@@ -469,6 +590,7 @@ export default function SchedulePage({
     const r = b.recurrence || "weekly";
     if (r === "once") return T("Today only", "اليوم فقط");
     if (r === "week") return T("This week", "هذا الأسبوع");
+    if (r === "nextWeek") return T("Next week", "الأسبوع الجاي");
     return null;
   }
 
@@ -528,6 +650,7 @@ export default function SchedulePage({
           {[
             { id: "today", en: "Today", ar: "اليوم" },
             { id: "week", en: "Week", ar: "الأسبوع" },
+            { id: "month", en: "Month", ar: "الشهر" },
             { id: "summary", en: "Summary", ar: "ملخص" },
             { id: "sleep", en: "Sleep", ar: "النوم" },
           ].map((t) => (
@@ -589,6 +712,156 @@ export default function SchedulePage({
               {T("Save sleep window", "حفظ مواعيد النوم")}
             </button>
           </form>
+        )}
+
+        {view === "month" && (
+          <section className="sch-month">
+            <div className="sch-month-nav">
+              <button
+                type="button"
+                className="sch-icon-btn"
+                onClick={() => shiftMonth(-1)}
+                aria-label={T("Previous month", "الشهر اللي فات")}
+              >
+                <ChevronIcon size={16} style={{ transform: isAr ? "none" : "rotate(180deg)" }} />
+              </button>
+              <strong>{monthLabel}</strong>
+              <button
+                type="button"
+                className="sch-icon-btn"
+                onClick={() => shiftMonth(1)}
+                aria-label={T("Next month", "الشهر الجاي")}
+              >
+                <ChevronIcon size={16} style={{ transform: isAr ? "rotate(180deg)" : "none" }} />
+              </button>
+            </div>
+
+            <div className="sch-month-weekdays">
+              {orderedWeekDays(schedule.weekStartsOn ?? 6).map((d) => (
+                <span key={d}>{dayLabel(d, isAr, true)}</span>
+              ))}
+            </div>
+
+            <div className="sch-month-grid">
+              {monthMatrix.flat().map((cell, i) => {
+                const ov = dayOverview(schedule, accountCode, cell.date);
+                const isToday = dateKey(cell.date) === dateKey(new Date());
+                const isSel = dateKey(cell.date) === dateKey(monthSelectedDate);
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    className={
+                      "sch-month-cell" +
+                      (cell.inMonth ? "" : " is-outside") +
+                      (isToday ? " is-today" : "") +
+                      (isSel ? " is-selected" : "")
+                    }
+                    onClick={() => pickMonthDay(cell.date)}
+                  >
+                    <span className="sch-month-daynum">{cell.date.getDate()}</span>
+                    {ov.total > 0 && (
+                      <span className="sch-month-count">
+                        {ov.done}/{ov.total}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="sch-month-detail">
+              <div className="sch-progress-row">
+                <div>
+                  <strong>
+                    {new Intl.DateTimeFormat(isAr ? "ar-EG" : "en-US", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                    }).format(monthSelectedDate)}
+                  </strong>
+                </div>
+                <button
+                  type="button"
+                  className="sch-add-btn"
+                  onClick={() => openNewForDate(monthSelectedDate)}
+                >
+                  <PlusIcon size={16} />
+                  {T("Add", "إضافة")}
+                </button>
+              </div>
+
+              <ul className="sch-timeline">
+                {monthDayBlocks.map((b) => {
+                  const meta = typeMeta(b.type);
+                  const color = b.color || meta.color;
+                  const done = !!monthDayCompletions[b.id];
+                  const dur = blockDurationMinutes(b);
+                  const badge = recurrenceBadge(b);
+                  return (
+                    <li
+                      key={b.id}
+                      className={"sch-block" + (done ? " is-done" : "")}
+                      style={{ "--block-color": color }}
+                    >
+                      <button
+                        type="button"
+                        className="sch-block-check"
+                        aria-label={T("Mark done", "تم")}
+                        onClick={() => (b.isSrs ? null : toggleMonthDone(b.id))}
+                      >
+                        {done ? <CheckIcon size={14} /> : null}
+                      </button>
+                      <button
+                        type="button"
+                        className="sch-block-main"
+                        onClick={() => openEdit(b)}
+                      >
+                        <div className="sch-block-time">
+                          {hasTime(b) ? (
+                            <>
+                              <span>{formatTimeDisplay(b.start, isAr)}</span>
+                              <span className="sch-block-dur">
+                                {dur >= 60
+                                  ? `${Math.floor(dur / 60)}h${dur % 60 ? ` ${dur % 60}m` : ""}`
+                                  : `${dur}m`}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="sch-block-no-time">—</span>
+                          )}
+                        </div>
+                        <div className="sch-block-body">
+                          <span className="sch-block-type">
+                            {isAr ? meta.ar : meta.en}
+                            {badge ? ` · ${badge}` : ""}
+                          </span>
+                          <strong className="sch-block-title">{b.title}</strong>
+                        </div>
+                      </button>
+                      {!b.isSrs && (
+                        <button
+                          type="button"
+                          className="sch-block-postpone"
+                          onClick={() => openPostpone(b, monthSelectedDate)}
+                          aria-label={T("Postpone", "تأجيل")}
+                          title={T("Postpone", "تأجيل")}
+                        >
+                          <CalendarIcon size={15} />
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+                {!monthDayBlocks.length && (
+                  <li className="sch-empty">
+                    <StarIcon size={22} />
+                    <p>{T("Nothing planned this day.", "مفيش حاجة متخططة اليوم ده.")}</p>
+                  </li>
+                )}
+              </ul>
+            </div>
+          </section>
         )}
 
         {view === "summary" && (
@@ -866,6 +1139,17 @@ export default function SchedulePage({
                             ) : null}
                           </div>
                         </button>
+                        {!b.isSrs && !selectMode && (
+                          <button
+                            type="button"
+                            className="sch-block-postpone"
+                            onClick={() => openPostpone(b, selectedDate)}
+                            aria-label={T("Postpone", "تأجيل")}
+                            title={T("Postpone", "تأجيل")}
+                          >
+                            <CalendarIcon size={15} />
+                          </button>
+                        )}
                       </li>
                     );
                   })}
@@ -973,6 +1257,109 @@ export default function SchedulePage({
 
 
 
+
+      {postponeFor && postponeDraft && (
+        <div className="sch-editor-backdrop" onClick={() => { setPostponeFor(null); setPostponeDraft(null); }}>
+          <div className="sch-editor" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={T("Postpone block", "تأجيل البلوك")}>
+            <div className="sch-editor-head">
+              <h3>{T("Postpone", "تأجيل")}</h3>
+              <button
+                type="button"
+                className="sch-icon-btn"
+                onClick={() => { setPostponeFor(null); setPostponeDraft(null); }}
+                aria-label={T("Close", "إغلاق")}
+              >
+                <XIcon size={16} />
+              </button>
+            </div>
+
+            <p className="sch-settings-lead">
+              {T(
+                `Move "${postponeFor.title}" to a later day — pick however many days forward you want.`,
+                `أجّل "${postponeFor.title}" ليوم تاني — اختار عدد الأيام اللي انت عايزها براحتك.`
+              )}
+            </p>
+
+            <label className="sch-field">
+              <span>{T("Postpone by how many days?", "تأجيل كام يوم؟")}</span>
+              <input
+                type="number"
+                min={1}
+                max={60}
+                value={postponeDraft.days}
+                onChange={(e) => setPostponeDays(e.target.value)}
+              />
+            </label>
+
+            <p className="sch-field-hint">
+              {T(
+                `New date: ${postponeDraft.toDate}`,
+                `التاريخ الجديد: ${postponeDraft.toDate}`
+              )}
+            </p>
+
+            {hasTime(postponeFor) && (
+              <div className="sch-field-row">
+                <label className="sch-field">
+                  <span>{T("Start", "من")}</span>
+                  <input
+                    type="time"
+                    value={postponeDraft.toStart || ""}
+                    onChange={(e) =>
+                      setPostponeDraft((d) => ({ ...d, toStart: e.target.value }))
+                    }
+                  />
+                </label>
+                <label className="sch-field">
+                  <span>{T("End", "إلى")}</span>
+                  <input
+                    type="time"
+                    value={postponeDraft.toEnd || ""}
+                    onChange={(e) =>
+                      setPostponeDraft((d) => ({ ...d, toEnd: e.target.value }))
+                    }
+                  />
+                </label>
+              </div>
+            )}
+
+            {(postponeFor.recurrence || "weekly") === "weekly" && (
+              <label className="sch-field sch-field-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!postponeDraft.permanent}
+                  onChange={(e) =>
+                    setPostponeDraft((d) => ({ ...d, permanent: e.target.checked }))
+                  }
+                />
+                <span>
+                  {T(
+                    "Make this the new normal time every week from now on",
+                    "خلّي ده الميعاد الطبيعي كل أسبوع من دلوقتي"
+                  )}
+                </span>
+              </label>
+            )}
+            <p className="sch-field-hint">
+              {postponeDraft.permanent
+                ? T(
+                    "This changes the recurring slot itself — every future week moves too.",
+                    "ده بيغيّر البلوك المتكرر نفسه — كل أسبوع جاي هيتحرك برضو."
+                  )
+                : T(
+                    "Only this one occurrence moves. It still repeats normally every other week.",
+                    "بس الحصة دي هي اللي بتتحرك. باقي الأسابيع هتفضل زي ما هي."
+                  )}
+            </p>
+
+            <div className="sch-editor-actions">
+              <button type="button" className="sch-primary-btn" onClick={applyPostpone}>
+                {T("Postpone", "تأجيل")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {bulkDaysOpen && (
         <div className="sch-editor-backdrop" onClick={() => setBulkDaysOpen(false)}>
@@ -1270,6 +1657,7 @@ export default function SchedulePage({
                 {[
                   { id: "weekly", en: "Every week", ar: "كل أسبوع" },
                   { id: "week", en: "This week only", ar: "هذا الأسبوع فقط" },
+                  { id: "nextWeek", en: "Next week", ar: "الأسبوع الجاي" },
                   { id: "once", en: "This day only", ar: "اليوم ده فقط" },
                 ].map((r) => (
                   <button

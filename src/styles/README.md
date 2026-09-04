@@ -40,6 +40,30 @@ src/styles/
 | `--shadow-card` / `--shadow-elevated` | Soft paper elevation |
 | `--ease-out` | Default motion curve |
 
+## Text on accent-colored backgrounds (dark theme pitfall)
+
+`--accent-1` / `--accent-2` are **not** the same color in light vs. dark
+theme — dark theme deliberately brightens them (e.g. `--accent-1` goes
+from a deep clay red `#A84328` to a light warm orange `#D97B4F`) so they
+still pop against the near-black paper. That means a fixed `color: #fff`
+on top of an accent-filled chip/badge/button is fine in light theme but
+becomes low/no-contrast in dark theme.
+
+**Rule:** any element whose background is `var(--accent-1)`, `var(--accent-2)`,
+`var(--c)` (a per-instance accent passed via inline `style`), or another
+themeable/bright fill, must set its text color with
+`color: var(--on-accent, #fff);` — never a hardcoded `#fff`/`white`.
+`--on-accent` is redefined per theme (see `tokens.css` and `index.css`)
+specifically so it flips to a dark ink when the accent itself is light.
+Hardcoded hex text colors are only safe on backgrounds that are also
+fixed hex values unaffected by theme (e.g. a fixed-red notification
+badge), never on a CSS variable that changes with the theme.
+
+Before adding a new accent-filled pill/chip/badge, search the codebase
+for `var(--on-accent` for existing examples, and grep for
+`color: #fff` / `color: white` in your new CSS to make sure none of
+them sit on a themed background.
+
 ## Next steps (Phase C completion)
 
 - Move remaining large blocks from `index.css` into dedicated component files (toolbar, modals, timer, quiz, todo…).

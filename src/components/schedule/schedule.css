@@ -294,6 +294,24 @@
   background: color-mix(in srgb, var(--block-color) 28%, transparent);
 }
 
+.sch-block-postpone {
+  width: 34px;
+  flex-shrink: 0;
+  align-self: stretch;
+  border: none;
+  border-inline-start: 1px solid rgba(var(--border-rgb, 40, 30, 20), 0.12);
+  background: transparent;
+  color: var(--muted-strong, #6b6358);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sch-block-postpone:hover {
+  color: var(--accent-1);
+  background: var(--accent-1-soft);
+}
+
 .sch-block-main {
   flex: 1;
   min-width: 0;
@@ -361,7 +379,11 @@
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--block-color);
-  color: #fff;
+  /* Use the theme's on-accent text color, not a hardcoded white — dark
+     theme brightens accent colors and redefines --on-accent to a dark
+     ink so text stays readable on top of them. See schedule.css header
+     note and src/styles/README.md ("Text on accent backgrounds"). */
+  color: var(--on-accent, #fff);
 }
 
 .sch-empty {
@@ -708,7 +730,11 @@
 }
 .sch-type-chip.is-on {
   background: var(--c);
-  color: #fff;
+  /* NEVER hardcode #fff here — dark theme brightens accent colors
+     (e.g. --accent-1 goes from a deep clay red to a light warm orange),
+     so white text on top becomes near-invisible. --on-accent is
+     redefined per theme specifically to stay readable on accent fills. */
+  color: var(--on-accent, #fff);
   border-color: transparent;
 }
 
@@ -807,6 +833,77 @@
   flex-shrink: 0;
   margin-top: 1px;
   color: var(--accent-1);
+}
+
+.sch-month {
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sch-month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sch-month-nav strong {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.05rem;
+}
+.sch-month-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted-strong, #6b6358);
+  text-align: center;
+}
+.sch-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.sch-month-cell {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  border: 1px solid rgba(var(--border-rgb, 40, 30, 20), 0.1);
+  background: var(--card, #fff);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 2px;
+}
+.sch-month-cell.is-outside {
+  opacity: 0.35;
+}
+.sch-month-cell.is-today {
+  border-color: var(--accent-1);
+}
+.sch-month-cell.is-selected {
+  background: var(--accent-1);
+  color: var(--on-accent, #fff);
+  border-color: transparent;
+}
+.sch-month-daynum {
+  font-size: 12px;
+  font-weight: 700;
+}
+.sch-month-count {
+  font-size: 9px;
+  font-weight: 700;
+  opacity: 0.75;
+}
+.sch-month-detail {
+  border-top: 1px solid rgba(var(--border-rgb, 40, 30, 20), 0.1);
+  padding-top: 10px;
 }
 
 .sch-summary {

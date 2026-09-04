@@ -96,6 +96,17 @@ export function weekKey(d = new Date()) {
   return `${x.getFullYear()}-W${String(wk).padStart(2, "0")}`;
 }
 
+export function addDays(d, n) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
+/** weekKey of the week right after the week containing `d`. */
+export function nextWeekKey(d = new Date()) {
+  return weekKey(addDays(d, 7));
+}
+
 export function timeToMinutes(t) {
   if (typeof t !== "string" || !/^\d{1,2}:\d{2}$/.test(t)) return 0;
   const [h, m] = t.split(":").map(Number);
@@ -128,6 +139,8 @@ function uid() {
  *  - "weekly" (default): repeats every week on `days`
  *  - "once": only on `date` (YYYY-MM-DD)
  *  - "week": only during `weekKey` (this calendar week)
+ *  - "nextWeek": only during `weekKey` (the week right after this one —
+ *    same matching rule as "week", just created one week ahead)
  */
 /** True when a block has both a start and end time set. Time is optional. */
 export function hasTime(b) {
@@ -145,7 +158,7 @@ function block(partial) {
     typeof partial.color === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(partial.color)
       ? partial.color
       : BLOCK_TYPES[type].color;
-  const recurrence = ["weekly", "once", "week"].includes(partial.recurrence)
+  const recurrence = ["weekly", "once", "week", "nextWeek"].includes(partial.recurrence)
     ? partial.recurrence
     : "weekly";
   // Time is optional: a block only carries a start/end when both are valid
@@ -166,7 +179,19 @@ function block(partial) {
       : [0, 1, 2, 3, 4, 5, 6],
     recurrence,
     date: typeof partial.date === "string" ? partial.date : null,
-    weekKey: typeof partial.weekKey === "string" ? partial.weekKey : null,
+    weekKey:
+      typeof partial.weekKey === "string"
+        ? partial.weekKey
+        : recurrence === "nextWeek"
+          ? nextWeekKey()
+          : null,
+    // Dates (YYYY-MM-DD) where this normally-recurring "weekly" block is
+    // postponed away — see postponeBlock(). Irrelevant for other recurrences.
+    skipDates: Array.isArray(partial.skipDates)
+      ? partial.skipDates.filter((d) => typeof d === "string").slice(0, 60)
+      : [],
+    // Set when this block is a one-off copy created by postponeBlock().
+    postponedFrom: typeof partial.postponedFrom === "string" ? partial.postponedFrom : null,
   };
 }
 
@@ -396,7 +421,9 @@ export function blockAppliesOnDate(b, d = new Date()) {
   const wk = weekKey(d);
   const rec = b.recurrence || "weekly";
   if (rec === "once") return b.date === dk;
-  if (rec === "week") return b.weekKey === wk && (b.days || []).includes(day);
+  if (rec === "week" || rec === "nextWeek")
+    return b.weekKey === wk && (b.days || []).includes(day);
+  if ((b.skipDates || []).includes(dk)) return false; // postponed away this date
   return (b.days || []).includes(day);
 }
 
@@ -497,7 +524,7 @@ export function findConflictsForSave(schedule, candidate) {
     return conflicts;
   }
 
-  if (rec === "week" && candidate.weekKey) {
+  if ((rec === "week" || rec === "nextWeek") && candidate.weekKey) {
     // Approximate: check today-week days that match
     const days = candidate.days?.length ? candidate.days : [todayIndex()];
     for (const day of days) {
@@ -658,7 +685,7 @@ export function removeBlocksForDays(schedule, dayIndexes, mode = "all") {
       out.push(b);
       continue;
     }
-    if (rec === "week") {
+    if (rec === "week" || rec === "nextWeek") {
       if (b.weekKey === wk && (b.days || []).some((d) => days.has(d))) {
         const nextDays = (b.days || []).filter((d) => !days.has(d));
         if (!nextDays.length) continue;
@@ -854,7 +881,7 @@ export function clearTemporaryBlocks(schedule, mode = "week") {
         return false;
       }
     }
-    if (r === "week") return b.weekKey !== wk;
+    if (r === "week" || r === "nextWeek") return b.weekKey !== wk;
     return true;
   });
   return { ...schedule, blocks };
@@ -912,6 +939,117 @@ export function exportWeekText(schedule, accountCode, isAr = false, weekStartsOn
       : `Week progress: ${summary.pct}% (${summary.totalDone}/${summary.totalBlocks})`
   );
   return lines.join("\n");
+}
+
+/**
+ * Postpone one occurrence of a block to a new date/time.
+ *
+ * - permanent = false (default): only this single occurrence moves. The
+ *   original weekly slot keeps running every other week as before — we
+ *   record `fromDate` in the block's `skipDates` so that one date is
+ *   hidden, and add a normal "once" block on `toDate` carrying the same
+ *   details. Non-recurring (once/week/nextWeek) blocks are simply moved.
+ * - permanent = true: the recurring block itself is rescheduled going
+ *   forward — every future week uses the new day/time, i.e. the
+ *   postponed slot "becomes normal" from now on.
+ */
+export function postponeBlock(
+  schedule,
+  blockId,
+  fromDate,
+  { toDate, toStart, toEnd, permanent = false } = {}
+) {
+  const blocks = schedule.blocks || [];
+  const original = blocks.find((b) => b.id === blockId);
+  if (!original) return schedule;
+
+  const newStart = toStart || original.start;
+  const newEnd = toEnd || original.end;
+  const rec = original.recurrence || "weekly";
+
+  // Non-recurring occurrences (once / week / nextWeek): just move them.
+  if (rec !== "weekly") {
+    const blocksOut = blocks.map((b) =>
+      b.id === blockId
+        ? {
+            ...b,
+            start: newStart,
+            end: newEnd,
+            date: toDate || b.date,
+            recurrence: toDate ? "once" : b.recurrence,
+            weekKey: toDate ? null : b.weekKey,
+          }
+        : b
+    );
+    return { ...schedule, blocks: blocksOut };
+  }
+
+  if (permanent) {
+    const toDay = toDate ? new Date(toDate + "T12:00:00").getDay() : null;
+    const blocksOut = blocks.map((b) => {
+      if (b.id !== blockId) return b;
+      const days = toDay != null ? [toDay] : b.days;
+      return { ...b, start: newStart, end: newEnd, days };
+    });
+    return { ...schedule, blocks: blocksOut };
+  }
+
+  // One-off: skip the original date on the recurring block, add a "once" copy.
+  const skipDates = Array.from(new Set([...(original.skipDates || []), fromDate]));
+  const blocksOut = blocks.map((b) => (b.id === blockId ? { ...b, skipDates } : b));
+  const copy = block({
+    ...original,
+    id: undefined,
+    start: newStart,
+    end: newEnd,
+    date: toDate,
+    recurrence: "once",
+    weekKey: null,
+    skipDates: [],
+    postponedFrom: blockId,
+  });
+  return { ...schedule, blocks: [...blocksOut, copy] };
+}
+
+// ——— month overview (for the monthly calendar view) ———
+
+/** Number of days in a given year/month (month is 0-indexed). */
+export function daysInMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+/**
+ * Weeks × 7 grid of Date objects covering the given month, padded with the
+ * trailing days of the previous/next month so every week is full.
+ * Each cell: { date, inMonth }.
+ */
+export function buildMonthMatrix(year, month, weekStartsOn = 6) {
+  const first = new Date(year, month, 1);
+  const firstOffset = (first.getDay() - weekStartsOn + 7) % 7;
+  const gridStart = addDays(first, -firstOffset);
+  const total = daysInMonth(year, month);
+  const lastOffset = (weekStartsOn + 6 - new Date(year, month, total).getDay() + 7) % 7;
+  const gridEnd = addDays(new Date(year, month, total), lastOffset);
+  const weeks = [];
+  let cursor = new Date(gridStart);
+  cursor.setHours(12, 0, 0, 0);
+  while (cursor <= gridEnd) {
+    const week = [];
+    for (let i = 0; i < 7; i++) {
+      week.push({ date: new Date(cursor), inMonth: cursor.getMonth() === month });
+      cursor = addDays(cursor, 1);
+    }
+    weeks.push(week);
+  }
+  return weeks;
+}
+
+/** Non-sleep block count + done count for a single calendar date. */
+export function dayOverview(schedule, accountCode, d) {
+  const blocks = blocksForDate(schedule, d).filter((b) => b.type !== "sleep");
+  const doneMap = completionsForDate(accountCode, d);
+  const done = blocks.filter((b) => doneMap[b.id]).length;
+  return { total: blocks.length, done };
 }
 
 export function setWeekStartsOn(schedule, value) {

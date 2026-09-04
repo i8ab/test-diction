@@ -349,6 +349,7 @@ export default function MobileBottomNav({
 }) {
   const listRef = useRef(null);
   const itemRefs = useRef([]);
+  const rafFollowupRef = useRef(null);
   const [light, setLight] = useState({ x: 0, w: 48, ready: false });
   const [localKeys, setLocalKeys] = useState(loadNavTabKeys);
 
@@ -435,11 +436,22 @@ export default function MobileBottomNav({
       const x = er.left - lr.left + er.width / 2 - size / 2;
       setLight({ x, w: size, ready: true });
     }
-    measure();
-    const t = setTimeout(measure, 40);
+    // Read layout (getBoundingClientRect) on the next animation frame instead
+    // of synchronously inside the effect. Right after mount/re-render the DOM
+    // is still dirty from React's commit, so measuring here would force a
+    // synchronous layout recalculation on the main thread during the busiest
+    // part of the load (a "forced reflow" — flagged by Lighthouse). Waiting a
+    // frame lets the browser do its normal layout/paint pass first, so the
+    // read is free.
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(measure);
+      rafFollowupRef.current = raf2;
+    });
+    // Re-measure after resize/orientation change, not on an arbitrary timer.
     window.addEventListener("resize", measure);
     return () => {
-      clearTimeout(t);
+      cancelAnimationFrame(raf1);
+      if (rafFollowupRef.current) cancelAnimationFrame(rafFollowupRef.current);
       window.removeEventListener("resize", measure);
     };
   }, [activeIndex, isAr, tabs.length]);

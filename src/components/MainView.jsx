@@ -32,10 +32,17 @@ import ExamBanner from "./layout/ExamBanner";
 import SiteBanner from "./layout/SiteBanner";
 import WordListPanel from "./layout/WordListPanel";
 import EntryFiltersBar from "./layout/EntryFiltersBar";
-import AccountRequestsModal, { AccountRequestsButton } from "./layout/AccountRequestsModal";
 import InboxBell from "./layout/InboxBell";
 import MobileBottomNav, { loadNavTabKeys, saveNavTabKeys } from "./layout/MobileBottomNav";
-import MainViewOverlays from "./layout/MainViewOverlays";
+
+// Admin-only UI: most visitors are never admins, so keep this out of the
+// initial MainView chunk entirely instead of paying for it on every load.
+const AccountRequestsModal = lazy(() => import("./layout/AccountRequestsModal").then((m) => ({ default: m.default })));
+const AccountRequestsButton = lazy(() => import("./layout/AccountRequestsModal").then((m) => ({ default: m.AccountRequestsButton })));
+
+// Overlays/modals render after the first interaction, not on first paint —
+// split them out so they don't add to MainView's unused-on-load JS.
+const MainViewOverlays = lazy(() => import("./layout/MainViewOverlays"));
 import ToolShell from "./layout/ToolShell";
 import { loadXp, snapshotProgress } from "../lib/state/xp";
 import { loadWordNotes } from "../lib/state/wordNotes";
@@ -796,7 +803,7 @@ export default function MainView({
                 siteBanner={siteBanner}
               />
               {isAdmin && (
-                <>
+                <Suspense fallback={null}>
                   <AccountRequestsButton
                     pendingCount={(accounts || []).filter((a) => a.status === "pending").length}
                     isAr={appIsAr}
@@ -810,7 +817,7 @@ export default function MainView({
                     onApproveRequest={onApproveRequest}
                     onRejectRequest={onRejectRequest}
                   />
-                </>
+                </Suspense>
               )}
               <HeaderMenu theme={theme} onToggleTheme={onToggleTheme} onChangeTheme={onChangeTheme} isAdmin={isAdmin}
                 onOpenAccount={onOpenAccount} onOpenAdmin={onOpenAdmin} onLogout={onLogout} isAr={appIsAr}
@@ -1335,6 +1342,7 @@ export default function MainView({
         </Suspense>
       )}
 
+      <Suspense fallback={null}>
       <MainViewOverlays
         cfg={cfg}
         section={section}
@@ -1465,6 +1473,7 @@ export default function MainView({
         onToggleFavorite={handleToggleFavoriteById}
         onCyclePriority={handleCyclePriority}
       />
+      </Suspense>
 
       {dupNotice && dupNotice.entry && (
         <div

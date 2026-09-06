@@ -32,6 +32,7 @@ export default function DictationModal({
   onFinishRound,
   academicUnits = null,
   activeUnitId = null,
+  unitStructure = null,
 }) {
   const [mode, setMode] = useState("listen-meaning"); // listen-meaning | type-word | listen-loop
   const [count, setCount] = useState(8);
@@ -56,7 +57,7 @@ export default function DictationModal({
     setUnitPreset,
     toggleUnit,
     selectAllUnits,
-  } = useUnitScope(academicUnits, activeUnitId, entries);
+  } = useUnitScope(academicUnits, activeUnitId, entries, unitStructure);
 
   const studiedSet = useMemo(
     () => (studiedIds instanceof Set ? studiedIds : new Set(studiedIds || [])),

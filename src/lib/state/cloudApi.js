@@ -76,6 +76,7 @@ function normalizeRecord(data) {
     siteBanner: data.siteBanner || null,
     examConfig: data.examConfig || null,
     academicUnits: data.academicUnits || null,
+    unitStructure: data.unitStructure || null,
     version: data.version || 0,
   };
 }
@@ -336,10 +337,10 @@ export async function fetchLogsOnly({ fresh = false } = {}) {
 
 /**
  * إعدادات محددة حسب المفاتيح المطلوبة.
- * keys مثال: "site_banner,exam_config,academic_units,version"
+ * keys مثال: "site_banner,exam_config,academic_units,unit_structure,version"
  */
 export async function fetchSettings(
-  keys = "site_banner,exam_config,academic_units,version",
+  keys = "site_banner,exam_config,academic_units,unit_structure,version",
   { fresh = false } = {}
 ) {
   const cacheKey = `settings:${keys}`;
@@ -410,7 +411,7 @@ export async function saveRecord(record, expectedVersion) {
   if (res.status === 409) {
     invalidateRecordCache();
     const data = await res.json().catch(() => null);
-    throw new SaveConflictError(data || { entries: [], accounts: [], logs: [], siteBanner: null, examConfig: null, academicUnits: null, version: expectedVersion });
+    throw new SaveConflictError(data || { entries: [], accounts: [], logs: [], siteBanner: null, examConfig: null, academicUnits: null, unitStructure: null, version: expectedVersion });
   }
   await assertWriteOk(res);
   invalidateRecordCache();
@@ -473,6 +474,7 @@ export async function saveAccountsOnly(
         siteBanner: null,
         examConfig: null,
         academicUnits: null,
+        unitStructure: null,
         version: expectedVersion,
       }
     );
@@ -529,6 +531,7 @@ async function putScoped(body, expectedVersion) {
         siteBanner: null,
         examConfig: null,
         academicUnits: null,
+        unitStructure: null,
         version: expectedVersion,
       }
     );
@@ -607,5 +610,6 @@ export async function fetchAccountsBundle({ fresh = false } = {}) {
     siteBanner: null,
     examConfig: null,
     academicUnits: null,
+    unitStructure: null,
   };
 }

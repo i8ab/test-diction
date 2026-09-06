@@ -4,10 +4,41 @@ import { INK, primaryBtnStyle, inputStyle } from "../../lib/config/theme";
 import { XIcon, CheckIcon, LoaderIcon, BookIcon, SearchIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import WaterProgressBar from "../common/WaterProgressBar";
+import {
+  normalizeUnitStructure,
+  sectionDisplayName,
+  lessonDisplayName,
+  findLesson,
+} from "../../lib/state/unitStructure";
 
 // Calls go through /api/ai-agent so the real upstream secret stays
 // server-side and is never shipped to the browser bundle.
 const AI_AGENT_PROXY_URL = "/api/ai-agent?action=extract-pdf";
+
+/**
+ * Resolve what the AI Agent detected in the book (a raw "A"/"B" section
+ * letter and/or a raw lesson number, from the book's own headings) into our
+ * actual sectionId / lessonId from the site's unit structure. Lesson number
+ * is unambiguous (numbers are unique across the whole structure — see
+ * unitStructure.js), so it's tried first; the section letter alone is a
+ * fallback for words found under "Section A" but no "Lesson n" heading yet.
+ */
+function resolveDetectedPlacement(structure, detectedSection, detectedLesson) {
+  if (!structure) return { sectionId: null, lessonId: null };
+  const lessonNum = detectedLesson != null ? parseInt(detectedLesson, 10) : null;
+  if (Number.isFinite(lessonNum)) {
+    for (const s of structure.sections || []) {
+      const found = s.lessons.find((l) => l.number === lessonNum);
+      if (found) return { sectionId: s.id, lessonId: found.id };
+    }
+  }
+  if (detectedSection) {
+    const wanted = String(detectedSection).trim().toUpperCase();
+    const section = (structure.sections || []).find((s) => s.id.toUpperCase() === wanted);
+    if (section) return { sectionId: section.id, lessonId: null };
+  }
+  return { sectionId: null, lessonId: null };
+}
 
 /**
  * Upload a PDF textbook → AI Agent extracts vocabulary → admin picks words to add.
@@ -21,6 +52,7 @@ export default function AiPdfExtractModal({
   showToast,
   academicUnits = [],
   activeUnitId = null,
+  unitStructure = null,
 }) {
   const [file, setFile] = useState(null);
   const [pageFrom, setPageFrom] = useState("");
@@ -31,6 +63,7 @@ export default function AiPdfExtractModal({
   const [error, setError] = useState("");
   const [reviewSearch, setReviewSearch] = useState("");
   const [progressMsg, setProgressMsg] = useState("");
+  const [structureDetected, setStructureDetected] = useState(null); // null = unknown yet
   // Destination dictionary: EN→AR, Academic, or AR→AR (independent of current tab)
   const [targetSection, setTargetSection] = useState(
     () => (section === "academic" || section === "ar-ar" || section === "en-ar" ? section : "en-ar")
@@ -39,6 +72,18 @@ export default function AiPdfExtractModal({
   const [targetUnitId, setTargetUnitId] = useState(
     () => activeUnitId || academicUnits[0]?.id || null
   );
+
+  // Section/Lesson placement inside the chosen unit.
+  const structure = useMemo(() => normalizeUnitStructure(unitStructure), [unitStructure]);
+  const hasStructure = structure.sections.length > 0;
+  const [autoDetectStructure, setAutoDetectStructure] = useState(true);
+  // Manual target — only used when auto-detect is off (or as a fallback for
+  // words the AI found no heading for at all).
+  const [manualSectionId, setManualSectionId] = useState(() => structure.sections[0]?.id || null);
+  const [manualLessonId, setManualLessonId] = useState(
+    () => structure.sections[0]?.lessons[0]?.id || null
+  );
+  const manualSection = structure.sections.find((s) => s.id === manualSectionId) || null;
 
   // existing words in the chosen destination; academic scoped by unit
   const existing = new Set(
@@ -105,6 +150,16 @@ export default function AiPdfExtractModal({
       form.append("section", targetSection || "en-ar");
       if (pf != null) form.append("page_from", String(pf));
       if (pt != null) form.append("page_to", String(pt));
+      if (isAcademic && hasStructure) {
+        form.append("auto_detect_structure", autoDetectStructure ? "true" : "false");
+        if (!autoDetectStructure) {
+          if (manualSectionId) form.append("unit_section", manualSectionId);
+          if (manualLessonId) {
+            const lessonNum = manualSection?.lessons.find((l) => l.id === manualLessonId)?.number;
+            if (lessonNum != null) form.append("lesson", String(lessonNum));
+          }
+        }
+      }
 
       const res = await fetch(AI_AGENT_PROXY_URL, {
         method: "POST",
@@ -120,6 +175,7 @@ export default function AiPdfExtractModal({
       if (!data.success || !Array.isArray(data.entries)) {
         throw new Error(data.message || "Unexpected response");
       }
+      setStructureDetected(!!data.structure_detected);
 
       // Merge rows with same word into one display item for review
       const byWord = new Map();
@@ -128,11 +184,16 @@ export default function AiPdfExtractModal({
         if (!w) continue;
         const k = w.toLowerCase();
         if (!byWord.has(k)) {
+          const placement = isAcademic && hasStructure
+            ? resolveDetectedPlacement(structure, e.unitSection, e.lesson)
+            : { sectionId: null, lessonId: null };
           byWord.set(k, {
             ...e,
             word: w,
             section: targetSection || e.section || "en-ar",
             alreadyExists: existing.has(k),
+            sectionId: placement.sectionId,
+            lessonId: placement.lessonId,
             _meanings: [],
           });
         }
@@ -238,6 +299,19 @@ export default function AiPdfExtractModal({
     });
   }
 
+  // Manually move one extracted word to a different lesson/section (or back
+  // to "no section" — general unit-level) — overrides whatever the AI detected.
+  function reassignWord(key, lessonId) {
+    const placement = lessonId ? findLesson(structure, lessonId) : null;
+    setExtracted((prev) =>
+      prev.map((e) =>
+        entryKey(e) === key
+          ? { ...e, sectionId: placement ? placement.sectionId : null, lessonId: placement ? placement.id : null }
+          : e
+      )
+    );
+  }
+
   async function handleConfirm() {
     const toAdd = extracted.filter((e) => selected.has(entryKey(e)) && !e.alreadyExists);
     if (!toAdd.length) {
@@ -247,8 +321,14 @@ export default function AiPdfExtractModal({
 
     setPhase("saving");
     try {
-      // Tag every entry with the chosen destination section
-      const tagged = toAdd.map((e) => ({ ...e, section: targetSection }));
+      // Tag every entry with the chosen destination section (sectionId/lessonId
+      // already resolved from AI detection or manual reassignment above).
+      const tagged = toAdd.map((e) => ({
+        ...e,
+        section: targetSection,
+        sectionId: isAcademic ? e.sectionId || null : null,
+        lessonId: isAcademic ? e.lessonId || null : null,
+      }));
       await onAddEntries(tagged, isAcademic ? targetUnitId : null, targetSection);
       showToast?.(
         tr(
@@ -528,6 +608,89 @@ export default function AiPdfExtractModal({
                 </div>
               )}
 
+              {isAcademic && hasStructure && (
+                <div style={{ marginBottom: 14 }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 10,
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid rgba(var(--border-rgb),0.2)",
+                      background: "var(--input-bg)",
+                      cursor: "pointer",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <span style={{ fontSize: 13, fontWeight: 700, color: INK }}>
+                      {tr(
+                        isAr,
+                        "Auto-detect Sections & Lessons from the book",
+                        "اكتشاف السكاشن والدروس تلقائيًا من الكتاب"
+                      )}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={autoDetectStructure}
+                      onChange={(e) => setAutoDetectStructure(e.target.checked)}
+                      style={{ width: 18, height: 18 }}
+                    />
+                  </label>
+                  <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--icon-muted)", lineHeight: 1.45 }}>
+                    {autoDetectStructure
+                      ? tr(
+                          isAr,
+                          "The AI reads “Section A / Lesson 2” style headings in the book and places each word automatically. Words with no such heading stay at the unit's general level — you can still move them below.",
+                          "الذكاء الاصطناعي هيقرا عناوين زي «Section A / Lesson 2» في الكتاب ويحط كل كلمة في مكانها لوحده. الكلمات اللي مفيش لها عنوان هتفضل عامة على مستوى الوحدة — تقدر تنقلها بعدين."
+                        )
+                      : tr(
+                          isAr,
+                          "Every extracted word will be placed directly into the Section/Lesson you choose below, ignoring any headings in the book.",
+                          "كل الكلمات المستخرجة هتتحط مباشرة في السكشن/الدرس اللي هتختاره تحت، بغض النظر عن أي عناوين في الكتاب."
+                        )}
+                  </p>
+                  {!autoDetectStructure && (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-strong)" }}>
+                          {tr(isAr, "Section", "السكشن")}
+                        </span>
+                        <select
+                          value={manualSectionId || ""}
+                          onChange={(e) => {
+                            const sid = e.target.value || null;
+                            setManualSectionId(sid);
+                            const s = structure.sections.find((x) => x.id === sid);
+                            setManualLessonId(s?.lessons[0]?.id || null);
+                          }}
+                          style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid rgba(var(--border-rgb),0.2)", background: "var(--input-bg)", color: "var(--ink)", fontSize: 13, fontWeight: 600 }}
+                        >
+                          {structure.sections.map((s) => (
+                            <option key={s.id} value={s.id}>{sectionDisplayName(s)}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-strong)" }}>
+                          {tr(isAr, "Lesson", "الدرس")}
+                        </span>
+                        <select
+                          value={manualLessonId || ""}
+                          onChange={(e) => setManualLessonId(e.target.value || null)}
+                          style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid rgba(var(--border-rgb),0.2)", background: "var(--input-bg)", color: "var(--ink)", fontSize: 13, fontWeight: 600 }}
+                        >
+                          {(manualSection?.lessons || []).map((l) => (
+                            <option key={l.id} value={l.id}>{lessonDisplayName(l)}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {error && (
                 <div
                   style={{
@@ -580,6 +743,22 @@ export default function AiPdfExtractModal({
           {/* REVIEW PHASE */}
           {phase === "review" && (
             <>
+              {isAcademic && hasStructure && structureDetected != null && (
+                <div
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    marginBottom: 10,
+                    fontSize: 12.5,
+                    background: structureDetected ? "rgba(80,180,120,0.12)" : "rgba(200,160,60,0.12)",
+                    color: structureDetected ? "#4caf6f" : "#c8a03c",
+                  }}
+                >
+                  {structureDetected
+                    ? tr(isAr, "Section/Lesson headings were found and applied below — check each word's badge.", "تم اكتشاف عناوين Section/Lesson واتطبقت تحت — راجع شارة كل كلمة.")
+                    : tr(isAr, "No Section/Lesson headings were found in this file — words are unplaced (general unit level). Assign them individually below if needed.", "مفيش عناوين Section/Lesson في الملف ده — الكلمات هتفضل عامة على مستوى الوحدة. حددها واحدة واحدة تحت لو محتاج.")}
+                </div>
+              )}
               <div
                 style={{
                   display: "flex",
@@ -819,6 +998,41 @@ export default function AiPdfExtractModal({
                                         ≠ {Array.isArray(e.antonyms) ? e.antonyms.join(", ") : ""}
                                       </span>
                                     )}
+                                  </div>
+                                )}
+                                {isAcademic && hasStructure && (
+                                  <div style={{ marginTop: 6 }} onClick={(evt) => evt.preventDefault()}>
+                                    <select
+                                      value={e.lessonId || ""}
+                                      onChange={(evt) => reassignWord(entryKey(e), evt.target.value || null)}
+                                      style={{
+                                        fontSize: 11.5,
+                                        fontWeight: 700,
+                                        padding: "3px 8px",
+                                        borderRadius: 7,
+                                        border: e.lessonId || e.sectionId
+                                          ? "1px solid rgba(80,180,120,0.4)"
+                                          : "1px solid rgba(var(--border-rgb),0.2)",
+                                        background: e.lessonId || e.sectionId
+                                          ? "rgba(80,180,120,0.1)"
+                                          : "var(--card-bg, #1a1a1a)",
+                                        color: e.lessonId || e.sectionId ? "#4caf6f" : "var(--muted)",
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      <option value="">
+                                        {tr(isAr, "— No section (general) —", "— بلا سكشن (عام) —")}
+                                      </option>
+                                      {structure.sections.map((s) => (
+                                        <optgroup key={s.id} label={sectionDisplayName(s)}>
+                                          {s.lessons.map((l) => (
+                                            <option key={l.id} value={l.id}>
+                                              {sectionDisplayName(s)} · {lessonDisplayName(l)}
+                                            </option>
+                                          ))}
+                                        </optgroup>
+                                      ))}
+                                    </select>
                                   </div>
                                 )}
                               </div>

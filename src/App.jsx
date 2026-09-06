@@ -67,6 +67,7 @@ import {
   defaultAcademicUnits,
 } from "./lib/state/academicUnits";
 import { getTodayTimerMinutes } from "./lib/state/goals";
+import { useUnitStructure } from "./lib/hooks/useUnitStructure";
 import {
   loadAccountVault, upsertVaultAccount, removeVaultAccount, clearAccountVault,
   getMainAccountCode, setMainAccountCode,
@@ -288,6 +289,15 @@ export default function DictionaryApp() {
       )
     )
   );
+  // Unit → Section → Lesson template (same shape applied inside every
+  // Academic unit). Fetched independently of the main boot sequence — it's
+  // small, rarely changes, and safe to lag behind by a few seconds on first
+  // load (falls back to the local cache / built-in default instantly).
+  const {
+    structure: unitStructure,
+    persist: persistUnitStructure,
+    refresh: refreshUnitStructure,
+  } = useUnitStructure({ autoFetch: true });
   const [accountCode, setAccountCode] = useState(
     () => initialOffline?.usableAccount?.code || ""
   );
@@ -1828,6 +1838,7 @@ export default function DictionaryApp() {
       onUnlinkFacebook={handleUnlinkFacebook}
       facebookLinkBusy={facebookLinkBusy}
       siteBanner={siteBanner} examConfig={examConfig} onPersistExamConfig={persistExamConfig} onPersistSiteBanner={persistSiteBanner} academicUnits={academicUnits} activeUnitId={activeUnitId} onChangeActiveUnitId={setActiveUnitId} onPersistAcademicUnits={persistAcademicUnits}
+      unitStructure={unitStructure} onPersistUnitStructure={persistUnitStructure} onRefreshUnitStructure={refreshUnitStructure}
       showAdmin={showAdmin} onOpenAdmin={openAdminModal} onCloseAdmin={closeAdminModal}
       onAdminAddAccount={handleAdminAddAccount} onAdminEditAccount={handleAdminEditAccount} onAdminDeleteAccount={handleAdminDeleteAccount}
       onApproveRequest={handleApproveRequest} onRejectRequest={handleRejectRequest}

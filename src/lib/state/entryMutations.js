@@ -21,10 +21,14 @@ export async function addEntry({
   onCloseAdd,
   showToast,
   unitId = null,
+  sectionId = null,
+  lessonId = null,
 }) {
   const key = (newEntry.word || "").trim().toLowerCase();
   const isAcademic = section === "academic";
   const effectiveUnitId = isAcademic ? (newEntry.unitId || unitId || null) : null;
+  const effectiveSectionId = isAcademic ? (newEntry.sectionId || sectionId || null) : null;
+  const effectiveLessonId = isAcademic ? (newEntry.lessonId || lessonId || null) : null;
 
   const sameScope = (e) => {
     if (e.section !== section) return false;
@@ -46,6 +50,8 @@ export async function addEntry({
     addedBy: accountCode,
     addedAt: Date.now(),
     ...(isAcademic && effectiveUnitId ? { unitId: effectiveUnitId } : {}),
+    ...(isAcademic && effectiveSectionId ? { sectionId: effectiveSectionId } : {}),
+    ...(isAcademic && effectiveLessonId ? { lessonId: effectiveLessonId } : {}),
   };
   let skippedDup = false;
   await persistEntries(
@@ -524,6 +530,11 @@ export async function importWordsFromAi({
   persistEntries,
   showToast,
   unitId = null,
+  // Fallback placement used only when a given AI entry has no per-word
+  // sectionId/lessonId of its own (e.g. auto-detect found nothing for it,
+  // or the admin ran the extractor in manual/single-target mode).
+  sectionId = null,
+  lessonId = null,
 }) {
   if (!aiEntries || !aiEntries.length) return;
 
@@ -585,6 +596,8 @@ export async function importWordsFromAi({
     let unit = null;
     let page = null;
     let importance = "key";
+    let wordSectionId = null;
+    let wordLessonId = null;
 
     for (const e of rows) {
       const pos = (e.pos || "").trim();
@@ -627,6 +640,8 @@ export async function importWordsFromAi({
       if (!unit && e.unit) unit = e.unit;
       if (!page && e.page) page = e.page;
       if (e.importance) importance = e.importance;
+      if (!wordSectionId && e.sectionId) wordSectionId = e.sectionId;
+      if (!wordLessonId && e.lessonId) wordLessonId = e.lessonId;
     }
 
     // dedupe pairs by word
@@ -667,6 +682,8 @@ export async function importWordsFromAi({
       from_ai: true,
       importance,
       ...(isAcademic && targetUnitId ? { unitId: targetUnitId } : {}),
+      ...(isAcademic && (wordSectionId || sectionId) ? { sectionId: wordSectionId || sectionId } : {}),
+      ...(isAcademic && (wordLessonId || lessonId) ? { lessonId: wordLessonId || lessonId } : {}),
     });
   }
 

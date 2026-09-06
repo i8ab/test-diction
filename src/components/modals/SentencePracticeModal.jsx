@@ -24,6 +24,7 @@ export default function SentencePracticeModal({
   limit = 8,
   academicUnits = null,
   activeUnitId = null,
+  unitStructure = null,
 }) {
   const {
     hasUnits,
@@ -33,7 +34,7 @@ export default function SentencePracticeModal({
     setUnitPreset,
     toggleUnit,
     selectAllUnits,
-  } = useUnitScope(academicUnits, activeUnitId, entries);
+  } = useUnitScope(academicUnits, activeUnitId, entries, unitStructure);
 
   // Snapshot the practice list once when the modal opens / units change.
   // Never re-shuffle when srsStats updates (that caused old sentence to stick on a new word).

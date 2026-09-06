@@ -52,6 +52,7 @@ export default function SmartCardsModal({
   onXp,
   academicUnits = null,
   activeUnitId = null,
+  unitStructure = null,
 }) {
   const [mode, setMode] = useState("mix");
   const [filterKey, setFilterKey] = useState("studied");
@@ -72,7 +73,7 @@ export default function SmartCardsModal({
     setUnitPreset,
     toggleUnit,
     selectAllUnits,
-  } = useUnitScope(academicUnits, activeUnitId, entries);
+  } = useUnitScope(academicUnits, activeUnitId, entries, unitStructure);
 
   const pool = useMemo(() => {
     let list = unitFilteredEntries || [];

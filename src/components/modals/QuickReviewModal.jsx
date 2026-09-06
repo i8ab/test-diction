@@ -20,7 +20,7 @@ import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
  */
 export default function QuickReviewModal({
   entries, studiedIds, srsDueAt, isAr, onClose, onToggleStudied, onRecordSrsAnswer, limit = 8,
-  academicUnits = null, activeUnitId = null,
+  academicUnits = null, activeUnitId = null, unitStructure = null,
 }) {
   const {
     hasUnits,
@@ -30,7 +30,7 @@ export default function QuickReviewModal({
     setUnitPreset,
     toggleUnit,
     selectAllUnits,
-  } = useUnitScope(academicUnits, activeUnitId, entries);
+  } = useUnitScope(academicUnits, activeUnitId, entries, unitStructure);
 
   const due = useMemo(() => {
     const list = (unitFilteredEntries || []).filter(

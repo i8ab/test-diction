@@ -25,6 +25,7 @@ export default function ListeningLoopModal({
   limit = 10,
   academicUnits = null,
   activeUnitId = null,
+  unitStructure = null,
 }) {
   const {
     hasUnits,
@@ -34,7 +35,7 @@ export default function ListeningLoopModal({
     setUnitPreset,
     toggleUnit,
     selectAllUnits,
-  } = useUnitScope(academicUnits, activeUnitId, entries);
+  } = useUnitScope(academicUnits, activeUnitId, entries, unitStructure);
 
   const list = useMemo(() => {
     const base = (unitFilteredEntries || []).filter((e) => studiedIds.has(e.id));

@@ -10,7 +10,7 @@ import { SpeakButton, XIcon, CheckIcon, EyeIcon, QuizIcon } from "../common/Icon
 import HowItWorksButton from "../common/HowItWorksButton";
 import InlineHowItWorks from "../common/InlineHowItWorks";
 import NumberStepper from "../common/NumberStepper";
-import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
+import UnitScopePicker, { useUnitScope, SectionLessonScopePicker } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
 import {
@@ -40,7 +40,7 @@ function ReviewRow({ item, isAr }) {
   );
 }
 
-function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, sessionStart, isAr, onClose, onRecordSrsAnswer, onSaveQuizResult, initialDueOnly, academicUnits = null, activeUnitId = null }) {
+function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, sessionStart, isAr, onClose, onRecordSrsAnswer, onSaveQuizResult, initialDueOnly, academicUnits = null, activeUnitId = null, unitStructure = null }) {
   // "Daily review" entry points (the reminder banner's "Review now", the
   // due-count stat) jump straight into a due-only quiz spanning every
   // studied word, not just whatever the last-used time range happened to
@@ -84,7 +84,14 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
     setUnitPreset,
     toggleUnit,
     selectAllUnits,
-  } = useUnitScope(academicUnits, activeUnitId, entries);
+    hasStructure,
+    structureSections,
+    selectedSectionIds,
+    selectedLessonIds,
+    toggleSection,
+    toggleLesson,
+    clearSectionLessonScope,
+  } = useUnitScope(academicUnits, activeUnitId, entries, unitStructure);
 
   function handleClose() {
     clearQuizSession();
@@ -472,6 +479,19 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
               setUnitPreset={setUnitPreset}
               toggleUnit={toggleUnit}
               selectAllUnits={selectAllUnits}
+              onChange={() => setStartError("")}
+            />
+            <SectionLessonScopePicker
+              isAr={isAr}
+              hasStructure={hasStructure}
+              structureSections={structureSections}
+              selectedUnitIds={selectedUnitIds}
+              entries={entries}
+              selectedSectionIds={selectedSectionIds}
+              selectedLessonIds={selectedLessonIds}
+              toggleSection={toggleSection}
+              toggleLesson={toggleLesson}
+              clearSectionLessonScope={clearSectionLessonScope}
               onChange={() => setStartError("")}
             />
 

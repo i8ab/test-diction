@@ -9,7 +9,7 @@ import InlineHowItWorks from "../common/InlineHowItWorks";
 import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
-function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, onToggleStudied, isAr, onClose, academicUnits = null, activeUnitId = null }) {
+function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, onToggleStudied, isAr, onClose, academicUnits = null, activeUnitId = null, unitStructure = null }) {
   const [filterKey, setFilterKey] = useState("all"); // all | studied | favorites
   const [deck, setDeck] = useState(null); // null = setup stage, array = running
   const [pos, setPos] = useState(0);
@@ -53,7 +53,7 @@ function FlashcardsModal({ entries, cfg, sectionLabel, studiedIds, favoriteIds, 
     setUnitPreset,
     toggleUnit,
     selectAllUnits,
-  } = useUnitScope(academicUnits, activeUnitId, entries);
+  } = useUnitScope(academicUnits, activeUnitId, entries, unitStructure);
 
   useEffect(() => {
     function onKeyDown(e) {

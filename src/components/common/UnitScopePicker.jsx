@@ -1,12 +1,18 @@
 import { useMemo, useState, useCallback } from "react";
 import { tr } from "../../lib/config/i18n";
 import { BRASS, labelStyle } from "../../lib/config/theme";
+import { sectionDisplayName, lessonDisplayName } from "../../lib/state/unitStructure";
 
 /**
  * Shared multi-unit scope for Baccalaureate Curriculum section practice / exam tools.
  * Returns filtered entries + UI for presets + per-unit toggles.
+ *
+ * `unitStructure` (optional, 4th arg): when provided, also exposes Section (A/B/...)
+ * and Lesson (1/2/...) scoping on top of the unit filter — free choice of
+ * Unit-only / Unit+Section / Unit+Section+Lesson, same as any other quiz scope.
+ * Omitting it keeps the exact old unit-only behavior (fully backward compatible).
  */
-export function useUnitScope(academicUnits, activeUnitId, entries) {
+export function useUnitScope(academicUnits, activeUnitId, entries, unitStructure = null) {
   const hasUnits = Array.isArray(academicUnits) && academicUnits.length > 0;
   const sortedUnits = useMemo(() => {
     if (!hasUnits) return [];
@@ -23,12 +29,27 @@ export function useUnitScope(academicUnits, activeUnitId, entries) {
     return id ? new Set([id]) : new Set(academicUnits.map((u) => u.id));
   });
 
+  // null = no Section/Lesson restriction (whole unit, old behavior).
+  const [selectedSectionIds, setSelectedSectionIds] = useState(null);
+  const [selectedLessonIds, setSelectedLessonIds] = useState(null);
+
+  const structureSections = unitStructure?.sections || [];
+  const hasStructure = structureSections.length > 0;
+
   const unitFilteredEntries = useMemo(() => {
-    if (!hasUnits || !selectedUnitIds) return entries || [];
-    return (entries || []).filter(
-      (e) => selectedUnitIds.has(e.unitId) || selectedUnitIds.has(e.unitId || null)
-    );
-  }, [entries, hasUnits, selectedUnitIds]);
+    let out = entries || [];
+    if (hasUnits && selectedUnitIds) {
+      out = out.filter(
+        (e) => selectedUnitIds.has(e.unitId) || selectedUnitIds.has(e.unitId || null)
+      );
+    }
+    if (hasStructure && selectedLessonIds && selectedLessonIds.size) {
+      out = out.filter((e) => selectedLessonIds.has(e.lessonId));
+    } else if (hasStructure && selectedSectionIds && selectedSectionIds.size) {
+      out = out.filter((e) => selectedSectionIds.has(e.sectionId));
+    }
+    return out;
+  }, [entries, hasUnits, selectedUnitIds, hasStructure, selectedSectionIds, selectedLessonIds]);
 
   const setUnitPreset = useCallback(
     (count) => {
@@ -55,6 +76,30 @@ export function useUnitScope(academicUnits, activeUnitId, entries) {
     setSelectedUnitIds(new Set(sortedUnits.map((u) => u.id)));
   }, [sortedUnits]);
 
+  const toggleSection = useCallback((id) => {
+    setSelectedLessonIds(null); // picking a section resets the finer lesson filter
+    setSelectedSectionIds((prev) => {
+      const next = new Set(prev || []);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next.size ? next : null;
+    });
+  }, []);
+
+  const toggleLesson = useCallback((id) => {
+    setSelectedLessonIds((prev) => {
+      const next = new Set(prev || []);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next.size ? next : null;
+    });
+  }, []);
+
+  const clearSectionLessonScope = useCallback(() => {
+    setSelectedSectionIds(null);
+    setSelectedLessonIds(null);
+  }, []);
+
   return {
     hasUnits,
     sortedUnits,
@@ -64,6 +109,13 @@ export function useUnitScope(academicUnits, activeUnitId, entries) {
     setUnitPreset,
     toggleUnit,
     selectAllUnits,
+    hasStructure,
+    structureSections,
+    selectedSectionIds,
+    selectedLessonIds,
+    toggleSection,
+    toggleLesson,
+    clearSectionLessonScope,
   };
 }
 
@@ -166,6 +218,108 @@ export default function UnitScopePicker({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Section (A/B/...) + Lesson (1/2/...) scope chips. Renders only when the
+ * unit structure has at least one section AND exactly one unit is selected
+ * (Section/Lesson scoping only makes sense within a single unit at a time,
+ * since a "Section A" chosen across several different units would mix
+ * unrelated lessons together).
+ */
+export function SectionLessonScopePicker({
+  isAr,
+  hasStructure,
+  structureSections,
+  selectedUnitIds,
+  entries,
+  selectedSectionIds,
+  selectedLessonIds,
+  toggleSection,
+  toggleLesson,
+  clearSectionLessonScope,
+  accent = BRASS,
+  accentSoft = "rgba(184, 148, 58, 0.12)",
+  onChange,
+}) {
+  if (!hasStructure || !structureSections?.length) return null;
+  if (!selectedUnitIds || selectedUnitIds.size !== 1) return null;
+
+  const chipStyle = (active) => ({
+    padding: "5px 12px",
+    fontSize: 12,
+    fontWeight: 600,
+    borderRadius: 999,
+    border: active ? `1.5px solid ${accent}` : "1px solid rgba(var(--border-rgb),0.25)",
+    background: active ? accentSoft : "transparent",
+    color: active ? accent : "var(--icon-muted)",
+    cursor: "pointer",
+  });
+
+  const fire = (fn) => (...args) => {
+    fn(...args);
+    if (typeof onChange === "function") onChange();
+  };
+
+  const activeSectionId =
+    selectedSectionIds && selectedSectionIds.size === 1
+      ? [...selectedSectionIds][0]
+      : null;
+  const sectionsToShowLessons = activeSectionId
+    ? structureSections.filter((s) => s.id === activeSectionId)
+    : [];
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <label style={labelStyle}>{tr(isAr, "Section", "السكشن")}</label>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6, marginBottom: 6 }}>
+        <button
+          type="button"
+          onClick={fire(clearSectionLessonScope)}
+          style={chipStyle(!selectedSectionIds && !selectedLessonIds)}
+        >
+          {tr(isAr, "Whole unit", "الوحدة كلها")}
+        </button>
+        {structureSections.map((s) => {
+          const active = !!(selectedSectionIds && selectedSectionIds.has(s.id)) && !selectedLessonIds;
+          const count = (entries || []).filter((e) => (e.sectionId || null) === s.id).length;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={fire(() => toggleSection(s.id))}
+              style={chipStyle(active)}
+            >
+              {sectionDisplayName(s)}
+              <span style={{ marginInlineStart: 5, opacity: 0.75, fontSize: 11 }}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+      {sectionsToShowLessons.map((s) => (
+        <div key={s.id} style={{ marginTop: 4 }}>
+          <label style={labelStyle}>{tr(isAr, "Lesson", "الدرس")}</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+            {s.lessons.map((l) => {
+              const active = !!(selectedLessonIds && selectedLessonIds.has(l.id));
+              const count = (entries || []).filter((e) => (e.lessonId || null) === l.id).length;
+              return (
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={fire(() => toggleLesson(l.id))}
+                  style={chipStyle(active)}
+                >
+                  {lessonDisplayName(l)}
+                  <span style={{ marginInlineStart: 5, opacity: 0.75, fontSize: 11 }}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

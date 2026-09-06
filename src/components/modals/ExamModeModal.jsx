@@ -36,6 +36,7 @@ export default function ExamModeModal({
   sectionLabel = "",
   academicUnits = null,
   activeUnitId = null,
+  unitStructure = null,
 }) {
   // Restore mid-session after refresh (once).
   const restoredRef = useRef(undefined);
@@ -122,7 +123,7 @@ export default function ExamModeModal({
     setUnitPreset,
     toggleUnit,
     selectAllUnits,
-  } = useUnitScope(academicUnits, activeUnitId, entries);
+  } = useUnitScope(academicUnits, activeUnitId, entries, unitStructure);
 
   const examDays = daysUntilExam(loadExamDate());
   const countdownLabel = formatExamCountdown(examDays, isAr);

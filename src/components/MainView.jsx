@@ -21,6 +21,17 @@ import {
   renameAcademicUnit,
   deleteAcademicUnit,
 } from "../lib/state/academicUnits";
+import {
+  normalizeUnitStructure,
+  sectionDisplayName,
+  lessonDisplayName,
+  addSection as addStructureSection,
+  renameSection as renameStructureSection,
+  deleteSection as deleteStructureSection,
+  addLesson as addStructureLesson,
+  renameLesson as renameStructureLesson,
+  deleteLesson as deleteStructureLesson,
+} from "../lib/state/unitStructure";
 import MinecraftAchievementToast from "./common/MinecraftAchievementToast";
 import HeaderMenu from "./layout/HeaderMenu";
 import BrandMark from "./common/BrandMark";
@@ -67,6 +78,7 @@ export default function MainView({
   siteBanner, onPersistSiteBanner,
   examConfig, onPersistExamConfig,
   academicUnits = [], activeUnitId = null, onChangeActiveUnitId, onPersistAcademicUnits,
+  unitStructure = null, onPersistUnitStructure, onRefreshUnitStructure,
   showAdmin, onOpenAdmin, onCloseAdmin, onAdminAddAccount, onAdminEditAccount, onAdminDeleteAccount, onApproveRequest, onRejectRequest,
   toast, showToast, theme, onToggleTheme, onChangeTheme, accentTheme, onChangeAccent,
   skin = "classic", onChangeSkin = null,
@@ -125,6 +137,20 @@ export default function MainView({
     effectiveDevice === "tablet" ||
     viewportDevice === "mobile" ||
     viewportDevice === "tablet";
+
+  // Section (A/B/...) / Lesson (1/2/...) sub-scope inside the current Academic
+  // unit — a lightweight local filter, not persisted; switching units resets it
+  // back to "whole unit" (matches how the unit tab bar itself already behaves).
+  const [activeSectionId, setActiveSectionId] = useState(null);
+  const [activeLessonId, setActiveLessonId] = useState(null);
+  useEffect(() => {
+    setActiveSectionId(null);
+    setActiveLessonId(null);
+  }, [activeUnitId]);
+  const normalizedUnitStructure = useMemo(
+    () => normalizeUnitStructure(unitStructure),
+    [unitStructure]
+  );
   const {
     isAr,
     isAcademic,
@@ -137,6 +163,8 @@ export default function MainView({
     academicUnits,
     activeUnitId,
     onChangeActiveUnitId,
+    sectionId: activeSectionId,
+    lessonId: activeLessonId,
   });
   const studiedCount = useMemo(
     () => (sectionEntries || []).filter((e) => studiedIds && typeof studiedIds.has === "function" && studiedIds.has(e.id)).length,
@@ -599,6 +627,8 @@ export default function MainView({
       onCloseAdd,
       showToast,
       unitId: isAcademic ? resolvedUnitId : null,
+      sectionId: isAcademic ? activeSectionId : null,
+      lessonId: isAcademic ? activeLessonId : null,
     });
   }
   const handleDelete = useCallback(async (id) => {
@@ -1043,6 +1073,192 @@ export default function MainView({
                 {tr(appIsAr, "Delete all words", "حذف كل الكلمات")}
               </button>
             )}
+          </div>
+        )}
+        {isAcademic && normalizedUnitStructure.sections.length > 0 && (
+          <div
+            className="unit-structure-bar"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+              marginBottom: 14,
+              padding: "10px 12px",
+              background: CARD,
+              border: "1px solid rgba(var(--border-rgb),0.15)",
+              borderRadius: 12,
+            }}
+          >
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-strong)", letterSpacing: "0.04em", textTransform: "uppercase", marginInlineEnd: 4 }}>
+                {tr(appIsAr, "Section", "السكشن")}
+              </span>
+              <button
+                type="button"
+                onClick={() => { setActiveSectionId(null); setActiveLessonId(null); }}
+                style={{
+                  padding: "6px 12px", fontSize: 12, fontWeight: 600, borderRadius: 999,
+                  border: !activeSectionId ? `1.5px solid ${cfg.accent}` : "1px solid rgba(var(--border-rgb),0.2)",
+                  background: !activeSectionId ? cfg.accentSoft : "transparent",
+                  color: !activeSectionId ? cfg.accent : "var(--icon-muted)",
+                  cursor: "pointer",
+                }}
+              >
+                {tr(appIsAr, "Whole unit", "الوحدة كلها")}
+              </button>
+              {normalizedUnitStructure.sections.map((s) => {
+                const active = s.id === activeSectionId;
+                const count = allAcademicEntries.filter(
+                  (e) => (e.unitId || null) === resolvedUnitId && (e.sectionId || null) === s.id
+                ).length;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => { setActiveSectionId(s.id); setActiveLessonId(null); }}
+                    style={{
+                      padding: "6px 12px", fontSize: 12, fontWeight: 600, borderRadius: 999,
+                      border: active ? `1.5px solid ${cfg.accent}` : "1px solid rgba(var(--border-rgb),0.2)",
+                      background: active ? cfg.accentSoft : "transparent",
+                      color: active ? cfg.accent : "var(--icon-muted)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {sectionDisplayName(s)}
+                    <span style={{ marginInlineStart: 5, opacity: 0.75, fontSize: 11 }}>{count}</span>
+                  </button>
+                );
+              })}
+              {isAdmin && typeof onPersistUnitStructure === "function" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const name = window.prompt(tr(appIsAr, "Section nickname (optional)", "اسم مستعار للسكشن (اختياري)"), "") || "";
+                      onPersistUnitStructure(addStructureSection(normalizedUnitStructure, name.trim()));
+                    }}
+                    style={{ padding: "6px 12px", fontSize: 12, fontWeight: 700, borderRadius: 999, border: "1px dashed rgba(var(--border-rgb),0.35)", background: "transparent", color: cfg.accent, cursor: "pointer" }}
+                  >
+                    + {tr(appIsAr, "Add section", "إضافة سكشن")}
+                  </button>
+                  {activeSectionId && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const cur = normalizedUnitStructure.sections.find((s) => s.id === activeSectionId);
+                          if (!cur) return;
+                          const name = window.prompt(tr(appIsAr, "Section nickname", "اسم مستعار للسكشن"), cur.customName || "");
+                          if (name == null) return;
+                          onPersistUnitStructure(renameStructureSection(normalizedUnitStructure, activeSectionId, name.trim()));
+                        }}
+                        style={{ padding: "6px 10px", fontSize: 12, fontWeight: 600, borderRadius: 999, border: "none", background: "var(--input-bg)", color: "var(--icon-muted)", cursor: "pointer" }}
+                      >
+                        {tr(appIsAr, "Rename", "إعادة تسمية")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (normalizedUnitStructure.sections.length <= 1) {
+                            showToast?.(tr(appIsAr, "Keep at least one section.", "لازم يفضل سكشن واحد على الأقل."));
+                            return;
+                          }
+                          const cur = normalizedUnitStructure.sections.find((s) => s.id === activeSectionId);
+                          if (!cur) return;
+                          if (!window.confirm(tr(appIsAr, `Delete "${sectionDisplayName(cur)}"? Its words stay but lose this section tag.`, `حذف «${sectionDisplayName(cur)}»؟ كلماته هتفضل بس من غير السكشن ده.`))) return;
+                          onPersistUnitStructure(deleteStructureSection(normalizedUnitStructure, activeSectionId));
+                          setActiveSectionId(null);
+                          setActiveLessonId(null);
+                        }}
+                        style={{ padding: "6px 10px", fontSize: 12, fontWeight: 600, borderRadius: 999, border: "none", background: "var(--danger-bg, rgba(220,50,50,0.12))", color: "var(--danger, #ff6b6b)", cursor: "pointer" }}
+                      >
+                        {tr(appIsAr, "Delete", "حذف")}
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+            {activeSectionId && (() => {
+              const activeSection = normalizedUnitStructure.sections.find((s) => s.id === activeSectionId);
+              if (!activeSection) return null;
+              return (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-strong)", letterSpacing: "0.04em", textTransform: "uppercase", marginInlineEnd: 4 }}>
+                    {tr(appIsAr, "Lesson", "الدرس")}
+                  </span>
+                  {activeSection.lessons.map((l) => {
+                    const active = l.id === activeLessonId;
+                    const count = allAcademicEntries.filter(
+                      (e) => (e.unitId || null) === resolvedUnitId && (e.lessonId || null) === l.id
+                    ).length;
+                    return (
+                      <button
+                        key={l.id}
+                        type="button"
+                        onClick={() => setActiveLessonId(active ? null : l.id)}
+                        style={{
+                          padding: "6px 12px", fontSize: 12, fontWeight: 600, borderRadius: 999,
+                          border: active ? `1.5px solid ${cfg.accent}` : "1px solid rgba(var(--border-rgb),0.2)",
+                          background: active ? cfg.accentSoft : "transparent",
+                          color: active ? cfg.accent : "var(--icon-muted)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {lessonDisplayName(l)}
+                        <span style={{ marginInlineStart: 5, opacity: 0.75, fontSize: 11 }}>{count}</span>
+                      </button>
+                    );
+                  })}
+                  {isAdmin && typeof onPersistUnitStructure === "function" && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const name = window.prompt(tr(appIsAr, "Lesson nickname (optional)", "اسم مستعار للدرس (اختياري)"), "") || "";
+                          onPersistUnitStructure(addStructureLesson(normalizedUnitStructure, activeSectionId, name.trim()));
+                        }}
+                        style={{ padding: "6px 12px", fontSize: 12, fontWeight: 700, borderRadius: 999, border: "1px dashed rgba(var(--border-rgb),0.35)", background: "transparent", color: cfg.accent, cursor: "pointer" }}
+                      >
+                        + {tr(appIsAr, "Add lesson", "إضافة درس")}
+                      </button>
+                      {activeLessonId && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const cur = activeSection.lessons.find((l) => l.id === activeLessonId);
+                              if (!cur) return;
+                              const name = window.prompt(tr(appIsAr, "Lesson nickname", "اسم مستعار للدرس"), cur.customName || "");
+                              if (name == null) return;
+                              onPersistUnitStructure(renameStructureLesson(normalizedUnitStructure, activeLessonId, name.trim()));
+                            }}
+                            style={{ padding: "6px 10px", fontSize: 12, fontWeight: 600, borderRadius: 999, border: "none", background: "var(--input-bg)", color: "var(--icon-muted)", cursor: "pointer" }}
+                          >
+                            {tr(appIsAr, "Rename", "إعادة تسمية")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (activeSection.lessons.length <= 1) {
+                                showToast?.(tr(appIsAr, "Keep at least one lesson.", "لازم يفضل درس واحد على الأقل."));
+                                return;
+                              }
+                              if (!window.confirm(tr(appIsAr, "Delete this lesson? Its words stay but lose this lesson tag.", "حذف الدرس ده؟ كلماته هتفضل بس من غير الدرس ده."))) return;
+                              onPersistUnitStructure(deleteStructureLesson(normalizedUnitStructure, activeSectionId, activeLessonId));
+                              setActiveLessonId(null);
+                            }}
+                            style={{ padding: "6px 10px", fontSize: 12, fontWeight: 600, borderRadius: 999, border: "none", background: "var(--danger-bg, rgba(220,50,50,0.12))", color: "var(--danger, #ff6b6b)", cursor: "pointer" }}
+                          >
+                            {tr(appIsAr, "Delete", "حذف")}
+                          </button>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
         {!isAcademic && (isAdmin || isTeacher) && (

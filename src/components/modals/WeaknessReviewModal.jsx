@@ -42,6 +42,7 @@ export default function WeaknessReviewModal({
   limit = 12,
   academicUnits = null,
   activeUnitId = null,
+  unitStructure = null,
 }) {
   const {
     hasUnits,
@@ -51,7 +52,7 @@ export default function WeaknessReviewModal({
     setUnitPreset,
     toggleUnit,
     selectAllUnits,
-  } = useUnitScope(academicUnits, activeUnitId, entries);
+  } = useUnitScope(academicUnits, activeUnitId, entries, unitStructure);
 
   function buildWeakList(source) {
     const hasWord = (e) => e && String(e.word || e.term || "").trim();

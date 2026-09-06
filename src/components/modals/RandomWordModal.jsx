@@ -36,6 +36,7 @@ export default function RandomWordModal({
   onToggleStudied,
   academicUnits = null,
   activeUnitId = null,
+  unitStructure = null,
 }) {
   const {
     hasUnits,
@@ -45,7 +46,7 @@ export default function RandomWordModal({
     setUnitPreset,
     toggleUnit,
     selectAllUnits,
-  } = useUnitScope(academicUnits, activeUnitId, entries);
+  } = useUnitScope(academicUnits, activeUnitId, entries, unitStructure);
 
   const studiedSet = useMemo(
     () => (studiedIds instanceof Set ? studiedIds : new Set(studiedIds || [])),

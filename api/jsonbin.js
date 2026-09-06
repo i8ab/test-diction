@@ -33,6 +33,7 @@ import {
   pickBanner,
   pickExamConfig,
   pickAcademicUnits,
+  pickUnitStructure,
   logFromRow,
   logToRow,
   pruneLogsLast24h,
@@ -369,7 +370,7 @@ export default async function handler(req, res) {
         // keys=site_banner,exam_config,academic_units,version
         const wanted = keysParam
           ? keysParam.split(",").map((k) => k.trim()).filter(Boolean)
-          : ["site_banner", "exam_config", "academic_units", "version"];
+          : ["site_banner", "exam_config", "academic_units", "unit_structure", "version"];
         const isDefaultKeys = !keysParam;
         // Global site settings — same for everyone, safe to cache publicly.
         res.setHeader(
@@ -395,6 +396,8 @@ export default async function handler(req, res) {
             out.examConfig = pickExamConfig(row.value);
           } else if (row.key === "academic_units") {
             out.academicUnits = pickAcademicUnits(row.value);
+          } else if (row.key === "unit_structure") {
+            out.unitStructure = pickUnitStructure(row.value);
           }
         }
         // fallback للبانر لو مش موجود في settings
@@ -436,6 +439,7 @@ export default async function handler(req, res) {
         let siteBanner = null;
         let examConfig = null;
         let academicUnits = null;
+        let unitStructure = null;
         for (const row of settingsRows || []) {
           if (row.key === "version") {
             version =
@@ -445,6 +449,8 @@ export default async function handler(req, res) {
           if (row.key === "exam_config") examConfig = pickExamConfig(row.value);
           if (row.key === "academic_units")
             academicUnits = pickAcademicUnits(row.value);
+          if (row.key === "unit_structure")
+            unitStructure = pickUnitStructure(row.value);
         }
         if (!siteBanner) {
           try {
@@ -457,6 +463,7 @@ export default async function handler(req, res) {
           siteBanner,
           examConfig,
           academicUnits,
+          unitStructure,
         };
         await cacheSet("tt:bootstrap", payload, 25);
         return sendBootstrap(payload);
@@ -787,6 +794,9 @@ export default async function handler(req, res) {
             if (key === "academic_units" && value != null) {
               value = pickAcademicUnits(value);
             }
+            if (key === "unit_structure" && value != null) {
+              value = pickUnitStructure(value);
+            }
             await sbFetch(
               "POST",
               "settings?on_conflict=key",
@@ -989,6 +999,14 @@ export default async function handler(req, res) {
           nextAcademicUnits = current.academicUnits || null;
         }
 
+        let nextUnitStructure;
+        if (body.unitStructure !== undefined) {
+          nextUnitStructure =
+            body.unitStructure === null ? null : pickUnitStructure(body.unitStructure);
+        } else {
+          nextUnitStructure = current.unitStructure || null;
+        }
+
         // Accounts are ALWAYS merged by `code` so concurrent signups and
         // stale clients never silently drop a pending (or any other) account.
         // Intentional deletes must send `removeAccountCodes: ["code1", ...]`.
@@ -1088,6 +1106,7 @@ export default async function handler(req, res) {
           siteBanner: nextBanner,
           examConfig: nextExam,
           academicUnits: nextAcademicUnits,
+          unitStructure: nextUnitStructure,
           version: nextVersion,
         };
 

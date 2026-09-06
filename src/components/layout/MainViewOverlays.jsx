@@ -190,6 +190,7 @@ export default function MainViewOverlays(p) {
     : sectionEntries;
   const practiceUnits = isAcademic ? (p.academicUnits || []) : null;
   const practiceActiveUnitId = isAcademic ? (p.activeUnitId || null) : null;
+  const practiceUnitStructure = isAcademic ? (p.unitStructure || null) : null;
 
   return (
     <>
@@ -256,6 +257,7 @@ export default function MainViewOverlays(p) {
             initialDueOnly={quizDueOnly}
             academicUnits={practiceUnits}
             activeUnitId={practiceActiveUnitId}
+            unitStructure={practiceUnitStructure}
             onClose={() => { setShowQuiz(false); setQuizDueOnly(false); }}
             onRecordSrsAnswer={onRecordSrsAnswer}
             onSaveQuizResult={onSaveQuizResult}
@@ -285,6 +287,7 @@ export default function MainViewOverlays(p) {
               sectionLabel={cfg.shortLabel}
               academicUnits={practiceUnits}
               activeUnitId={practiceActiveUnitId}
+              unitStructure={practiceUnitStructure}
               onClose={() => setShowExamMode(false)}
               onRecordSrsAnswer={onRecordSrsAnswer}
               onSaveQuizResult={onSaveQuizResult}
@@ -302,6 +305,7 @@ export default function MainViewOverlays(p) {
             isAr={appIsAr}
             academicUnits={practiceUnits}
             activeUnitId={practiceActiveUnitId}
+            unitStructure={practiceUnitStructure}
             onClose={() => setShowFlashcards(false)}
           />
         )}
@@ -409,6 +413,7 @@ export default function MainViewOverlays(p) {
               isAr={appIsAr}
               academicUnits={practiceUnits}
               activeUnitId={practiceActiveUnitId}
+              unitStructure={practiceUnitStructure}
               onClose={() => setShowSmartCards(false)}
               onRecordSrsAnswer={onRecordSrsAnswer}
               onXp={(entryId) => {
@@ -428,6 +433,7 @@ export default function MainViewOverlays(p) {
               isAr={appIsAr}
               academicUnits={practiceUnits}
               activeUnitId={practiceActiveUnitId}
+              unitStructure={practiceUnitStructure}
               onClose={() => setShowConversation(false)}
               onXp={(scenarioId) => {
                 try {
@@ -542,6 +548,7 @@ export default function MainViewOverlays(p) {
               isAr={appIsAr}
               academicUnits={p.academicUnits || []}
               activeUnitId={p.activeUnitId || null}
+              unitStructure={p.unitStructure || null}
               onClose={() => setShowAiPdfExtract(false)}
               showToast={showToast}
               onAddEntries={(aiEntries, unitId, targetSection) =>
@@ -617,6 +624,7 @@ export default function MainViewOverlays(p) {
           isAr={appIsAr}
           academicUnits={practiceUnits}
           activeUnitId={practiceActiveUnitId}
+          unitStructure={practiceUnitStructure}
           onClose={() => setShowQuickReview(false)}
           onToggleStudied={onToggleStudied}
           onRecordSrsAnswer={onRecordSrsAnswer}
@@ -635,6 +643,7 @@ export default function MainViewOverlays(p) {
           isAr={appIsAr}
           academicUnits={practiceUnits}
           activeUnitId={practiceActiveUnitId}
+          unitStructure={practiceUnitStructure}
           onClose={() => setShowWeaknessReview(false)}
           onRecordSrsAnswer={onRecordSrsAnswer}
         />
@@ -651,6 +660,7 @@ export default function MainViewOverlays(p) {
           isAr={appIsAr}
           academicUnits={practiceUnits}
           activeUnitId={practiceActiveUnitId}
+          unitStructure={practiceUnitStructure}
           onClose={() => setShowListeningLoop(false)}
           onRecordSrsAnswer={onRecordSrsAnswer}
         />
@@ -667,6 +677,7 @@ export default function MainViewOverlays(p) {
           isAr={appIsAr}
           academicUnits={practiceUnits}
           activeUnitId={practiceActiveUnitId}
+          unitStructure={practiceUnitStructure}
           onClose={() => setShowSentencePractice(false)}
           onRecordSrsAnswer={onRecordSrsAnswer}
         />
@@ -730,6 +741,7 @@ export default function MainViewOverlays(p) {
           isAr={appIsAr}
           academicUnits={practiceUnits}
           activeUnitId={practiceActiveUnitId}
+          unitStructure={practiceUnitStructure}
           onClose={() => setShowDictation(false)}
           onRecordSrsAnswer={onRecordSrsAnswer}
           onFinishRound={() => {
@@ -778,6 +790,7 @@ export default function MainViewOverlays(p) {
           section={section}
           academicUnits={practiceUnits}
           activeUnitId={practiceActiveUnitId}
+          unitStructure={practiceUnitStructure}
           onClose={() => setShowRandomWord(false)}
           onRecordSrsAnswer={onRecordSrsAnswer}
           onToggleStudied={onToggleStudied}

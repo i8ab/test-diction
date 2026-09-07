@@ -312,6 +312,29 @@ export default function AiPdfExtractModal({
     );
   }
 
+  // Bulk version of reassignWord: apply one lesson to every currently-*selected*
+  // word in one click, instead of clicking a dropdown per word. This is what
+  // fixes the "have to place each word by hand" pain point — pick the lesson
+  // in the toolbar, then Apply while your checkboxes are still set.
+  const [bulkLessonId, setBulkLessonId] = useState("");
+  function applyBulkLesson() {
+    const placement = bulkLessonId ? findLesson(structure, bulkLessonId) : null;
+    setExtracted((prev) =>
+      prev.map((e) =>
+        selected.has(entryKey(e))
+          ? { ...e, sectionId: placement ? placement.sectionId : null, lessonId: placement ? placement.id : null }
+          : e
+      )
+    );
+    showToast?.(
+      tr(
+        isAr,
+        `Assigned ${selected.size} word(s) to that lesson`,
+        `اتحطت ${selected.size} كلمة في الدرس ده`
+      )
+    );
+  }
+
   async function handleConfirm() {
     const toAdd = extracted.filter((e) => selected.has(entryKey(e)) && !e.alreadyExists);
     if (!toAdd.length) {
@@ -809,6 +832,64 @@ export default function AiPdfExtractModal({
                   </button>
                 </div>
               </div>
+
+              {/* Bulk placement: pick a lesson once, then Apply it to every
+                  currently-checked word in one click — no need to open a
+                  dropdown per word. Use "Select all" above (or check a few
+                  words) then Apply here. */}
+              {isAcademic && hasStructure && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    flexWrap: "wrap",
+                    marginBottom: 10,
+                    padding: "8px 10px",
+                    borderRadius: 10,
+                    background: "var(--input-bg)",
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-strong)", whiteSpace: "nowrap" }}>
+                    {tr(isAr, "Assign selected to:", "حط المحدد في:")}
+                  </span>
+                  <select
+                    value={bulkLessonId}
+                    onChange={(e) => setBulkLessonId(e.target.value)}
+                    style={{ ...inputStyle, margin: 0, flex: 1, minWidth: 160, fontSize: 12.5 }}
+                  >
+                    <option value="">
+                      {tr(isAr, "— No section (general) —", "— بلا سكشن (عام) —")}
+                    </option>
+                    {structure.sections.map((s) => (
+                      <optgroup key={s.id} label={sectionDisplayName(s)}>
+                        {s.lessons.map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {sectionDisplayName(s)} · {lessonDisplayName(l)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  <button
+                    onClick={applyBulkLesson}
+                    disabled={selected.size === 0}
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      padding: "7px 12px",
+                      borderRadius: 8,
+                      border: "none",
+                      background: selected.size === 0 ? "var(--input-bg)" : "var(--accent-1, #4caf6f)",
+                      color: selected.size === 0 ? "var(--muted)" : "#08130c",
+                      cursor: selected.size === 0 ? "not-allowed" : "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {tr(isAr, `Apply to ${selected.size}`, `طبّق على ${selected.size}`)}
+                  </button>
+                </div>
+              )}
 
               {/* Search box — jump straight to a word instead of scrolling
                   through every card to find it. */}

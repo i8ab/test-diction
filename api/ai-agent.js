@@ -18,8 +18,15 @@ import { beginApi, handleOptions, applyRateLimitHeaders } from "../lib/apiBootst
 import { rateLimit, clientIp } from "../lib/rateLimit.js";
 
 // Vercel: keep the raw body so multipart PDF uploads pass through untouched.
+// Extracting a multi-page scanned PDF means several sequential Gemini OCR
+// calls plus retries when Gemini returns transient 503s ("high demand") —
+// this can comfortably exceed Vercel's default function timeout (10s on
+// Hobby) well before the upstream Railway agent is actually done, which is
+// what a 504 here means. Raise it explicitly; check your Vercel plan's max
+// (Hobby: 60s, Pro: up to 300s) and raise further if large PDFs still time out.
 export const config = {
   api: { bodyParser: false },
+  maxDuration: 60,
 };
 
 const AI_AGENT_URL = process.env.AI_AGENT_URL || "https://web-production-7af27.up.railway.app";

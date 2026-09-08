@@ -22,7 +22,7 @@ export const config = {
   api: { bodyParser: false },
 };
 
-const AI_AGENT_URL = process.env.AI_AGENT_URL || "https://web-production-40a8e.up.railway.app";
+const AI_AGENT_URL = process.env.AI_AGENT_URL || "https://web-production-7af27.up.railway.app";
 const MAX_BODY_BYTES = 15_000_000; // ~15MB, generous for a scanned textbook PDF
 
 async function readRawBody(req) {

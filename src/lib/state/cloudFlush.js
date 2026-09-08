@@ -4,10 +4,10 @@
  */
 import {
   SaveConflictError,
-  saveRecord,
   saveAccountsOnly,
   patchAccountFields,
   patchEntry,
+  patchEntriesBulk,
   deleteEntryRemote,
   fetchVersionOnly,
 } from "./cloudApi";
@@ -393,27 +393,34 @@ export function flushPendingEntries(ctx) {
           const changeCount = added.length + updated.length + removed.length;
 
           let newVersion = curVersion;
-          if (changeCount > 0 && changeCount <= GRANULAR_ENTRY_LIMIT) {
-            // Per-word patches — do not rewrite the whole dictionary
-            for (const e of [...added, ...updated]) {
-              newVersion = await patchEntry(e, newVersion);
+          if (changeCount > 0) {
+            // Always granular: never rewrite the whole dictionary just to
+            // add/update a batch of words. Small batches go one-by-one
+            // (entryPatch); anything above GRANULAR_ENTRY_LIMIT is paged
+            // through entriesBulkPatch, 100 words per request (server cap),
+            // so importing 400-500 words is a handful of requests instead
+            // of one giant payload or hundreds of sequential round trips.
+            const upserts = [...added, ...updated];
+            if (upserts.length <= GRANULAR_ENTRY_LIMIT) {
+              for (const e of upserts) {
+                newVersion = await patchEntry(e, newVersion);
+              }
+            } else {
+              const BULK_PAGE_SIZE = 100;
+              for (let i = 0; i < upserts.length; i += BULK_PAGE_SIZE) {
+                const page = upserts.slice(i, i + BULK_PAGE_SIZE);
+                newVersion = await patchEntriesBulk(page, newVersion);
+                // Small pacing gap between pages so a big import (e.g. 500
+                // words = 5 pages) can't blow through the server's
+                // write-rate limit the way one-request-per-word used to.
+                if (i + BULK_PAGE_SIZE < upserts.length) {
+                  await new Promise((r) => setTimeout(r, 250));
+                }
+              }
             }
             for (const id of removed) {
               newVersion = await deleteEntryRemote(id, newVersion);
             }
-          } else if (changeCount > GRANULAR_ENTRY_LIMIT) {
-            // Bulk (e.g. large CSV import) — full entries write once
-            newVersion = await saveRecord(
-              {
-                entries: nextEntries,
-                accounts: curAccounts,
-                logs: nextLogs,
-                siteBanner: curBanner,
-                examConfig: curExam,
-                academicUnits: curUnits,
-              },
-              curVersion
-            );
           }
           // changeCount === 0: nothing to push
 

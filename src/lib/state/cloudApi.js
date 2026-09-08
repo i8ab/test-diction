@@ -565,6 +565,21 @@ export async function patchEntry(entry, expectedVersion) {
   return typeof data.version === "number" ? data.version : expectedVersion + 1;
 }
 
+/**
+ * Save a small page of entries (new or updated) in ONE request instead of one
+ * request per word. Used for bulk imports (AI/PDF, CSV, shared lists) so
+ * adding hundreds of words doesn't mean hundreds of round trips or rewriting
+ * the whole dictionary. The server caps each call at 100 entries — callers
+ * should chunk larger imports (see persistEntries in useCloudPersist.js).
+ */
+export async function patchEntriesBulk(entries, expectedVersion) {
+  const data = await putScoped(
+    { scope: "entriesBulkPatch", entries: Array.isArray(entries) ? entries : [] },
+    expectedVersion
+  );
+  return typeof data.version === "number" ? data.version : expectedVersion + 1;
+}
+
 /** Delete a single dictionary entry by id. */
 export async function deleteEntryRemote(id, expectedVersion) {
   const data = await putScoped({ scope: "entryDelete", id }, expectedVersion);

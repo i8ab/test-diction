@@ -40,8 +40,12 @@
  *   1. Identify the smallest unit (one field / one row / one settings key).
  *   2. Use the matching scope above.
  *   3. Do optimistic UI locally, then one scoped PUT.
- *   4. Do NOT call saveRecord with the full dictionary unless > ~30 entries
- *      change at once (see GRANULAR_ENTRY_LIMIT).
+ *   4. Do NOT call saveRecord with the full dictionary just because many
+ *      entries changed at once — use entriesBulkPatch (paged, 100/request)
+ *      instead (see GRANULAR_ENTRY_LIMIT and BULK_PAGE_SIZE in cloudFlush.js).
+ *      saveRecord should stay reserved for truly full-record scopes (CSV
+ *      import that also touches accounts/settings/logs in the same write,
+ *      disaster recovery).
  * =============================================================================
  */
 

@@ -53,6 +53,7 @@ import {
   loadRecord,
   clearTable,
   patchEntryByWordId,
+  bulkUpsertEntriesPartial,
   saveFullRecord,
   buildConflictPayload
 } from "../lib/jsonbinDb.js";
@@ -576,6 +577,7 @@ export default async function handler(req, res) {
           scoped === "accountStatus" ||
           scoped === "accountDelete" ||
           scoped === "entryPatch" ||
+          scoped === "entriesBulkPatch" ||
           scoped === "entryDelete" ||
           scoped === "settingsPatch" ||
           scoped === "accounts" ||
@@ -753,6 +755,42 @@ export default async function handler(req, res) {
               scope: "entryPatch",
               id: entryId,
               updated: patched,
+            });
+          }
+
+          if (scoped === "entriesBulkPatch") {
+            const entries = Array.isArray(body.entries) ? body.entries : null;
+            if (!entries || !entries.length) {
+              return res.status(400).json(
+                badRequestPayload("entriesBulkPatch requires a non-empty entries array")
+              );
+            }
+            // Keep each request bounded — the client is expected to chunk a
+            // big import (e.g. 400-500 words) into pages of this size.
+            const MAX_BULK = 100;
+            if (entries.length > MAX_BULK) {
+              return res.status(400).json(
+                badRequestPayload(`entriesBulkPatch accepts at most ${MAX_BULK} entries per request`)
+              );
+            }
+            await bumpVersion(nextVersion);
+            let result;
+            try {
+              result = await bulkUpsertEntriesPartial(entries);
+            } catch (e) {
+              const payload = await buildConflictPayload("entriesBulkPatch", {
+                message: "Bulk save failed: " + (e && e.message ? e.message : String(e)),
+              });
+              return res.status(500).json(payload);
+            }
+            await invalidateHotCaches();
+            return res.status(200).json({
+              ok: true,
+              version: nextVersion,
+              scope: "entriesBulkPatch",
+              count: entries.length,
+              patched: result.patched,
+              inserted: result.inserted,
             });
           }
 

@@ -1270,13 +1270,6 @@ export default function MainView({
               );
             })()}
             {activeLessonId && (() => {
-              const usedCategoryIds = new Set(
-                allAcademicEntries
-                  .filter((e) => (e.lessonId || null) === activeLessonId && e.categoryId)
-                  .map((e) => e.categoryId)
-              );
-              const categoriesToShow = WORD_CATEGORIES.filter((c) => usedCategoryIds.has(c.id));
-              if (!categoriesToShow.length) return null;
               return (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-strong)", letterSpacing: "0.04em", textTransform: "uppercase", marginInlineEnd: 4 }}>
@@ -1295,7 +1288,7 @@ export default function MainView({
                   >
                     {tr(appIsAr, "All", "الكل")}
                   </button>
-                  {categoriesToShow.map((c) => {
+                  {WORD_CATEGORIES.map((c) => {
                     const active = c.id === activeCategoryId;
                     const count = allAcademicEntries.filter(
                       (e) => (e.lessonId || null) === activeLessonId && e.categoryId === c.id

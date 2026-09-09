@@ -598,6 +598,7 @@ export async function importWordsFromAi({
     let importance = "key";
     let wordSectionId = null;
     let wordLessonId = null;
+    let wordCategoryId = null;
 
     for (const e of rows) {
       const pos = (e.pos || "").trim();
@@ -642,6 +643,7 @@ export async function importWordsFromAi({
       if (e.importance) importance = e.importance;
       if (!wordSectionId && e.sectionId) wordSectionId = e.sectionId;
       if (!wordLessonId && e.lessonId) wordLessonId = e.lessonId;
+      if (!wordCategoryId && e.categoryId) wordCategoryId = e.categoryId;
     }
 
     // dedupe pairs by word
@@ -684,6 +686,7 @@ export async function importWordsFromAi({
       ...(isAcademic && targetUnitId ? { unitId: targetUnitId } : {}),
       ...(isAcademic && (wordSectionId || sectionId) ? { sectionId: wordSectionId || sectionId } : {}),
       ...(isAcademic && (wordLessonId || lessonId) ? { lessonId: wordLessonId || lessonId } : {}),
+      ...(isAcademic && wordCategoryId ? { categoryId: wordCategoryId } : {}),
     });
   }
 

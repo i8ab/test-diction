@@ -10,6 +10,11 @@ import {
   lessonDisplayName,
   findLesson,
 } from "../../lib/state/unitStructure";
+import {
+  WORD_CATEGORIES,
+  categoryLabel,
+  resolveDetectedCategory,
+} from "../../lib/state/wordCategories";
 
 // Calls go through /api/ai-agent so the real upstream secret stays
 // server-side and is never shipped to the browser bundle.
@@ -187,6 +192,12 @@ export default function AiPdfExtractModal({
           const placement = isAcademic && hasStructure
             ? resolveDetectedPlacement(structure, e.unitSection, e.lesson)
             : { sectionId: null, lessonId: null };
+          // Best-effort: the AI agent may report the book's own heading for
+          // this word (whichever field name it used) — map it onto one of
+          // our fixed categories. Falls back to null (uncategorized) when
+          // nothing matches; the admin can still set it by hand below.
+          const detectedCategoryRaw =
+            e.category || e.categoryTitle || e.vocabCategory || e.heading || e.section_heading || null;
           byWord.set(k, {
             ...e,
             word: w,
@@ -194,6 +205,7 @@ export default function AiPdfExtractModal({
             alreadyExists: existing.has(k),
             sectionId: placement.sectionId,
             lessonId: placement.lessonId,
+            categoryId: resolveDetectedCategory(detectedCategoryRaw),
             _meanings: [],
           });
         }
@@ -335,6 +347,34 @@ export default function AiPdfExtractModal({
     );
   }
 
+  // Manually move one extracted word to a different book category (Key
+  // Vocabulary / Important Vocabulary / Definitions / ...) — overrides the
+  // AI's best-effort detection, same idea as reassignWord for lesson.
+  function reassignCategory(key, categoryId) {
+    setExtracted((prev) =>
+      prev.map((e) =>
+        entryKey(e) === key ? { ...e, categoryId: categoryId || null } : e
+      )
+    );
+  }
+
+  // Bulk version: apply one category to every currently-selected word.
+  const [bulkCategoryId, setBulkCategoryId] = useState("");
+  function applyBulkCategory() {
+    setExtracted((prev) =>
+      prev.map((e) =>
+        selected.has(entryKey(e)) ? { ...e, categoryId: bulkCategoryId || null } : e
+      )
+    );
+    showToast?.(
+      tr(
+        isAr,
+        `Set the category for ${selected.size} word(s)`,
+        `اتحدد التصنيف لـ ${selected.size} كلمة`
+      )
+    );
+  }
+
   async function handleConfirm() {
     const toAdd = extracted.filter((e) => selected.has(entryKey(e)) && !e.alreadyExists);
     if (!toAdd.length) {
@@ -351,6 +391,7 @@ export default function AiPdfExtractModal({
         section: targetSection,
         sectionId: isAcademic ? e.sectionId || null : null,
         lessonId: isAcademic ? e.lessonId || null : null,
+        categoryId: isAcademic ? e.categoryId || null : null,
       }));
       await onAddEntries(tagged, isAcademic ? targetUnitId : null, targetSection);
       showToast?.(
@@ -891,6 +932,60 @@ export default function AiPdfExtractModal({
                 </div>
               )}
 
+              {/* Bulk category: pick one of the book's own vocabulary
+                  sections (Key Vocabulary, Important Vocabulary, Definitions,
+                  ...) once, then Apply it to every currently-checked word —
+                  same idea as bulk lesson placement above. */}
+              {isAcademic && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    flexWrap: "wrap",
+                    marginBottom: 10,
+                    padding: "8px 10px",
+                    borderRadius: 10,
+                    background: "var(--input-bg)",
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-strong)", whiteSpace: "nowrap" }}>
+                    {tr(isAr, "Category for selected:", "تصنيف المحدد:")}
+                  </span>
+                  <select
+                    value={bulkCategoryId}
+                    onChange={(e) => setBulkCategoryId(e.target.value)}
+                    style={{ ...inputStyle, margin: 0, flex: 1, minWidth: 160, fontSize: 12.5 }}
+                  >
+                    <option value="">
+                      {tr(isAr, "— No category —", "— بلا تصنيف —")}
+                    </option>
+                    {WORD_CATEGORIES.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {categoryLabel(c.id, isAr)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={applyBulkCategory}
+                    disabled={selected.size === 0}
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      padding: "7px 12px",
+                      borderRadius: 8,
+                      border: "none",
+                      background: selected.size === 0 ? "var(--input-bg)" : "var(--accent-1, #4caf6f)",
+                      color: selected.size === 0 ? "var(--muted)" : "#08130c",
+                      cursor: selected.size === 0 ? "not-allowed" : "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {tr(isAr, `Apply to ${selected.size}`, `طبّق على ${selected.size}`)}
+                  </button>
+                </div>
+              )}
+
               {/* Search box — jump straight to a word instead of scrolling
                   through every card to find it. */}
               <div style={{ position: "relative", marginBottom: 10 }}>
@@ -1112,6 +1207,37 @@ export default function AiPdfExtractModal({
                                             </option>
                                           ))}
                                         </optgroup>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
+                                {isAcademic && (
+                                  <div style={{ marginTop: 6 }} onClick={(evt) => evt.preventDefault()}>
+                                    <select
+                                      value={e.categoryId || ""}
+                                      onChange={(evt) => reassignCategory(entryKey(e), evt.target.value || null)}
+                                      style={{
+                                        fontSize: 11.5,
+                                        fontWeight: 700,
+                                        padding: "3px 8px",
+                                        borderRadius: 7,
+                                        border: e.categoryId
+                                          ? "1px solid rgba(80,140,220,0.4)"
+                                          : "1px solid rgba(var(--border-rgb),0.2)",
+                                        background: e.categoryId
+                                          ? "rgba(80,140,220,0.1)"
+                                          : "var(--card-bg, #1a1a1a)",
+                                        color: e.categoryId ? "#5a9ee0" : "var(--muted)",
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      <option value="">
+                                        {tr(isAr, "— No category —", "— بلا تصنيف —")}
+                                      </option>
+                                      {WORD_CATEGORIES.map((c) => (
+                                        <option key={c.id} value={c.id}>
+                                          {categoryLabel(c.id, isAr)}
+                                        </option>
                                       ))}
                                     </select>
                                   </div>

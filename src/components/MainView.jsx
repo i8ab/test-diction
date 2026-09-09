@@ -32,6 +32,7 @@ import {
   renameLesson as renameStructureLesson,
   deleteLesson as deleteStructureLesson,
 } from "../lib/state/unitStructure";
+import { WORD_CATEGORIES, categoryLabel } from "../lib/state/wordCategories";
 import MinecraftAchievementToast from "./common/MinecraftAchievementToast";
 import HeaderMenu from "./layout/HeaderMenu";
 import BrandMark from "./common/BrandMark";
@@ -143,10 +144,18 @@ export default function MainView({
   // back to "whole unit" (matches how the unit tab bar itself already behaves).
   const [activeSectionId, setActiveSectionId] = useState(null);
   const [activeLessonId, setActiveLessonId] = useState(null);
+  // Category (Key Vocabulary / Important Vocabulary / Definitions / ...)
+  // sub-scope inside the active Lesson — mirrors the textbook's own
+  // vocabulary sections. Resets whenever the lesson (or unit) changes.
+  const [activeCategoryId, setActiveCategoryId] = useState(null);
   useEffect(() => {
     setActiveSectionId(null);
     setActiveLessonId(null);
+    setActiveCategoryId(null);
   }, [activeUnitId]);
+  useEffect(() => {
+    setActiveCategoryId(null);
+  }, [activeLessonId]);
   const normalizedUnitStructure = useMemo(
     () => normalizeUnitStructure(unitStructure),
     [unitStructure]
@@ -165,6 +174,7 @@ export default function MainView({
     onChangeActiveUnitId,
     sectionId: activeSectionId,
     lessonId: activeLessonId,
+    categoryId: activeCategoryId,
   });
   const studiedCount = useMemo(
     () => (sectionEntries || []).filter((e) => studiedIds && typeof studiedIds.has === "function" && studiedIds.has(e.id)).length,
@@ -1256,6 +1266,58 @@ export default function MainView({
                       )}
                     </>
                   )}
+                </div>
+              );
+            })()}
+            {activeLessonId && (() => {
+              const usedCategoryIds = new Set(
+                allAcademicEntries
+                  .filter((e) => (e.lessonId || null) === activeLessonId && e.categoryId)
+                  .map((e) => e.categoryId)
+              );
+              const categoriesToShow = WORD_CATEGORIES.filter((c) => usedCategoryIds.has(c.id));
+              if (!categoriesToShow.length) return null;
+              return (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-strong)", letterSpacing: "0.04em", textTransform: "uppercase", marginInlineEnd: 4 }}>
+                    {tr(appIsAr, "Category", "التصنيف")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveCategoryId(null)}
+                    style={{
+                      padding: "6px 12px", fontSize: 12, fontWeight: 600, borderRadius: 999,
+                      border: !activeCategoryId ? `1.5px solid ${cfg.accent}` : "1px solid rgba(var(--border-rgb),0.2)",
+                      background: !activeCategoryId ? cfg.accentSoft : "transparent",
+                      color: !activeCategoryId ? cfg.accent : "var(--icon-muted)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {tr(appIsAr, "All", "الكل")}
+                  </button>
+                  {categoriesToShow.map((c) => {
+                    const active = c.id === activeCategoryId;
+                    const count = allAcademicEntries.filter(
+                      (e) => (e.lessonId || null) === activeLessonId && e.categoryId === c.id
+                    ).length;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setActiveCategoryId(active ? null : c.id)}
+                        style={{
+                          padding: "6px 12px", fontSize: 12, fontWeight: 600, borderRadius: 999,
+                          border: active ? `1.5px solid ${cfg.accent}` : "1px solid rgba(var(--border-rgb),0.2)",
+                          background: active ? cfg.accentSoft : "transparent",
+                          color: active ? cfg.accent : "var(--icon-muted)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {categoryLabel(c.id, appIsAr)}
+                        <span style={{ marginInlineStart: 5, opacity: 0.75, fontSize: 11 }}>{count}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               );
             })()}

@@ -19,6 +19,7 @@ export function useSectionEntries({
   onChangeActiveUnitId,
   sectionId = null,
   lessonId = null,
+  categoryId = null,
 }) {
   const isAr = section === "ar-ar";
   const isAcademic = section === "academic";
@@ -39,10 +40,13 @@ export function useSectionEntries({
           const uid = e.unitId || null;
           return !uid || uid === resolvedUnitId;
         });
-    if (lessonId) return unitScoped.filter((e) => (e.lessonId || null) === lessonId);
+    if (lessonId) {
+      const scoped = unitScoped.filter((e) => (e.lessonId || null) === lessonId);
+      return categoryId ? scoped.filter((e) => (e.categoryId || null) === categoryId) : scoped;
+    }
     if (sectionId) return unitScoped.filter((e) => (e.sectionId || null) === sectionId);
     return unitScoped;
-  }, [entries, section, isAcademic, resolvedUnitId, sectionId, lessonId]);
+  }, [entries, section, isAcademic, resolvedUnitId, sectionId, lessonId, categoryId]);
 
   const allAcademicEntries = useMemo(
     () => (isAcademic ? (entries || []).filter((e) => e.section === "academic") : []),

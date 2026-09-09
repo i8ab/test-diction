@@ -88,8 +88,10 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
     structureSections,
     selectedSectionIds,
     selectedLessonIds,
+    selectedCategoryIds,
     toggleSection,
     toggleLesson,
+    toggleCategory,
     clearSectionLessonScope,
   } = useUnitScope(academicUnits, activeUnitId, entries, unitStructure);
 
@@ -489,8 +491,10 @@ function QuizModal({ entries, sectionLabel, studiedIds, studiedAt, srsDueAt, ses
               entries={entries}
               selectedSectionIds={selectedSectionIds}
               selectedLessonIds={selectedLessonIds}
+              selectedCategoryIds={selectedCategoryIds}
               toggleSection={toggleSection}
               toggleLesson={toggleLesson}
+              toggleCategory={toggleCategory}
               clearSectionLessonScope={clearSectionLessonScope}
               onChange={() => setStartError("")}
             />

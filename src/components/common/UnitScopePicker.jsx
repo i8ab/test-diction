@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback } from "react";
 import { tr } from "../../lib/config/i18n";
 import { BRASS, labelStyle } from "../../lib/config/theme";
 import { sectionDisplayName, lessonDisplayName } from "../../lib/state/unitStructure";
+import { WORD_CATEGORIES, categoryLabel } from "../../lib/state/wordCategories";
 
 /**
  * Shared multi-unit scope for Baccalaureate Curriculum section practice / exam tools.
@@ -32,6 +33,10 @@ export function useUnitScope(academicUnits, activeUnitId, entries, unitStructure
   // null = no Section/Lesson restriction (whole unit, old behavior).
   const [selectedSectionIds, setSelectedSectionIds] = useState(null);
   const [selectedLessonIds, setSelectedLessonIds] = useState(null);
+  // null = no Category restriction (Key Vocabulary / Important Vocabulary /
+  // Definitions / ...) — only meaningful once exactly one Lesson is picked,
+  // same idea as Section/Lesson above.
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState(null);
 
   const structureSections = unitStructure?.sections || [];
   const hasStructure = structureSections.length > 0;
@@ -45,11 +50,14 @@ export function useUnitScope(academicUnits, activeUnitId, entries, unitStructure
     }
     if (hasStructure && selectedLessonIds && selectedLessonIds.size) {
       out = out.filter((e) => selectedLessonIds.has(e.lessonId));
+      if (selectedCategoryIds && selectedCategoryIds.size) {
+        out = out.filter((e) => selectedCategoryIds.has(e.categoryId));
+      }
     } else if (hasStructure && selectedSectionIds && selectedSectionIds.size) {
       out = out.filter((e) => selectedSectionIds.has(e.sectionId));
     }
     return out;
-  }, [entries, hasUnits, selectedUnitIds, hasStructure, selectedSectionIds, selectedLessonIds]);
+  }, [entries, hasUnits, selectedUnitIds, hasStructure, selectedSectionIds, selectedLessonIds, selectedCategoryIds]);
 
   const setUnitPreset = useCallback(
     (count) => {
@@ -87,7 +95,17 @@ export function useUnitScope(academicUnits, activeUnitId, entries, unitStructure
   }, []);
 
   const toggleLesson = useCallback((id) => {
+    setSelectedCategoryIds(null); // picking a different lesson resets the finer category filter
     setSelectedLessonIds((prev) => {
+      const next = new Set(prev || []);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next.size ? next : null;
+    });
+  }, []);
+
+  const toggleCategory = useCallback((id) => {
+    setSelectedCategoryIds((prev) => {
       const next = new Set(prev || []);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -98,6 +116,7 @@ export function useUnitScope(academicUnits, activeUnitId, entries, unitStructure
   const clearSectionLessonScope = useCallback(() => {
     setSelectedSectionIds(null);
     setSelectedLessonIds(null);
+    setSelectedCategoryIds(null);
   }, []);
 
   return {
@@ -113,8 +132,10 @@ export function useUnitScope(academicUnits, activeUnitId, entries, unitStructure
     structureSections,
     selectedSectionIds,
     selectedLessonIds,
+    selectedCategoryIds,
     toggleSection,
     toggleLesson,
+    toggleCategory,
     clearSectionLessonScope,
   };
 }
@@ -237,8 +258,10 @@ export function SectionLessonScopePicker({
   entries,
   selectedSectionIds,
   selectedLessonIds,
+  selectedCategoryIds,
   toggleSection,
   toggleLesson,
+  toggleCategory,
   clearSectionLessonScope,
   accent = BRASS,
   accentSoft = "rgba(184, 148, 58, 0.12)",
@@ -270,6 +293,10 @@ export function SectionLessonScopePicker({
   const sectionsToShowLessons = activeSectionId
     ? structureSections.filter((s) => s.id === activeSectionId)
     : [];
+  const activeLessonId =
+    selectedLessonIds && selectedLessonIds.size === 1
+      ? [...selectedLessonIds][0]
+      : null;
 
   return (
     <div style={{ marginBottom: 12 }}>
@@ -320,6 +347,30 @@ export function SectionLessonScopePicker({
           </div>
         </div>
       ))}
+      {activeLessonId && (
+        <div style={{ marginTop: 4 }}>
+          <label style={labelStyle}>{tr(isAr, "Category", "التصنيف")}</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+            {WORD_CATEGORIES.map((c) => {
+              const active = !!(selectedCategoryIds && selectedCategoryIds.has(c.id));
+              const count = (entries || []).filter(
+                (e) => (e.lessonId || null) === activeLessonId && e.categoryId === c.id
+              ).length;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={fire(() => toggleCategory(c.id))}
+                  style={chipStyle(active)}
+                >
+                  {categoryLabel(c.id, isAr)}
+                  <span style={{ marginInlineStart: 5, opacity: 0.75, fontSize: 11 }}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

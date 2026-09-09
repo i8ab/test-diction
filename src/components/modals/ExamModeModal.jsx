@@ -8,7 +8,7 @@ import {
 import { SpeakButton, XIcon, CheckIcon, QuizIcon, ClockIcon, FlameIcon } from "../common/Icons";
 import HowItWorksButton from "../common/HowItWorksButton";
 import InlineHowItWorks from "../common/InlineHowItWorks";
-import UnitScopePicker, { useUnitScope } from "../common/UnitScopePicker";
+import UnitScopePicker, { useUnitScope, SectionLessonScopePicker } from "../common/UnitScopePicker";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import { loadExamDate, daysUntilExam, formatExamCountdown } from "../../lib/state/exam";
 import {
@@ -123,6 +123,15 @@ export default function ExamModeModal({
     setUnitPreset,
     toggleUnit,
     selectAllUnits,
+    hasStructure,
+    structureSections,
+    selectedSectionIds,
+    selectedLessonIds,
+    selectedCategoryIds,
+    toggleSection,
+    toggleLesson,
+    toggleCategory,
+    clearSectionLessonScope,
   } = useUnitScope(academicUnits, activeUnitId, entries, unitStructure);
 
   const examDays = daysUntilExam(loadExamDate());
@@ -582,6 +591,23 @@ export default function ExamModeModal({
               setUnitPreset={setUnitPreset}
               toggleUnit={toggleUnit}
               selectAllUnits={selectAllUnits}
+              accent="#e85d04"
+              accentSoft="rgba(232, 93, 4, 0.12)"
+              onChange={() => setStartError("")}
+            />
+            <SectionLessonScopePicker
+              isAr={isAr}
+              hasStructure={hasStructure}
+              structureSections={structureSections}
+              selectedUnitIds={selectedUnitIds}
+              entries={entries}
+              selectedSectionIds={selectedSectionIds}
+              selectedLessonIds={selectedLessonIds}
+              selectedCategoryIds={selectedCategoryIds}
+              toggleSection={toggleSection}
+              toggleLesson={toggleLesson}
+              toggleCategory={toggleCategory}
+              clearSectionLessonScope={clearSectionLessonScope}
               accent="#e85d04"
               accentSoft="rgba(232, 93, 4, 0.12)"
               onChange={() => setStartError("")}

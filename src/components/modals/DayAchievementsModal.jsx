@@ -31,6 +31,15 @@ import {
 import { createPortal } from "react-dom";
 import { Z_INDEX } from "../../lib/config/zIndex";
 
+function EditIcon({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
 function dueDateLabel(ms, isAr) {
   if (ms == null) return "—";
   const d = new Date(ms);
@@ -39,18 +48,273 @@ function dueDateLabel(ms, isAr) {
   return { iso, rel };
 }
 
+/** Pure per-entry view model shared by the desktop table rows and the mobile cards. */
+function computeEntryView(entry, recallDraft, isAr) {
+  const isDue = entry.useSrs && entry.srsDueAt != null && entry.srsDueAt <= Date.now();
+  const box = MEDICAL_SRS_LABELS[entry.srsLevel] || MEDICAL_SRS_LABELS[0];
+  const due = entry.useSrs ? dueDateLabel(entry.srsDueAt, isAr) : null;
+  const pct = clampRecallPercent(recallDraft[entry.id]?.percent ?? 70);
+  const preview = entry.useSrs ? previewReviewOutcome(entry, pct, isAr) : null;
+  const weaknessLogs = Array.isArray(entry.weaknessNotes) ? entry.weaknessNotes : [];
+  return { isDue, box, due, pct, preview, weaknessLogs };
+}
+
+/**
+ * Review / Edit / Delete — always a single, non-wrapping row. On mobile Edit/Delete
+ * collapse to icon-only buttons so the three actions never break onto a second line.
+ */
+function EntryActionsRow({ entry, isDue, open, isAr, compact, onToggleReview, onEdit, onDelete }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: compact ? 6 : 4,
+        alignItems: "center",
+        flexWrap: "nowrap",
+      }}
+    >
+      {entry.useSrs && isDue && (
+        <button
+          type="button"
+          onClick={onToggleReview}
+          style={{
+            padding: compact ? "7px 10px" : "5px 10px",
+            borderRadius: 8,
+            border: "none",
+            background: "var(--accent-1)",
+            color: "var(--on-accent, #fff)",
+            fontSize: 11,
+            fontWeight: 700,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+          }}
+        >
+          {open ? tr(isAr, "Close", "إغلاق") : tr(isAr, "Review", "مراجعة")}
+        </button>
+      )}
+      {compact ? (
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label={tr(isAr, "Edit", "تعديل")}
+          style={{
+            padding: 7,
+            borderRadius: 8,
+            border: "1px solid rgba(var(--border-rgb),0.2)",
+            background: "var(--card)",
+            color: "var(--muted-strong)",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <EditIcon size={14} />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onEdit}
+          style={{
+            padding: "5px 8px",
+            borderRadius: 8,
+            border: "1px solid rgba(var(--border-rgb),0.2)",
+            background: "var(--card)",
+            color: "var(--muted-strong)",
+            fontSize: 11,
+            fontWeight: 700,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+          }}
+        >
+          {tr(isAr, "Edit", "تعديل")}
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={onDelete}
+        aria-label={tr(isAr, "Delete", "حذف")}
+        style={{
+          padding: compact ? 7 : "5px 8px",
+          borderRadius: 8,
+          border: "none",
+          background: compact ? "rgba(239,68,68,0.12)" : "transparent",
+          color: "#ef4444",
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          marginInlineStart: compact ? "auto" : 0,
+        }}
+      >
+        <TrashIcon size={14} />
+      </button>
+    </div>
+  );
+}
+
+/** Recall-rating form + weakness log — shared by the table's expanded row and the mobile card. */
+function EntryReviewPanel({
+  entry,
+  isDue,
+  open,
+  pct,
+  preview,
+  weaknessLogs,
+  isAr,
+  recallDraft,
+  patchRecall,
+  submitRecallReview,
+  inputStyle,
+}) {
+  return (
+    <>
+      {open && entry.useSrs && isDue && (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+            marginBottom: weaknessLogs.length ? 12 : 0,
+          }}
+        >
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-strong)" }}>
+            {tr(isAr, "How well did you remember? (1–100%)", "قدّر نسبة تذكرك (١–١٠٠٪)")}
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={pct}
+              onChange={(e) => patchRecall(entry.id, { percent: e.target.value })}
+              style={{
+                width: 72,
+                padding: "8px 10px",
+                borderRadius: 10,
+                border: "1px solid rgba(var(--border-rgb),0.2)",
+                background: "var(--card)",
+                color: INK,
+                fontWeight: 700,
+                fontSize: 14,
+                fontFamily: "inherit",
+              }}
+            />
+            <input
+              type="range"
+              min={1}
+              max={100}
+              value={pct}
+              onChange={(e) => patchRecall(entry.id, { percent: e.target.value })}
+              style={{ flex: 1, minWidth: 120, accentColor: "var(--accent-1)" }}
+            />
+            <span style={{ fontSize: 14, fontWeight: 800, color: "var(--accent-1)" }}>{pct}%</span>
+          </div>
+          {preview && (
+            <div style={{ fontSize: 12, color: "var(--muted-strong)" }}>
+              {tr(
+                isAr,
+                `Next: ${preview.levelLabel} · ${preview.intervalLabel}`,
+                `الجاي: ${preview.levelLabel} · ${preview.intervalLabel}`
+              )}
+              {(entry.correctStreak || 0) === 1 && pct >= 75 && (
+                <span style={{ marginInlineStart: 6, color: "var(--accent-1)", fontWeight: 700 }}>
+                  {tr(
+                    isAr,
+                    "(1 success already — this good score can promote)",
+                    "(عندك نجاح واحد — التقييم الجيد ده ممكن يرقّيك)"
+                  )}
+                </span>
+              )}
+            </div>
+          )}
+          <label style={{ fontSize: 12.5, fontWeight: 700, color: "var(--muted-strong)" }}>
+            {tr(isAr, "Weakness notes for this review (optional)", "ملاحظات نقاط الضعف لهذه المراجعة (اختياري)")}
+          </label>
+          <textarea
+            value={recallDraft[entry.id]?.weaknessNote || ""}
+            onChange={(e) => patchRecall(entry.id, { weaknessNote: e.target.value })}
+            placeholder={tr(isAr, "e.g. mixed up terms X and Y, forgot formula…", "مثال: لخبطت بين مصطلح س و ص، نسيت القانون…")}
+            rows={2}
+            maxLength={800}
+            style={{ ...inputStyle, resize: "vertical", fontSize: 13 }}
+          />
+          <button
+            type="button"
+            onClick={() => submitRecallReview(entry.id)}
+            style={{
+              padding: "11px 12px",
+              borderRadius: 12,
+              border: "none",
+              cursor: "pointer",
+              background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+              color: "var(--on-accent, #fff)",
+              fontWeight: 700,
+              fontSize: 13,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              alignSelf: "stretch",
+            }}
+          >
+            <CheckIcon size={14} />{" "}
+            {tr(isAr, "Confirm & schedule next review", "تأكيد وجدولة المراجعة الجاية")}
+          </button>
+        </div>
+      )}
+
+      {weaknessLogs.length > 0 && (
+        <div>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              color: "var(--muted)",
+              marginBottom: 6,
+              letterSpacing: "0.03em",
+              textTransform: "uppercase",
+            }}
+          >
+            {tr(isAr, "Weakness log", "سجل نقاط الضعف")}
+          </div>
+          <ul style={{ margin: 0, paddingInlineStart: 18, fontSize: 12.5, color: "var(--muted-strong)", lineHeight: 1.45 }}>
+            {weaknessLogs
+              .slice()
+              .reverse()
+              .slice(0, 5)
+              .map((w, i) => (
+                <li key={i} style={{ marginBottom: 4 }}>
+                  <span style={{ fontWeight: 700, color: INK }}>
+                    {w.at ? new Date(w.at).toLocaleDateString() : "—"}
+                    {w.percent != null ? ` · ${w.percent}%` : ""}:
+                  </span>{" "}
+                  {w.text}
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
+    </>
+  );
+}
+
 /** Responsive scale, matching the Timer / Todo / Calendar full-screen pages. */
 function useScreenPad() {
-  const [pad, setPad] = useState({ maxW: "100%", px: 14, gap: 4, titleFs: 14, rowPy: 8 });
+  const [pad, setPad] = useState({ maxW: "100%", px: 14, gap: 4, titleFs: 14, rowPy: 8, isMobile: true });
   useEffect(() => {
     const apply = () => {
       const w = window.innerWidth || 400;
       if (w >= 1024) {
-        setPad({ maxW: 860, px: 28, gap: 8, titleFs: 15, rowPy: 10 });
-      } else if (w >= 600) {
-        setPad({ maxW: "100%", px: 20, gap: 6, titleFs: 14, rowPy: 9 });
+        setPad({ maxW: 860, px: 28, gap: 8, titleFs: 15, rowPy: 10, isMobile: false });
+      } else if (w >= 640) {
+        setPad({ maxW: "100%", px: 20, gap: 6, titleFs: 14, rowPy: 9, isMobile: false });
       } else {
-        setPad({ maxW: "100%", px: 14, gap: 4, titleFs: 14, rowPy: 8 });
+        setPad({ maxW: "100%", px: 14, gap: 4, titleFs: 14, rowPy: 8, isMobile: true });
       }
     };
     apply();
@@ -710,7 +974,7 @@ export default function DayAchievementsModal({
             ))}
           </div>
 
-          {/* Table */}
+          {/* List */}
           {visible.length === 0 ? (
             <p
               style={{
@@ -728,6 +992,146 @@ export default function DayAchievementsModal({
                 "لا توجد عناصر بعد. أضف واحداً أعلاه."
               )}
             </p>
+          ) : pad.isMobile ? (
+            /* Mobile: compact stacked cards instead of a cramped horizontal-scroll table */
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {visible.map((entry) => {
+                const { isDue, box, due, pct, preview, weaknessLogs } = computeEntryView(
+                  entry,
+                  recallDraft,
+                  isAr
+                );
+                const open = expandedId === entry.id;
+                return (
+                  <div
+                    key={entry.id}
+                    style={{
+                      borderRadius: 14,
+                      border: "1px solid rgba(var(--border-rgb),0.12)",
+                      background: isDue ? "var(--accent-1-soft)" : "var(--card)",
+                      padding: "10px 12px",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            fontSize: 13.5,
+                            wordBreak: "break-word",
+                            overflowWrap: "anywhere",
+                            lineHeight: 1.35,
+                          }}
+                        >
+                          {entry.title}
+                        </div>
+                        {entry.note ? (
+                          <div
+                            style={{
+                              fontSize: 11.5,
+                              color: "var(--muted)",
+                              marginTop: 3,
+                              wordBreak: "break-word",
+                              overflowWrap: "anywhere",
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            {entry.note}
+                          </div>
+                        ) : null}
+                        {!entry.useSrs && (
+                          <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
+                            {tr(isAr, "Expires overnight", "ينتهي مع نهاية اليوم")} · {entry.date}
+                          </div>
+                        )}
+                        {entry.lastRecallPercent != null && (
+                          <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
+                            {tr(isAr, "Last recall", "آخر تذكر")}: {entry.lastRecallPercent}%
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {entry.useSrs && (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 6,
+                          alignItems: "center",
+                          marginTop: 8,
+                        }}
+                      >
+                        <span
+                          style={{
+                            display: "inline-block",
+                            padding: "3px 8px",
+                            borderRadius: 999,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            background: "rgba(var(--border-rgb),0.1)",
+                            color: "var(--accent-1)",
+                          }}
+                        >
+                          {tr(isAr, box.en, box.ar)}
+                        </span>
+                        {due && (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: isDue ? 800 : 600,
+                              color: isDue ? "var(--accent-1)" : "var(--muted)",
+                            }}
+                          >
+                            {isDue ? tr(isAr, "Due now", "مستحق الآن") : `${due.iso} · ${due.rel}`}
+                          </span>
+                        )}
+                        <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                          {tr(isAr, "Streak", "سلسلة")} {entry.correctStreak || 0}/2
+                        </span>
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: 8 }}>
+                      <EntryActionsRow
+                        entry={entry}
+                        isDue={isDue}
+                        open={open}
+                        isAr={isAr}
+                        compact
+                        onToggleReview={() => setExpandedId(open ? null : entry.id)}
+                        onEdit={() => startEdit(entry)}
+                        onDelete={() => removeEntry(entry.id)}
+                      />
+                    </div>
+
+                    {(open || weaknessLogs.length > 0) && (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          paddingTop: 10,
+                          borderTop: "1px solid rgba(var(--border-rgb),0.1)",
+                        }}
+                      >
+                        <EntryReviewPanel
+                          entry={entry}
+                          isDue={isDue}
+                          open={open}
+                          pct={pct}
+                          preview={preview}
+                          weaknessLogs={weaknessLogs}
+                          isAr={isAr}
+                          recallDraft={recallDraft}
+                          patchRecall={patchRecall}
+                          submitRecallReview={submitRecallReview}
+                          inputStyle={inputStyle}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           ) : (
             <div
               style={{
@@ -758,25 +1162,12 @@ export default function DayAchievementsModal({
                   </thead>
                   <tbody>
                     {visible.map((entry) => {
-                      const isDue =
-                        entry.useSrs &&
-                        entry.srsDueAt != null &&
-                        entry.srsDueAt <= Date.now();
-                      const box =
-                        MEDICAL_SRS_LABELS[entry.srsLevel] || MEDICAL_SRS_LABELS[0];
-                      const due = entry.useSrs
-                        ? dueDateLabel(entry.srsDueAt, isAr)
-                        : null;
-                      const open = expandedId === entry.id;
-                      const pct = clampRecallPercent(
-                        recallDraft[entry.id]?.percent ?? 70
+                      const { isDue, box, due, pct, preview, weaknessLogs } = computeEntryView(
+                        entry,
+                        recallDraft,
+                        isAr
                       );
-                      const preview = entry.useSrs
-                        ? previewReviewOutcome(entry, pct, isAr)
-                        : null;
-                      const weaknessLogs = Array.isArray(entry.weaknessNotes)
-                        ? entry.weaknessNotes
-                        : [];
+                      const open = expandedId === entry.id;
 
                       return (
                         <Fragment key={entry.id}>
@@ -910,67 +1301,17 @@ export default function DayAchievementsModal({
                               )}
                             </td>
                             <td style={{ ...tdStyle, textAlign: "center" }}>
-                              <div
-                                style={{
-                                  display: "flex",
-                                  gap: 4,
-                                  justifyContent: "center",
-                                  flexWrap: "wrap",
-                                }}
-                              >
-                                {entry.useSrs && isDue && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setExpandedId(open ? null : entry.id)
-                                    }
-                                    style={{
-                                      padding: "5px 10px",
-                                      borderRadius: 8,
-                                      border: "none",
-                                      background: "var(--accent-1)",
-                                      color: "var(--on-accent, #fff)",
-                                      fontSize: 11,
-                                      fontWeight: 700,
-                                      cursor: "pointer",
-                                    }}
-                                  >
-                                    {open
-                                      ? tr(isAr, "Close", "إغلاق")
-                                      : tr(isAr, "Review", "مراجعة")}
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => startEdit(entry)}
-                                  style={{
-                                    padding: "5px 8px",
-                                    borderRadius: 8,
-                                    border: "1px solid rgba(var(--border-rgb),0.2)",
-                                    background: "var(--card)",
-                                    color: "var(--muted-strong)",
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  {tr(isAr, "Edit", "تعديل")}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removeEntry(entry.id)}
-                                  style={{
-                                    padding: "5px 8px",
-                                    borderRadius: 8,
-                                    border: "none",
-                                    background: "transparent",
-                                    color: "#ef4444",
-                                    cursor: "pointer",
-                                  }}
-                                  aria-label={tr(isAr, "Delete", "حذف")}
-                                >
-                                  <TrashIcon size={14} />
-                                </button>
+                              <div style={{ display: "flex", justifyContent: "center" }}>
+                                <EntryActionsRow
+                                  entry={entry}
+                                  isDue={isDue}
+                                  open={open}
+                                  isAr={isAr}
+                                  compact={false}
+                                  onToggleReview={() => setExpandedId(open ? null : entry.id)}
+                                  onEdit={() => startEdit(entry)}
+                                  onDelete={() => removeEntry(entry.id)}
+                                />
                               </div>
                             </td>
                           </tr>
@@ -988,230 +1329,19 @@ export default function DayAchievementsModal({
                                   borderBottom: "1px solid rgba(var(--border-rgb),0.1)",
                                 }}
                               >
-                                {open && entry.useSrs && isDue && (
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      flexDirection: "column",
-                                      gap: 10,
-                                      marginBottom: weaknessLogs.length ? 12 : 0,
-                                    }}
-                                  >
-                                    <div
-                                      style={{
-                                        fontSize: 12.5,
-                                        fontWeight: 700,
-                                        color: "var(--muted-strong)",
-                                      }}
-                                    >
-                                      {tr(
-                                        isAr,
-                                        "How well did you remember? (1–100%)",
-                                        "قدّر نسبة تذكرك (١–١٠٠٪)"
-                                      )}
-                                    </div>
-                                    <div
-                                      style={{
-                                        display: "flex",
-                                        gap: 8,
-                                        alignItems: "center",
-                                        flexWrap: "wrap",
-                                      }}
-                                    >
-                                      <input
-                                        type="number"
-                                        min={1}
-                                        max={100}
-                                        value={pct}
-                                        onChange={(e) =>
-                                          patchRecall(entry.id, {
-                                            percent: e.target.value,
-                                          })
-                                        }
-                                        style={{
-                                          width: 72,
-                                          padding: "8px 10px",
-                                          borderRadius: 10,
-                                          border: "1px solid rgba(var(--border-rgb),0.2)",
-                                          background: "var(--card)",
-                                          color: INK,
-                                          fontWeight: 700,
-                                          fontSize: 14,
-                                          fontFamily: "inherit",
-                                        }}
-                                      />
-                                      <input
-                                        type="range"
-                                        min={1}
-                                        max={100}
-                                        value={pct}
-                                        onChange={(e) =>
-                                          patchRecall(entry.id, {
-                                            percent: e.target.value,
-                                          })
-                                        }
-                                        style={{
-                                          flex: 1,
-                                          minWidth: 120,
-                                          accentColor: "var(--accent-1)",
-                                        }}
-                                      />
-                                      <span
-                                        style={{
-                                          fontSize: 14,
-                                          fontWeight: 800,
-                                          color: "var(--accent-1)",
-                                        }}
-                                      >
-                                        {pct}%
-                                      </span>
-                                    </div>
-                                    {preview && (
-                                      <div
-                                        style={{
-                                          fontSize: 12,
-                                          color: "var(--muted-strong)",
-                                        }}
-                                      >
-                                        {tr(
-                                          isAr,
-                                          `Next: ${preview.levelLabel} · ${preview.intervalLabel}`,
-                                          `الجاي: ${preview.levelLabel} · ${preview.intervalLabel}`
-                                        )}
-                                        {(entry.correctStreak || 0) === 1 &&
-                                          pct >= 75 && (
-                                            <span
-                                              style={{
-                                                marginInlineStart: 6,
-                                                color: "var(--accent-1)",
-                                                fontWeight: 700,
-                                              }}
-                                            >
-                                              {tr(
-                                                isAr,
-                                                "(1 success already — this good score can promote)",
-                                                "(عندك نجاح واحد — التقييم الجيد ده ممكن يرقّيك)"
-                                              )}
-                                            </span>
-                                          )}
-                                      </div>
-                                    )}
-                                    <label
-                                      style={{
-                                        fontSize: 12.5,
-                                        fontWeight: 700,
-                                        color: "var(--muted-strong)",
-                                      }}
-                                    >
-                                      {tr(
-                                        isAr,
-                                        "Weakness notes for this review (optional)",
-                                        "ملاحظات نقاط الضعف لهذه المراجعة (اختياري)"
-                                      )}
-                                    </label>
-                                    <textarea
-                                      value={recallDraft[entry.id]?.weaknessNote || ""}
-                                      onChange={(e) =>
-                                        patchRecall(entry.id, {
-                                          weaknessNote: e.target.value,
-                                        })
-                                      }
-                                      placeholder={tr(
-                                        isAr,
-                                        "e.g. mixed up terms X and Y, forgot formula…",
-                                        "مثال: لخبطت بين مصطلح س و ص، نسيت القانون…"
-                                      )}
-                                      rows={2}
-                                      maxLength={800}
-                                      style={{
-                                        ...inputStyle,
-                                        resize: "vertical",
-                                        fontSize: 13,
-                                      }}
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => submitRecallReview(entry.id)}
-                                      style={{
-                                        padding: "11px 12px",
-                                        borderRadius: 12,
-                                        border: "none",
-                                        cursor: "pointer",
-                                        background:
-                                          "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-                                        color: "var(--on-accent, #fff)",
-                                        fontWeight: 700,
-                                        fontSize: 13,
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        gap: 6,
-                                        alignSelf: "stretch",
-                                      }}
-                                    >
-                                      <CheckIcon size={14} />{" "}
-                                      {tr(
-                                        isAr,
-                                        "Confirm & schedule next review",
-                                        "تأكيد وجدولة المراجعة الجاية"
-                                      )}
-                                    </button>
-                                  </div>
-                                )}
-
-                                {weaknessLogs.length > 0 && (
-                                  <div>
-                                    <div
-                                      style={{
-                                        fontSize: 11,
-                                        fontWeight: 800,
-                                        color: "var(--muted)",
-                                        marginBottom: 6,
-                                        letterSpacing: "0.03em",
-                                        textTransform: "uppercase",
-                                      }}
-                                    >
-                                      {tr(
-                                        isAr,
-                                        "Weakness log",
-                                        "سجل نقاط الضعف"
-                                      )}
-                                    </div>
-                                    <ul
-                                      style={{
-                                        margin: 0,
-                                        paddingInlineStart: 18,
-                                        fontSize: 12.5,
-                                        color: "var(--muted-strong)",
-                                        lineHeight: 1.45,
-                                      }}
-                                    >
-                                      {weaknessLogs
-                                        .slice()
-                                        .reverse()
-                                        .slice(0, 5)
-                                        .map((w, i) => (
-                                          <li key={i} style={{ marginBottom: 4 }}>
-                                            <span
-                                              style={{
-                                                fontWeight: 700,
-                                                color: INK,
-                                              }}
-                                            >
-                                              {w.at
-                                                ? new Date(w.at).toLocaleDateString()
-                                                : "—"}
-                                              {w.percent != null
-                                                ? ` · ${w.percent}%`
-                                                : ""}
-                                              :
-                                            </span>{" "}
-                                            {w.text}
-                                          </li>
-                                        ))}
-                                    </ul>
-                                  </div>
-                                )}
+                                <EntryReviewPanel
+                                  entry={entry}
+                                  isDue={isDue}
+                                  open={open}
+                                  pct={pct}
+                                  preview={preview}
+                                  weaknessLogs={weaknessLogs}
+                                  isAr={isAr}
+                                  recallDraft={recallDraft}
+                                  patchRecall={patchRecall}
+                                  submitRecallReview={submitRecallReview}
+                                  inputStyle={inputStyle}
+                                />
                               </td>
                             </tr>
                           )}

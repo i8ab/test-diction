@@ -12,6 +12,8 @@ import {
   saveLanguageNotesView,
   loadScheduleView,
   saveScheduleView,
+  loadDayAchievementsView,
+  saveDayAchievementsView,
 } from "../state/toolViews";
 
 /**
@@ -66,7 +68,20 @@ export function useToolViews() {
       return false;
     }
   });
-  const [showDayAchievements, setShowDayAchievements] = useState(false);
+  const [showDayAchievements, setShowDayAchievements] = useState(() => {
+    try {
+      return !!loadDayAchievementsView().open;
+    } catch (_) {
+      return false;
+    }
+  });
+  const [dayAchievementsBubble, setDayAchievementsBubble] = useState(() => {
+    try {
+      return !!loadDayAchievementsView().bubble;
+    } catch (_) {
+      return false;
+    }
+  });
 
   useEffect(() => {
     saveTimerView(showTimer, timerBubble);
@@ -104,6 +119,10 @@ export function useToolViews() {
   useEffect(() => {
     saveScheduleView(showSchedule, scheduleBubble);
   }, [showSchedule, scheduleBubble]);
+
+  useEffect(() => {
+    saveDayAchievementsView(showDayAchievements, dayAchievementsBubble);
+  }, [showDayAchievements, dayAchievementsBubble]);
 
   const openTimer = useCallback(() => {
     setTimerBubble(false);
@@ -166,11 +185,13 @@ export function useToolViews() {
   }, []);
 
   const openDayAchievements = useCallback(() => {
+    setDayAchievementsBubble(false);
     setShowDayAchievements(true);
   }, []);
 
   const closeDayAchievements = useCallback(() => {
     setShowDayAchievements(false);
+    setDayAchievementsBubble(false);
   }, []);
 
   /** True when a full-screen tool (not bubble) is covering the dictionary. */
@@ -181,7 +202,7 @@ export function useToolViews() {
     (showGoals && !goalsBubble) ||
     (showLanguageNotes && !languageNotesBubble) ||
     (showSchedule && !scheduleBubble) ||
-    showDayAchievements;
+    (showDayAchievements && !dayAchievementsBubble);
 
   return {
     showTimer,
@@ -216,6 +237,8 @@ export function useToolViews() {
     closeLanguageNotes,
     showDayAchievements,
     setShowDayAchievements,
+    dayAchievementsBubble,
+    setDayAchievementsBubble,
     openDayAchievements,
     closeDayAchievements,
     showSchedule,

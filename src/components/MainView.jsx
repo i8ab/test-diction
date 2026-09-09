@@ -280,7 +280,7 @@ export default function MainView({
     showTimer, setShowTimer, timerBubble, setTimerBubble, openTimer, closeTimer,
     showCalendar, setShowCalendar, calendarBubble, setCalendarBubble, openCalendar, closeCalendar,
     showTodo, setShowTodo, todoBubble, setTodoBubble, openTodo, closeTodo,
-    showDayAchievements, openDayAchievements, closeDayAchievements,
+    showDayAchievements, dayAchievementsBubble, setDayAchievementsBubble, openDayAchievements, closeDayAchievements,
     showGoals, setShowGoals, goalsBubble, setGoalsBubble, openGoals, closeGoals,
     showLanguageNotes, setShowLanguageNotes, languageNotesBubble, setLanguageNotesBubble, openLanguageNotes, closeLanguageNotes,
     showSchedule, setShowSchedule, scheduleBubble, setScheduleBubble, openSchedule, closeSchedule,
@@ -1870,7 +1870,9 @@ export default function MainView({
       setCalendarBubble={setCalendarBubble}
       showTodo={showTodo}
       showDayAchievements={showDayAchievements}
+      dayAchievementsBubble={dayAchievementsBubble}
       closeDayAchievements={closeDayAchievements}
+      setDayAchievementsBubble={setDayAchievementsBubble}
       todoBubble={todoBubble}
       closeTodo={closeTodo}
       setTodoBubble={setTodoBubble}

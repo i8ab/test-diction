@@ -58,6 +58,40 @@ export function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** "YYYY-MM-DDTHH:mm" for <input type="datetime-local"> default value (now, local time). */
+export function nowLocalInputValue() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Parse a "YYYY-MM-DDTHH:mm" (or "YYYY-MM-DD") datetime-local value as local time → ms. Falls back to now. */
+export function parseLocalDateTime(value) {
+  if (typeof value === "string") {
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/);
+    if (m) {
+      const [, y, mo, da, h, mi] = m;
+      const ms = new Date(
+        Number(y),
+        Number(mo) - 1,
+        Number(da),
+        h != null ? Number(h) : 0,
+        mi != null ? Number(mi) : 0,
+        0,
+        0
+      ).getTime();
+      if (Number.isFinite(ms)) return ms;
+    }
+  }
+  return Date.now();
+}
+
+/** "YYYY-MM-DD" for a ms timestamp, in local time. */
+function dateISOFromMs(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function clampRecallPercent(n) {
   const v = Math.round(Number(n));
   if (!Number.isFinite(v)) return 50;
@@ -193,6 +227,8 @@ function normalizeEntry(raw) {
     title: String(raw.title).trim().slice(0, 200),
     note: typeof raw.note === "string" ? String(raw.note).slice(0, 800) : "",
     date: typeof raw.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.date) ? raw.date : todayISO(),
+    /** Precise moment (ms) the achievement is anchored to — the SRS clock starts here, not at "now". */
+    entryAt: typeof raw.entryAt === "number" ? raw.entryAt : parseLocalDateTime(raw.date),
     useSrs,
     srsLevel: clampLevel(raw.srsLevel),
     srsDueAt: typeof raw.srsDueAt === "number" ? raw.srsDueAt : null,
@@ -269,19 +305,29 @@ export function saveDayAchievementNotifsEnabled(enabled, accountCode) {
   } catch (_) {}
 }
 
-export function createDayAchievement({ title, note = "", date, useSrs = false } = {}) {
+/**
+ * @param {string} [dateTime] "YYYY-MM-DDTHH:mm" (preferred, includes the hour) or plain
+ *   "YYYY-MM-DD". This is the moment the item is anchored to — the very first Day-1 review
+ *   countdown starts from here, NOT from when it's added. So an item entered with a date/time
+ *   that's already 3 days old is immediately due (its Day-1 window has already elapsed).
+ */
+export function createDayAchievement({ title, note = "", date, dateTime, useSrs = false } = {}) {
   const now = Date.now();
   const level = 0;
+  const raw = dateTime || date;
+  const entryAt = raw ? parseLocalDateTime(raw) : now;
   return {
     id: uid(),
     title: String(title || "").trim().slice(0, 200),
     note: String(note || "").slice(0, 800),
-    date: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : todayISO(),
+    date: dateISOFromMs(entryAt),
+    entryAt,
     useSrs: !!useSrs,
     srsLevel: level,
     lastRecallPercent: null,
-    // First review after full Day-1 medical step
-    srsDueAt: useSrs ? now + MEDICAL_SRS_INTERVALS_MS[0] : null,
+    // First review is due one full Day-1 step after the anchored entry time — already
+    // in the past if the entered date/time is old enough, which correctly marks it due now.
+    srsDueAt: useSrs ? entryAt + MEDICAL_SRS_INTERVALS_MS[0] : null,
     correctStreak: 0,
     totalReviews: 0,
     correctReviews: 0,

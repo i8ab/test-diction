@@ -13,6 +13,7 @@ const KEYS = {
   goals: "twoTongues.goalsView",
   languageNotes: "twoTongues.languageNotesView",
   schedule: "twoTongues.scheduleView",
+  dayAchievements: "twoTongues.dayAchievementsView",
 };
 
 /** session-only flag: timer UI was open when this tab refreshed */
@@ -95,4 +96,11 @@ export function loadScheduleView() {
 }
 export function saveScheduleView(open, bubble) {
   saveView(KEYS.schedule, open, bubble);
+}
+
+export function loadDayAchievementsView() {
+  return loadView(KEYS.dayAchievements);
+}
+export function saveDayAchievementsView(open, bubble) {
+  saveView(KEYS.dayAchievements, open, bubble);
 }

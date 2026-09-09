@@ -1,12 +1,12 @@
 /**
  * Day achievements — table layout, recall % at review, weakness notes per review.
  */
-import { useState, useEffect, useMemo, useRef, Fragment } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from "react";
 import { tr } from "../../lib/config/i18n";
 import { INK, CARD, BRASS, primaryBtnStyle } from "../../lib/config/theme";
 import { XIcon, CheckIcon, PlusIcon, TrashIcon } from "../common/Icons";
 import HowItWorksButton from "../common/HowItWorksButton";
-import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
+import { useBodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 import {
   loadDayAchievements,
   saveDayAchievements,
@@ -18,14 +18,18 @@ import {
   formatDayAchievementDue,
   todayISO,
   MEDICAL_SRS_LABELS,
-  computeNextDueAt,
   notifyAllDueDayAchievements,
   purgeExpiredDayAchievements,
   syncDayAchievementPushSchedule,
   startDayAchievementDueWatcher,
   previewReviewOutcome,
   clampRecallPercent,
+  nowLocalInputValue,
+  parseLocalDateTime,
+  MEDICAL_SRS_INTERVALS_MS,
 } from "../../lib/state/dayAchievements";
+import { createPortal } from "react-dom";
+import { Z_INDEX } from "../../lib/config/zIndex";
 
 function dueDateLabel(ms, isAr) {
   if (ms == null) return "—";
@@ -35,17 +39,66 @@ function dueDateLabel(ms, isAr) {
   return { iso, rel };
 }
 
+/** Responsive scale, matching the Timer / Todo / Calendar full-screen pages. */
+function useScreenPad() {
+  const [pad, setPad] = useState({ maxW: "100%", px: 14, gap: 4, titleFs: 14, rowPy: 8 });
+  useEffect(() => {
+    const apply = () => {
+      const w = window.innerWidth || 400;
+      if (w >= 1024) {
+        setPad({ maxW: 860, px: 28, gap: 8, titleFs: 15, rowPy: 10 });
+      } else if (w >= 600) {
+        setPad({ maxW: "100%", px: 20, gap: 6, titleFs: 14, rowPy: 9 });
+      } else {
+        setPad({ maxW: "100%", px: 14, gap: 4, titleFs: 14, rowPy: 8 });
+      }
+    };
+    apply();
+    window.addEventListener("resize", apply);
+    return () => window.removeEventListener("resize", apply);
+  }, []);
+  return pad;
+}
+
+const iconBtn = {
+  border: "none",
+  background: "transparent",
+  color: "var(--icon-muted)",
+  padding: 3,
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: 5,
+};
+
+const headerBtn = {
+  border: "1px solid rgba(var(--border-rgb),0.14)",
+  background: "var(--card)",
+  color: INK,
+  padding: "5px 10px",
+  borderRadius: 7,
+  cursor: "pointer",
+  fontSize: 12,
+  fontWeight: 600,
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 3,
+};
+
 export default function DayAchievementsModal({
   onClose,
   isAr = false,
   accountCode = "",
   onDueCountChange,
+  onBubbleChange,
+  initialBubble = false,
 }) {
+  const pad = useScreenPad();
   const [list, setList] = useState(() => loadDayAchievements(accountCode));
   const [notifsOn, setNotifsOn] = useState(() => loadDayAchievementNotifsEnabled(accountCode));
   const [draftTitle, setDraftTitle] = useState("");
   const [draftNote, setDraftNote] = useState("");
-  const [draftDate, setDraftDate] = useState(() => todayISO());
+  const [draftDateTime, setDraftDateTime] = useState(() => nowLocalInputValue());
   const [draftUseSrs, setDraftUseSrs] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [filter, setFilter] = useState("all");
@@ -53,6 +106,15 @@ export default function DayAchievementsModal({
   const [recallDraft, setRecallDraft] = useState({});
   const [expandedId, setExpandedId] = useState(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [viewMode, setViewMode] = useState(initialBubble ? "bubble" : "full");
+  const [bubblePos, setBubblePos] = useState({ x: null, y: null });
+  const dragRef = useRef(null);
+
+  useEffect(() => {
+    onBubbleChange?.(viewMode === "bubble");
+  }, [viewMode, onBubbleChange]);
+
+  useBodyScrollLock(viewMode === "full");
 
   useEffect(() => {
     setList((prev) => purgeExpiredDayAchievements(prev));
@@ -145,7 +207,7 @@ export default function DayAchievementsModal({
   function resetDraft() {
     setDraftTitle("");
     setDraftNote("");
-    setDraftDate(todayISO());
+    setDraftDateTime(nowLocalInputValue());
     setDraftUseSrs(true);
     setEditingId(null);
   }
@@ -154,7 +216,15 @@ export default function DayAchievementsModal({
     setEditingId(entry.id);
     setDraftTitle(entry.title);
     setDraftNote(entry.note || "");
-    setDraftDate(entry.date || todayISO());
+    setDraftDateTime(
+      entry.entryAt != null
+        ? (() => {
+            const d = new Date(entry.entryAt);
+            const p2 = (n) => String(n).padStart(2, "0");
+            return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}T${p2(d.getHours())}:${p2(d.getMinutes())}`;
+          })()
+        : nowLocalInputValue()
+    );
     setDraftUseSrs(!!entry.useSrs);
   }
 
@@ -162,6 +232,7 @@ export default function DayAchievementsModal({
     e?.preventDefault?.();
     const title = draftTitle.trim();
     if (!title) return;
+    const entryAt = parseLocalDateTime(draftDateTime);
 
     if (editingId) {
       setList((prev) =>
@@ -171,13 +242,18 @@ export default function DayAchievementsModal({
             ...item,
             title,
             note: draftNote.trim(),
-            date: draftDate,
+            date: draftDateTime.slice(0, 10),
+            entryAt,
             useSrs: draftUseSrs,
             updatedAt: Date.now(),
           };
-          if (draftUseSrs && !item.useSrs) {
+          // As long as no review has happened yet, the SRS clock is still anchored
+          // to the entry date/time, so a date/time edit must re-anchor the due date —
+          // including immediately marking it due if the new date/time is already old.
+          const neverReviewed = !item.totalReviews;
+          if (draftUseSrs && (!item.useSrs || neverReviewed)) {
             next.srsLevel = 0;
-            next.srsDueAt = computeNextDueAt(0);
+            next.srsDueAt = entryAt + MEDICAL_SRS_INTERVALS_MS[0];
           }
           if (!draftUseSrs) next.srsDueAt = null;
           return next;
@@ -188,7 +264,7 @@ export default function DayAchievementsModal({
         createDayAchievement({
           title,
           note: draftNote.trim(),
-          date: draftDate,
+          dateTime: draftDateTime,
           useSrs: draftUseSrs,
         }),
         ...prev,
@@ -267,106 +343,175 @@ export default function DayAchievementsModal({
     maxWidth: 280,
   };
 
-  return (
-    <div
-      onClick={onClose}
-      className="modal-backdrop"
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.52)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 12,
-        zIndex: 6000,
-      }}
-    >
-      <BodyScrollLock />
+  // ── Bubble drag (mirrors Timer / Todo / Calendar pages) ───────────────────
+  const onBubblePointerDown = useCallback(
+    (e) => {
+      if (e.button !== 0 && e.pointerType === "mouse") return;
+      if (e.target?.closest?.("button")) return;
+      const el = e.currentTarget;
+      const rect = el.getBoundingClientRect();
+      dragRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        origX: bubblePos.x != null ? bubblePos.x : rect.left,
+        origY: bubblePos.y != null ? bubblePos.y : rect.top,
+        moved: false,
+        pointerId: e.pointerId,
+      };
+      try {
+        el.setPointerCapture?.(e.pointerId);
+      } catch (_) {}
+    },
+    [bubblePos]
+  );
+
+  const onBubblePointerMove = useCallback((e) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    if (!d.moved && Math.hypot(dx, dy) < 6) return;
+    d.moved = true;
+    setBubblePos({
+      x: Math.max(8, Math.min(window.innerWidth - 160, d.origX + dx)),
+      y: Math.max(8, Math.min(window.innerHeight - 100, d.origY + dy)),
+    });
+  }, []);
+
+  const onBubblePointerUp = useCallback((e) => {
+    const d = dragRef.current;
+    if (d && e?.currentTarget) {
+      try {
+        e.currentTarget.releasePointerCapture?.(d.pointerId);
+      } catch (_) {}
+    }
+    dragRef.current = null;
+  }, []);
+
+  if (viewMode === "bubble") {
+    const style = {
+      position: "fixed",
+      zIndex: Z_INDEX.BUBBLE,
+      width: 168,
+      borderRadius: 12,
+      background: CARD,
+      border: "1px solid rgba(var(--border-rgb),0.16)",
+      boxShadow: "0 10px 28px -8px rgba(0,0,0,0.25)",
+      padding: "8px 10px 10px",
+      cursor: "grab",
+      userSelect: "none",
+      touchAction: "none",
+      ...(bubblePos.x != null
+        ? { left: bubblePos.x, top: bubblePos.y }
+        : { bottom: 18, insetInlineStart: 14 }),
+    };
+    const upcoming = visible.slice(0, 3);
+    const bubble = (
       <div
-        onClick={(e) => e.stopPropagation()}
-        className="modal-card"
-        dir={isAr ? "rtl" : "ltr"}
         role="dialog"
-        aria-modal="true"
-        aria-labelledby="day-ach-title"
-        style={{
-          width: "100%",
-          maxWidth: 720,
-          maxHeight: "94vh",
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-          background: CARD,
-          borderRadius: 22,
-          padding: "18px 16px 14px",
-          boxShadow: "0 28px 64px -18px rgba(0,0,0,0.5)",
-          border: "1px solid rgba(var(--border-rgb),0.1)",
-        }}
+        aria-label={tr(isAr, "Day achievements", "إنجازات اليوم")}
+        style={style}
+        onPointerDown={onBubblePointerDown}
+        onPointerMove={onBubblePointerMove}
+        onPointerUp={onBubblePointerUp}
+        onPointerCancel={onBubblePointerUp}
       >
-        {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 10,
-            gap: 8,
-            flexShrink: 0,
-          }}
-        >
-          <h2
-            id="day-ach-title"
-            style={{
-              fontFamily: "'Fraunces', serif",
-              fontSize: 19,
-              fontWeight: 600,
-              color: INK,
-              margin: 0,
-            }}
-          >
-            {tr(isAr, "Day achievements", "إنجازات اليوم")}
-            {dueCount > 0 && (
-              <span
-                style={{
-                  marginInlineStart: 8,
-                  fontSize: 11,
-                  fontWeight: 800,
-                  color: "var(--on-accent, #fff)",
-                  background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
-                  borderRadius: 999,
-                  padding: "3px 9px",
-                  verticalAlign: "middle",
-                }}
-              >
-                {dueCount} {tr(isAr, "due", "مستحق")}
-              </span>
-            )}
-          </h2>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <HowItWorksButton isAr={isAr} guideId="dayAchievements" />
-            <button
-              onClick={onClose}
-              aria-label={tr(isAr, "Close", "إغلاق")}
-              style={{
-                border: "none",
-                background: "rgba(var(--border-rgb),0.1)",
-                cursor: "pointer",
-                color: "var(--icon-muted)",
-                width: 36,
-                height: 36,
-                borderRadius: 12,
-                display: "grid",
-                placeItems: "center",
-              }}
-            >
-              <XIcon size={18} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: BRASS }}>
+            {tr(isAr, "Achievements", "الإنجازات")}
+          </span>
+          <div style={{ display: "flex", gap: 2 }}>
+            <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setViewMode("full"); }} style={iconBtn}>
+              <PlusIcon size={13} />
+            </button>
+            <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onClose(); }} style={iconBtn}>
+              <XIcon size={13} />
             </button>
           </div>
         </div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: INK, marginBottom: 4 }}>
+          {list.length} {tr(isAr, "items", "عناصر")}
+          {dueCount > 0 ? ` · ${dueCount} ${tr(isAr, "due", "مستحق")}` : ""}
+        </div>
+        {upcoming.map((t) => (
+          <div key={t.id} style={{ fontSize: 11, color: INK, whiteSpace: "normal", wordBreak: "break-word", padding: "2px 0" }}>
+            {t.title}
+          </div>
+        ))}
+      </div>
+    );
+    return typeof document !== "undefined" ? createPortal(bubble, document.body) : bubble;
+  }
 
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-          {showHelp && (
+  return (
+    <div
+      dir={isAr ? "rtl" : "ltr"}
+      role="dialog"
+      aria-modal="true"
+      aria-label={tr(isAr, "Day achievements", "إنجازات اليوم")}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: Z_INDEX.TOOL_FULL,
+        background: "var(--paper)",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
+      {/* Header */}
+      <header
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: `${pad.rowPy + 2}px ${pad.px}px`,
+          borderBottom: "1px solid rgba(var(--border-rgb),0.1)",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h1
+            style={{
+              margin: 0,
+              fontFamily: "'Fraunces', serif",
+              fontSize: pad.titleFs + 4,
+              fontWeight: 700,
+              color: INK,
+            }}
+          >
+            {tr(isAr, "Day achievements", "إنجازات اليوم")}
+          </h1>
+          <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, marginTop: 1 }}>
+            {list.length} {tr(isAr, "items", "عناصر")}
+            {dueCount > 0 ? ` · ${dueCount} ${tr(isAr, "due", "مستحق")}` : ""}
+          </div>
+        </div>
+        <button type="button" onClick={() => setViewMode("bubble")} style={headerBtn}>
+          {tr(isAr, "Pin", "تثبيت")}
+        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <HowItWorksButton isAr={isAr} guideId="dayAchievements" />
+          <button type="button" onClick={onClose} style={headerBtn} aria-label={tr(isAr, "Close", "إغلاق")}>
+            <XIcon size={15} />
+          </button>
+        </div>
+      </header>
+
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+          padding: `${pad.rowPy}px ${pad.px}px`,
+          maxWidth: pad.maxW,
+          width: "100%",
+          margin: "0 auto",
+          boxSizing: "border-box",
+        }}
+      >
+        {showHelp && (
             <div
               style={{
                 marginBottom: 12,
@@ -458,13 +603,28 @@ export default function DayAchievementsModal({
               maxLength={800}
               style={{ ...inputStyle, resize: "vertical", fontSize: 13 }}
             />
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: "var(--muted-strong)",
+                }}
+              >
+                {tr(
+                  isAr,
+                  "Date & time it happened — the review countdown starts from here",
+                  "تاريخ ووقت الإنجاز — العد التنازلي للمراجعة يبدأ من هنا"
+                )}
+              </span>
               <input
-                type="date"
-                value={draftDate}
-                onChange={(e) => setDraftDate(e.target.value)}
+                type="datetime-local"
+                value={draftDateTime}
+                onChange={(e) => setDraftDateTime(e.target.value)}
                 style={{ ...inputStyle, width: "auto", padding: "7px 10px" }}
               />
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
               <label
                 style={{
                   display: "flex",
@@ -1065,6 +1225,5 @@ export default function DayAchievementsModal({
           )}
         </div>
       </div>
-    </div>
   );
 }

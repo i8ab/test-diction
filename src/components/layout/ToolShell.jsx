@@ -20,7 +20,7 @@ export default function ToolShell({
   showCalendar, calendarBubble, closeCalendar, setCalendarBubble,
   showTodo, todoBubble, closeTodo, setTodoBubble, openTodo,
   showGoals, goalsBubble, closeGoals, setGoalsBubble, openGoals,
-  showDayAchievements, closeDayAchievements,
+  showDayAchievements, dayAchievementsBubble, closeDayAchievements, setDayAchievementsBubble,
   showLanguageNotes, languageNotesBubble, closeLanguageNotes, setLanguageNotesBubble,
   showSchedule, scheduleBubble, closeSchedule, setScheduleBubble,
 }) {
@@ -87,7 +87,9 @@ export default function ToolShell({
           <DayAchievementsModal
             isAr={appIsAr}
             accountCode={accountCode || ""}
+            initialBubble={dayAchievementsBubble}
             onClose={closeDayAchievements}
+            onBubbleChange={setDayAchievementsBubble}
           />
         </Suspense>
       )}

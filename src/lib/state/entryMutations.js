@@ -23,12 +23,14 @@ export async function addEntry({
   unitId = null,
   sectionId = null,
   lessonId = null,
+  categoryId = null,
 }) {
   const key = (newEntry.word || "").trim().toLowerCase();
   const isAcademic = section === "academic";
   const effectiveUnitId = isAcademic ? (newEntry.unitId || unitId || null) : null;
   const effectiveSectionId = isAcademic ? (newEntry.sectionId || sectionId || null) : null;
   const effectiveLessonId = isAcademic ? (newEntry.lessonId || lessonId || null) : null;
+  const effectiveCategoryId = isAcademic ? (newEntry.categoryId || categoryId || null) : null;
 
   const sameScope = (e) => {
     if (e.section !== section) return false;
@@ -52,6 +54,7 @@ export async function addEntry({
     ...(isAcademic && effectiveUnitId ? { unitId: effectiveUnitId } : {}),
     ...(isAcademic && effectiveSectionId ? { sectionId: effectiveSectionId } : {}),
     ...(isAcademic && effectiveLessonId ? { lessonId: effectiveLessonId } : {}),
+    ...(isAcademic && effectiveCategoryId ? { categoryId: effectiveCategoryId } : {}),
   };
   let skippedDup = false;
   await persistEntries(

@@ -64,3 +64,66 @@ export function resolveDetectedCategory(raw) {
   }
   return null;
 }
+
+/**
+ * Which form fields make sense for a given category. Used by AddModal to
+ * hide fields that don't belong in that book section — e.g. a word filed
+ * under "Synonyms" only needs a synonym list, not a full definition +
+ * example + antonyms card. `null` / unknown categoryId (including the two
+ * general vocabulary categories) means "show everything", the old behavior.
+ */
+export function categoryFieldRules(categoryId) {
+  const all = {
+    meaning: true,
+    pos: true,
+    definition: true,
+    example: true,
+    synonyms: true,
+    antonyms: true,
+    notes: true,
+    multiSense: true,
+  };
+  switch (categoryId) {
+    case "definitions":
+      return { ...all, synonyms: false, antonyms: false, multiSense: false };
+    case "synonyms":
+      return {
+        meaning: true,
+        pos: false,
+        definition: false,
+        example: false,
+        synonyms: true,
+        antonyms: false,
+        notes: false,
+        multiSense: false,
+      };
+    case "antonyms":
+      return {
+        meaning: true,
+        pos: false,
+        definition: false,
+        example: false,
+        synonyms: false,
+        antonyms: true,
+        notes: false,
+        multiSense: false,
+      };
+    case "collocations":
+    case "idioms":
+    case "verb-prep":
+      return { ...all, definition: false, synonyms: false, antonyms: false, multiSense: false };
+    case "language-notes":
+      return {
+        meaning: true,
+        pos: false,
+        definition: false,
+        example: false,
+        synonyms: false,
+        antonyms: false,
+        notes: true,
+        multiSense: false,
+      };
+    default:
+      return all; // key-vocabulary, important-vocabulary, or no category selected
+  }
+}

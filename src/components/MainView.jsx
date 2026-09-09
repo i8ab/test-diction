@@ -639,6 +639,7 @@ export default function MainView({
       unitId: isAcademic ? resolvedUnitId : null,
       sectionId: isAcademic ? activeSectionId : null,
       lessonId: isAcademic ? activeLessonId : null,
+      categoryId: isAcademic ? activeCategoryId : null,
     });
   }
   const handleDelete = useCallback(async (id) => {
@@ -1698,6 +1699,7 @@ export default function MainView({
         setShowTextExtract={setShowTextExtract}
         showAiPdfExtract={showAiPdfExtract}
         academicUnits={academicUnits}
+        activeCategoryId={activeCategoryId}
         activeUnitId={activeUnitId}
         setShowAiPdfExtract={setShowAiPdfExtract}
         showAccount={showAccount}

@@ -6,13 +6,18 @@ import { normalizePairs } from "../../lib/utils/pairUtils";
 import { fetchDictionarySuggestion, DictionaryLookupError } from "../../lib/utils/dictionaryApi";
 import { uid } from "../../lib/utils/quizHelpers";
 import { WORD_TYPES, getEntrySenses } from "../../lib/utils/wordTypes";
+import { categoryFieldRules, categoryLabel } from "../../lib/state/wordCategories";
 import { PairListEditor } from "../common/PairList";
 import { PlusIcon, XIcon, CheckIcon, LoaderIcon, WandIcon } from "../common/Icons";
 import { BodyScrollLock } from "../../lib/utils/useBodyScrollLock";
 
-function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findExisting }) {
+function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findExisting, category = null }) {
   const isAr = cfg.dir === "rtl";
   const isEdit = !!initialEntry;
+  const activeCategoryId = isEdit ? (initialEntry.categoryId || null) : category;
+  // Which fields make sense for the book section this word is going into
+  // (e.g. "Synonyms" only needs a synonym list) — see wordCategories.js.
+  const rules = categoryFieldRules(activeCategoryId);
   const [word, setWord] = useState(isEdit ? initialEntry.word : "");
   const [meaning, setMeaning] = useState(isEdit ? initialEntry.meaning : "");
   const initialSenses = isEdit ? getEntrySenses(initialEntry) : [];
@@ -245,6 +250,12 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
             <h2 id="add-modal-title" className="addm-title">
               {isEdit ? tr(isAr, "Edit word", "تعديل الكلمة") : tr(isAr, `Add to ${cfg.label}`, `إضافة إلى ${cfg.label}`)}
             </h2>
+            {activeCategoryId && (
+              <div className="addm-hint" style={{ marginTop: 2 }}>
+                {tr(isAr, "Category: ", "التصنيف: ")}
+                <strong>{categoryLabel(activeCategoryId, isAr)}</strong>
+              </div>
+            )}
           </div>
           <button type="button" onClick={onClose} className="addm-close" aria-label={tr(isAr, "Close", "إغلاق")}>
             <XIcon size={18} />
@@ -304,6 +315,8 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
             {suggestError && <div className="addm-hint">{suggestError}</div>}
 
             <div className="addm-type-row">
+              {rules.multiSense && (
+                <>
               <span className="addm-label" style={{ margin: 0 }}>{tr(isAr, "Word type", "نوع الكلمة")}</span>
               <label className="addm-check">
                 <input
@@ -332,10 +345,13 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
                 />
                 <span>{tr(isAr, "More than one meaning", "أكتر من معنى")}</span>
               </label>
+                </>
+              )}
             </div>
 
-            {!multiSense ? (
+            {(!multiSense || !rules.multiSense) ? (
               <>
+                {rules.pos && (
                 <select
                   id="add-pos"
                   value={pos}
@@ -348,6 +364,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
                     <option key={wt.id} value={wt.id}>{tr(isAr, wt.en, wt.ar)}</option>
                   ))}
                 </select>
+                )}
                 <label className="addm-label" htmlFor="add-meaning">{tr(isAr, "Meaning", "المعنى")} <span className="addm-req">*</span></label>
                 <input
                   id="add-meaning"
@@ -358,6 +375,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
                   dir={cfg.meaningDir}
                   style={{ fontFamily: cfg.meaningFont }}
                 />
+                {rules.multiSense && (
                 <button
                   type="button"
                   className="addm-link"
@@ -374,6 +392,7 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
                 >
                   <PlusIcon size={13} /> {tr(isAr, "Add another meaning (e.g. زلزال + هزة أرضية)", "أضف معنى تاني (مثلاً زلزال + هزة أرضية)")}
                 </button>
+                )}
               </>
             ) : (
               <div className="addm-senses">
@@ -474,8 +493,10 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
               </div>
             )}
 
-            {!multiSense && (
+            {(!multiSense || !rules.multiSense) && (
               <>
+                {rules.definition && (
+                <>
                 <label className="addm-label" htmlFor="add-definition">{tr(isAr, "Definition", "تعريف")} <span className="addm-opt">{tr(isAr, "optional", "اختياري")}</span></label>
                 <textarea
                   id="add-definition"
@@ -487,7 +508,11 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
                   rows={3}
                   style={{ fontFamily: "'Amiri', serif" }}
                 />
+                </>
+                )}
 
+                {rules.example && (
+                <>
                 <label className="addm-label" htmlFor="add-example">{tr(isAr, "Example sentence", "جملة توضيحية")} <span className="addm-opt">{tr(isAr, "optional", "اختياري")}</span></label>
                 <textarea
                   id="add-example"
@@ -519,7 +544,11 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
                 <button type="button" className="addm-link" onClick={() => setExtraExamples((list) => [...list, ""])}>
                   <PlusIcon size={13} /> {tr(isAr, "Add another example", "أضف جملة تانية")}
                 </button>
+                </>
+                )}
 
+                {rules.notes && (
+                <>
                 <label className="addm-label" htmlFor="add-notes">{tr(isAr, "Notes", "ملاحظات")} <span className="addm-opt">{tr(isAr, "optional", "اختياري")}</span></label>
                 <textarea
                   id="add-notes"
@@ -531,9 +560,11 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
                   rows={2}
                   style={{ fontFamily: "'Amiri', serif" }}
                 />
+                </>
+                )}
               </>
             )}
-            {multiSense && (
+            {multiSense && rules.multiSense && (
               <p className="addm-hint" style={{ marginTop: 10 }}>
                 {tr(isAr,
                   "Definition, examples and notes are entered per meaning above.",
@@ -541,8 +572,12 @@ function AddModal({ cfg, onClose, onSubmit, initialEntry, onGoToExisting, findEx
               </p>
             )}
 
-            <PairListEditor cfg={cfg} label={tr(isAr, "Synonyms (optional)", "مرادفات (اختياري)")} pairs={synonyms} onChange={setSynonyms} isAr={isAr} />
-            <PairListEditor cfg={cfg} label={tr(isAr, "Antonyms (optional)", "مضادات (اختياري)")} pairs={antonyms} onChange={setAntonyms} isAr={isAr} />
+            {rules.synonyms && (
+              <PairListEditor cfg={cfg} label={tr(isAr, "Synonyms (optional)", "مرادفات (اختياري)")} pairs={synonyms} onChange={setSynonyms} isAr={isAr} />
+            )}
+            {rules.antonyms && (
+              <PairListEditor cfg={cfg} label={tr(isAr, "Antonyms (optional)", "مضادات (اختياري)")} pairs={antonyms} onChange={setAntonyms} isAr={isAr} />
+            )}
 
             {error && (
               <div className="addm-error" role="alert" aria-live="assertive">{error}</div>

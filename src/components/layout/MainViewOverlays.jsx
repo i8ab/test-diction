@@ -200,6 +200,7 @@ export default function MainViewOverlays(p) {
             cfg={cfg}
             onClose={onCloseAdd}
             onSubmit={handleAdd}
+            category={isAcademic ? p.activeCategoryId || null : null}
             findExisting={(w) => {
               const key = (w || "").trim().toLowerCase();
               if (!key) return null;
